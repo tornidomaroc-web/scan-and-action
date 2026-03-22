@@ -1,0 +1,189 @@
+:root {
+  --bg-color: #f8fafc;
+  --text-main: #0f172a;
+  --brand-color: #3b82f6;
+  --card-bg: #ffffff;
+  --border: #e2e8f0;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning-bg: #fffbeb;
+  --warning-border: #fcd34d;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.rtl {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--brand-color);
+  cursor: pointer;
+}
+
+.header-nav button {
+  background: none;
+  border: none;
+  margin: 0 0.5rem;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-main);
+  border-radius: 4px;
+}
+
+.header-nav button.active, .header-nav button:hover {
+  background-color: #f1f5f9;
+}
+
+.main-content {
+  flex: 1;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Cards & Shared */
+.card {
+  background-color: var(--card-bg);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.report-card.clickable {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.report-card.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  border-color: var(--brand-color);
+}
+
+/* Search Area */
+.search-header-area {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.search-bar-form {
+  display: flex;
+  max-width: 600px;
+  margin: 0 auto 1rem;
+}
+
+.search-input {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  font-size: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 24px 0 0 24px;
+  outline: none;
+}
+
+[dir="rtl"] .search-input {
+  border-radius: 0 24px 24px 0;
+}
+
+.search-submit {
+  padding: 0 1.5rem;
+  border: 1px solid var(--brand-color);
+  background-color: var(--brand-color);
+  color: white;
+  border-radius: 0 24px 24px 0;
+  cursor: pointer;
+}
+
+[dir="rtl"] .search-submit {
+  border-radius: 24px 0 0 24px;
+}
+
+.suggestions {
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.tag {
+  background: #e2e8f0;
+  border: none;
+  border-radius: 12px;
+  padding: 0.25rem 0.75rem;
+  margin: 0 0.25rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.tag:hover { background: #cbd5e1; }
+
+/* Table */
+.table-container { overflow-x: auto; }
+.result-table { width: 100%; border-collapse: collapse; }
+.result-table th, .result-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+[dir="rtl"] .result-table th, [dir="rtl"] .result-table td { text-align: right; }
+
+/* Chart Mock */
+.chart-bar-area { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
+.mock-bar { background-color: var(--brand-color); color: white; padding: 0.5rem; border-radius: 4px; white-space: nowrap; font-size: 0.85rem;}
+
+/* Badges & Meta */
+.badge { padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
+.badge-success { background: #d1fae5; color: #065f46; }
+.badge-danger { background: #fee2e2; color: #991b1b; }
+.meta-row { font-size: 0.85rem; color: #64748b; margin-top: 0.5rem; }
+
+/* Utilities */
+.mt-4 { margin-top: 1rem; }
+.btn-primary { background: var(--brand-color); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; }
+.btn-secondary { background: white; color: var(--text-main); border: 1px solid var(--border); padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+.btn-success { background: var(--success); color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+.btn-danger { background: var(--danger); color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+.offset { margin: 0 0.5rem; }
+
+.clarification-card.warning {
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+}
+
+.reports-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .detail-grid { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  preferredLanguage String   @default("en")
+  createdAt         DateTime @default(now())
+
+  documents         Document[]
+  entities          Entity[]
+  queryLogs         QueryLog[]
+  savedReports      SavedReportDefinition[]
+  generatedReports  GeneratedReport[]
+}
+
+model Document {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  originalFileName  String
+  fileUrl           String
+  documentType      String   // e.g., 'INVOICE', 'BUSINESS_CARD', 'APPOINTMENT'
+  documentSubtype   String?
+  detectedLanguage  String   // 'en', 'es', 'fr', 'ar'
+  rawText           String   @db.Text
+  normalizedText    String   @db.Text
+  summary           String?  @db.Text
+  overallConfidence Float
+  status            String   // 'PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'NEEDS_REVIEW'
+  uploadedAt        DateTime @default(now())
+  processedAt       DateTime?
+
+  facts             DocumentFact[]
+  documentEntities  DocumentEntity[]
+}
+
+model DocumentFact {
+  id           String   @id @default(uuid())
+  documentId   String
+  document     Document @relation(fields: [documentId], references: [id])
+  factType     String   // 'AMOUNT', 'DATE', 'TEXT'
+  key          String   // Canonical English key
+  valueString  String?
+  valueNumber  Float?
+  valueDate    DateTime?
+  currency     String?
+  confidence   Float
+  sourceSpan   String   // Text location reference
+  isReviewed   Boolean  @default(false)
+}
+
+model Entity {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  entityType    String   // 'VENDOR', 'CLIENT', 'PERSON'
+  canonicalName String   // Normalized English name
+  aliases       String[] // ["Home Depot", "The Home Depot"]
+  metadataJson  Json
+  createdAt     DateTime @default(now())
+
+  documentEntities DocumentEntity[]
+}
+
+model DocumentEntity {
+  id          String   @id @default(uuid())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id])
+  entityId    String
+  entity      Entity   @relation(fields: [entityId], references: [id])
+  role        String   // 'ISSUER', 'PAYEE', 'ATTENDEE'
+  confidence  Float
+}
+
+model QueryLog {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  rawQueryText     String
+  sourceLanguage   String
+  parsedIntentJson Json
+  queryPlanJson    Json
+  executionTimeMs  Int
+  resultCount      Int
+  status           String   // 'SUCCESS', 'PARSE_ERROR', 'EXECUTION_ERROR'
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+}
+
+model SavedReportDefinition {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  title             String
+  description       String
+  queryTemplateJson Json
+  schedule          String?
+  createdAt         DateTime @default(now())
+
+  generatedReports  GeneratedReport[]
+}
+
+model GeneratedReport {
+  id               String   @id @default(uuid())
+  definitionId     String?
+  definition       SavedReportDefinition? @relation(fields: [definitionId], references: [id])
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  title            String
+  summaryText      String   @db.Text
+  dataSnapshotJson Json
+  locale           String
+  createdAt        DateTime @default(now())
+}
