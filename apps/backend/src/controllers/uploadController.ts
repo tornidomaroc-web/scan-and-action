@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../prismaClient';
 import { IngestionService } from '../services/ingestion/ingestionService';
+import { uploadToSupabase } from '../services/storage/supabaseStorage';
 
 const ingestionService = new IngestionService(prisma);
 
@@ -14,14 +15,14 @@ export class UploadController {
         return res.status(400).json({ error: 'No image file uploaded' });
       }
 
-      const fileUrl = `https://local.storage.mock/${file.originalname}`;
+      const filePath = await uploadToSupabase(file);
 
       const result = await ingestionService.processUpload(
         userId,
         file.buffer,
         file.mimetype,
         file.originalname,
-        fileUrl
+        filePath
       );
 
       return res.status(201).json({

@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../prismaClient';
 import { mapDocumentToDto, mapDocumentListToDto } from '../dto/documentDto';
+import { getSignedFileUrl } from '../services/storage/getSignedFileUrl';
 
 export class DocumentController {
-  
   public static async getDocumentDetail(req: Request, res: Response, next: NextFunction) {
     try {
       const doc = await prisma.document.findUnique({
@@ -20,7 +20,12 @@ export class DocumentController {
         return res.status(404).json({ error: 'Document not found' });
       }
 
-      return res.status(200).json(mapDocumentToDto(doc));
+      const signedFileUrl = await getSignedFileUrl(doc.fileUrl);
+
+      return res.status(200).json({
+        ...mapDocumentToDto(doc),
+        signedFileUrl
+      });
     } catch (error) {
       next(error);
     }
