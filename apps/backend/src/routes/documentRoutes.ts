@@ -6,8 +6,13 @@ import { UploadController } from '../controllers/uploadController';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-router.post('/upload', upload.single('file'), UploadController.uploadDocument);
+router.get('/stats', DocumentController.getStats);
+router.get('/review', DocumentController.getReviewQueue);
+router.get('/stats', DocumentController.getStats);
+router.get('/review', DocumentController.getReviewQueue);
+router.get('/recent', DocumentController.getRecentDocuments);
 router.get('/:id', DocumentController.getDocumentDetail);
+router.patch('/:id/status', DocumentController.updateStatus);
+router.post('/upload', upload.single('file'), UploadController.uploadDocument);
 
 export default router;
-router.get('/review', DocumentController.getReviewQueue);

@@ -1,4 +1,4 @@
-import { API_BASE_URL, getHeaders } from './apiConfig';
+import { API_BASE_URL, getAuthHeaders } from './apiConfig';
 
 export const uploadDocument = async (file: File): Promise<any> => {
   const formData = new FormData();
@@ -6,7 +6,7 @@ export const uploadDocument = async (file: File): Promise<any> => {
 
   const response = await fetch(`${API_BASE_URL}/documents/upload`, {
     method: 'POST',
-    headers: getHeaders(),
+    headers: await getAuthHeaders(),
     body: formData,
   });
 

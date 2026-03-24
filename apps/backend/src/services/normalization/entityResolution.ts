@@ -1,5 +1,5 @@
 import { PrismaClient, Entity } from '@prisma/client';
-import { RawExtractedEntitySchema } from '../../../../../packages/shared/src/schemas';
+import { RawExtractedEntitySchema } from '../../types/schemas';
 import { z } from 'zod';
 
 type RawEntity = z.infer<typeof RawExtractedEntitySchema>;
@@ -15,14 +15,14 @@ export class EntityResolutionService {
    * Resolves a raw string name to a global Entity.
    * If the entity doesn't exist by canonical name or alias, it creates one.
    */
-  public async resolveOrGenerateEntity(userId: string, rawEntity: RawEntity): Promise<Entity> {
+  public async resolveOrGenerateEntity(organizationId: string, rawEntity: RawEntity): Promise<Entity> {
     const searchName = rawEntity.name.trim();
     
     // Attempt 1: Search by exact mapping / canonical alias
     // We use a case-insensitive search for robust matching in a real DB
     let entity = await this.prisma.entity.findFirst({
       where: {
-        userId,
+        organizationId,
         OR: [
           { canonicalName: searchName.toUpperCase() },
           { aliases: { has: searchName } } // Available if using PostgreSQL string arrays
@@ -39,7 +39,7 @@ export class EntityResolutionService {
 
       entity = await this.prisma.entity.create({
         data: {
-          userId,
+          organizationId,
           entityType: rawEntity.entityType,    // e.g., 'VENDOR'
           canonicalName: canonical,
           aliases: [searchName],              // Add the localized or specific string as an alias

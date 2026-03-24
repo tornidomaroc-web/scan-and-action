@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ChevronLeft, CheckCircle, FileText } from 'lucide-react';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
 import { ReviewBadge } from '../components/SharedComponents';
 
 export const DocumentDetailScreen = ({
-  documentId,
-  onBack,
   t,
 }: {
-  documentId: string;
-  onBack: () => void;
   t: any;
 }) => {
+  const { id: documentId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  
+  if (!documentId) return <ErrorState title={t.errorTitle} message="Missing document ID" />;
   const [doc, setDoc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -24,161 +26,175 @@ export const DocumentDetailScreen = ({
       .finally(() => setLoading(false));
   }, [documentId]);
 
-  if (loading) {
-    return (
-      <div className="screen-container">
-        <div className="loader">{t.loadingDoc}</div>
+  const DocumentDetailSkeleton = () => (
+    <div className="max-w-[1000px] mx-auto animate-in fade-in duration-500">
+      <div className="h-6 w-32 skeleton mb-8 rounded dark:bg-slate-800" />
+      <div className="bg-white dark:bg-slate-900 rounded-[32px] p-8 border border-slate-100 dark:border-slate-800 shadow-xl">
+        <div className="flex justify-between items-start mb-8">
+          <div className="space-y-3">
+            <div className="h-10 w-64 skeleton rounded-lg dark:bg-slate-800" />
+            <div className="h-4 w-40 skeleton rounded dark:bg-slate-800" />
+          </div>
+          <div className="h-10 w-32 skeleton rounded-full dark:bg-slate-800" />
+        </div>
+        <div className="grid grid-cols-4 gap-4 mb-10">
+          {[1,2,3,4].map(i => <div key={i} className="h-16 skeleton rounded-xl dark:bg-slate-800" />)}
+        </div>
+        <div className="h-[400px] skeleton rounded-2xl dark:bg-slate-800 mb-10" />
+        <div className="h-32 skeleton rounded-2xl dark:bg-slate-800" />
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (errorMsg) {
-    return (
-      <div className="screen-container">
-        <ErrorState title={t.errorTitle} message={errorMsg} />
-      </div>
-    );
-  }
+  if (loading) return <DocumentDetailSkeleton />;
 
-  if (!doc) {
-    return (
-      <div className="screen-container">
-        <ErrorState title={t.errorTitle} message={t.docNotFound} />
-      </div>
-    );
-  }
+  if (errorMsg) return <div className="max-w-[1000px] mx-auto py-12"><ErrorState title={t.errorTitle} message={errorMsg} onRetry={() => window.location.reload()} /></div>;
+  if (!doc) return <div className="max-w-[1000px] mx-auto py-12"><ErrorState title={t.errorTitle} message={t.docNotFound} /></div>;
 
-  const isImageFile =
-    typeof doc.signedFileUrl === 'string' &&
-    /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.originalFileName || '');
-
-  const isPdfFile =
-    typeof doc.signedFileUrl === 'string' &&
-    /\.pdf$/i.test(doc.originalFileName || '');
+  const isImageFile = typeof doc.signedFileUrl === 'string' && /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.originalFileName || '');
+  const isPdfFile = typeof doc.signedFileUrl === 'string' && /\.pdf$/i.test(doc.originalFileName || '');
 
   return (
-    <div className="screen-container">
-      <button onClick={onBack} className="back-btn mb-4">
-        {t.backToSearch}
+    <div className="max-w-[1000px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+      <button 
+        onClick={() => navigate(-1)} 
+        className="group flex items-center gap-2.5 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 font-black text-xs uppercase tracking-widest mb-10 transition-all active:scale-95"
+      >
+        <div className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm group-hover:border-blue-500 transition-colors">
+          <ChevronLeft size={18} strokeWidth={3} />
+        </div>
+        {t.backToSearch || 'Back to Workspace'}
       </button>
 
-      <div className="card">
-        <div className="flex-between">
-          <h2>{doc.originalFileName || `Document ${doc.id}`}</h2>
-          <ReviewBadge confidence={doc.overallConfidence} />
+      <div className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-slate-100 dark:border-slate-800 shadow-2xl shadow-slate-200/40 dark:shadow-none">
+        <div className="flex items-start justify-between mb-10">
+          <div>
+            <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-3 leading-tight">
+              {doc.originalFileName || `Document ${doc.id}`}
+            </h1>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center">
+                <FileText size={18} strokeWidth={2.5} />
+              </div>
+              <p className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.2em] text-[10px]">
+                Verified AI Intelligence Extraction
+              </p>
+            </div>
+          </div>
+          <ReviewBadge confidence={doc.overallConfidence} status={doc.status} />
         </div>
 
-        <div
-          className="grid col-2 mt-4"
-          style={{ gap: '1rem', marginBottom: '1.5rem' }}
-        >
-          <div className="meta-box">
-            <b>{t.status}:</b> {doc.status}
-          </div>
-          <div className="meta-box">
-            <b>{t.type}:</b> {doc.documentType}
-          </div>
-          <div className="meta-box">
-            <b>{t.date}:</b> {new Date(doc.uploadedAt).toLocaleDateString()}
-          </div>
-          <div className="meta-box">
-            <b>{t.docLanguage}:</b> {doc.detectedLanguage?.toUpperCase()}
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+          {[
+            { label: t.status, value: doc.status.replace('_', ' '), color: 'text-blue-600' },
+            { label: t.type, value: doc.documentType || 'General', color: 'text-slate-600 dark:text-slate-300' },
+            { label: t.date, value: new Date(doc.uploadedAt).toLocaleDateString(), color: 'text-slate-600 dark:text-slate-300' },
+            { label: t.docLanguage, value: doc.detectedLanguage?.toUpperCase() || 'EN', color: 'text-slate-600 dark:text-slate-300' },
+          ].map((item, i) => (
+            <div key={i} className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-700/50">
+              <span className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{item.label}</span>
+              <span className={`text-sm font-black uppercase tracking-tight ${item.color}`}>{item.value}</span>
+            </div>
+          ))}
         </div>
 
         {doc.signedFileUrl && (
-          <div className="mt-4 mb-4">
-            <h3 className="mb-2">Document Preview</h3>
-
-            {isImageFile ? (
-              <img
-                src={doc.signedFileUrl}
-                alt={doc.originalFileName || 'Document preview'}
-                style={{
-                  maxWidth: '100%',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color, #e5e7eb)',
-                }}
-              />
-            ) : isPdfFile ? (
-              <iframe
-                src={doc.signedFileUrl}
-                title={doc.originalFileName || 'PDF preview'}
-                style={{
-                  width: '100%',
-                  height: '600px',
-                  border: '1px solid var(--border-color, #e5e7eb)',
-                  borderRadius: '8px',
-                }}
-              />
-            ) : (
-              <a
-                href={doc.signedFileUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="tag"
-              >
-                Open file
-              </a>
-            )}
+          <div className="mb-12">
+            <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-5 italic ml-1">Source Visualization</h3>
+            <div className="rounded-3xl overflow-hidden border-2 border-slate-100 dark:border-slate-800 shadow-2xl bg-slate-50 dark:bg-slate-800">
+              {isImageFile ? (
+                <img
+                  src={doc.signedFileUrl}
+                  alt={doc.originalFileName || 'Document source'}
+                  className="w-full h-auto max-h-[800px] object-contain mx-auto transition-transform duration-700 hover:scale-[1.02]"
+                />
+              ) : isPdfFile ? (
+                <iframe
+                  src={doc.signedFileUrl}
+                  title={doc.originalFileName || 'PDF source'}
+                  className="w-full h-[700px] border-none"
+                />
+              ) : (
+                <div className="p-20 text-center">
+                   <div className="w-20 h-20 bg-white dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
+                      <FileText size={40} className="text-blue-500" />
+                   </div>
+                   <p className="text-lg font-black text-slate-900 dark:text-white mb-6">Preview unavailable for this format.</p>
+                   <a href={doc.signedFileUrl} target="_blank" rel="noreferrer" className="btn btn-primary px-8 py-3 rounded-xl shadow-lg shadow-blue-500/20">
+                     Open Original Source
+                   </a>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        <p
-          className="summary-block"
-          style={{
-            padding: '1rem',
-            backgroundColor: 'var(--bg-subtle)',
-            borderRadius: '8px',
-          }}
-        >
-          {doc.summary}
-        </p>
+        <div className="bg-blue-600 dark:bg-blue-600/10 p-8 rounded-[32px] text-white dark:text-slate-100 mb-12 border-l-8 border-blue-400 dark:border-blue-500 shadow-xl shadow-blue-600/10 dark:shadow-none">
+          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-200 dark:text-blue-400 mb-4 opacity-80">AI Synthesis</h4>
+          <p className="text-base font-bold leading-relaxed opacity-90">{doc.summary}</p>
+        </div>
 
-        <h3 className="mt-4 mb-2">{t.extractedFacts}</h3>
-        {doc.facts && doc.facts.length > 0 ? (
-          <table className="results-table">
-            <thead>
-              <tr>
-                <th>Key</th>
-                <th>Value</th>
-                <th>Confidence</th>
-              </tr>
-            </thead>
-            <tbody>
-              {doc.facts.map((fact: any, i: number) => (
-                <tr key={i}>
-                  <td>{fact.key}</td>
-                  <td>
-                    {fact.valueString ||
-                      fact.valueNumber ||
-                      String(fact.valueDate)}{' '}
-                    {fact.currency || ''}
-                  </td>
-                  <td>{Math.round(fact.confidence * 100)}%</td>
-                </tr>
+        <div>
+          <h3 className="text-xl font-black text-slate-900 dark:text-white mb-8 flex items-center gap-3">
+             <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-xl shadow-emerald-500/20 dark:shadow-none">
+                <CheckCircle size={22} strokeWidth={2.5} />
+             </div>
+             {t.extractedFacts || 'Extracted Intelligence'}
+          </h3>
+          
+          {doc.facts && doc.facts.length > 0 ? (
+            <div className="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t.key || 'Fact Label'}</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t.value || 'Data Value'}</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t.confidence || 'Precision'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                  {doc.facts.map((fact: any, i: number) => (
+                    <tr key={i} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="px-8 py-5 font-black text-slate-900 dark:text-slate-100 text-sm group-hover:text-blue-600 transition-colors">{fact.key}</td>
+                      <td className="px-8 py-5 font-bold text-slate-600 dark:text-slate-300 text-sm">
+                        {fact.valueString || fact.valueNumber || String(fact.valueDate)} {fact.currency || ''}
+                      </td>
+                      <td className="px-8 py-5">
+                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black border ${
+                           fact.confidence > 0.9 
+                             ? 'text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800' 
+                             : 'text-amber-700 bg-amber-50 dark:bg-amber-900/30 border-amber-100 dark:border-amber-800'
+                         }`}>
+                            {Math.round(fact.confidence * 100)}% Match
+                         </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-8 text-center border border-dashed border-slate-200 dark:border-slate-700 text-slate-400 font-bold italic">
+               {t.noFacts || 'No structured data identified.'}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-16 pt-10 border-t border-slate-100 dark:border-slate-800">
+          <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-6 ml-1">Graph Relationships</h3>
+          {doc.entities && doc.entities.length > 0 ? (
+            <div className="flex gap-3 flex-wrap">
+              {doc.entities.map((ent: any, i: number) => (
+                <div key={i} className="group flex items-center gap-3 bg-white dark:bg-slate-800 px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-blue-500 shadow-sm transition-all hover:scale-105">
+                  <span className="text-[10px] font-black text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition-colors uppercase italic">{ent.role}</span>
+                  <span className="text-sm font-black text-slate-900 dark:text-slate-100 tracking-tight">{ent.name}</span>
+                </div>
               ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="text-muted">{t.noFacts}</p>
-        )}
-
-        <h3 className="mt-4 mb-2">{t.relatedEntities}</h3>
-        {doc.entities && doc.entities.length > 0 ? (
-          <div
-            className="entities-flex"
-            style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}
-          >
-            {doc.entities.map((ent: any, i: number) => (
-              <span key={i} className="tag">
-                {ent.role}: {ent.name}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-muted">{t.noEntities}</p>
-        )}
+            </div>
+          ) : (
+            <p className="text-slate-400 text-sm font-bold italic ml-1">{t.noEntities || 'No linked entities found.'}</p>
+          )}
+        </div>
       </div>
     </div>
   );

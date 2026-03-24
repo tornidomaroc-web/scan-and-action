@@ -1,0 +1,14 @@
+--- ALL DOCUMENTS (DESC) ---
+1. 2026-03-23T13:10:35.920Z | regular-shopping-receipt-template.jpg | NEEDS_REVIEW
+2. 2026-03-23T12:05:59.463Z | paper-receipt-tem.jpg | COMPLETED
+3. 2026-03-23T12:04:22.948Z | paper-receipt-tem.jpg | COMPLETED
+4. 2026-03-23T06:48:51.407Z | realistic-receipt.jpg | NEEDS_REVIEW
+5. 2026-03-23T06:34:43.682Z | realistic-receipt.jpg | NEEDS_REVIEW
+6. 2026-03-23T06:23:42.752Z | realistic-receipt.jpg | COMPLETED
+7. 2026-03-23T06:17:53.258Z | realistic-receipt.jpg | COMPLETED
+8. 2026-03-23T06:05:21.333Z | realistic-receipt.jpg | COMPLETED
+9. 2026-03-23T05:58:45.162Z | realistic-receipt.jpg | NEEDS_REVIEW
+10. 2026-03-23T05:52:53.181Z | realistic-receipt.jpg | NEEDS_REVIEW
+11. 2026-03-23T05:47:45.083Z | realistic-receipt.jpg | NEEDS_REVIEW
+12. 2026-03-23T05:23:26.808Z | realistic-receipt.jpg | NEEDS_REVIEW
+13. 2026-03-23T05:14:42.420Z | realistic-receipt.jpg | NEEDS_REVIEW

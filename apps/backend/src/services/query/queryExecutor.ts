@@ -1,5 +1,5 @@
 import { PrismaClient, Prisma } from '@prisma/client';
-import { QueryPlan, QueryIntent, QueryResultDto } from '../../../../../packages/shared/src/querySchemas';
+import { QueryPlan, QueryIntent, QueryResultDto } from '../../types/querySchemas';
 
 export class QueryExecutor {
   private prisma: PrismaClient;
@@ -12,7 +12,7 @@ export class QueryExecutor {
    * Translates internal QueryPlan into strictly deterministic Prisma/SQL calls.
    * Guarantees application of all plan filters globally via safe ID sub-scoping.
    */
-  public async execute(userId: string, rawQueryText: string, sourceLanguage: string, intent: QueryIntent, plan: QueryPlan): Promise<QueryResultDto> {
+  public async execute(userId: string, organizationId: string, rawQueryText: string, sourceLanguage: string, intent: QueryIntent, plan: QueryPlan): Promise<QueryResultDto> {
     const startTime = Date.now();
     let status = 'SUCCESS';
     let errorMessage = null;
@@ -23,11 +23,11 @@ export class QueryExecutor {
     try {
       if (plan.requiresClarification) {
          data = { message: 'CLARIFICATION_REQUIRED' };
-         return this.formatResult(intent, plan, data, 0, startTime, sourceLanguage, metadata);
+         return this.formatResult(intent, plan, data, 0, startTime, sourceLanguage, metadata, plan.explanation);
       }
 
       // We explicitly compile ALL planner logical constraints into a rigid base document filter constraint.
-      const baseWhere: any = { userId, AND: [] };
+      const baseWhere: any = { organizationId, AND: [] };
       
       for (const filter of plan.filters) {
           if (filter.field === 'Document.documentType') {
@@ -40,6 +40,12 @@ export class QueryExecutor {
              baseWhere.AND.push({ uploadedAt: { [filter.operator]: filter.value } });
           } else if (filter.field === 'Entity.canonicalName') {
              baseWhere.AND.push({ documentEntities: { some: { entity: { canonicalName: { in: filter.value } } } } });
+          } else if (filter.field === 'Document.status') {
+             if (filter.operator === 'eq') {
+                baseWhere.AND.push({ status: filter.value });
+             } else {
+                baseWhere.AND.push({ status: { in: filter.value } });
+             }
           } else if (filter.field === 'ExpenseCategory') {
              baseWhere.AND.push({ facts: { some: { key: 'EXPENSE_CATEGORY', valueString: { in: filter.value } } } });
           }
@@ -56,7 +62,7 @@ export class QueryExecutor {
              where: { 
                factType: 'AMOUNT',
                key: 'TOTAL_AMOUNT',
-               document: baseWhere // strictly bound to all explicit context filters
+               document: baseWhere
              }
            });
            
@@ -68,7 +74,6 @@ export class QueryExecutor {
         }
 
         case 'group_expenses': {
-           // We secure raw SQL against constraint loss by extracting the explicit allowed document scope first.
            const validDocs = await this.prisma.document.findMany({ select: { id: true }, where: baseWhere });
            const docIds = validDocs.map(d => d.id);
            
@@ -84,9 +89,9 @@ export class QueryExecutor {
                SUM(amt."valueNumber") as "sum"
              FROM "DocumentFact" amt
              JOIN "DocumentFact" cat ON amt."documentId" = cat."documentId"
-             WHERE amt.key = 'TOTAL_AMOUNT' 
-               AND cat.key = 'EXPENSE_CATEGORY'
-               AND amt."documentId" IN (${Prisma.join(docIds)})
+             WHERE amt."key" = 'TOTAL_AMOUNT' 
+               AND cat."key" = 'EXPENSE_CATEGORY'
+               AND amt."documentId"::text = ANY(${docIds})
              GROUP BY cat."valueString", amt."currency"
            `;
            data = rawGroups.map(r => ({
@@ -105,23 +110,13 @@ export class QueryExecutor {
            break;
         }
 
-        case 'latest_document': {
-           const latest = await this.prisma.document.findFirst({
-             where: baseWhere,
-             orderBy: { uploadedAt: 'desc' },
-             include: { facts: true }
-           });
-           data = latest ? [latest] : [];
-           resultCount = data.length;
-           break;
-        }
-
+        case 'latest_document':
         case 'list_documents':
         case 'timeline': {
            data = await this.prisma.document.findMany({
              where: baseWhere,
              take: plan.limit || 50,
-             orderBy: { uploadedAt: plan.sort?.direction || 'desc' },
+             orderBy: { [plan.sort?.field.split('.').pop() || 'uploadedAt']: plan.sort?.direction || 'desc' },
              include: { facts: true, documentEntities: { include: { entity: true } } }
            });
            resultCount = data.length;
@@ -141,7 +136,6 @@ export class QueryExecutor {
         }
 
         case 'find_upcoming_appointments': {
-           // Relying directly on the structured fact pipeline for appointment explicit typing, ignoring vague fallbacks.
            data = await this.prisma.documentFact.findMany({
              where: { 
                document: baseWhere,
@@ -163,32 +157,37 @@ export class QueryExecutor {
     } catch (err: any) {
       status = 'EXECUTION_ERROR';
       errorMessage = err.message;
+      console.error(`[QueryExecutor ERROR]: ${err.message}`);
     } finally {
       const executionTimeMs = Date.now() - startTime;
       
-      await this.prisma.queryLog.create({
-        data: {
-          userId,
-          rawQueryText,
-          sourceLanguage,
-          parsedIntentJson: intent as any,
-          queryPlanJson: plan as any,
-          executionTimeMs,
-          resultCount,
-          status,
-          errorMessage
-        }
-      });
+      try {
+        await this.prisma.queryLog.create({
+          data: {
+            userId,
+            rawQueryText,
+            sourceLanguage,
+            parsedIntentJson: JSON.parse(JSON.stringify(intent)),
+            queryPlanJson: JSON.parse(JSON.stringify(plan)),
+            executionTimeMs,
+            resultCount,
+            status,
+            errorMessage
+          }
+        });
+      } catch (logErr: any) {
+        console.error('CRITICAL: Failed to write to QueryLog:', logErr.message);
+      }
     }
 
-    if (errorMessage) {
+    if (errorMessage && status === 'EXECUTION_ERROR') {
        throw new Error(`Data Executor Failed: ${errorMessage}`);
     }
 
-    return this.formatResult(intent, plan, data, resultCount, startTime, sourceLanguage, metadata);
+    return this.formatResult(intent, plan, data, resultCount, startTime, sourceLanguage, metadata, plan.explanation);
   }
 
-  private formatResult(intent: QueryIntent, plan: QueryPlan, data: any, resultCount: number, startTime: number, sourceLanguage: string, metadata: any): QueryResultDto {
+  private formatResult(intent: QueryIntent, plan: QueryPlan, data: any, resultCount: number, startTime: number, sourceLanguage: string, metadata: any, explanation?: string): QueryResultDto {
      return {
          intent: intent.intent,
          outputFormat: plan.outputMode,
@@ -197,6 +196,7 @@ export class QueryExecutor {
          resultCount,
          executionTimeMs: Date.now() - startTime,
          sourceLanguage,
+         explanation,
          metadata
      };
   }

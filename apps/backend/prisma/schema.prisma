@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native"]
 }
 
 datasource db {
@@ -8,80 +9,127 @@ datasource db {
 }
 
 model User {
-  id                String   @id @default(uuid())
+  id                String   @id @db.Uuid
   email             String   @unique
   preferredLanguage String   @default("en")
   createdAt         DateTime @default(now())
 
-  documents         Document[]
-  entities          Entity[]
+  memberships       Membership[]
   queryLogs         QueryLog[]
-  savedReports      SavedReportDefinition[]
-  generatedReports  GeneratedReport[]
+}
+
+model Organization {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  slug          String   @unique
+  plan          PlanType @default(FREE)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  members       Membership[]
+  documents     Document[]
+  entities      Entity[]
+  savedReports  SavedReportDefinition[]
+  generatedReports GeneratedReport[]
+}
+
+enum PlanType {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+model Membership {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @db.Uuid
+  organizationId String       @db.Uuid
+  role           MemberRole   @default(MEMBER)
+  joinedAt       DateTime     @default(now())
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
 }
 
 model Document {
-  id                String   @id @default(uuid())
-  userId            String
-  user              User     @relation(fields: [userId], references: [id])
+  id                String   @id @default(uuid()) @db.Uuid
+  organizationId    String   @db.Uuid
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId            String   @db.Uuid  // The user who uploaded it
   originalFileName  String
   fileUrl           String
-  documentType      String   // e.g., 'INVOICE', 'BUSINESS_CARD', 'APPOINTMENT'
+  documentType      String
   documentSubtype   String?
-  detectedLanguage  String   // 'en', 'es', 'fr', 'ar'
+  detectedLanguage  String
   rawText           String   @db.Text
   normalizedText    String   @db.Text
   summary           String?  @db.Text
   overallConfidence Float
-  status            String   // 'PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'NEEDS_REVIEW'
+  status            String
   uploadedAt        DateTime @default(now())
   processedAt       DateTime?
 
   facts             DocumentFact[]
   documentEntities  DocumentEntity[]
+
+  @@index([organizationId])
 }
 
 model DocumentFact {
-  id           String   @id @default(uuid())
-  documentId   String
-  document     Document @relation(fields: [documentId], references: [id])
-  factType     String   // 'AMOUNT', 'DATE', 'TEXT'
-  key          String   // Canonical English key
+  id           String   @id @default(uuid()) @db.Uuid
+  documentId   String   @db.Uuid
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  factType     String
+  key          String
   valueString  String?
   valueNumber  Float?
   valueDate    DateTime?
   currency     String?
   confidence   Float
-  sourceSpan   String   // Text location reference
+  sourceSpan   String
   isReviewed   Boolean  @default(false)
+
+  @@index([documentId])
 }
 
 model Entity {
-  id            String   @id @default(uuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id])
-  entityType    String   // 'VENDOR', 'CLIENT', 'PERSON'
-  canonicalName String   // Normalized English name
-  aliases       String[] // ["Home Depot", "The Home Depot"]
-  metadataJson  Json
-  createdAt     DateTime @default(now())
+  id               String           @id @default(uuid()) @db.Uuid
+  organizationId   String           @db.Uuid
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entityType       String
+  canonicalName    String
+  aliases          String[]
+  metadataJson     Json
+  createdAt        DateTime         @default(now())
 
   documentEntities DocumentEntity[]
+
+  @@index([organizationId])
 }
 
 model DocumentEntity {
-  id          String   @id @default(uuid())
-  documentId  String
-  document    Document @relation(fields: [documentId], references: [id])
-  entityId    String
+  id          String   @id @default(uuid()) @db.Uuid
+  documentId  String   @db.Uuid
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  entityId    String   @db.Uuid
   entity      Entity   @relation(fields: [entityId], references: [id])
-  role        String   // 'ISSUER', 'PAYEE', 'ATTENDEE'
+  role        String
   confidence  Float
+
+  @@index([documentId])
 }
 
 model QueryLog {
-  id               String   @id @default(uuid())
-  userId           String
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @db.Uuid
   user             User     @relation(fields: [userId], references: [id])
   rawQueryText     String
   sourceLanguage   String
@@ -89,15 +137,15 @@ model QueryLog {
   queryPlanJson    Json
   executionTimeMs  Int
   resultCount      Int
-  status           String   // 'SUCCESS', 'PARSE_ERROR', 'EXECUTION_ERROR'
+  status           String
   errorMessage     String?
   createdAt        DateTime @default(now())
 }
 
 model SavedReportDefinition {
-  id                String   @id @default(uuid())
-  userId            String
-  user              User     @relation(fields: [userId], references: [id])
+  id                String   @id @default(uuid()) @db.Uuid
+  organizationId    String   @db.Uuid
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   title             String
   description       String
   queryTemplateJson Json
@@ -105,17 +153,21 @@ model SavedReportDefinition {
   createdAt         DateTime @default(now())
 
   generatedReports  GeneratedReport[]
+
+  @@index([organizationId])
 }
 
 model GeneratedReport {
-  id               String   @id @default(uuid())
-  definitionId     String?
+  id               String                 @id @default(uuid()) @db.Uuid
+  definitionId     String?                @db.Uuid
   definition       SavedReportDefinition? @relation(fields: [definitionId], references: [id])
-  userId           String
-  user             User     @relation(fields: [userId], references: [id])
+  organizationId   String                 @db.Uuid
+  organization     Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   title            String
-  summaryText      String   @db.Text
+  summaryText      String                 @db.Text
   dataSnapshotJson Json
   locale           String
-  createdAt        DateTime @default(now())
+  createdAt        DateTime               @default(now())
+
+  @@index([organizationId])
 }

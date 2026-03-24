@@ -1,4 +1,4 @@
-import { QueryResultDto } from '../../../../../packages/shared/src/querySchemas';
+import { QueryResultDto } from '../../types/querySchemas';
 
 export class AnswerFormatter {
   /**
@@ -17,6 +17,8 @@ export class AnswerFormatter {
       },
       count_documents: (d) => `You have ${d?.count || 0} documents matching those criteria.`,
       latest_document: (d) => (d && d.length) ? `The latest document was uploaded on ${new Date(d[0].uploadedAt).toLocaleDateString()}.` : 'No documents found.',
+      list_documents: (data) => `I found ${data?.length || 0} documents matching your filters.`,
+      group_expenses: (data) => data.length ? "Here's the breakdown of your expenses." : "No expense groups found.",
       find_upcoming_appointments: (d) => (d && d.length) ? `You have ${d.length} upcoming appointments booked.` : 'You have no upcoming appointments.',
     },
     fr: {
@@ -30,6 +32,8 @@ export class AnswerFormatter {
       },
       count_documents: (d) => `Vous avez ${d?.count || 0} documents correspondant à ces critères.`,
       latest_document: (d) => (d && d.length) ? `Le dernier document a été téléchargé le ${new Date(d[0].uploadedAt).toLocaleDateString()}.` : 'Aucun document trouvé.',
+      list_documents: (data) => `J'ai trouvé ${data?.length || 0} documents correspondant à vos filtres.`,
+      group_expenses: (data) => data.length ? "Voici la répartition de vos dépenses." : "Aucun groupe de dépenses trouvé.",
       find_upcoming_appointments: (d) => (d && d.length) ? `Vous avez ${d.length} rendez-vous à venir.` : 'Vous n\'avez aucun rendez-vous à venir.',
     },
     ar: {
@@ -43,6 +47,8 @@ export class AnswerFormatter {
       },
       count_documents: (d) => `لديك ${d?.count || 0} مستندات تطابق هذه المعايير.`,
       latest_document: (d) => (d && d.length) ? `تم رفع أحدث مستند في ${new Date(d[0].uploadedAt).toLocaleDateString()}.` : 'لم يتم العثور على مستندات.',
+      list_documents: (data) => `عثرت على ${data?.length || 0} مستندات تناسب اختياراتك.`,
+      group_expenses: (data) => data.length ? "إليك تفاصيل نفقاتك." : "لم يتم العثور على مجموعات نفقات.",
       find_upcoming_appointments: (d) => (d && d.length) ? `لديك ${d.length} مواعيد قادمة.` : 'ليس لديك مواعيد قادمة.',
     }
   };

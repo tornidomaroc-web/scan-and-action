@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { GeminiExtractionResult } from '../../../../../packages/shared/src/schemas';
+import { GeminiExtractionResult } from '../../types/schemas';
 import { EntityResolutionService } from '../normalization/entityResolution';
 import { NormalizationService } from '../normalization/normalizationService';
 
@@ -18,6 +18,7 @@ export class PersistenceService {
 
   public async persistIngestionResult(
     userId: string,
+    organizationId: string,
     fileUrl: string,
     originalFileName: string,
     extraction: GeminiExtractionResult
@@ -36,9 +37,11 @@ export class PersistenceService {
     }
 
     // Wrap in a transaction so we don't save partial documents
+    console.log(`[Persistence] Starting Prisma transaction...`);
     const docId = await this.prisma.$transaction(async (tx) => {
 
       // 2. Create the Document
+      console.log(`[Persistence] Creating document record...`);
       const englishNormalizedText = this.normalizer.normalizeTextToEnglish(
         extraction.rawText,
         extraction.detectedLanguage
@@ -46,6 +49,7 @@ export class PersistenceService {
 
       const doc = await tx.document.create({
         data: {
+          organizationId,
           userId,
           fileUrl,
           originalFileName,
@@ -62,6 +66,7 @@ export class PersistenceService {
       });
 
       // 3. Persist Facts
+      console.log(`[Persistence] Persisting ${extraction.facts.length} facts...`);
       for (const rawFact of extraction.facts) {
         const canonicalKey = this.normalizer.normalizeFactKey(rawFact.key);
         const isReviewed = rawFact.confidence >= CONFIDENCE_THRESHOLD;
@@ -90,8 +95,9 @@ export class PersistenceService {
       }
 
       // 4. Persist Entities & DocumentEntities (Roles)
+      console.log(`[Persistence] Persisting ${extraction.entities.length} entities...`);
       for (const rawEntity of extraction.entities) {
-        const globalEntity = await this.entityResolver.resolveOrGenerateEntity(userId, rawEntity);
+        const globalEntity = await this.entityResolver.resolveOrGenerateEntity(organizationId, rawEntity);
         const canonicalRole = rawEntity.role.toUpperCase().replace(/\s+/g, '_');
 
         await tx.documentEntity.create({
@@ -104,9 +110,11 @@ export class PersistenceService {
         });
       }
 
+      console.log(`[Persistence] Transaction successful.`);
       return doc.id;
     });
 
+    console.log(`[Persistence] Result saved with ID: ${docId}`);
     return docId;
   }
 }

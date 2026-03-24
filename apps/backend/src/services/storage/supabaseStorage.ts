@@ -21,6 +21,7 @@ export const uploadToSupabase = async (file: Express.Multer.File): Promise<strin
     const safeOriginalName = sanitizeFileName(file.originalname);
     const filePath = `uploads/${Date.now()}-${safeOriginalName}`;
 
+    console.log(`[Storage] Uploading to bucket 'documents', path: ${filePath}`);
     const { data, error } = await supabase.storage
         .from('documents')
         .upload(filePath, file.buffer, {
@@ -29,9 +30,10 @@ export const uploadToSupabase = async (file: Express.Multer.File): Promise<strin
         });
 
     if (error) {
-        console.error('Supabase upload error:', error);
+        console.error('[Storage] Supabase upload error:', error);
         throw new Error('Failed to upload file to Supabase');
     }
 
+    console.log(`[Storage] Upload successful: ${data.path}`);
     return data.path;
 };

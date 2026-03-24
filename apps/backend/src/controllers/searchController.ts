@@ -24,6 +24,7 @@ export class SearchController {
 
       // Temporary Auth layer MVP header fallback
       const userId = (req as any).user.id;
+      const organizationId = (req as any).user.organizationId;
 
       // 2. Parse NLP Intent (Language-aware)
       const intent = await intentParser.parseUserQuery(query, language);
@@ -32,7 +33,7 @@ export class SearchController {
       const plan = queryPlanner.generatePlan(intent);
 
       // 4. strictly Execute DB binding User & Plan
-      const executionResult = await queryExecutor.execute(userId, query, language, intent, plan);
+      const executionResult = await queryExecutor.execute(userId, organizationId, query, language, intent, plan);
 
       // 5. Format securely via Template guarantees
       const formattedResponse = await answerFormatter.formatAnswer(executionResult);

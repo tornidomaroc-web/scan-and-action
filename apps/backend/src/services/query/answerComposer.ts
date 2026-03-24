@@ -1,4 +1,4 @@
-import { QueryIntent } from '../../../../../packages/shared/src/querySchemas';
+import { QueryIntent } from '../../types/querySchemas';
 
 export class AnswerComposer {
 

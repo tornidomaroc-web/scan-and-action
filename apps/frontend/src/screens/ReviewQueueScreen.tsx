@@ -1,39 +1,182 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
+import { CheckCircle, XCircle, Clock, FileText, ChevronRight, Filter } from 'lucide-react';
 import { documentService } from '../services/documentService';
-import { ResultTable } from '../components/ResultTable';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
+import { ReviewBadge } from '../components/SharedComponents';
+import { useToast } from '../contexts/ToastContext';
 
-export const ReviewQueueScreen = ({ onOpenDoc, t }: { onOpenDoc: (id: string) => void, t: any }) => {
+export const ReviewQueueScreen = ({ t }: { t: any }) => {
+  const navigate = useNavigate();
+  const { onSuccess } = useOutletContext<{ onSuccess: () => void }>();
   const [docs, setDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actioningId, setActioningId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const { showToast } = useToast();
+
+  const fetchQueue = async () => {
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const data = await documentService.getReviewQueue();
+      setDocs(data);
+    } catch (err: any) {
+      setErrorMsg('We encountered an issue retrieving your review queue. Please try again or check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    documentService.getReviewQueue()
-      .then(setDocs)
-      .catch(err => setErrorMsg(err.message))
-      .finally(() => setLoading(false));
+    fetchQueue();
   }, []);
 
-  if (loading) return <div className="screen-container"><div className="loader">{t.loadingQueue}</div></div>;
-  if (errorMsg) return <div className="screen-container"><ErrorState title={t.errorTitle} message={errorMsg} /></div>;
+  const handleAction = async (id: string, action: 'approve' | 'reject') => {
+    if (actioningId) return; // Prevent double-clicks
+    
+    setActioningId(id);
+    try {
+      // Approve = COMPLETED
+      // Reject = REJECTED
+      const newStatus = action === 'approve' ? 'COMPLETED' : 'REJECTED';
+      
+      await documentService.updateStatus(id, newStatus);
+      
+      // Only remove from UI after successful backend update
+      setDocs(prev => prev.filter(d => d.id !== id));
+      
+      if (action === 'approve') {
+        showToast('Document approved and intelligence verified.', 'success');
+      } else {
+        showToast('Document marked as rejected.', 'info');
+      }
+      
+      // Refresh Dashboard stats
+      onSuccess();
+    } catch (error) {
+      console.error('[ReviewQueue] Action failed:', error);
+      showToast('We couldn\'t update this review item. Please try again.', 'error');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="animate-in fade-in duration-500">
+        <div className="mb-8 flex items-end justify-between">
+           <div>
+             <div className="h-10 w-64 skeleton mb-3 rounded-lg dark:bg-slate-800" />
+             <div className="h-5 w-80 skeleton rounded-md dark:bg-slate-800" />
+           </div>
+           <div className="h-10 w-32 skeleton rounded-full dark:bg-slate-800" />
+        </div>
+        <div className="space-y-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="card h-24 skeleton border-none dark:bg-slate-800" style={{ borderRadius: '24px' }} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (errorMsg) return <ErrorState message={errorMsg} onRetry={fetchQueue} />;
 
   return (
-    <div className="screen-container">
-      <h2 style={{ marginBottom: '1.5rem' }}>{t.reviewTitle}</h2>
-      <p className="text-muted mb-4">
-        {t.reviewDesc}
-      </p>
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex items-end justify-between mb-10">
+        <div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white">{t.reviewTitle || 'Review Queue'}</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-2 font-bold text-lg">{t.reviewDesc || 'Validate extracted intelligence from new documents.'}</p>
+        </div>
+        <button className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-5 py-2.5 rounded-full text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm">
+           <Filter size={16} />
+           Filters
+        </button>
+      </div>
 
       {docs.length === 0 ? (
-         <EmptyState message={t.allCaughtUp} />
+        <div className="card py-24 bg-white dark:bg-slate-800 border-dashed border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center rounded-[32px]">
+          <EmptyState 
+            message={t.allCaughtUp || 'All Caught Up!'} 
+            description="You've reviewed all pending documents. Great work today."
+            icon={<div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 rounded-3xl flex items-center justify-center mb-0 shadow-lg shadow-emerald-100 dark:shadow-none"><CheckCircle size={40} /></div>}
+          />
+        </div>
       ) : (
-         <ResultTable 
-           data={docs} 
-           emptyStateComponent={<EmptyState message={t.queueEmpty} />}
-           onRowClick={(row) => onOpenDoc(row.id)}
-         />
+        <div className="bg-white dark:bg-slate-800 rounded-[32px] overflow-hidden shadow-2xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700">
+          <table className="saas-table">
+            <thead>
+              <tr className="dark:bg-slate-800/50">
+                <th className="pl-10 dark:text-slate-400">Document Source</th>
+                <th className="dark:text-slate-400">Processing Status</th>
+                <th className="dark:text-slate-400">AI Confidence</th>
+                <th className="dark:text-slate-400">Extracted Date</th>
+                <th className="text-right pr-10 dark:text-slate-400">Quick Actions</th>
+              </tr>
+            </thead>
+            <tbody className="dark:divide-slate-700">
+              {docs.map((doc) => (
+                <tr key={doc.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-700/40 transition-all group">
+                  <td className="pl-10">
+                    <div className="flex items-center">
+                      <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mr-5 shadow-sm group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                        <FileText size={22} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-black text-slate-900 dark:text-slate-100 truncate text-base mb-0.5">{doc.originalFileName || doc.name}</p>
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{doc.type || 'Invoice'}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span className="badge badge-pending scale-110 origin-left dark:bg-amber-900/30 dark:text-amber-400">
+                      <div className="badge-dot dark:bg-amber-400" />
+                      PENDING REVIEW
+                    </span>
+                  </td>
+                  <td>
+                    <ReviewBadge confidence={doc.overallConfidence || 0.92} status={doc.status} />
+                  </td>
+                  <td>
+                    <span className="text-sm font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-lg">
+                      {doc.date || 'Recently'}
+                    </span>
+                  </td>
+                  <td className="text-right pr-10">
+                    <div className="flex items-center justify-end gap-4">
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-6 group-hover:translate-x-0 duration-300">
+                        <button 
+                          onClick={() => handleAction(doc.id, 'approve')}
+                          className="p-2.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-2xl transition-all hover:scale-110 active:scale-90"
+                          title="Approve"
+                        >
+                          <CheckCircle size={24} strokeWidth={2.5} />
+                        </button>
+                        <button 
+                          onClick={() => handleAction(doc.id, 'reject')}
+                          className="p-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-2xl transition-all hover:scale-110 active:scale-90"
+                          title="Reject"
+                        >
+                          <XCircle size={24} strokeWidth={2.5} />
+                        </button>
+                      </div>
+                      <button 
+                        onClick={() => navigate(`/documents/${doc.id}`)}
+                        className="flex items-center gap-2.5 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white px-6 py-3 rounded-2xl text-xs font-black transition-all shadow-xl shadow-slate-200 dark:shadow-none active:scale-95 whitespace-nowrap"
+                      >
+                        Deep Review
+                        <ChevronRight size={16} strokeWidth={3} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

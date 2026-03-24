@@ -1,0 +1,193 @@
+{
+  "status": 200,
+  "count": 8,
+  "body": [
+    {
+      "id": "dfa82b2a-6eee-41bd-8c6c-8babe0adc339",
+      "originalFileName": "regular-shopping-receipt-template.jpg",
+      "fileUrl": "uploads/1774271425425-regular-shopping-receipt-template.jpg",
+      "documentType": "UNKNOWN_DOCUMENT_TYPE",
+      "detectedLanguage": "en",
+      "summary": "A generic receipt for multiple items totaling $117.00, paid with $200.00 cash.",
+      "overallConfidence": 0.99,
+      "status": "NEEDS_REVIEW",
+      "uploadedAt": "2026-03-23T13:10:35.920Z",
+      "facts": [
+        {
+          "key": "TRANSACTION_DATE",
+          "valueString": null,
+          "valueNumber": null,
+          "valueDate": null,
+          "currency": null,
+          "confidence": 0.3
+        },
+        {
+          "key": "TOTAL_AMOUNT",
+          "valueString": null,
+          "valueNumber": 117,
+          "valueDate": null,
+          "currency": "USD",
+          "confidence": 0.99
+        }
+      ],
+      "entities": [
+        {
+          "name": "UNKNOWN",
+          "role": "ISSUER",
+          "aliases": [
+            "UNKNOWN"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "6d68f97b-ddb3-44e6-be62-288724507b90",
+      "originalFileName": "realistic-receipt.jpg",
+      "fileUrl": "uploads/1774248522486-realistic-receipt.jpg",
+      "documentType": "UNKNOWN_DOCUMENT_TYPE",
+      "detectedLanguage": "en",
+      "summary": "A cash receipt from SHOP NAME totaling 16.5 for various items including Lorem, Ipsum, and others.",
+      "overallConfidence": 0.99,
+      "status": "NEEDS_REVIEW",
+      "uploadedAt": "2026-03-23T06:48:51.407Z",
+      "facts": [
+        {
+          "key": "TRANSACTION_DATE",
+          "valueString": null,
+          "valueNumber": null,
+          "valueDate": null,
+          "currency": null,
+          "confidence": 0.3
+        },
+        {
+          "key": "TOTAL_AMOUNT",
+          "valueString": null,
+          "valueNumber": 16.5,
+          "valueDate": null,
+          "currency": "USD",
+          "confidence": 0.99
+        }
+      ],
+      "entities": [
+        {
+          "name": "SHOP NAME",
+          "role": "ISSUER",
+          "aliases": [
+            "SHOP NAME"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "8e3bb9cd-a438-4616-8c23-b730b0d85b12",
+      "originalFileName": "realistic-receipt.jpg",
+      "fileUrl": "uploads/1774247677396-realistic-receipt.jpg",
+      "documentType": "UNKNOWN_DOCUMENT_TYPE",
+      "detectedLanguage": "en",
+      "summary": "A cash receipt from SHOP NAME for five items totaling 16.5.",
+      "overallConfidence": 0.99,
+      "status": "NEEDS_REVIEW",
+      "uploadedAt": "2026-03-23T06:34:43.682Z",
+      "facts": [
+        {
+          "key": "TRANSACTION_DATE",
+          "valueString": null,
+          "valueNumber": null,
+          "valueDate": null,
+          "currency": null,
+          "confidence": 0.1
+        },
+        {
+          "key": "TOTAL_AMOUNT",
+          "valueString": null,
+          "valueNumber": 16.5,
+          "valueDate": null,
+          "currency": "UNKNOWN",
+          "confidence": 0.99
+        },
+        {
+          "key": "TAX_AMOUNT",
+          "valueString": null,
+          "valueNumber": 0,
+          "valueDate": null,
+          "currency": "UNKNOWN",
+          "confidence": 0.99
+        }
+      ],
+      "entities": [
+        {
+          "name": "SHOP NAME",
+          "role": "ISSUER",
+          "aliases": [
+            "SHOP NAME"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fd7c76bf-c481-41e4-8134-9893d3555734",
+      "originalFileName": "realistic-receipt.jpg",
+      "fileUrl": "uploads/1774245523727-realistic-receipt.jpg",
+      "documentType": "UNKNOWN_DOCUMENT_TYPE",
+      "detectedLanguage": "en",
+      "summary": "We encountered an error processing this image with Gemini.",
+      "overallConfidence": 0.01,
+      "status": "NEEDS_REVIEW",
+      "uploadedAt": "2026-03-23T05:58:45.162Z",
+      "facts": [],
+      "entities": []
+    },
+    {
+      "id": "6a092776-a2db-453f-be23-9175d46daf30",
+      "originalFileName": "realistic-receipt.jpg",
+      "fileUrl": "uploads/1774245172465-realistic-receipt.jpg",
+      "documentType": "UNKNOWN_DOCUMENT_TYPE",
+      "detectedLanguage": "en",
+      "summary": "We encountered an error processing this image with Gemini.",
+      "overallConfidence": 0.01,
+      "status": "NEEDS_REVIEW",
+      "uploadedAt": "2026-03-23T05:52:53.181Z",
+      "facts": [],
+      "entities": []
+    },
+    {
+      "id": "078d70c3-5744-4414-b26f-92b54868c495",
+      "originalFileName": "realistic-receipt.jpg",
+      "fileUrl": "uploads/1774244864373-realistic-receipt.jpg",
+      "documentType": "UNKNOWN_DOCUMENT_TYPE",
+      "detectedLanguage": "en",
+      "summary": "We encountered an error processing this image with Gemini.",
+      "overallConfidence": 0.01,
+      "status": "NEEDS_REVIEW",
+      "uploadedAt": "2026-03-23T05:47:45.083Z",
+      "facts": [],
+      "entities": []
+    },
+    {
+      "id": "c0186f45-cf53-4be0-be21-901961747d9c",
+      "originalFileName": "realistic-receipt.jpg",
+      "fileUrl": "uploads/1774243406087-realistic-receipt.jpg",
+      "documentType": "UNKNOWN_DOCUMENT_TYPE",
+      "detectedLanguage": "en",
+      "summary": "We encountered an error processing this image with Gemini.",
+      "overallConfidence": 0.01,
+      "status": "NEEDS_REVIEW",
+      "uploadedAt": "2026-03-23T05:23:26.808Z",
+      "facts": [],
+      "entities": []
+    },
+    {
+      "id": "3c0ea32a-8750-4fd1-831f-5a87ae791d10",
+      "originalFileName": "realistic-receipt.jpg",
+      "fileUrl": "uploads/1774242881678-realistic-receipt.jpg",
+      "documentType": "UNKNOWN_DOCUMENT_TYPE",
+      "detectedLanguage": "en",
+      "summary": "We encountered an error processing this image with Gemini.",
+      "overallConfidence": 0.01,
+      "status": "NEEDS_REVIEW",
+      "uploadedAt": "2026-03-23T05:14:42.420Z",
+      "facts": [],
+      "entities": []
+    }
+  ]
+}

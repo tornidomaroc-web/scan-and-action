@@ -63,6 +63,7 @@ export interface QueryPlan {
   limit?: number;
   outputMode: z.infer<typeof OutputModes>;
   requiresClarification?: boolean;
+  explanation?: string;
 }
 
 export interface QueryResultDto {
@@ -73,6 +74,7 @@ export interface QueryResultDto {
   resultCount: number;
   executionTimeMs: number;
   sourceLanguage: string;
+  explanation?: string;
   metadata?: {
     currencies?: string[];
     isMixedCurrency?: boolean;
