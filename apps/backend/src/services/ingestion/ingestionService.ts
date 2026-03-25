@@ -12,6 +12,13 @@ export class IngestionService {
   }
 
   /**
+   * Pre-check to ensure the image contains only one document.
+   */
+  public async validateSingleDocument(buffer: Buffer, mimeType: string): Promise<boolean> {
+    return this.geminiAdapter.isSingleDocument(buffer, mimeType);
+  }
+
+  /**
    * Orchestrates the complete end-to-end ingestion pipeline.
    * Image -> Structured JSON -> Persistence
    */

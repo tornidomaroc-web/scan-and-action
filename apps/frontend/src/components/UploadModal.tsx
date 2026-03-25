@@ -89,8 +89,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
         try {
           await uploadDocument(files[i]);
           successCount++;
-        } catch (err) {
+        } catch (err: any) {
           console.error(`Failed to upload ${files[i].name}:`, err);
+          showToast(`${files[i].name}: ${err.message}`, 'error');
         }
         setProgress(Math.round(((i + 1) / totalCount) * 100));
       }

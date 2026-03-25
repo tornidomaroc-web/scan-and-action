@@ -42,6 +42,59 @@ export class GeminiExtractionAdapter {
     return map[currency] || (currency.length === 3 ? currency : 'USD');
   }
 
+  /**
+   * High-speed Vision Binary Check.
+   * Minimal token usage to detect if an image contains multiple documents.
+   */
+  public async isSingleDocument(fileBuffer: Buffer, mimeType: string): Promise<boolean> {
+    const modelId = "models/gemini-flash-latest";
+
+    try {
+      const model = this.genAI.getGenerativeModel({
+        model: modelId,
+        generationConfig: {
+          temperature: 0.0,
+        }
+      });
+
+      const prompt = `
+        Analyze this image for a document intelligence pipeline.
+        Does this image contain more than one distinct document, receipt, or business card?
+        Answer ONLY 'YES' or 'NO'.
+      `;
+
+      const result = await model.generateContent([
+        prompt,
+        {
+          inlineData: {
+            data: fileBuffer.toString("base64"),
+            mimeType: mimeType
+          }
+        }
+      ]);
+
+      const textOutput = result.response.text().trim().toUpperCase();
+      console.log(`[Gemini Validation DEBUG] raw result: "${textOutput}"`);
+      
+      const containsYes = textOutput.includes('YES');
+      const containsNo = textOutput.includes('NO');
+      
+      console.log(`[Gemini Validation DEBUG] containsYes: ${containsYes}, containsNo: ${containsNo}`);
+
+      // If the AI says 'YES', it means it found MULTIPLE documents.
+      // We only return 'true' if we are SURE it said 'NO' and not 'YES'.
+      if (containsYes && !containsNo) return false;
+      if (containsNo && !containsYes) return true;
+      
+      // If result is ambiguous, default to the safest check (false if multiple-sounding)
+      return !containsYes;
+
+    } catch (error: any) {
+      console.error("[Gemini Validation] CRITICAL ERROR during check:", error.message);
+      return true; // Fail-open to avoid blocking users on API technicalities
+    }
+  }
+
   public async extractFromImage(fileBuffer: Buffer, mimeType: string): Promise<GeminiExtractionResult> {
     const modelId = "models/gemini-flash-latest";
 
