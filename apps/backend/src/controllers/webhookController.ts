@@ -4,6 +4,7 @@ import { prisma } from '../prismaClient';
 
 export class WebhookController {
   public static async handleLemonSqueezy(req: Request, res: Response) {
+    console.log('[Webhook HEARTBEAT] Request received at', new Date().toISOString());
     try {
       const secret = process.env.LEMON_SQUEEZY_WEBHOOK_SECRET || '';
 
