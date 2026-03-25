@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Upload, File, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { uploadDocument } from '../services/uploadService';
 import { useToast } from '../contexts/ToastContext';
+import { PaywallModal } from './PaywallModal';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -11,13 +12,14 @@ interface UploadModalProps {
 }
 
 export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  console.log('DEBUG: UploadModal rendered. isOpen:', isOpen);
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'partial'>('idle');
   const [results, setResults] = useState<{ success: number; total: number }>({ success: 0, total: 0 });
+  const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
+  const [showPaywall, setShowPaywall] = useState(false);
   
   const { showToast } = useToast();
 
@@ -28,6 +30,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
       setProgress(0);
       setStatus('idle');
       setResults({ success: 0, total: 0 });
+      setFileErrors({});
+      setShowPaywall(false);
     }
   }, [isOpen]);
 
@@ -65,12 +69,19 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
     if (e.target.files) {
       addFiles(e.target.files);
     }
-    // Reset input so the same file can be picked again if removed
     e.target.value = '';
   };
 
   const removeFile = (index: number) => {
+    const fileName = files[index]?.name;
     setFiles(prev => prev.filter((_, i) => i !== index));
+    if (fileName) {
+      setFileErrors(prev => {
+        const next = { ...prev };
+        delete next[fileName];
+        return next;
+      });
+    }
   };
 
   const startUpload = async (e: React.MouseEvent) => {
@@ -80,29 +91,43 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
     setUploading(true);
     setStatus('idle');
     setProgress(0);
+    setFileErrors({});
 
     let successCount = 0;
     const totalCount = files.length;
+    const successfulFileIndices: number[] = [];
 
     try {
       for (let i = 0; i < totalCount; i++) {
+        const currentFile = files[i];
         try {
-          await uploadDocument(files[i]);
+          await uploadDocument(currentFile);
           successCount++;
+          successfulFileIndices.push(i);
         } catch (err: any) {
-          console.error(`Failed to upload ${files[i].name}:`, err);
-          showToast(`${files[i].name}: ${err.message}`, 'error');
+          console.error(`Failed to upload ${currentFile.name}:`, err);
+          const errorMessage = err.message || 'Processing failed';
+          setFileErrors(prev => ({ ...prev, [currentFile.name]: errorMessage }));
+          showToast(`${currentFile.name}: ${errorMessage}`, 'error');
+          
+          // Trigger Paywall if error is multi-document validation
+          if (errorMessage === 'Please upload a single document per image') {
+            setShowPaywall(true);
+          }
         }
         setProgress(Math.round(((i + 1) / totalCount) * 100));
       }
 
       setResults({ success: successCount, total: totalCount });
       
+      if (successfulFileIndices.length > 0) {
+        setFiles(prev => prev.filter((_, idx) => !successfulFileIndices.includes(idx)));
+      }
+
       if (successCount === totalCount) {
         setStatus('success');
         showToast(`Successfully uploaded ${totalCount} documents`, 'success');
         if (onSuccess) onSuccess();
-        // ONLY auto-close if 100% success
         setTimeout(() => {
           onClose();
         }, 2000);
@@ -112,7 +137,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
         if (onSuccess) onSuccess();
       } else {
         setStatus('error');
-        showToast('All uploads failed. Please check your files.', 'error');
       }
     } catch (error) {
       setStatus('error');
@@ -131,15 +155,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[10000] flex justify-center items-center bg-gray-900/80 dark:bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[10000] flex justify-center items-center bg-gray-900/80 dark:bg-black/60 backdrop-blur-sm p-4"
       onClick={onClose}
     >
-      
       <div 
-        className="w-full max-w-[560px] bg-white dark:bg-slate-900 rounded-2xl shadow-modal overflow-hidden animate-in zoom-in-95 duration-200 border dark:border-slate-800"
+        className="w-full max-w-[560px] bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 border dark:border-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
-        
         <div className="px-8 py-6 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Upload Documents</h2>
@@ -147,14 +169,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
           </div>
           <button 
             onClick={onClose}
-            className="p-2 text-gray-400 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors border border-transparent"
+            className="p-2 text-gray-400 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
-            <X size={24} strokeWidth={2.5} />
+            <X size={24} />
           </button>
         </div>
 
         <div className="p-8">
-          
           <div
             className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all mb-6 ${
               isDragging 
@@ -171,12 +192,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
               onChange={handleFileChange}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
               accept=".pdf,.png,.jpg,.jpeg"
-              title="Click to select documents"
             />
             
             <div className="relative z-0 pointer-events-none flex flex-col items-center">
               <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center mb-4 shadow-sm border border-gray-200 dark:border-slate-700">
-                <Upload size={24} className="text-blue-600 dark:text-blue-400" strokeWidth={2.5} />
+                <Upload size={24} className="text-blue-600 dark:text-blue-400" />
               </div>
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
                 Drop files or <span className="text-blue-600 dark:text-blue-400 underline pointer-events-auto">browse</span>
@@ -191,99 +211,113 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
             <div className="space-y-4">
               <div className="max-h-[240px] overflow-y-auto pr-2 space-y-2">
                 {files.map((f, idx) => (
-                  <div key={`${f.name}-${idx}`} className="p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-200 dark:border-slate-700 flex items-center justify-between shadow-sm">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 bg-white dark:bg-slate-700 rounded-lg flex items-center justify-center shadow-sm border border-gray-100 dark:border-slate-600 flex-shrink-0">
-                        <File size={20} className="text-blue-600 dark:text-blue-400" strokeWidth={2.5} />
+                  <div key={`${f.name}-${idx}`} className={`p-3 rounded-lg border flex flex-col gap-2 shadow-sm transition-colors ${fileErrors[f.name] ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50' : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-sm border flex-shrink-0 ${fileErrors[f.name] ? 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800/40' : 'bg-white dark:bg-slate-700 border-gray-100 dark:border-slate-600'}`}>
+                          {fileErrors[f.name] ? (
+                            <AlertCircle size={20} className="text-red-600 dark:text-red-400" />
+                          ) : (
+                            <File size={20} className="text-blue-600 dark:text-blue-400" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-sm font-bold truncate ${fileErrors[f.name] ? 'text-red-900 dark:text-red-200' : 'text-gray-900 dark:text-slate-100'}`}>{f.name}</p>
+                          <p className="text-[10px] font-semibold text-gray-500 dark:text-slate-400 mt-0.5 uppercase tracking-wider">
+                            {(f.size / 1024 / 1024).toFixed(2)} MB • {f.type.split('/')[1]?.toUpperCase() || 'FILE'}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-bold text-gray-900 dark:text-slate-100 truncate">{f.name}</p>
-                        <p className="text-[10px] font-semibold text-gray-500 dark:text-slate-400 mt-0.5 uppercase tracking-wider">
-                          {(f.size / 1024 / 1024).toFixed(2)} MB • {f.type.split('/')[1]?.toUpperCase() || 'FILE'}
-                        </p>
-                      </div>
+                      {!uploading && (
+                        <button 
+                          onClick={() => removeFile(idx)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                          aria-label="Remove file"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
                     </div>
-                    {!uploading && status === 'idle' && (
-                      <button 
-                        onClick={() => removeFile(idx)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors border border-transparent"
-                        aria-label="Remove file"
-                      >
-                        <X size={16} strokeWidth={2.5} />
-                      </button>
+                    {fileErrors[f.name] && (
+                      <p className="text-[11px] font-bold text-red-600 dark:text-red-400 bg-red-100/50 dark:bg-red-900/20 px-2 py-1 rounded">
+                        {fileErrors[f.name]}
+                      </p>
                     )}
                   </div>
                 ))}
               </div>
 
               {uploading || status !== 'idle' ? (
-                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-2">
-                  <div className="flex justify-between text-sm font-bold text-gray-900 dark:text-white">
+                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-slate-800">
+                  <div className="flex justify-between text-sm font-bold text-gray-900 dark:text-white mb-2">
                     <span className="flex items-center gap-2">
                       {status === 'success' ? (
-                        <><CheckCircle size={18} className="text-emerald-600"/> All Documents Processed</>
+                        <><CheckCircle size={18} className="text-emerald-600"/> Success</>
                       ) : status === 'partial' ? (
-                        <><AlertCircle size={18} className="text-amber-600"/> {results.success}/{results.total} Succeeded</>
+                        <><AlertCircle size={18} className="text-amber-600"/> Partial Success ({results.success}/{results.total})</>
                       ) : status === 'error' ? (
-                        <><AlertCircle size={18} className="text-red-600"/> Processing Failed</>
+                        <><AlertCircle size={18} className="text-red-600"/> Requirements Missing</>
                       ) : (
-                        <><Loader2 size={18} className="animate-spin text-blue-600"/> Indexing documents...</>
+                        <><Loader2 size={18} className="animate-spin text-blue-600"/> Ingesting...</>
                       )}
                     </span>
-                    <span className="text-gray-500 dark:text-slate-400 font-black">{progress}%</span>
-                  </div>
-                  <div className="h-2 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div 
-                       className={`h-full transition-all duration-300 ${
-                         status === 'success' ? 'bg-emerald-500' : 
-                         status === 'partial' ? 'bg-amber-500' : 
-                         status === 'error' ? 'bg-red-500' : 'bg-blue-600'
-                       }`}
-                       style={{ width: `${progress}%` }}
-                    />
+                    {uploading && <span className="text-gray-500 dark:text-slate-400 font-black">{progress}%</span>}
                   </div>
 
-                  {(status === 'partial' || status === 'error') && !uploading && (
-                    <div className="pt-4 flex flex-col gap-3">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 italic">
-                        {status === 'partial' 
-                          ? "Files that failed to upload are still in your list. You can retry or remove them."
-                          : "Upload interrupted. Check your network or file compatibility and try again."}
-                      </p>
-                      <div className="grid grid-cols-2 gap-4">
-                        <button
-                          onClick={onClose}
-                          className="btn-secondary py-3 text-sm font-black dark:bg-slate-800"
-                        >
-                          Close Modal
-                        </button>
-                        <button
-                          onClick={resetToIdle}
-                          className="btn-primary py-3 text-sm font-black bg-slate-900 dark:bg-blue-600"
-                        >
-                          Manage Files
-                        </button>
-                      </div>
+                  {uploading && (
+                    <div className="h-3 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden border border-gray-200/50 dark:border-slate-700/50 mb-6">
+                      <div 
+                        className={`h-full transition-all duration-500 ease-out ${status === 'error' ? 'bg-red-500' : 'bg-blue-600 dark:bg-blue-500'}`}
+                        style={{ width: `${progress}%` }}
+                      />
                     </div>
                   )}
 
-                  {status === 'success' && (
-                    <p className="text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 pt-2 animate-pulse">
-                      Closing workspace automatically...
-                    </p>
+                  {!uploading && status !== 'idle' && (
+                    <div className="space-y-4">
+                      {status === 'success' ? (
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50 rounded-2xl p-6 text-center">
+                           <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-emerald-100 dark:border-emerald-800">
+                             <CheckCircle size={24} className="text-emerald-500" />
+                           </div>
+                           <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100 mb-1 tracking-tight">Verified</h3>
+                           <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                             Document intelligence extracted successfully.
+                           </p>
+                           <p className="text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 pt-4 animate-pulse uppercase tracking-widest">
+                             Closing...
+                           </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                          <button
+                            onClick={onClose}
+                            className="btn-secondary py-3 text-sm font-black dark:bg-slate-800"
+                          >
+                            Close Modal
+                          </button>
+                          <button
+                            onClick={resetToIdle}
+                            className="btn-primary py-3 text-sm font-black bg-slate-900 dark:bg-blue-600"
+                          >
+                            Manage Files
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100 dark:border-slate-800">
                   <button
                     onClick={onClose}
-                    className="w-full btn-secondary py-3 text-base font-black dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 active:scale-95 transition-all"
+                    className="w-full btn-secondary py-3 text-base font-black dark:bg-slate-800"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={startUpload}
-                    className="w-full btn-primary py-3 text-base font-black shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
+                    className="w-full btn-primary py-3 text-base font-black"
                   >
                     Start Extraction ({files.length})
                   </button>
@@ -293,6 +327,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
           )}
         </div>
       </div>
+      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} />
     </div>,
     document.body
   );

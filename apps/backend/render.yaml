@@ -6,7 +6,7 @@ services:
     startCommand: npm start
     envVars:
       - key: DATABASE_URL
-        sync: false
+        sync: false # Set in Render Dashboard
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
@@ -17,3 +17,5 @@ services:
         sync: false
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 3001

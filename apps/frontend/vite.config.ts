@@ -7,6 +7,10 @@ export default defineConfig({
     postcss: './postcss.config.cjs',
   },
   server: {
-    port: 5173
+    host: true,
+    port: 5173,
+    allowedHosts: [
+      'brynlee-macrolecithal-uncommiseratively.ngrok-free.dev'
+    ]
   }
 })

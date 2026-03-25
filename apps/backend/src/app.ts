@@ -3,10 +3,20 @@ import cors from 'cors';
 import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/authMiddleware';
+import { WebhookController } from './controllers/webhookController';
 
 const app = express();
 
 app.use(cors());
+
+// Lemon Squeezy Webhook (Unprotected & Raw)
+// MUST be registered before global express.json() to capture raw body for signature
+app.post(
+  '/webhooks/lemon-squeezy',
+  express.raw({ type: 'application/json' }),
+  WebhookController.handleLemonSqueezy
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
