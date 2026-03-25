@@ -24,7 +24,7 @@ export const documentService = {
     return res.json();
   },
 
-  async getStats(): Promise<{ totalCount: number, pendingCount: number, averageConfidence: number }> {
+  async getStats(): Promise<{ totalCount: number, pendingCount: number, averageConfidence: number, plan?: 'FREE' | 'PRO' }> {
     const res = await fetch(`${API_BASE_URL}/documents/stats`, {
       method: 'GET',
       headers: await getAuthHeaders()

@@ -17,9 +17,10 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
   onNewScan: () => void;
+  plan?: 'FREE' | 'PRO';
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ onNewScan }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, plan = 'FREE' }) => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -188,7 +189,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan }) => {
             </div>
             <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
               <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName}</p>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>Free Plan</p>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
+                {plan === 'PRO' ? 'Pro Plan' : 'Free Plan'}
+              </p>
             </div>
             <ChevronUp size={16} color={isMenuOpen ? 'var(--nav-active-text)' : 'var(--text-secondary)'} />
           </button>

@@ -73,7 +73,7 @@ export class DocumentController {
         return res.status(400).json({ error: 'Invalid organization context' });
       }
 
-      const [totalCount, pendingCount, avgResult] = await Promise.all([
+      const [totalCount, pendingCount, avgResult, organization] = await Promise.all([
         prisma.document.count({ where: { organizationId: organizationId as string } as any }),
         prisma.document.count({
           where: {
@@ -84,6 +84,10 @@ export class DocumentController {
         prisma.document.aggregate({
           where: { organizationId } as any,
           _avg: { overallConfidence: true }
+        }),
+        prisma.organization.findUnique({
+          where: { id: organizationId as string },
+          select: { plan: true }
         })
       ]);
 
@@ -94,10 +98,11 @@ export class DocumentController {
       const payload = {
         totalCount: totalCount || 0,
         pendingCount: pendingCount || 0,
-        averageConfidence: Number(averageConfidence)
+        averageConfidence: Number(averageConfidence),
+        plan: organization?.plan || 'FREE'
       };
       
-      console.log(`[DocumentController] Stats computed successfully for ${organizationId}`);
+      console.log(`[DocumentController] Stats computed successfully for ${organizationId} (Plan: ${payload.plan})`);
       return res.status(200).json(payload);
     } catch (error) {
       console.error('[DocumentController] FATAL: Stats execution failed:', error);

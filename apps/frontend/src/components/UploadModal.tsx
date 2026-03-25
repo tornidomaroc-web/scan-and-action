@@ -9,9 +9,10 @@ interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  plan?: 'FREE' | 'PRO';
 }
 
-export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuccess }) => {
+export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuccess, plan = 'FREE' }) => {
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -110,8 +111,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
           setFileErrors(prev => ({ ...prev, [currentFile.name]: errorMessage }));
           showToast(`${currentFile.name}: ${errorMessage}`, 'error');
           
-          // Trigger Paywall if error is multi-document validation
-          if (errorMessage === 'Please upload a single document per image') {
+          // Trigger Paywall if error is multi-document validation AND user is not PRO
+          if (errorMessage === 'Please upload a single document per image' && plan !== 'PRO') {
             setShowPaywall(true);
           }
         }
