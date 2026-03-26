@@ -161,4 +161,55 @@ export class DocumentController {
       next(error);
     }
   }
+
+  public static async exportCsv(req: Request, res: Response, next: NextFunction) {
+    try {
+      const organizationId = req.user.organizationId;
+      
+      const docs = await prisma.document.findMany({
+        where: { organizationId: organizationId as string } as any,
+        include: {
+          facts: true,
+          documentEntities: {
+            include: { entity: true }
+          }
+        },
+        orderBy: { uploadedAt: 'desc' }
+      });
+
+      const escape = (val: any) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+      const csvRows = [];
+
+      // CSV Header - Using 'Merchant' as the primary entity semantic in this application
+      csvRows.push(['Document ID', 'File Name', 'Status', 'Confidence', 'Uploaded At', 'Date', 'Merchant', 'Amount'].join(','));
+
+      for (const doc of docs) {
+        const dateFact = doc.facts.find(f => f.factType === 'DATE');
+        const amountFact = doc.facts.find(f => f.factType === 'AMOUNT');
+        const merchantEntity = doc.documentEntities.find(e => e.role === 'ISSUER' || e.role === 'Issuer' || e.role === 'VENDOR');
+
+        const row = [
+          escape(doc.id),
+          escape(doc.originalFileName || 'unnamed_document'),
+          escape(doc.status),
+          escape(`${((doc.overallConfidence ?? 0) * 100).toFixed(1)}%`),
+          escape(doc.uploadedAt instanceof Date ? doc.uploadedAt.toISOString() : ''),
+          escape(dateFact?.valueDate ? (dateFact.valueDate instanceof Date ? dateFact.valueDate.toISOString().split('T')[0] : '') : (dateFact?.valueString || '')),
+          escape((merchantEntity as any)?.entity?.canonicalName || ''),
+          escape(amountFact?.valueNumber || '')
+        ];
+        csvRows.push(row.join(','));
+      }
+
+      const csvString = csvRows.join('\n');
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="scan-action-export-${new Date().toISOString().split('T')[0]}.csv"`);
+      
+      return res.status(200).send(csvString);
+    } catch (error) {
+      console.error('[DocumentController] Export CSV failed:', error);
+      next(error);
+    }
+  }
 }

@@ -22,11 +22,11 @@ export class UploadController {
       console.log(`[UploadController DEBUG] Calling validateSingleDocument...`);
       const isSingleDoc = await ingestionService.validateSingleDocument(file.buffer, file.mimetype);
       console.log(`[UploadController DEBUG] isSingleDoc result: ${isSingleDoc}`);
-      
+
       if (!isSingleDoc) {
         console.warn('[UploadController] Blocked upload: multi-document image detected');
-        return res.status(422).json({ 
-          error: 'Please upload a single document per image' 
+        return res.status(422).json({
+          error: 'Please upload a single document per image'
         });
       }
 

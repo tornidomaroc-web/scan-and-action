@@ -1,28 +1,32 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Search, 
-  ClipboardList, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Search,
+  ClipboardList,
+  Settings,
   Plus,
   LogOut,
   User,
   Zap,
   Sun,
   Moon,
-  ChevronUp
+  ChevronUp,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 interface SidebarProps {
   onNewScan: () => void;
+  onRefreshPlan?: () => void;
   plan?: 'FREE' | 'PRO';
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, plan = 'FREE' }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan }) => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { showToast } = useToast();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [theme, setTheme] = useState(() => {
     return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
@@ -58,11 +62,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, plan = 'FREE' }) =>
     onNewScan();
   };
 
+  const handleRefreshClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRefreshPlan) {
+      onRefreshPlan();
+      showToast('Checking for your PRO upgrade...', 'info');
+    }
+  };
+
   return (
-    <aside style={{ 
-      width: '260px', 
-      height: '100vh', 
-      backgroundColor: 'var(--card)', 
+    <aside style={{
+      width: '260px',
+      height: '100vh',
+      backgroundColor: 'var(--card)',
       borderRight: '1px solid var(--border)',
       display: 'flex',
       flexDirection: 'column',
@@ -82,9 +94,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, plan = 'FREE' }) =>
 
       {/* Primary Action */}
       <div style={{ padding: '0 16px 24px 16px' }}>
-        <button 
+        <button
           onClick={handleNewScanClick}
-          className="btn-primary" 
+          className="btn-primary"
           style={{ width: '100%', cursor: 'pointer' }}
         >
           <Plus size={18} />
@@ -109,14 +121,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, plan = 'FREE' }) =>
 
       {/* Theme Toggle & User Info */}
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border)' }}>
-        <button 
+        <button
           onClick={toggleTheme}
-          style={{ 
-            width: '100%', 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '12px', 
-            padding: '10px 16px', 
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '10px 16px',
             borderRadius: '8px',
             background: 'var(--nav-hover)',
             border: 'none',
@@ -130,37 +142,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, plan = 'FREE' }) =>
           {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           {theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
         </button>
-        
+
         <div style={{ position: 'relative' }}>
           {/* Dropup Menu */}
           {isMenuOpen && (
-            <div style={{ 
-              position: 'absolute', 
-              bottom: '100%', 
-              left: 0, 
-              right: 0, 
-              backgroundColor: 'var(--card)', 
-              border: '1px solid var(--border)', 
-              borderRadius: '12px', 
+            <div style={{
+              position: 'absolute',
+              bottom: '100%',
+              left: 0,
+              right: 0,
+              backgroundColor: 'var(--card)',
+              border: '1px solid var(--border)',
+              borderRadius: '12px',
               boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05)',
               overflow: 'hidden',
               zIndex: 100,
               marginBottom: '8px'
             }}>
-              <button 
+              <button
                 onClick={() => { navigate('/profile'); setIsMenuOpen(false); }}
                 style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: '14px', color: 'var(--text-primary)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
                 <User size={16} color="var(--text-secondary)" /> My Profile
               </button>
-              <button 
+              <button
                 onClick={() => { navigate('/settings'); setIsMenuOpen(false); }}
                 style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: '14px', color: 'var(--text-primary)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
                 <Settings size={16} color="var(--text-secondary)" /> Settings
               </button>
               <div style={{ borderTop: '1px solid var(--border)' }} />
-              <button 
+              <button
                 onClick={handleLogout}
                 style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: '14px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}
               >
@@ -169,14 +181,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, plan = 'FREE' }) =>
             </div>
           )}
 
-          <button 
+          <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            style={{ 
-              width: '100%', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              padding: '8px', 
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '8px',
               borderRadius: '8px',
               background: isMenuOpen ? 'var(--nav-hover)' : 'none',
               border: 'none',
@@ -189,9 +201,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, plan = 'FREE' }) =>
             </div>
             <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
               <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName}</p>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
-                {plan === 'PRO' ? 'Pro Plan' : 'Free Plan'}
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
+                  {plan === 'PRO' ? 'Pro Plan' : plan === 'FREE' ? 'Free Plan' : 'Checking Plan...'}
+                </p>
+                {plan === 'FREE' && (
+                  <button
+                    onClick={handleRefreshClick}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', opacity: 0.6 }}
+                    title="Refresh subscription status"
+                  >
+                    <RefreshCw size={10} color="var(--text-secondary)" />
+                  </button>
+                )}
+              </div>
             </div>
             <ChevronUp size={16} color={isMenuOpen ? 'var(--nav-active-text)' : 'var(--text-secondary)'} />
           </button>

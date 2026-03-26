@@ -12,7 +12,7 @@ interface UploadModalProps {
   plan?: 'FREE' | 'PRO';
 }
 
-export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuccess, plan = 'FREE' }) => {
+export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuccess, plan }) => {
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -37,11 +37,29 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
   }, [isOpen]);
 
   const addFiles = (newFiles: FileList | File[]) => {
-    const validFiles = Array.from(newFiles).filter(newFile => {
+    const incomingFiles = Array.from(newFiles);
+    const totalPotentialCount = files.length + incomingFiles.length;
+
+    // -----------------------------------------------------------------------
+    // FIX-06/07 — TRI-STATE GATING: Strictly limit FREE to 1 file per batch
+    // -----------------------------------------------------------------------
+    if (totalPotentialCount > 1) {
+      if (plan === 'FREE') {
+        setShowPaywall(true);
+        return; // Reject ALL incoming files for better UX clarity
+      }
+      
+      if (plan === undefined) {
+        showToast('Verifying account status...', 'info');
+        return; // Reject until plan is confirmed (Neutral behavior)
+      }
+    }
+
+    const validFiles = incomingFiles.filter(newFile => {
       return !files.some(f => f.name === newFile.name && f.size === newFile.size && f.lastModified === newFile.lastModified);
     });
     
-    if (validFiles.length < Array.from(newFiles).length) {
+    if (validFiles.length < incomingFiles.length) {
       showToast('Duplicate files ignored', 'info');
     }
     

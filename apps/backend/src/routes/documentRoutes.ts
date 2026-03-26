@@ -8,8 +8,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.get('/stats', DocumentController.getStats);
 router.get('/review', DocumentController.getReviewQueue);
-router.get('/stats', DocumentController.getStats);
-router.get('/review', DocumentController.getReviewQueue);
+router.get('/export.csv', DocumentController.exportCsv);
 router.get('/recent', DocumentController.getRecentDocuments);
 router.get('/:id', DocumentController.getDocumentDetail);
 router.patch('/:id/status', DocumentController.updateStatus);

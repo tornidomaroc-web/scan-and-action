@@ -7,7 +7,7 @@ import { documentService } from '../services/documentService';
 export const Layout: React.FC = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [refreshCount, setRefreshCount] = useState(0);
-  const [plan, setPlan] = useState<'FREE' | 'PRO'>('FREE');
+  const [plan, setPlan] = useState<'FREE' | 'PRO' | undefined>(undefined);
 
   useEffect(() => {
     documentService.getStats().then(stats => {
@@ -25,11 +25,15 @@ export const Layout: React.FC = () => {
     setRefreshCount(prev => prev + 1);
   };
 
+  const handleRefreshPlan = () => {
+    setRefreshCount(prev => prev + 1);
+  };
+
   return (
     <div className="flex min-h-screen w-full bg-slate-50 dark:bg-slate-950 transition-colors duration-500">
       {/* Sidebar - Fixed Layer */}
       <aside className="fixed inset-y-0 left-0 z-50 w-[280px] border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all duration-500">
-        <Sidebar onNewScan={handleNewScan} plan={plan} />
+        <Sidebar onNewScan={handleNewScan} plan={plan} onRefreshPlan={handleRefreshPlan} />
       </aside>
       
       {/* Main Content Area */}

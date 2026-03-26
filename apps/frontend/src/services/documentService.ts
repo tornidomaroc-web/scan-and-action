@@ -60,4 +60,22 @@ export const documentService = {
 
     return res.json();
   },
+
+  async exportCsv(): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/documents/export.csv`, {
+      method: 'GET',
+      headers: await getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to export CSV');
+    
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `documents-export-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
 };

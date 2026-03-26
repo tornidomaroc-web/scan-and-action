@@ -207,13 +207,23 @@ export const DashboardScreen = ({ t }: { t: any }) => {
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Validate</span>
                </div>
             </button>
-            <div className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 opacity-60 flex items-center gap-4">
-               <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700"><Database size={20} className="text-slate-300" /></div>
+            <button 
+               onClick={async () => {
+                 try {
+                   await documentService.exportCsv();
+                 } catch (err) {
+                   console.error('Export failed:', err);
+                   alert('Export failed. Please try again.');
+                 }
+               }} 
+               className="group bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-emerald-500 transition-all shadow-sm hover:shadow-xl active:scale-95 text-left flex items-center gap-4"
+            >
+               <div className="bg-slate-100 dark:bg-slate-700 p-3 rounded-2xl text-slate-600 dark:text-slate-400 group-hover:bg-emerald-500 group-hover:text-white transition-all"><Database size={20} /></div>
                <div>
-                  <span className="font-black text-slate-400 block">Expert</span>
-                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-tight italic">Soon</span>
+                  <span className="font-black text-slate-900 dark:text-white block">Export CSV</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Download Data</span>
                </div>
-            </div>
+            </button>
          </div>
       </div>
 

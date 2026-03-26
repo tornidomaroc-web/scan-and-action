@@ -165,13 +165,35 @@ export class GeminiExtractionAdapter {
 └───────────────────────────────────────────────────────────┘
       `);
 
+      // -----------------------------------------------------------------------
+      // FIX-04 — CORE-FACT COMPLETENESS SCORING
+      // -----------------------------------------------------------------------
+      // We derive overallConfidence from a fixed baseline of core facts:
+      // [Date, Total Amount].
+      // - 0.99 = Found and valid
+      // - 0.3  = Extracted but marked as 'UNKNOWN' (unreliable)
+      // - 0.0  = Missing from the extraction entirely
+      // -----------------------------------------------------------------------
+      let dateScore = 0.0;
+      let amountScore = 0.0;
+
+      if (rawJson.date) {
+        dateScore = finalDate === 'UNKNOWN' ? 0.3 : 0.99;
+      }
+
+      if (rawJson.totalAmount !== null && rawJson.totalAmount !== undefined) {
+        amountScore = 0.99;
+      }
+
+      const completenessScore = (dateScore + amountScore) / 2;
+
       const mappedResult: GeminiExtractionResult = {
         detectedLanguage: rawJson.language || 'en',
         documentType: rawJson.documentType || 'Other',
         documentSubtype: 'Professional Intelligence',
         rawText: rawJson.rawText || '',
         summary: rawJson.summary || 'Verified automated extraction.',
-        overallConfidence: 0.99,
+        overallConfidence: completenessScore,
         facts: [],
         entities: []
       };

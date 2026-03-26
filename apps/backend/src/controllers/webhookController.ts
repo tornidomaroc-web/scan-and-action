@@ -66,6 +66,39 @@ export class WebhookController {
         }
       }
 
+      // -----------------------------------------------------------------------
+      // FIX-05 — DEFINITIVE DOWNGRADE: Handle subscription expiration
+      // -----------------------------------------------------------------------
+      // We ONLY downgrade on terminal 'expired' states. 
+      // We intentionally SKIP immediate downgrade for:
+      // - subscription_cancelled (user has access until end of paid period)
+      // - subscription_updated with status 'past_due' or 'unpaid' (grace period)
+      // -----------------------------------------------------------------------
+      const isExplicitExpired = eventName === 'subscription_expired';
+      const isStatusExpiredUpdate = eventName === 'subscription_updated' && event.data?.attributes?.status === 'expired';
+
+      if (isExplicitExpired || isStatusExpiredUpdate) {
+        if (email) {
+          const user = await prisma.user.findUnique({
+            where: { email },
+            include: { memberships: true },
+          });
+
+          if (user && user.memberships.length > 0) {
+            const orgId = user.memberships[0].organizationId;
+
+            await prisma.organization.update({
+              where: { id: orgId },
+              data: { plan: 'FREE' },
+            });
+
+            console.log(`[Webhook] DOWNGRADE: Org ${orgId} reverted to FREE (ref: ${email}, event: ${eventName})`);
+          } else {
+            console.warn(`[Webhook] Downgrade skipped: No organization found for ${email}`);
+          }
+        }
+      }
+
       return res.status(200).send('OK');
     } catch (error: any) {
       console.error('[Webhook] Error processing Lemon Squeezy event:', error.message || error);

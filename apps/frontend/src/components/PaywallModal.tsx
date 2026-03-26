@@ -44,7 +44,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
               <Zap size={32} className="text-white fill-white" />
             </div>
             <h2 className="text-2xl font-black text-white tracking-tight uppercase italic">
-              Multiple Documents Detected
+              Upgrade to PRO
             </h2>
           </div>
           <button
@@ -58,7 +58,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
         {/* Content */}
         <div className="p-8">
           <p className="text-slate-600 dark:text-slate-400 font-bold text-center mb-8 leading-relaxed">
-            This image contains more than one document. <span className="text-slate-900 dark:text-white">Upgrade to Pro</span> to process all documents automatically.
+            Unlock the full power of Scan & Action. <span className="text-slate-900 dark:text-white">PRO</span> gives you the ultimate productivity workflow.
           </p>
 
           {/* Plan Selection */}
@@ -104,9 +104,9 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
           {/* Features List */}
           <div className="space-y-3 mb-8">
             {[
-              "Process multiple receipts in one image",
-              "Faster AI extraction & indexing",
-              "Advanced document insights & trends"
+              "Upload multiple files at once",
+              "Faster processing workflow",
+              "Export your data (CSV)"
             ].map((feature, i) => (
               <div key={i} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
                 <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
@@ -125,7 +125,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
             >
               <Crown size={20} fill="white" className="group-hover:rotate-12 transition-transform" />
-              Subscribe - {selectedPlan === 'monthly' ? '$5/month' : '$39/year'}
+              Upgrade Now - {selectedPlan === 'monthly' ? '$5/mo' : '$39/yr'}
             </button>
             <button
               onClick={onClose}
