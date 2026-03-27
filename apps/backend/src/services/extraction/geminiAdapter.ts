@@ -230,12 +230,23 @@ export class GeminiExtractionAdapter {
       return GeminiExtractionSchema.parse(mappedResult);
 
     } catch (error: any) {
-      console.error("[Gemini] Critical Error:", error.message);
+      const errorMessage = error.message || 'Unknown error';
+      let failureCause = 'INTERNAL_ERROR';
+
+      if (errorMessage.includes('parsing') || errorMessage.includes('JSON')) {
+        failureCause = 'PARSE_ERROR';
+      } else if (errorMessage.includes('fetch') || errorMessage.includes('API') || errorMessage.includes('safety')) {
+        failureCause = 'OCR_FAILED';
+      }
+
+      console.error(`[Gemini] [FAILURE_CAUSE]: ${failureCause}`);
+      console.error(`[Gemini] Detailed Error: ${errorMessage}`);
+
       return {
         detectedLanguage: 'en',
         documentType: 'Unknown',
-        rawText: 'Critical Error: ' + error.message,
-        summary: 'Document analysis failed.',
+        rawText: '',
+        summary: '',
         overallConfidence: 0.0,
         facts: [],
         entities: []
