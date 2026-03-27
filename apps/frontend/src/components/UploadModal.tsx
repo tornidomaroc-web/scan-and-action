@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, File, CheckCircle, AlertCircle, Loader2, Clock, Camera } from 'lucide-react';
+import { X, Upload, File as FileIcon, CheckCircle, AlertCircle, Loader2, Clock, Camera } from 'lucide-react';
 import { uploadDocument } from '../services/uploadService';
 import { documentService } from '../services/documentService';
 import { useToast } from '../contexts/ToastContext';
@@ -81,8 +81,79 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
     }
   }, [isOpen]);
 
-  const addFiles = (newFiles: FileList | File[]) => {
-    const incomingFiles = Array.from(newFiles);
+  /**
+   * Safe, browser-side image enhancement (Contrast 1.15)
+   * Skips PDFs and times out after 2 seconds.
+   */
+  const preprocessImage = async (file: File): Promise<File> => {
+    if (!file.type.startsWith('image/') || file.type.includes('pdf')) {
+      return file;
+    }
+
+    return new Promise((resolve) => {
+      const timeoutId = setTimeout(() => {
+        console.warn(`[Preprocessing] Timeout for ${file.name}, using original.`);
+        resolve(file);
+      }, 2000);
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            
+            if (!ctx) {
+              clearTimeout(timeoutId);
+              return resolve(file);
+            }
+
+            // Apply light contrast (1.15)
+            ctx.filter = 'contrast(1.15)';
+            ctx.drawImage(img, 0, 0);
+
+            canvas.toBlob((blob) => {
+              clearTimeout(timeoutId);
+              if (blob) {
+                const processedFile = new File([blob], file.name, { 
+                  type: file.type,
+                  lastModified: Date.now() 
+                });
+                console.log(`[Preprocessing] Success for ${file.name} (Enhanced)`);
+                resolve(processedFile);
+              } else {
+                resolve(file);
+              }
+            }, file.type, 0.95);
+          } catch (err) {
+            console.error(`[Preprocessing] Error for ${file.name}:`, err);
+            clearTimeout(timeoutId);
+            resolve(file);
+          }
+        };
+        img.onerror = () => {
+          clearTimeout(timeoutId);
+          resolve(file);
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => {
+        clearTimeout(timeoutId);
+        resolve(file);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const addFiles = async (newFiles: FileList | File[]) => {
+    let incomingFiles = Array.from(newFiles);
+    
+    // Phase 2: Apply light contrast enhancement to images
+    incomingFiles = await Promise.all(incomingFiles.map(f => preprocessImage(f)));
+
     const totalPotentialCount = files.length + incomingFiles.length;
 
     // -----------------------------------------------------------------------
@@ -325,7 +396,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                           ) : isProcessing ? (
                             <Loader2 size={20} className="animate-spin text-blue-600 dark:text-blue-400" />
                           ) : (
-                            <File size={20} className="text-blue-600 dark:text-blue-400" />
+                            <FileIcon size={20} className="text-blue-600 dark:text-blue-400" />
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
