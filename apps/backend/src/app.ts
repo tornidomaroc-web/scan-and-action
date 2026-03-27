@@ -7,11 +7,13 @@ import { WebhookController } from './controllers/webhookController';
 
 const app = express();
 
-// Restrict CORS to the deployed frontend origin.
-// Set ALLOWED_ORIGIN in your Vercel/production environment variables.
-const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:5173';
-app.use(cors({ origin: allowedOrigin }));
-console.log(`[CORS] Allowed origin: ${allowedOrigin}`);
+// Restrict CORS to known frontend origins.
+// Set ALLOWED_ORIGINS (comma-separated) in your Render environment variables.
+// e.g. ALLOWED_ORIGINS=https://scan-and-action.vercel.app,http://localhost:5173
+const rawOrigins = process.env.ALLOWED_ORIGINS || 'http://localhost:5173,https://scan-and-action.vercel.app';
+const allowedOrigins = rawOrigins.split(',').map((o) => o.trim());
+app.use(cors({ origin: allowedOrigins }));
+console.log(`[CORS] Allowed origins: ${allowedOrigins.join(', ')}`);
 
 // Lemon Squeezy Webhook (Unprotected & Raw)
 // MUST be registered before global express.json() to capture raw body for signature
