@@ -31,8 +31,15 @@ export class PersistenceService {
     const rawConfidence = extraction.overallConfidence ?? 0;
     const normalizedOverallConfidence = rawConfidence > 1 ? rawConfidence / 100 : rawConfidence;
 
+    // Phase 2.3: Structural Validation (Receipt Focus)
+    // We prevent "Completed" status if core facts are missing or confidence is weak.
+    const hasDate = extraction.facts.some(f => f.factType === 'DATE');
+    const hasAmount = extraction.facts.some(f => f.factType === 'AMOUNT');
+    const isEmpty = extraction.facts.length === 0;
+    const isWeak = normalizedOverallConfidence < 0.6 || isEmpty || !hasDate || !hasAmount;
+
     let documentStatus = 'COMPLETED';
-    if (normalizedOverallConfidence < CONFIDENCE_THRESHOLD) {
+    if (normalizedOverallConfidence < CONFIDENCE_THRESHOLD || isWeak) {
       documentStatus = 'NEEDS_REVIEW';
     }
 
