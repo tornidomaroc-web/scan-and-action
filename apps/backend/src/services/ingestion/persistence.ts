@@ -34,7 +34,9 @@ export class PersistenceService {
     // Phase 2.3 & 2.4: Structural & Anchor Validation (Receipt Focus)
     // We prevent "Completed" status if core facts or commercial anchors are missing.
     const hasDate = extraction.facts.some(f => f.factType === 'DATE');
-    const hasAmount = extraction.facts.some(f => f.factType === 'AMOUNT');
+    const hasAmount = extraction.facts.some(f => 
+      f.factType === 'AMOUNT' && (f.valueNumber != null || (f.valueString != null && f.valueString.trim() !== ''))
+    );
     const isEmpty = extraction.facts.length === 0;
 
     const text = (extraction.rawText || '').toLowerCase();
@@ -234,7 +236,7 @@ export class PersistenceService {
     console.warn(`[Persistence] Emergency fallback: Marking document ${documentId} as NEEDS_REVIEW.`);
     await this.prisma.document.update({
       where: { id: documentId },
-      data: { 
+      data: {
         status: 'NEEDS_REVIEW',
         processedAt: new Date()
       }
