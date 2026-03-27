@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, File, CheckCircle, AlertCircle, Loader2, Clock } from 'lucide-react';
+import { X, Upload, File, CheckCircle, AlertCircle, Loader2, Clock, Camera } from 'lucide-react';
 import { uploadDocument } from '../services/uploadService';
 import { documentService } from '../services/documentService';
 import { useToast } from '../contexts/ToastContext';
@@ -25,6 +25,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
   // docStatus tracks async processing state per file name: PROCESSING | COMPLETED | NEEDS_REVIEW | FAILED
   const [docStatus, setDocStatus] = useState<Record<string, string>>({});
   const pollTimers = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const { showToast } = useToast();
 
@@ -243,6 +244,27 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
         </div>
 
         <div className="p-8">
+          {/* Mobile-First Camera Action: Always available */}
+          {!uploading && status === 'idle' && (
+            <div className="mb-6">
+              <button 
+                onClick={() => cameraInputRef.current?.click()}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-black shadow-lg shadow-blue-500/25 flex items-center justify-center gap-3 transition-all active:scale-[0.98] border-2 border-blue-500/50"
+              >
+                <Camera size={24} />
+                Scan with Camera
+              </button>
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </div>
+          )}
+
           <div
             className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all mb-6 ${
               isDragging 
@@ -347,7 +369,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                   <div className="flex justify-between text-sm font-bold text-gray-900 dark:text-white mb-2">
                     <span className="flex items-center gap-2">
                       {status === 'success' ? (
-                        <><CheckCircle size={18} className="text-emerald-600"/> Success</>
+                        Object.values(docStatus).some(s => s === 'PROCESSING') ? (
+                          <><CheckCircle size={18} className="text-emerald-600"/> Uploaded ✔️ Processing...</>
+                        ) : (
+                          <><CheckCircle size={18} className="text-emerald-600"/> Success</>
+                        )
                       ) : status === 'partial' ? (
                         <><AlertCircle size={18} className="text-amber-600"/> Partial Success ({results.success}/{results.total})</>
                       ) : status === 'error' ? (
