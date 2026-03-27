@@ -194,13 +194,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
       if (successCount === totalCount) {
         setStatus('success');
         showToast(`Uploaded ${totalCount} document${totalCount > 1 ? 's' : ''}. Processing in background...`, 'success');
-        // Do NOT call onSuccess here — polling will call it when COMPLETED/NEEDS_REVIEW
+        if (onSuccess) onSuccess();
         setTimeout(() => {
           onClose();
         }, 2000);
       } else if (successCount > 0) {
         setStatus('partial');
         showToast(`Uploaded ${successCount}/${totalCount} documents. Some failed.`, 'info');
+        if (onSuccess) onSuccess();
       } else {
         setStatus('error');
       }
