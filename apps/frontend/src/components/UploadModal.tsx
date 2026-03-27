@@ -267,9 +267,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
         setStatus('success');
         showToast(`Uploaded ${totalCount} document${totalCount > 1 ? 's' : ''}. Processing in background...`, 'success');
         if (onSuccess) onSuccess();
-        setTimeout(() => {
-          onClose();
-        }, 2000);
       } else if (successCount > 0) {
         setStatus('partial');
         showToast(`Uploaded ${successCount}/${totalCount} documents. Some failed.`, 'info');
@@ -284,6 +281,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
       setUploading(false);
     }
   };
+
+  const isProcessing = Object.values(docStatus).some(s => s === 'PROCESSING');
 
   const resetToIdle = () => {
     setStatus('idle');
@@ -303,8 +302,17 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
       >
         <div className="px-8 py-6 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Upload Documents</h2>
-            <p className="text-sm font-medium text-gray-500 dark:text-slate-400 mt-1">Select one or more files for AI extraction.</p>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+              {status === 'idle' ? 'Upload Documents' : 
+               status === 'success' ? (isProcessing ? 'Extracting Intelligence' : 'Extraction Complete') :
+               status === 'partial' ? 'Partial Success' : 'Requirements Missing'}
+            </h2>
+            <p className="text-sm font-medium text-gray-500 dark:text-slate-400 mt-1">
+              {status === 'idle' ? 'Select one or more files for AI extraction.' : 
+               status === 'success' && isProcessing ? 'Please wait while we analyze your documents...' :
+               status === 'success' ? 'All documents have been successfully verified.' :
+               'Please review the status of your items below.'}
+            </p>
           </div>
           <button 
             onClick={onClose}
@@ -467,7 +475,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
 
                   {!uploading && status !== 'idle' && (
                     <div className="space-y-4">
-                      {status === 'success' ? (
+                      {status === 'success' && !isProcessing ? (
                         <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50 rounded-2xl p-6 text-center">
                            <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-emerald-100 dark:border-emerald-800">
                              <CheckCircle size={24} className="text-emerald-500" />
@@ -476,9 +484,21 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
                              Document intelligence extracted successfully.
                            </p>
-                           <p className="text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 pt-4 animate-pulse uppercase tracking-widest">
-                             Closing...
-                           </p>
+                           
+                           <div className="grid grid-cols-2 gap-4 mt-6">
+                             <button
+                               onClick={onClose}
+                               className="btn-secondary py-3 text-sm font-black dark:bg-slate-800 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400"
+                             >
+                               Done
+                             </button>
+                             <button
+                               onClick={resetToIdle}
+                               className="btn-primary py-3 text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-lg shadow-emerald-500/20"
+                             >
+                               Manage Files
+                             </button>
+                           </div>
                         </div>
                       ) : (
                         <div className="grid grid-cols-2 gap-4">
