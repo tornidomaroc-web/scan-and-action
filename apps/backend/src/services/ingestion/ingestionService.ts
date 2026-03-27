@@ -74,8 +74,15 @@ export class IngestionService {
       };
     }
 
-    console.log(`[Background] Persisting extraction result to document ${documentId}...`);
-    await this.persistenceService.updateDocumentWithExtraction(documentId, userId, organizationId, fileUrl, originalFileName, extractionResult);
+    try {
+      console.log(`[Background] Persisting extraction result to document ${documentId}...`);
+      await this.persistenceService.updateDocumentWithExtraction(documentId, userId, organizationId, fileUrl, originalFileName, extractionResult);
+    } catch (persistError: any) {
+      console.error(`[CRITICAL] Persistence failed for ${documentId}. Forcing NEEDS_REVIEW. Error: ${persistError.message}`);
+      await this.persistenceService.markAsNeedsReview(documentId).catch(finalErr => {
+        console.error(`[FATAL] Even emergency fallback failed for ${documentId}:`, finalErr.message);
+      });
+    }
 
     console.log(`[Background] Workflow complete for ${documentId}. Result confidence: ${extractionResult.overallConfidence}`);
   }

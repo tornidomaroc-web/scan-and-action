@@ -205,4 +205,19 @@ export class PersistenceService {
     console.log(`[Persistence] Result saved with ID: ${docId}`);
     return docId;
   }
+
+  /**
+   * Emergency fallback to force a document out of PROCESSING state.
+   * Used when the main transaction fails due to data constraints or DB hiccups.
+   */
+  public async markAsNeedsReview(documentId: string): Promise<void> {
+    console.warn(`[Persistence] Emergency fallback: Marking document ${documentId} as NEEDS_REVIEW.`);
+    await this.prisma.document.update({
+      where: { id: documentId },
+      data: { 
+        status: 'NEEDS_REVIEW',
+        processedAt: new Date()
+      }
+    });
+  }
 }
