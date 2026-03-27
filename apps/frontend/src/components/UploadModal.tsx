@@ -284,6 +284,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
 
   const isProcessing = Object.values(docStatus).some(s => s === 'PROCESSING');
 
+  const handleSafeClose = () => {
+    if (isProcessing) {
+      showToast('Extraction in progress. Please wait...', 'info');
+      return;
+    }
+    onClose();
+  };
+
   const resetToIdle = () => {
     setStatus('idle');
     setProgress(0);
@@ -294,7 +302,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
   return createPortal(
     <div 
       className="fixed inset-0 z-[10000] flex justify-center items-center bg-gray-900/80 dark:bg-black/60 backdrop-blur-sm p-4"
-      onClick={onClose}
+      onClick={handleSafeClose}
     >
       <div 
         className="w-full max-w-[560px] bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 border dark:border-slate-800"
@@ -315,8 +323,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
             </p>
           </div>
           <button 
-            onClick={onClose}
-            className="p-2 text-gray-400 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            onClick={handleSafeClose}
+            disabled={isProcessing}
+            className={`p-2 rounded-lg transition-colors ${
+              isProcessing 
+                ? 'text-gray-200 dark:text-slate-700 cursor-not-allowed' 
+                : 'text-gray-400 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800'
+            }`}
           >
             <X size={24} />
           </button>
@@ -487,7 +500,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                            
                            <div className="grid grid-cols-2 gap-4 mt-6">
                              <button
-                               onClick={onClose}
+                               onClick={handleSafeClose}
                                className="btn-secondary py-3 text-sm font-black dark:bg-slate-800 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400"
                              >
                                Done
@@ -503,7 +516,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                       ) : (
                         <div className="grid grid-cols-2 gap-4">
                           <button
-                            onClick={onClose}
+                            onClick={handleSafeClose}
                             className="btn-secondary py-3 text-sm font-black dark:bg-slate-800"
                           >
                             Close Modal
@@ -522,7 +535,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
               ) : (
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100 dark:border-slate-800">
                   <button
-                    onClick={onClose}
+                    onClick={handleSafeClose}
                     className="w-full btn-secondary py-3 text-base font-black dark:bg-slate-800"
                   >
                     Cancel
