@@ -19,22 +19,26 @@ export class IngestionService {
   }
 
   /**
-   * Orchestrates the complete end-to-end ingestion pipeline.
-   * Image -> Structured JSON -> Persistence
+   * Background async extraction for an existing PROCESSING stub document.
+   * Runs after the HTTP response is already sent.
+   * Updates the document to COMPLETED, NEEDS_REVIEW, or FAILED.
    */
-  public async processUpload(userId: string, organizationId: string, targetFileBuffer: Buffer, mimeType: string, originalFileName: string, fileUrl: string): Promise<{ documentId: string }> {
-    console.log(`[Ingestion Core] Starting pipeline for ${originalFileName} in Org ${organizationId}...`);
-    
-    // Step 1: Pass image to Vision LLM. Enforces Zod schema internally.
-    console.log(`[Ingestion Core] Extracting structured data via LLM...`);
+  public async processUploadAsync(
+    documentId: string,
+    userId: string,
+    organizationId: string,
+    targetFileBuffer: Buffer,
+    mimeType: string,
+    originalFileName: string,
+    fileUrl: string
+  ): Promise<void> {
+    console.log(`[Background] Starting extraction for document ${documentId} (${originalFileName})...`);
+
     const extractionResult = await this.geminiAdapter.extractFromImage(targetFileBuffer, mimeType);
 
-    // Step 2: Push to Persistence Layer which handles Translation, Normalization, Entity Resolution 
-    // and flagging for NEEDS_REVIEW.
-    console.log(`[Ingestion Core] Normalizing and saving to Database...`);
-    const documentId = await this.persistenceService.persistIngestionResult(userId, organizationId, fileUrl, originalFileName, extractionResult);
+    console.log(`[Background] Extraction done. Persisting to document ${documentId}...`);
+    await this.persistenceService.updateDocumentWithExtraction(documentId, userId, organizationId, fileUrl, originalFileName, extractionResult);
 
-    console.log(`[Ingestion Core] Pipeline Complete. Document ID: ${documentId}`);
-    return { documentId };
+    console.log(`[Background] Extraction complete for ${documentId}.`);
   }
 }

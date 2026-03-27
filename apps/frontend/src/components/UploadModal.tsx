@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, File, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { X, Upload, File, CheckCircle, AlertCircle, Loader2, Clock } from 'lucide-react';
 import { uploadDocument } from '../services/uploadService';
+import { documentService } from '../services/documentService';
 import { useToast } from '../contexts/ToastContext';
 import { PaywallModal } from './PaywallModal';
 
@@ -21,8 +22,46 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
   const [results, setResults] = useState<{ success: number; total: number }>({ success: 0, total: 0 });
   const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
   const [showPaywall, setShowPaywall] = useState(false);
-  
+  // docStatus tracks async processing state per file name: PROCESSING | COMPLETED | NEEDS_REVIEW | FAILED
+  const [docStatus, setDocStatus] = useState<Record<string, string>>({});
+  const pollTimers = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+
   const { showToast } = useToast();
+
+  // Polls a single document until it leaves PROCESSING (or 90s timeout)
+  const startPolling = (fileName: string, documentId: string) => {
+    const startTime = Date.now();
+    const TIMEOUT_MS = 90_000;
+    const INTERVAL_MS = 3_000;
+
+    setDocStatus(prev => ({ ...prev, [fileName]: 'PROCESSING' }));
+
+    const timer = setInterval(async () => {
+      try {
+        if (Date.now() - startTime > TIMEOUT_MS) {
+          clearInterval(timer);
+          setDocStatus(prev => ({ ...prev, [fileName]: 'FAILED' }));
+          return;
+        }
+        const doc = await documentService.getDocumentDetail(documentId);
+        const s: string = doc.status ?? 'PROCESSING';
+        setDocStatus(prev => ({ ...prev, [fileName]: s }));
+        if (s !== 'PROCESSING') {
+          clearInterval(timer);
+          delete pollTimers.current[fileName];
+          if (s === 'COMPLETED' || s === 'NEEDS_REVIEW') {
+            // Refresh dashboard data once processing is confirmed
+            onSuccess?.();
+          }
+        }
+      } catch {
+        clearInterval(timer);
+        setDocStatus(prev => ({ ...prev, [fileName]: 'FAILED' }));
+      }
+    }, INTERVAL_MS);
+
+    pollTimers.current[fileName] = timer;
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -33,6 +72,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
       setResults({ success: 0, total: 0 });
       setFileErrors({});
       setShowPaywall(false);
+      setDocStatus({});
+    } else {
+      // Clear all poll timers when modal closes
+      Object.values(pollTimers.current).forEach(clearInterval);
+      pollTimers.current = {};
     }
   }, [isOpen]);
 
@@ -120,15 +164,19 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
       for (let i = 0; i < totalCount; i++) {
         const currentFile = files[i];
         try {
-          await uploadDocument(currentFile);
+          const result = await uploadDocument(currentFile);
           successCount++;
           successfulFileIndices.push(i);
+          // If backend returned async PROCESSING status, begin polling
+          if (result?.documentId && result?.status === 'PROCESSING') {
+            startPolling(currentFile.name, result.documentId);
+          }
         } catch (err: any) {
           console.error(`Failed to upload ${currentFile.name}:`, err);
           const errorMessage = err.message || 'Processing failed';
           setFileErrors(prev => ({ ...prev, [currentFile.name]: errorMessage }));
           showToast(`${currentFile.name}: ${errorMessage}`, 'error');
-          
+
           // Trigger Paywall if error is multi-document validation AND user is not PRO
           if (errorMessage === 'Please upload a single document per image' && plan !== 'PRO') {
             setShowPaywall(true);
@@ -138,22 +186,21 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
       }
 
       setResults({ success: successCount, total: totalCount });
-      
+
       if (successfulFileIndices.length > 0) {
         setFiles(prev => prev.filter((_, idx) => !successfulFileIndices.includes(idx)));
       }
 
       if (successCount === totalCount) {
         setStatus('success');
-        showToast(`Successfully uploaded ${totalCount} documents`, 'success');
-        if (onSuccess) onSuccess();
+        showToast(`Uploaded ${totalCount} document${totalCount > 1 ? 's' : ''}. Processing in background...`, 'success');
+        // Do NOT call onSuccess here — polling will call it when COMPLETED/NEEDS_REVIEW
         setTimeout(() => {
           onClose();
         }, 2000);
       } else if (successCount > 0) {
         setStatus('partial');
         showToast(`Uploaded ${successCount}/${totalCount} documents. Some failed.`, 'info');
-        if (onSuccess) onSuccess();
       } else {
         setStatus('error');
       }
@@ -229,26 +276,52 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
           {files.length > 0 && (
             <div className="space-y-4">
               <div className="max-h-[240px] overflow-y-auto pr-2 space-y-2">
-                {files.map((f, idx) => (
-                  <div key={`${f.name}-${idx}`} className={`p-3 rounded-lg border flex flex-col gap-2 shadow-sm transition-colors ${fileErrors[f.name] ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50' : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'}`}>
+                {files.map((f, idx) => {
+                  const ds = docStatus[f.name];
+                  const hasError = !!fileErrors[f.name];
+                  const isProcessing = ds === 'PROCESSING';
+                  const isCompleted = ds === 'COMPLETED' || ds === 'NEEDS_REVIEW';
+                  const isFailed = ds === 'FAILED';
+                  return (
+                  <div key={`${f.name}-${idx}`} className={`p-3 rounded-lg border flex flex-col gap-2 shadow-sm transition-colors ${
+                    hasError || isFailed ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50'
+                    : isCompleted ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/50'
+                    : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'
+                  }`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-sm border flex-shrink-0 ${fileErrors[f.name] ? 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800/40' : 'bg-white dark:bg-slate-700 border-gray-100 dark:border-slate-600'}`}>
-                          {fileErrors[f.name] ? (
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-sm border flex-shrink-0 ${
+                          hasError || isFailed ? 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800/40'
+                          : isCompleted ? 'bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800/40'
+                          : 'bg-white dark:bg-slate-700 border-gray-100 dark:border-slate-600'
+                        }`}>
+                          {hasError || isFailed ? (
                             <AlertCircle size={20} className="text-red-600 dark:text-red-400" />
+                          ) : isCompleted ? (
+                            <CheckCircle size={20} className="text-emerald-600 dark:text-emerald-400" />
+                          ) : isProcessing ? (
+                            <Loader2 size={20} className="animate-spin text-blue-600 dark:text-blue-400" />
                           ) : (
                             <File size={20} className="text-blue-600 dark:text-blue-400" />
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className={`text-sm font-bold truncate ${fileErrors[f.name] ? 'text-red-900 dark:text-red-200' : 'text-gray-900 dark:text-slate-100'}`}>{f.name}</p>
+                          <p className={`text-sm font-bold truncate ${
+                            hasError || isFailed ? 'text-red-900 dark:text-red-200'
+                            : isCompleted ? 'text-emerald-900 dark:text-emerald-100'
+                            : 'text-gray-900 dark:text-slate-100'
+                          }`}>{f.name}</p>
                           <p className="text-[10px] font-semibold text-gray-500 dark:text-slate-400 mt-0.5 uppercase tracking-wider">
                             {(f.size / 1024 / 1024).toFixed(2)} MB • {f.type.split('/')[1]?.toUpperCase() || 'FILE'}
+                            {isProcessing && <span className="ml-1 text-blue-500">• Analysing…</span>}
+                            {ds === 'NEEDS_REVIEW' && <span className="ml-1 text-amber-500">• Needs Review</span>}
+                            {ds === 'COMPLETED' && <span className="ml-1 text-emerald-500">• Done</span>}
+                            {isFailed && <span className="ml-1 text-red-500">• Failed</span>}
                           </p>
                         </div>
                       </div>
-                      {!uploading && (
-                        <button 
+                      {!uploading && !isProcessing && (
+                        <button
                           onClick={() => removeFile(idx)}
                           className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
                           aria-label="Remove file"
@@ -256,14 +329,16 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                           <X size={16} />
                         </button>
                       )}
+                      {isProcessing && <Clock size={14} className="text-blue-400 flex-shrink-0" />}
                     </div>
-                    {fileErrors[f.name] && (
+                    {(hasError || isFailed) && (
                       <p className="text-[11px] font-bold text-red-600 dark:text-red-400 bg-red-100/50 dark:bg-red-900/20 px-2 py-1 rounded">
-                        {fileErrors[f.name]}
+                        {fileErrors[f.name] || 'AI extraction failed. Please try again.'}
                       </p>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {uploading || status !== 'idle' ? (

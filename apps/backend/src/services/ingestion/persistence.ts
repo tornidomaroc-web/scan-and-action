@@ -16,6 +16,94 @@ export class PersistenceService {
     this.normalizer = new NormalizationService();
   }
 
+  /**
+   * Updates an existing PROCESSING stub document with AI extraction results.
+   * Used by the background async flow after the HTTP response is already sent.
+   */
+  public async updateDocumentWithExtraction(
+    documentId: string,
+    userId: string,
+    organizationId: string,
+    fileUrl: string,
+    originalFileName: string,
+    extraction: GeminiExtractionResult
+  ): Promise<void> {
+    const rawConfidence = extraction.overallConfidence ?? 0;
+    const normalizedOverallConfidence = rawConfidence > 1 ? rawConfidence / 100 : rawConfidence;
+
+    let documentStatus = 'COMPLETED';
+    if (normalizedOverallConfidence < CONFIDENCE_THRESHOLD) {
+      documentStatus = 'NEEDS_REVIEW';
+    }
+
+    console.log(`[Persistence] Updating stub document ${documentId} with extraction results...`);
+    await this.prisma.$transaction(async (tx) => {
+      const englishNormalizedText = this.normalizer.normalizeTextToEnglish(
+        extraction.rawText,
+        extraction.detectedLanguage
+      );
+
+      await tx.document.update({
+        where: { id: documentId },
+        data: {
+          documentType: this.normalizer.normalizeDocumentType(extraction.documentType),
+          documentSubtype: extraction.documentSubtype,
+          detectedLanguage: extraction.detectedLanguage,
+          rawText: extraction.rawText,
+          normalizedText: englishNormalizedText,
+          summary: extraction.summary,
+          overallConfidence: extraction.overallConfidence,
+          status: documentStatus,
+          processedAt: new Date(),
+        }
+      });
+
+      for (const rawFact of extraction.facts) {
+        const canonicalKey = this.normalizer.normalizeFactKey(rawFact.key);
+        const isReviewed = rawFact.confidence >= CONFIDENCE_THRESHOLD;
+
+        if (!isReviewed && documentStatus !== 'NEEDS_REVIEW') {
+          documentStatus = 'NEEDS_REVIEW';
+          await tx.document.update({
+            where: { id: documentId },
+            data: { status: 'NEEDS_REVIEW' }
+          });
+        }
+
+        await tx.documentFact.create({
+          data: {
+            documentId,
+            factType: rawFact.factType,
+            key: canonicalKey,
+            valueString: rawFact.valueString,
+            valueNumber: rawFact.valueNumber,
+            valueDate: rawFact.valueDate ? new Date(rawFact.valueDate) : null,
+            currency: this.normalizer.normalizeCurrency(rawFact.currency),
+            confidence: rawFact.confidence,
+            sourceSpan: rawFact.sourceSpan,
+            isReviewed,
+          }
+        });
+      }
+
+      for (const rawEntity of extraction.entities) {
+        const globalEntity = await this.entityResolver.resolveOrGenerateEntity(organizationId, rawEntity);
+        const canonicalRole = rawEntity.role.toUpperCase().replace(/\s+/g, '_');
+
+        await tx.documentEntity.create({
+          data: {
+            documentId,
+            entityId: globalEntity.id,
+            role: canonicalRole,
+            confidence: rawEntity.confidence,
+          }
+        });
+      }
+
+      console.log(`[Persistence] Update transaction successful for ${documentId}. Status: ${documentStatus}`);
+    });
+  }
+
   public async persistIngestionResult(
     userId: string,
     organizationId: string,

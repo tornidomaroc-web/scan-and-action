@@ -1,6 +1,6 @@
 import { API_BASE_URL, getAuthHeaders } from './apiConfig';
 
-export const uploadDocument = async (file: File): Promise<any> => {
+export const uploadDocument = async (file: File): Promise<{ documentId: string; status: string }> => {
   const formData = new FormData();
   formData.append('file', file);
 
@@ -18,7 +18,8 @@ export const uploadDocument = async (file: File): Promise<any> => {
     data = null;
   }
 
-  if (!response.ok) {
+  // Accept 201 (legacy) and 202 (async) as success
+  if (!response.ok && response.status !== 201 && response.status !== 202) {
     throw new Error(data?.error || data?.message || `Upload failed with status: ${response.status}`);
   }
 

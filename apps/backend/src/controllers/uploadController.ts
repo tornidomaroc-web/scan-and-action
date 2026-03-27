@@ -34,21 +34,47 @@ export class UploadController {
       const filePath = await uploadToSupabase(file);
       console.log(`[UploadController] File uploaded to storage at: ${filePath}`);
 
-      console.log(`[UploadController] Triggering ingestion pipeline...`);
-      const result = await ingestionService.processUpload(
-        userId,
-        organizationId,
-        file.buffer,
-        file.mimetype,
-        file.originalname,
-        filePath
-      );
-
-      console.log(`[UploadController] Upload and ingestion complete for document: ${result.documentId}`);
-      return res.status(201).json({
-        message: 'Document ingested and structured successfully',
-        documentId: result.documentId
+      // Create a stub record immediately so we can return fast
+      const stubDoc = await prisma.document.create({
+        data: {
+          organizationId: organizationId!,
+          userId: userId!,
+          fileUrl: filePath,
+          originalFileName: file.originalname,
+          documentType: 'UNKNOWN',
+          detectedLanguage: 'en',
+          rawText: '',
+          normalizedText: '',
+          overallConfidence: 0,
+          status: 'PROCESSING',
+        }
       });
+
+      console.log(`[UploadController] Stub document created: ${stubDoc.id}. Returning 202.`);
+      res.status(202).json({ documentId: stubDoc.id, status: 'PROCESSING' });
+
+      // Fire extraction in background — after response is sent
+      const fileBuffer = file.buffer;
+      const mimeType = file.mimetype;
+      const originalFileName = file.originalname;
+      const documentId = stubDoc.id;
+
+      setImmediate(() => {
+        ingestionService
+          .processUploadAsync(documentId, userId!, organizationId!, fileBuffer, mimeType, originalFileName, filePath)
+          .catch(async (err: any) => {
+            console.error(`[Background] Extraction failed for ${documentId}:`, err.message || err);
+            try {
+              await prisma.document.update({
+                where: { id: documentId },
+                data: { status: 'FAILED', processedAt: new Date() }
+              });
+            } catch (updateErr: any) {
+              console.error(`[Background] Could not set FAILED status for ${documentId}:`, updateErr.message);
+            }
+          });
+      });
+
     } catch (error: any) {
       console.error('[UploadController] Error during upload flow:', error.message || error);
       next(error);
