@@ -31,17 +31,30 @@ export class PersistenceService {
     const rawConfidence = extraction.overallConfidence ?? 0;
     const normalizedOverallConfidence = rawConfidence > 1 ? rawConfidence / 100 : rawConfidence;
 
-    // Phase 2.3: Structural Validation (Receipt Focus)
-    // We prevent "Completed" status if core facts are missing or confidence is weak.
+    // Phase 2.3 & 2.4: Structural & Anchor Validation (Receipt Focus)
+    // We prevent "Completed" status if core facts or commercial anchors are missing.
     const hasDate = extraction.facts.some(f => f.factType === 'DATE');
     const hasAmount = extraction.facts.some(f => f.factType === 'AMOUNT');
     const isEmpty = extraction.facts.length === 0;
-    const isWeak = normalizedOverallConfidence < 0.6 || isEmpty || !hasDate || !hasAmount;
+
+    const text = (extraction.rawText || '').toLowerCase();
+    const anchors = ['total', 'subtotal', 'tax', 'vat', 'amount', 'item', 'receipt', 'invoice', 'cash', 'card', 'payment', 'merchant', 'store'];
+    const foundAnchors = anchors.filter(anchor => text.includes(anchor));
+    const hasAnchors = foundAnchors.length >= 2;
+
+    const isWeak = normalizedOverallConfidence < 0.6 || isEmpty || !hasDate || !hasAmount || !hasAnchors;
 
     let documentStatus = 'COMPLETED';
     if (normalizedOverallConfidence < CONFIDENCE_THRESHOLD || isWeak) {
       documentStatus = 'NEEDS_REVIEW';
     }
+
+    // DEBUG LOGGING - PHASE 2.4.2 INVESTIGATION
+    console.log(`[Persistence DEBUG] Doc: ${documentId}`);
+    console.log(`[Persistence DEBUG] Confidence: ${normalizedOverallConfidence} (Threshold: ${CONFIDENCE_THRESHOLD})`);
+    console.log(`[Persistence DEBUG] Anchors: [${foundAnchors.join(', ')}] (Count: ${foundAnchors.length}, met: ${hasAnchors})`);
+    console.log(`[Persistence DEBUG] Structure: hasDate=${hasDate}, hasAmount=${hasAmount}, isEmpty=${isEmpty}`);
+    console.log(`[Persistence DEBUG] Final Decision: isWeak=${isWeak} => Status=${documentStatus}`);
 
     console.log(`[Persistence] Updating stub document ${documentId} with extraction results...`);
     await this.prisma.$transaction(async (tx) => {
