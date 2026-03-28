@@ -33,7 +33,9 @@ export class PersistenceService {
 
     // Phase 2.3 & 2.4: Structural & Anchor Validation (Receipt Focus)
     // We prevent "Completed" status if core facts or commercial anchors are missing.
-    const hasDate = extraction.facts.some(f => f.factType === 'DATE');
+    const hasDate = extraction.facts.some(f => 
+      f.factType === 'DATE' && (f.valueDate != null || (f.valueString != null && f.valueString.trim() !== ''))
+    );
     const hasAmount = extraction.facts.some(f => 
       f.factType === 'AMOUNT' && (f.valueNumber != null || (f.valueString != null && f.valueString.trim() !== ''))
     );
