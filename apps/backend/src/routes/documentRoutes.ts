@@ -10,6 +10,7 @@ router.get('/stats', DocumentController.getStats);
 router.get('/review', DocumentController.getReviewQueue);
 router.get('/export.csv', DocumentController.exportCsv);
 router.get('/recent', DocumentController.getRecentDocuments);
+router.get('/all', DocumentController.getAllDocuments);
 router.get('/:id', DocumentController.getDocumentDetail);
 router.patch('/:id/status', DocumentController.updateStatus);
 router.post('/upload', upload.single('file'), UploadController.uploadDocument);

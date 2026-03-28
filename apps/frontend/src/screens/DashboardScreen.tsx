@@ -237,10 +237,10 @@ export const DashboardScreen = ({ t }: { t: any }) => {
             </h2>
             {recentActivity.length > 4 && (
               <button 
-                onClick={() => setIsExpanded(!isExpanded)}
+                onClick={() => navigate('/activity')}
                 className="text-sm font-black text-blue-500 hover:text-blue-600 flex items-center gap-1 transition-colors"
               >
-                {isExpanded ? 'Show less' : 'View all activity'}
+                View all activity
               </button>
             )}
           </div>

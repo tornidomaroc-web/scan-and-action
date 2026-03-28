@@ -4,6 +4,7 @@ import { SearchScreen } from './screens/SearchScreen';
 import { DocumentDetailScreen } from './screens/DocumentDetailScreen';
 import { ReviewQueueScreen } from './screens/ReviewQueueScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
+import { ActivityScreen } from './screens/ActivityScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { Layout } from './components/Layout';
 import { LandingScreen } from './screens/LandingScreen';
@@ -48,6 +49,7 @@ function App() {
             ) : (
               <Route element={<Layout />}>
                 <Route index element={<DashboardScreen t={t} />} />
+                <Route path="activity" element={<ActivityScreen t={t} />} />
                 <Route path="search" element={<SearchScreen t={t} rtl={isRTL} currentLanguage={language} />} />
                 <Route path="queue" element={<ReviewQueueScreen t={t} />} />
                 <Route path="documents/:id" element={<DocumentDetailScreen t={t} />} />

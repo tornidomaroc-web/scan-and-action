@@ -110,6 +110,22 @@ export class DocumentController {
     }
   }
 
+  public static async getAllDocuments(req: Request, res: Response, next: NextFunction) {
+    try {
+      const docs = await prisma.document.findMany({
+        where: {
+          organizationId: (req as any).user.organizationId
+        } as any,
+        orderBy: { uploadedAt: 'desc' },
+        take: 100 // Minimal v1 cap
+      });
+
+      return res.status(200).json(mapDocumentListToDto(docs));
+    } catch (error) {
+      next(error);
+    }
+  }
+
   public static async getRecentDocuments(req: Request, res: Response, next: NextFunction) {
     try {
       const docs = await prisma.document.findMany({

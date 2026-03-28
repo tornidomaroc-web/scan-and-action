@@ -46,6 +46,19 @@ export const documentService = {
     return res.json();
   },
 
+  async getAllActivity(): Promise<any[]> {
+    const res = await fetch(`${API_BASE_URL}/documents/all`, {
+      headers: await getAuthHeaders(),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to load activity history');
+    }
+
+    return res.json();
+  },
+
   async updateStatus(id: string, status: 'COMPLETED' | 'NEEDS_REVIEW' | 'REJECTED'): Promise<any> {
     const res = await fetch(`${API_BASE_URL}/documents/${id}/status`, {
       method: 'PATCH',
