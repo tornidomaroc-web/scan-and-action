@@ -51,7 +51,7 @@ export class IngestionService {
       try {
         console.log(`[Background] Attempt ${attempt}/${MAX_ATTEMPTS} for document ${documentId}...`);
         extractionResult = await this.geminiAdapter.extractFromImage(targetFileBuffer, mimeType);
-        
+
         // If we got a reasonably complete extraction (confidence >= 0.6), break the loop
         if (extractionResult && extractionResult.overallConfidence >= 0.6) {
           console.log(`[Background] Extraction successful on attempt ${attempt}.`);
