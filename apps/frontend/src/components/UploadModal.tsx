@@ -249,8 +249,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
           setFileErrors(prev => ({ ...prev, [currentFile.name]: errorMessage }));
           showToast(`${currentFile.name}: ${errorMessage}`, 'error');
 
-          // Trigger Paywall if error is multi-document validation AND user is not PRO
-          if (errorMessage === 'Please upload a single document per image' && plan !== 'PRO') {
+          // Trigger Paywall if error is multi-document validation OR limit reached AND user is not PRO
+          if ((errorMessage === 'Please upload a single document per image' || errorMessage === 'LIMIT_REACHED') && plan !== 'PRO') {
             setShowPaywall(true);
           }
         }
@@ -552,7 +552,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
           )}
         </div>
       </div>
-      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} />
+      <PaywallModal isOpen={showPaywall} onClose={() => {
+        setShowPaywall(false);
+        onSuccess?.();
+      }} />
     </div>,
     document.body
   );

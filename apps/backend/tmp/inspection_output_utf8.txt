@@ -1,0 +1,14 @@
+﻿--- TARGET ORG FULL INSPECTION ---
+Organization Record from DB:
+{
+  "id": "07ce48d1-b292-4de3-a8df-2fc157adc527",
+  "name": "My Workspace",
+  "slug": "workspace-71e42fd8",
+  "plan": "FREE",
+  "scanCount": 0,
+  "createdAt": "2026-03-28T21:43:12.549Z",
+  "updatedAt": "2026-03-28T21:43:12.549Z"
+}
+Document Table Count: 13
+COMPLETED Documents: 13
+--- END INSPECTION ---

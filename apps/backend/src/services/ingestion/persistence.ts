@@ -131,6 +131,29 @@ export class PersistenceService {
         });
       }
 
+      // Increment organization scanCount conditionally to enforce limit
+      try {
+        await tx.organization.update({
+          where: { 
+            id: organizationId,
+            OR: [
+              { plan: { not: 'FREE' } },
+              { scanCount: { lt: 10 } }
+            ]
+          },
+          data: {
+            scanCount: { increment: 1 }
+          }
+        });
+      } catch (error: any) {
+        // P2025 is thrown if the where condition fails (limit reached or record missing)
+        if (error.code === 'P2025') {
+          console.warn(`[Persistence] Scan limit reached or Org missing for: ${organizationId}. Aborting update.`);
+          throw new Error('LIMIT_REACHED');
+        }
+        throw error;
+      }
+
       console.log(`[Persistence] Update transaction successful for ${documentId}. Status: ${documentStatus}`);
     });
   }
@@ -227,6 +250,29 @@ export class PersistenceService {
             confidence: rawEntity.confidence
           }
         });
+      }
+
+      // Increment organization scanCount conditionally to enforce limit
+      try {
+        await tx.organization.update({
+          where: { 
+            id: organizationId,
+            OR: [
+              { plan: { not: 'FREE' } },
+              { scanCount: { lt: 10 } }
+            ]
+          },
+          data: {
+            scanCount: { increment: 1 }
+          }
+        });
+      } catch (error: any) {
+        // P2025 is thrown if the where condition fails (limit reached or record missing)
+        if (error.code === 'P2025') {
+          console.warn(`[Persistence] Scan limit reached or Org missing for: ${organizationId}. Aborting update.`);
+          throw new Error('LIMIT_REACHED');
+        }
+        throw error;
       }
 
       console.log(`[Persistence] Transaction successful.`);

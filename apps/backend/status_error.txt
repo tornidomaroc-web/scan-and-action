@@ -1,0 +1,9 @@
+﻿Prisma schema loaded from prisma\schema.prisma
+Datasource "db": PostgreSQL database "postgres", schema "public" at "aws-1-eu-west-1.pooler.supabase.com:5432"
+
+1 migration found in prisma/migrations
+Following migration have not yet been applied:
+20260328193618_init
+
+To apply migrations in development run prisma migrate dev.
+To apply migrations in production run prisma migrate deploy.

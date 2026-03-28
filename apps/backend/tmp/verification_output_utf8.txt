@@ -1,0 +1,13 @@
+﻿--- FINAL RUNTIME VERIFICATION ---
+Runtime Organization Object:
+{
+  "id": "07ce48d1-b292-4de3-a8df-2fc157adc527",
+  "name": "My Workspace",
+  "slug": "workspace-71e42fd8",
+  "plan": "FREE",
+  "scanCount": 0,
+  "createdAt": "2026-03-28T21:43:12.549Z",
+  "updatedAt": "2026-03-28T21:43:12.549Z"
+}
+VERIFICATION: Runtime Prisma Client successfully recognizes scanCount.
+--- END VERIFICATION ---

@@ -18,8 +18,15 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
 
   const handleUpgrade = () => {
     const email = user?.email || '';
+    
+    // Variant ID Mapping
+    const variants = {
+      monthly: 'b199b8bc-8a26-4bc2-b6b7-ed7b4c6a6c16',
+      yearly: 'ff283ed2-aeeb-4027-b102-38ee70fab31f'
+    };
 
-    const checkoutUrl = `https://jadtrader.lemonsqueezy.com/checkout/buy/b199b8bc-8a26-4bc2-b6b7-ed7b4c6a6c16?checkout[email]=${encodeURIComponent(email)}`;
+    const variantId = variants[selectedPlan];
+    const checkoutUrl = `https://jadtrader.lemonsqueezy.com/checkout/buy/${variantId}?checkout[email]=${encodeURIComponent(email)}`;
 
     window.open(checkoutUrl, '_blank');
   };
@@ -104,6 +111,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
           {/* Features List */}
           <div className="space-y-3 mb-8">
             {[
+              "Unlimited Document Scans",
               "Upload multiple files at once",
               "Faster processing workflow",
               "Export your data (CSV)"

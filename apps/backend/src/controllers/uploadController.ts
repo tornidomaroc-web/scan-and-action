@@ -14,6 +14,20 @@ export class UploadController {
 
       console.log(`[UploadController] Received upload request for user: ${userId} (Org: ${organizationId})`);
 
+      // Early guard for FREE plan limits
+      const organization = await prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { plan: true, scanCount: true }
+      });
+
+      if (organization?.plan === 'FREE' && organization.scanCount >= 10) {
+        console.warn(`[UploadController] Limit reached for Org: ${organizationId}`);
+        return res.status(403).json({ 
+          error: 'LIMIT_REACHED', 
+          message: 'Free plan limit reached (10 scans). Please upgrade to PRO.' 
+        });
+      }
+
       if (!file) {
         console.warn('[UploadController] No file provided in request');
         return res.status(400).json({ error: 'No image file uploaded' });
@@ -53,13 +67,17 @@ export class UploadController {
           .processUploadAsync(documentId, userId!, organizationId!, fileBuffer, mimeType, originalFileName, filePath)
           .catch(async (err: any) => {
             console.error(`[Background] Extraction failed for ${documentId}:`, err.message || err);
+            
+            const isLimitReached = err.message === 'LIMIT_REACHED';
+            const finalStatus = isLimitReached ? 'LIMIT_REACHED' : 'FAILED';
+
             try {
               await prisma.document.update({
                 where: { id: documentId },
-                data: { status: 'FAILED', processedAt: new Date() }
+                data: { status: finalStatus, processedAt: new Date() }
               });
             } catch (updateErr: any) {
-              console.error(`[Background] Could not set FAILED status for ${documentId}:`, updateErr.message);
+              console.error(`[Background] Could not set ${finalStatus} status for ${documentId}:`, updateErr.message);
             }
           });
       });

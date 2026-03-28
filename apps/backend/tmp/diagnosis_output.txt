@@ -1,0 +1,37 @@
+﻿--- START DIAGNOSIS ---
+
+Org: Demo Workspace (66325301-9150-4f9f-a654-d64d7b71928b)
+- plan: FREE
+- scanCount (Organization table field): 0
+- Document table row count: 2
+
+Org: My Workspace (9428ad69-65d2-4c89-ae96-53019a3a682f)
+- plan: FREE
+- scanCount (Organization table field): 0
+- Document table row count: 2
+
+Org: My Workspace (07ce48d1-b292-4de3-a8df-2fc157adc527)
+- plan: FREE
+- scanCount (Organization table field): 0
+- Document table row count: 13
+Status breakdown for all 13 documents:
+{
+  "COMPLETED": 13
+}
+
+Sequence of documents:
+[# 1] 2026-03-28T21:47:39.967Z | Status: COMPLETED     | plate_23-2147938550.jpg
+[# 2] 2026-03-28T21:48:22.869Z | Status: COMPLETED     | ChatGPT Image Mar 28, 2026, 03_47_29 PM.png
+[# 3] 2026-03-28T21:48:59.759Z | Status: COMPLETED     | UhSV6.jpg
+[# 4] 2026-03-28T21:49:31.788Z | Status: COMPLETED     | Nashville_bill-768x1024.jpeg
+[# 5] 2026-03-28T21:50:00.753Z | Status: COMPLETED     | images (1).jpg
+[# 6] 2026-03-28T21:52:09.027Z | Status: COMPLETED     | images.jpg
+[# 7] 2026-03-28T21:52:55.148Z | Status: COMPLETED     | article-w-item-1.jpg
+[# 8] 2026-03-28T21:53:23.607Z | Status: COMPLETED     | 60714.jpg
+[# 9] 2026-03-28T21:54:01.719Z | Status: COMPLETED     | receipt-ocr-original.jpg
+[#10] 2026-03-28T21:54:45.303Z | Status: COMPLETED     | regular-shopping-receipt-template.jpg
+[#11] 2026-03-28T21:55:19.832Z | Status: COMPLETED     | cHJpdmF0ZS9sci9pbWFnZXMvd2Vic2l0ZS8yMDI1Ln.jpg
+[#12] 2026-03-28T21:56:17.817Z | Status: COMPLETED     | ChatGPT Image Mar 28, 2026, 03_57_37 PM.png
+[#13] 2026-03-28T21:57:37.963Z | Status: COMPLETED     | 2026-02-21.pdf
+
+--- END DIAGNOSIS ---

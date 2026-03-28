@@ -1,0 +1,20 @@
+﻿--- GLOBAL SCANCOUNT CHECK ---
+Organizations with scanCount > 0: 0
+[]
+Total documents in system: 95
+Global Document Statuses:
+[
+  {
+    "_count": 74,
+    "status": "COMPLETED"
+  },
+  {
+    "_count": 9,
+    "status": "NEEDS_REVIEW"
+  },
+  {
+    "_count": 12,
+    "status": "REJECTED"
+  }
+]
+--- END GLOBAL CHECK ---

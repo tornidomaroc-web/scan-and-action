@@ -1,0 +1,39 @@
+﻿--- DB SCHEMA CHECK ---
+[
+  {
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": null
+  },
+  {
+    "column_name": "name",
+    "data_type": "text",
+    "column_default": null
+  },
+  {
+    "column_name": "slug",
+    "data_type": "text",
+    "column_default": null
+  },
+  {
+    "column_name": "plan",
+    "data_type": "USER-DEFINED",
+    "column_default": "'FREE'::\"PlanType\""
+  },
+  {
+    "column_name": "createdAt",
+    "data_type": "timestamp without time zone",
+    "column_default": "CURRENT_TIMESTAMP"
+  },
+  {
+    "column_name": "updatedAt",
+    "data_type": "timestamp without time zone",
+    "column_default": null
+  },
+  {
+    "column_name": "scanCount",
+    "data_type": "integer",
+    "column_default": "0"
+  }
+]
+--- END DB SCHEMA CHECK ---
