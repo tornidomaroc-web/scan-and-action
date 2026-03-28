@@ -46,7 +46,10 @@ export class PersistenceService {
     const foundAnchors = anchors.filter(anchor => text.includes(anchor));
     const hasAnchors = foundAnchors.length >= 2;
 
-    const isWeak = normalizedOverallConfidence < 0.6 || isEmpty || !hasDate || !hasAmount || !hasAnchors;
+    const templateSignals = ['template', 'sample', 'example', 'your business name', 'lorem ipsum'];
+    const hasTemplateSignal = templateSignals.some(signal => text.includes(signal));
+
+    const isWeak = normalizedOverallConfidence < 0.6 || isEmpty || !hasDate || !hasAmount || !hasAnchors || hasTemplateSignal;
 
     let documentStatus = 'COMPLETED';
     if (normalizedOverallConfidence < CONFIDENCE_THRESHOLD || isWeak) {
