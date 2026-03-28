@@ -49,7 +49,11 @@ export class PersistenceService {
     const templateSignals = ['template', 'sample', 'example', 'your business name', 'lorem ipsum'];
     const hasTemplateSignal = templateSignals.some(signal => text.includes(signal));
 
-    const isWeak = normalizedOverallConfidence < 0.6 || isEmpty || !hasDate || !hasAmount || !hasAnchors || hasTemplateSignal;
+    const repeatedMarkers = ['invoice', 'receipt', 'subtotal', 'total', 'tax', 'thank you'];
+    const repeatedCount = repeatedMarkers.filter(marker => text.split(marker).length - 1 > 1).length;
+    const hasMultiDocumentSignal = repeatedCount >= 2;
+
+    const isWeak = normalizedOverallConfidence < 0.6 || isEmpty || !hasDate || !hasAmount || !hasAnchors || hasTemplateSignal || hasMultiDocumentSignal;
 
     let documentStatus = 'COMPLETED';
     if (normalizedOverallConfidence < CONFIDENCE_THRESHOLD || isWeak) {
