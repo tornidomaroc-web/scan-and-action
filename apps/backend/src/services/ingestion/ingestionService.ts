@@ -32,7 +32,17 @@ export class IngestionService {
     originalFileName: string,
     fileUrl: string
   ): Promise<void> {
-    console.log(`[Background] Starting extraction for document ${documentId} (${originalFileName})...`);
+    console.log(`[Background] Starting validation and extraction for document ${documentId} (${originalFileName})...`);
+
+    // Step 1: Validation Signal - Ensure single document (Async check)
+    const isSingleDoc = await this.validateSingleDocument(targetFileBuffer, mimeType);
+    if (!isSingleDoc) {
+      console.warn(`[Background] Multi-document detected for ${documentId}. Aborting extraction.`);
+      await this.persistenceService.markAsNeedsReview(documentId).catch(err => {
+        console.error(`[Background] Failed to mark ${documentId} as NEEDS_REVIEW:`, err.message);
+      });
+      return;
+    }
 
     let extractionResult;
     const MAX_ATTEMPTS = 2;

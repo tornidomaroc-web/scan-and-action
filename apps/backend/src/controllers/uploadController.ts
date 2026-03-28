@@ -19,17 +19,6 @@ export class UploadController {
         return res.status(400).json({ error: 'No image file uploaded' });
       }
 
-      console.log(`[UploadController DEBUG] Calling validateSingleDocument...`);
-      const isSingleDoc = await ingestionService.validateSingleDocument(file.buffer, file.mimetype);
-      console.log(`[UploadController DEBUG] isSingleDoc result: ${isSingleDoc}`);
-
-      if (!isSingleDoc) {
-        console.warn('[UploadController] Blocked upload: multi-document image detected');
-        return res.status(422).json({
-          error: 'Please upload a single document per image'
-        });
-      }
-
       console.log(`[UploadController] Uploading ${file.originalname} to Supabase storage...`);
       const filePath = await uploadToSupabase(file);
       console.log(`[UploadController] File uploaded to storage at: ${filePath}`);
