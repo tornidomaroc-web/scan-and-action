@@ -88,15 +88,29 @@ export const SettingsScreen = ({ t }: { t: any }) => {
                 <div className="inline-flex bg-blue-100 dark:bg-blue-900/30 p-4 rounded-3xl text-blue-600 dark:text-blue-400 mb-6 group-hover:scale-110 transition-transform">
                   <Zap size={32} strokeWidth={2.5} className="fill-blue-500" />
                 </div>
-                <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Free Plan</h4>
-                <p className="text-slate-500 font-bold mb-8 max-w-[320px] mx-auto">
-                  Limited to 10 document scans. Upgrade to unlock the full potential of your automated workflow.
+                <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Free Tier (Limited Access)</h4>
+                <p className="text-slate-500 font-bold mb-6 max-w-[320px] mx-auto">
+                  Your workspace is currently operating under a 10-document limit. Automate your entire workflow and save hours of manual review by removing all restrictions.
                 </p>
+                <div className="space-y-2 mb-8 inline-block text-left mx-auto">
+                   <div className="flex items-center gap-2 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-tight">
+                      <ShieldCheck size={14} className="text-blue-500" />
+                      Unlimited AI Document Extractions
+                   </div>
+                   <div className="flex items-center gap-2 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-tight">
+                      <ShieldCheck size={14} className="text-blue-500" />
+                      Priority processing engine
+                   </div>
+                   <div className="flex items-center gap-2 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-tight">
+                      <ShieldCheck size={14} className="text-blue-500" />
+                      Enhanced automation features
+                   </div>
+                </div>
                 <button 
                   onClick={() => setIsPaywallOpen(true)}
                   className="btn btn-primary w-full py-4 rounded-2xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group"
                 >
-                  Unlock Unlimited Scans
+                  Go PRO — Activate Unlimited Access
                   <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
