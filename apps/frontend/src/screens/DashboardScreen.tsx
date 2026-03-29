@@ -6,7 +6,8 @@ import {
   Database, 
   Zap,
   Activity,
-  Loader2
+  Loader2,
+  Info
 } from 'lucide-react';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
@@ -154,7 +155,13 @@ export const DashboardScreen = ({ t }: { t: any }) => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         {[
-          { label: 'Documents Processed', value: stats.totalCount.toLocaleString(), icon: <FileText size={20} />, color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30' },
+          { 
+            label: 'Processed Documents', 
+            value: stats.totalCount.toLocaleString(), 
+            icon: <FileText size={20} />, 
+            color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30',
+            tooltip: 'Successful extractions and review-ready documents. Rejected or failed uploads are not included.'
+          },
           { label: 'Pending Review', value: stats.pendingCount.toLocaleString(), icon: <Clock size={20} />, color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/30' },
           { 
             label: 'Avg. Confidence', 
@@ -172,7 +179,18 @@ export const DashboardScreen = ({ t }: { t: any }) => {
           <div key={i} className="bg-white dark:bg-slate-800 rounded-[32px] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700 transition-all hover:translate-y-[-4px] hover:shadow-2xl duration-300">
             <div className="flex items-center gap-3 mb-5">
               <div className={`${stat.color} p-2.5 rounded-xl`}>{stat.icon}</div>
-              <span className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{stat.label}</span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest truncate">{stat.label}</span>
+                {stat.tooltip && (
+                  <div className="group relative flex-shrink-0">
+                    <Info size={14} className="text-slate-300 dark:text-slate-600 cursor-help transition-colors hover:text-blue-500" />
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-3 bg-slate-900 text-[10px] lowercase font-bold text-white rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all z-50 shadow-2xl border border-slate-800 leading-relaxed text-center first-letter:uppercase">
+                      {stat.tooltip}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">{stat.value}</span>
