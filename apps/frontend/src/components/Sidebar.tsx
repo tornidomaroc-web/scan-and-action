@@ -12,7 +12,8 @@ import {
   Sun,
   Moon,
   ChevronUp,
-  RefreshCw
+  RefreshCw,
+  Activity
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -45,6 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
 
   const navItems = [
     { to: '/', icon: <LayoutDashboard size={20} />, label: 'Dashboard', end: true },
+    { to: '/activity', icon: <Activity size={20} />, label: 'Activity' },
     { to: '/search', icon: <Search size={20} />, label: 'Search' },
     { to: '/queue', icon: <ClipboardList size={20} />, label: 'Review Queue' },
     { to: '/settings', icon: <Settings size={20} />, label: 'Settings' },
