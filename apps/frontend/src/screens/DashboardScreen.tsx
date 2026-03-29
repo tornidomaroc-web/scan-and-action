@@ -160,7 +160,8 @@ export const DashboardScreen = ({ t }: { t: any }) => {
             value: stats.totalCount.toLocaleString(), 
             icon: <FileText size={20} />, 
             color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30',
-            tooltip: 'Successful extractions and review-ready documents. Rejected or failed uploads are not included.'
+            tooltip: 'Successful extractions and review-ready documents. Rejected or failed uploads are not included.',
+            description: 'Includes successful and review-ready documents only'
           },
           { label: 'Pending Review', value: stats.pendingCount.toLocaleString(), icon: <Clock size={20} />, color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/30' },
           { 
@@ -192,9 +193,16 @@ export const DashboardScreen = ({ t }: { t: any }) => {
                 )}
               </div>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">{stat.value}</span>
-              {stat.badge}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">{stat.value}</span>
+                {stat.badge}
+              </div>
+              {stat.description && (
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 max-w-[200px] leading-tight mt-1">
+                  {stat.description}
+                </p>
+              )}
             </div>
           </div>
         ))}
