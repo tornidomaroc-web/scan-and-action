@@ -89,21 +89,24 @@ export const SettingsScreen = ({ t }: { t: any }) => {
                   <Zap size={32} strokeWidth={2.5} className="fill-blue-500" />
                 </div>
                 <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Free Tier (Limited Access)</h4>
-                <p className="text-slate-500 font-bold mb-6 max-w-[320px] mx-auto">
-                  Your workspace is currently operating under a 10-document limit. Automate your entire workflow and save hours of manual review by removing all restrictions.
+                <p className="text-slate-500 font-bold mb-6 max-w-[320px] mx-auto text-base">
+                  Process more documents without limits and eliminate manual bottlenecks. Upgrade to PRO to keep your workflow fast, consistent, and interruption-free.
                 </p>
-                <div className="space-y-2 mb-8 inline-block text-left mx-auto">
-                   <div className="flex items-center gap-2 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-tight">
-                      <ShieldCheck size={14} className="text-blue-500" />
-                      Unlimited AI Document Extractions
+                <p className="text-slate-500 font-bold mb-8 max-w-[320px] mx-auto text-sm leading-relaxed italic opacity-80 border-l-2 border-slate-200 pl-4">
+                  Free workspaces are limited to 10 document scans. Once the limit is reached, new uploads will be blocked until you upgrade.
+                </p>
+                <div className="space-y-3 mb-10 inline-block text-left mx-auto">
+                   <div className="flex items-center gap-3 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-tight">
+                      <ShieldCheck size={16} className="text-blue-500" />
+                      Unlimited document scans
                    </div>
-                   <div className="flex items-center gap-2 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-tight">
-                      <ShieldCheck size={14} className="text-blue-500" />
-                      Priority processing engine
+                   <div className="flex items-center gap-3 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-tight">
+                      <ShieldCheck size={16} className="text-blue-500" />
+                      High-volume batch uploads
                    </div>
-                   <div className="flex items-center gap-2 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-tight">
-                      <ShieldCheck size={14} className="text-blue-500" />
-                      Enhanced automation features
+                   <div className="flex items-center gap-3 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-tight">
+                      <ShieldCheck size={16} className="text-blue-500" />
+                      Faster processing workflow
                    </div>
                 </div>
                 <button 
