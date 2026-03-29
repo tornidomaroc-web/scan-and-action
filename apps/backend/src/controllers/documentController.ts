@@ -74,7 +74,12 @@ export class DocumentController {
       }
 
       const [totalCount, pendingCount, avgResult, organization] = await Promise.all([
-        prisma.document.count({ where: { organizationId: organizationId as string } as any }),
+        prisma.document.count({ 
+          where: { 
+            organizationId,
+            status: { in: ['COMPLETED', 'NEEDS_REVIEW'] }
+          } as any 
+        }),
         prisma.document.count({
           where: {
             organizationId,
@@ -82,7 +87,10 @@ export class DocumentController {
           } as any
         }),
         prisma.document.aggregate({
-          where: { organizationId } as any,
+          where: { 
+            organizationId,
+            status: { in: ['COMPLETED', 'NEEDS_REVIEW'] }
+          } as any,
           _avg: { overallConfidence: true }
         }),
         prisma.organization.findUnique({
