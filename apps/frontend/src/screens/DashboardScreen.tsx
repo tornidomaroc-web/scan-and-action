@@ -135,11 +135,11 @@ export const DashboardScreen = ({ t }: { t: any }) => {
               <Activity size={24} strokeWidth={2.5} />
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white mb-0.5">
-                {stats.pendingCount} documents are blocking full automation
+              <h3 className="text-lg font-black text-slate-900 dark:text-white mb-0.5 uppercase tracking-tight">
+                Finish your batch — only {stats.pendingCount} items remaining
               </h3>
               <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
-                Review these high-priority items now to reach 100% data precision.
+                You've done the heavy lifting. Spend a minute reviewing the final items to unlock fully usable data.
               </p>
             </div>
           </div>
@@ -147,7 +147,7 @@ export const DashboardScreen = ({ t }: { t: any }) => {
             onClick={() => navigate('/queue')}
             className="btn btn-primary px-8 py-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 whitespace-nowrap"
           >
-            Review Now
+            Finalize Processing
           </button>
         </div>
       )}
