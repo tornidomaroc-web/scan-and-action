@@ -5,6 +5,7 @@ import { DocumentDetailScreen } from './screens/DocumentDetailScreen';
 import { ReviewQueueScreen } from './screens/ReviewQueueScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
 import { ActivityScreen } from './screens/ActivityScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { Layout } from './components/Layout';
 import { LandingScreen } from './screens/LandingScreen';
@@ -53,7 +54,7 @@ function App() {
                 <Route path="search" element={<SearchScreen t={t} rtl={isRTL} currentLanguage={language} />} />
                 <Route path="queue" element={<ReviewQueueScreen t={t} />} />
                 <Route path="documents/:id" element={<DocumentDetailScreen t={t} />} />
-                <Route path="settings" element={<div className="p-8"><h1>Settings</h1><p>Coming soon.</p></div>} />
+                <Route path="settings" element={<SettingsScreen t={t} />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             )}
