@@ -91,4 +91,19 @@ export const documentService = {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
   },
+
+  async applyFixAction(id: string, actionType: string, payload: any): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/documents/${id}/action`, {
+      method: 'POST',
+      headers: await getJsonHeaders(),
+      body: JSON.stringify({ actionType, payload })
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to submit action');
+    }
+
+    return res.json();
+  },
 };

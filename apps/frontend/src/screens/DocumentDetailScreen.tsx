@@ -4,6 +4,8 @@ import { ChevronLeft, CheckCircle, FileText } from 'lucide-react';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
 import { ReviewBadge } from '../components/SharedComponents';
+import { DecisionBanner } from '../components/DecisionBanner';
+import { FixActionPanel } from '../components/FixActionPanel';
 
 export const DocumentDetailScreen = ({
   t,
@@ -18,12 +20,17 @@ export const DocumentDetailScreen = ({
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
-  useEffect(() => {
+  const handleRefresh = () => {
+    setLoading(true);
     documentService
-      .getDocumentDetail(documentId)
+      .getDocumentDetail(documentId!)
       .then(setDoc)
       .catch((err) => setErrorMsg(err.message))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    handleRefresh();
   }, [documentId]);
 
   const DocumentDetailSkeleton = () => (
@@ -54,6 +61,11 @@ export const DocumentDetailScreen = ({
   const isImageFile = typeof doc.signedFileUrl === 'string' && /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.originalFileName || '');
   const isPdfFile = typeof doc.signedFileUrl === 'string' && /\.pdf$/i.test(doc.originalFileName || '');
 
+  const decisionFact = doc.facts?.find((f: any) => f.key === 'decision');
+  const reasonFact = doc.facts?.find((f: any) => f.key === 'decision_reason');
+  const decision = decisionFact?.valueString || null;
+  const reason = reasonFact?.valueString || undefined;
+
   return (
     <div className="max-w-[1000px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       <button 
@@ -83,6 +95,15 @@ export const DocumentDetailScreen = ({
           </div>
           <ReviewBadge confidence={doc.overallConfidence} status={doc.status} />
         </div>
+
+        <DecisionBanner decision={decision} reason={reason} />
+
+        <FixActionPanel 
+          documentId={doc.id} 
+          decision={decision} 
+          reason={reason} 
+          onSuccess={handleRefresh} 
+        />
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
           {[

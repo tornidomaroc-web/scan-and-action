@@ -13,6 +13,7 @@ router.get('/recent', DocumentController.getRecentDocuments);
 router.get('/all', DocumentController.getAllDocuments);
 router.get('/:id', DocumentController.getDocumentDetail);
 router.patch('/:id/status', DocumentController.updateStatus);
+router.post('/:id/action', DocumentController.applyFixAction);
 router.post('/upload', upload.single('file'), UploadController.uploadDocument);
 
 export default router;

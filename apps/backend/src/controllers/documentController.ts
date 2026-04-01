@@ -67,7 +67,7 @@ export class DocumentController {
 
       console.log(`[DocumentController] Computing stats for org: ${organizationId}`);
 
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(organizationId)) {
         console.error(`[DocumentController] INVALID UUID detected in getStats: ${organizationId}`);
         return res.status(400).json({ error: 'Invalid organization context' });
@@ -113,7 +113,6 @@ export class DocumentController {
       console.log(`[DocumentController] Stats computed successfully for ${organizationId} (Plan: ${payload.plan})`);
       return res.status(200).json(payload);
     } catch (error) {
-      console.error('[DocumentController] FATAL: Stats execution failed:', error);
       next(error);
     }
   }
@@ -234,6 +233,89 @@ export class DocumentController {
     } catch (error) {
       console.error('[DocumentController] Export CSV failed:', error);
       next(error);
+    }
+  }
+
+  public static async applyFixAction(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const { actionType, payload } = req.body;
+      const organizationId = (req as any).user.organizationId;
+      const documentId = id as string;
+
+      console.log(`[DocumentController] Applying fix action ${actionType} to document ${documentId} for org: ${organizationId}`);
+
+      const doc = await prisma.document.findFirst({
+        where: { id: documentId, organizationId: organizationId as string }
+      });
+
+      if (!doc) {
+        return res.status(404).json({ error: 'Document not found or access denied' });
+      }
+
+      await prisma.$transaction(async (tx) => {
+        if (actionType === 'amount_corrected') {
+          const { amount } = payload;
+          if (amount === undefined || amount === null) throw new Error('Missing amount');
+
+          await tx.documentFact.deleteMany({
+            where: { documentId, key: 'manual_amount' }
+          });
+
+          await tx.documentFact.create({
+            data: {
+              documentId,
+              factType: 'AMOUNT',
+              key: 'manual_amount',
+              valueNumber: parseFloat(amount),
+              confidence: 1.0,
+              sourceSpan: 'user_correction',
+              isReviewed: true
+            }
+          });
+        } else if (actionType === 'marked_valid' || actionType === 'note_added') {
+          const { justification } = payload;
+          if (!justification) throw new Error('Missing justification');
+
+          await tx.documentFact.deleteMany({
+            where: { documentId, key: 'justification_note' }
+          });
+
+          await tx.documentFact.create({
+            data: {
+              documentId,
+              factType: 'TEXT',
+              key: 'justification_note',
+              valueString: justification,
+              confidence: 1.0,
+              sourceSpan: 'user_justification',
+              isReviewed: true
+            }
+          });
+        }
+
+        // Record the review action
+        await tx.documentFact.deleteMany({
+          where: { documentId, key: 'review_action' }
+        });
+
+        await tx.documentFact.create({
+          data: {
+            documentId,
+            factType: 'TEXT',
+            key: 'review_action',
+            valueString: actionType,
+            confidence: 1.0,
+            sourceSpan: 'review_flow',
+            isReviewed: true
+          }
+        });
+      });
+
+      return res.status(200).json({ success: true });
+    } catch (error: any) {
+      console.error('[DocumentController] Action failed:', error.message);
+      res.status(400).json({ error: error.message });
     }
   }
 }
