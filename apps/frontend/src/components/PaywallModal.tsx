@@ -85,7 +85,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
                   }`}
               >
                 <span className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-tight mb-1">Monthly</span>
-                <span className="text-2xl font-black text-slate-900 dark:text-white italic">$5<span className="text-sm font-bold opacity-50">/mo</span></span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white italic">$9<span className="text-sm font-bold opacity-50">/mo</span></span>
               </button>
 
               {/* Yearly Plan */}
@@ -97,12 +97,12 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
                   }`}
               >
                 <div className="absolute top-[-10px] right-2 bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-lg">
-                  Save 35%
+                  Save 45%
                 </div>
                 <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-tight mb-1 flex items-center gap-1">
                   Yearly <Star size={10} className="fill-emerald-500" />
                 </span>
-                <span className="text-2xl font-black text-slate-900 dark:text-white italic">$39<span className="text-sm font-bold opacity-50">/yr</span></span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white italic">$59<span className="text-sm font-bold opacity-50">/yr</span></span>
                 <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase">Best Value</span>
               </button>
             </div>
@@ -133,7 +133,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
             >
               <Crown size={20} fill="white" className="group-hover:rotate-12 transition-transform" />
-              Upgrade Now - {selectedPlan === 'monthly' ? '$5/mo' : '$39/yr'}
+              Upgrade Now - {selectedPlan === 'monthly' ? '$9/mo' : '$59/yr'}
             </button>
             <button
               onClick={onClose}
