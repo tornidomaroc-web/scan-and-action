@@ -3,6 +3,7 @@ import { GeminiExtractionResult } from '../../types/schemas';
 import { EntityResolutionService } from '../normalization/entityResolution';
 import { NormalizationService } from '../normalization/normalizationService';
 import { ExpenseCategorizationService } from '../expenseCategorizationService';
+import { RuleEngineService } from '../ruleEngineService';
 
 const CONFIDENCE_THRESHOLD = 0.98; // Anything below this requires human review
 
@@ -11,12 +12,14 @@ export class PersistenceService {
   private entityResolver: EntityResolutionService;
   private normalizer: NormalizationService;
   private categorizationService: ExpenseCategorizationService;
+  private ruleEngine: RuleEngineService;
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
     this.entityResolver = new EntityResolutionService(this.prisma);
     this.normalizer = new NormalizationService();
     this.categorizationService = new ExpenseCategorizationService();
+    this.ruleEngine = new RuleEngineService(this.prisma);
   }
 
   /**
@@ -136,7 +139,11 @@ export class PersistenceService {
       
       // Part 1: Auto Categorization (SAFE EXTENSION)
       const merchantFact = extraction.entities.find(e => e.entityType === 'VENDOR')?.name || null;
-      await this.categorizeAndSave(tx, documentId, merchantFact, extraction.rawText, extraction.facts);
+      const category = await this.categorizeAndSave(tx, documentId, merchantFact, extraction.rawText, extraction.facts);
+
+      // Part 2: Rule Engine Evaluation
+      const allFacts = [...extraction.facts, { key: 'category', valueString: category }];
+      await this.evaluateRulesAndSave(tx, documentId, organizationId, merchantFact, allFacts);
 
       // Increment organization scanCount conditionally to enforce limit
       try {
@@ -261,7 +268,11 @@ export class PersistenceService {
       
       // Part 1: Auto Categorization (SAFE EXTENSION)
       const merchantFact2 = extraction.entities.find(e => e.entityType === 'VENDOR')?.name || null;
-      await this.categorizeAndSave(tx, doc.id, merchantFact2, extraction.rawText, extraction.facts);
+      const category2 = await this.categorizeAndSave(tx, doc.id, merchantFact2, extraction.rawText, extraction.facts);
+
+      // Part 2: Rule Engine Evaluation
+      const allFacts2 = [...extraction.facts, { key: 'category', valueString: category2 }];
+      await this.evaluateRulesAndSave(tx, doc.id, organizationId, merchantFact2, allFacts2);
 
       // Increment organization scanCount conditionally to enforce limit
       try {
@@ -318,14 +329,14 @@ export class PersistenceService {
     merchantName: string | null,
     rawText: string,
     facts: any[]
-  ): Promise<void> {
+  ): Promise<string> {
     try {
       // 1. Check if category already exists to avoid overwriting
       const existing = await tx.documentFact.findFirst({
         where: { documentId, key: 'category' }
       });
 
-      if (existing) return;
+      if (existing) return existing.valueString || 'Other';
 
       // 2. Get categorization result
       const { category, confidence } = this.categorizationService.categorize({
@@ -345,8 +356,66 @@ export class PersistenceService {
           isReviewed: confidence >= CONFIDENCE_THRESHOLD
         }
       });
+
+      return category;
     } catch (err) {
       console.error(`[Persistence] Failed auto-categorization for ${documentId}:`, err);
+      return 'Other';
+    }
+  }
+
+  /**
+   * Evaluates business rules and saves the decision result.
+   */
+  private async evaluateRulesAndSave(
+    tx: any,
+    documentId: string,
+    organizationId: string,
+    merchantName: string | null,
+    facts: any[]
+  ): Promise<void> {
+    try {
+      const result = await this.ruleEngine.evaluate(documentId, organizationId, facts, merchantName);
+
+      // Clean up existing rule result facts to avoid duplicates on re-processing
+      await tx.documentFact.deleteMany({
+        where: {
+          documentId,
+          key: { in: ['decision', 'decision_reason'] }
+        }
+      });
+
+      // Store Decision Fact
+      await tx.documentFact.create({
+        data: {
+          documentId,
+          factType: 'RULE_RESULT',
+          key: 'decision',
+          valueString: result.decision,
+          confidence: 1.0,
+          sourceSpan: 'rule_engine',
+          isReviewed: false
+        }
+      });
+
+      // Store Reasons Fact
+      if (result.reasons.length > 0) {
+        await tx.documentFact.create({
+          data: {
+            documentId,
+            factType: 'RULE_RESULT',
+            key: 'decision_reason',
+            valueString: result.reasons.join(', '),
+            confidence: 1.0,
+            sourceSpan: 'rule_engine',
+            isReviewed: false
+          }
+        });
+      }
+
+      console.log(`[Persistence] Rule evaluation complete for ${documentId}. Decision: ${result.decision}`);
+    } catch (err) {
+      console.error(`[Persistence] Rule evaluation failed for ${documentId}:`, err);
     }
   }
 }
