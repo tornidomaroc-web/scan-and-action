@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { GeminiExtractionResult } from '../../types/schemas';
 import { EntityResolutionService } from '../normalization/entityResolution';
 import { NormalizationService } from '../normalization/normalizationService';
+import { ExpenseCategorizationService } from '../expenseCategorizationService';
 
 const CONFIDENCE_THRESHOLD = 0.98; // Anything below this requires human review
 
@@ -9,11 +10,13 @@ export class PersistenceService {
   private prisma: PrismaClient;
   private entityResolver: EntityResolutionService;
   private normalizer: NormalizationService;
+  private categorizationService: ExpenseCategorizationService;
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
     this.entityResolver = new EntityResolutionService(this.prisma);
     this.normalizer = new NormalizationService();
+    this.categorizationService = new ExpenseCategorizationService();
   }
 
   /**
@@ -130,6 +133,10 @@ export class PersistenceService {
           }
         });
       }
+      
+      // Part 1: Auto Categorization (SAFE EXTENSION)
+      const merchantFact = extraction.entities.find(e => e.entityType === 'VENDOR')?.name || null;
+      await this.categorizeAndSave(tx, documentId, merchantFact, extraction.rawText, extraction.facts);
 
       // Increment organization scanCount conditionally to enforce limit
       try {
@@ -251,6 +258,10 @@ export class PersistenceService {
           }
         });
       }
+      
+      // Part 1: Auto Categorization (SAFE EXTENSION)
+      const merchantFact2 = extraction.entities.find(e => e.entityType === 'VENDOR')?.name || null;
+      await this.categorizeAndSave(tx, doc.id, merchantFact2, extraction.rawText, extraction.facts);
 
       // Increment organization scanCount conditionally to enforce limit
       try {
@@ -296,5 +307,46 @@ export class PersistenceService {
         processedAt: new Date()
       }
     });
+  }
+
+  /**
+   * Safe extension to add auto-categorization fact if it doesn't already exist.
+   */
+  private async categorizeAndSave(
+    tx: any,
+    documentId: string,
+    merchantName: string | null,
+    rawText: string,
+    facts: any[]
+  ): Promise<void> {
+    try {
+      // 1. Check if category already exists to avoid overwriting
+      const existing = await tx.documentFact.findFirst({
+        where: { documentId, key: 'category' }
+      });
+
+      if (existing) return;
+
+      // 2. Get categorization result
+      const { category, confidence } = this.categorizationService.categorize({
+        merchantName,
+        rawText,
+        facts
+      });
+
+      // 3. Persist as a new Fact
+      await tx.documentFact.create({
+        data: {
+          documentId,
+          factType: 'CATEGORY',
+          key: 'category',
+          valueString: category,
+          confidence: confidence,
+          isReviewed: confidence >= CONFIDENCE_THRESHOLD
+        }
+      });
+    } catch (err) {
+      console.error(`[Persistence] Failed auto-categorization for ${documentId}:`, err);
+    }
   }
 }

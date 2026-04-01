@@ -12,6 +12,16 @@ export class UploadController {
       const userId = req.user?.id;
       const organizationId = req.user?.organizationId;
 
+      // Emergency Organization Block (Phase-1)
+      const blockedIds = (process.env.BLOCKED_ORGANIZATION_IDS || '').split(',').map(id => id.trim());
+      if (organizationId && blockedIds.includes(organizationId)) {
+        console.warn(`[UploadController] Blocked access for Organization: ${organizationId}`);
+        return res.status(403).json({
+          error: "ACCOUNT_RESTRICTED",
+          message: "Your account access has been temporarily restricted. Please contact support."
+        });
+      }
+
       console.log(`[UploadController] Received upload request for user: ${userId} (Org: ${organizationId})`);
 
       // Early guard for FREE plan limits
@@ -22,9 +32,27 @@ export class UploadController {
 
       if (organization?.plan === 'FREE' && organization.scanCount >= 10) {
         console.warn(`[UploadController] Limit reached for Org: ${organizationId}`);
-        return res.status(403).json({ 
-          error: 'LIMIT_REACHED', 
-          message: 'Free plan limit reached (10 scans). Please upgrade to PRO.' 
+        return res.status(403).json({
+          error: 'LIMIT_REACHED',
+          message: 'Free plan limit reached (10 scans). Please upgrade to PRO.'
+        });
+      }
+
+      // Rolling 24h Daily Safety Cap (Phase-1)
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const dailyCount = await prisma.document.count({
+        where: {
+          organizationId: organizationId,
+          uploadedAt: { gte: twentyFourHoursAgo }
+        }
+      });
+
+      const PRO_DAILY_LIMIT = 200;
+      if (organization?.plan === 'PRO' && dailyCount >= PRO_DAILY_LIMIT) {
+        console.warn(`[UploadController] PRO Daily Limit reached for Org: ${organizationId}`);
+        return res.status(429).json({
+          error: 'DAILY_LIMIT_REACHED',
+          message: `You have reached your daily upload limit (${PRO_DAILY_LIMIT} scans). Processing will resume in 24 hours.`
         });
       }
 
@@ -67,7 +95,7 @@ export class UploadController {
           .processUploadAsync(documentId, userId!, organizationId!, fileBuffer, mimeType, originalFileName, filePath)
           .catch(async (err: any) => {
             console.error(`[Background] Extraction failed for ${documentId}:`, err.message || err);
-            
+
             const isLimitReached = err.message === 'LIMIT_REACHED';
             const finalStatus = isLimitReached ? 'LIMIT_REACHED' : 'FAILED';
 
