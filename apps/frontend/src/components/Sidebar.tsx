@@ -45,7 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
   };
 
   const navItems = [
-    { to: '/', icon: <LayoutDashboard size={20} />, label: 'Dashboard', end: true },
+    { to: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard', end: true },
     { to: '/activity', icon: <Activity size={20} />, label: 'Activity' },
     { to: '/search', icon: <Search size={20} />, label: 'Search' },
     { to: '/queue', icon: <ClipboardList size={20} />, label: 'Review Queue' },
