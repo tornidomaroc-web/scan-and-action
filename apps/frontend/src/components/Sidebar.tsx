@@ -162,7 +162,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
               marginBottom: '8px'
             }}>
               <button
-                onClick={() => { navigate('/profile'); setIsMenuOpen(false); }}
+                onClick={() => { navigate('/settings'); setIsMenuOpen(false); }}
                 style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: '14px', color: 'var(--text-primary)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
                 <User size={16} color="var(--text-secondary)" /> My Profile
