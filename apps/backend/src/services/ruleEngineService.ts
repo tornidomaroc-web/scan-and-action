@@ -25,9 +25,8 @@ export class RuleEngineService {
     const reasons: string[] = [];
     let decision: 'APPROVED' | 'NEEDS_REVIEW' | 'FLAGGED' = 'APPROVED';
 
-    // 1. Helper to extract amount
-    const amountFact = facts.find(f => f.key === 'amount');
-    const amount = amountFact?.valueNumber ?? null;
+    // 1. Resolve amount based on priority: manual_amount > TOTAL_AMOUNT > amount
+    const amount = this.resolveAmount(facts);
 
     // 2. Helper to extract category (already persisted as fact)
     const categoryFact = facts.find(f => f.key === 'category');
@@ -55,6 +54,7 @@ export class RuleEngineService {
     }
 
     // Rule C: missing amount -> NEEDS_REVIEW
+    // Only trigger if ALL possible amount sources are missing
     if (amount === null) {
       setDecision('NEEDS_REVIEW');
       reasons.push('Missing amount');
@@ -73,7 +73,25 @@ export class RuleEngineService {
   }
 
   /**
+   * Resolves the "single source of truth" amount using the following priority:
+   * 1. manual_amount (User correction)
+   * 2. TOTAL_AMOUNT (Stronger AI signal)
+   * 3. amount (Default AI extraction)
+   */
+  private resolveAmount(facts: any[]): number | null {
+    const manualAmount = facts.find(f => f.key === 'manual_amount')?.valueNumber;
+    if (manualAmount != null) return manualAmount;
+
+    const totalAmount = facts.find(f => f.key === 'TOTAL_AMOUNT')?.valueNumber;
+    if (totalAmount != null) return totalAmount;
+
+    const amount = facts.find(f => f.key === 'amount')?.valueNumber;
+    return amount ?? null;
+  }
+
+  /**
    * Conservative duplicate check: Same merchant name, same amount, different document, same organization.
+   * It checks against both raw AI 'amount' and 'manual_amount' in existing documents.
    */
   private async checkDuplicate(
     documentId: string,
@@ -99,7 +117,7 @@ export class RuleEngineService {
         },
         facts: {
           some: {
-            key: 'amount',
+            key: { in: ['amount', 'manual_amount', 'TOTAL_AMOUNT'] },
             valueNumber: amount
           }
         }

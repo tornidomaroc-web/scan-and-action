@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../prismaClient';
 import { mapDocumentToDto, mapDocumentListToDto } from '../dto/documentDto';
 import { getSignedFileUrl } from '../services/storage/getSignedFileUrl';
+import { RuleEngineService } from '../services/ruleEngineService';
 
 export class DocumentController {
   public static async getDocumentDetail(req: Request, res: Response, next: NextFunction) {
@@ -311,6 +312,56 @@ export class DocumentController {
           }
         });
       });
+
+      // Part 3: Re-evaluation after user action
+      if (actionType === 'amount_corrected' || actionType === 'marked_valid') {
+        const updatedDoc = await prisma.document.findUnique({
+          where: { id: documentId },
+          include: { 
+            facts: true,
+            documentEntities: { include: { entity: true } }
+          }
+        });
+
+        if (updatedDoc) {
+          const ruleEngine = new RuleEngineService(prisma);
+          const merchantName = updatedDoc.documentEntities.find(de => de.role === 'VENDOR')?.entity?.canonicalName || null;
+          const result = await ruleEngine.evaluate(documentId, organizationId, updatedDoc.facts, merchantName);
+
+          await prisma.$transaction(async (tx) => {
+            // PART 4: Clean update of decision facts
+            await tx.documentFact.deleteMany({
+              where: { documentId, key: { in: ['decision', 'decision_reason'] } }
+            });
+
+            await tx.documentFact.create({
+              data: {
+                documentId,
+                factType: 'RULE_RESULT',
+                key: 'decision',
+                valueString: result.decision,
+                confidence: 1.0,
+                sourceSpan: 'rule_engine_reval',
+                isReviewed: true
+              }
+            });
+
+            if (result.reasons.length > 0) {
+              await tx.documentFact.create({
+                data: {
+                  documentId,
+                  factType: 'RULE_RESULT',
+                  key: 'decision_reason',
+                  valueString: result.reasons.join(', '),
+                  confidence: 1.0,
+                  sourceSpan: 'rule_engine_reval',
+                  isReviewed: true
+                }
+              });
+            }
+          });
+        }
+      }
 
       return res.status(200).json({ success: true });
     } catch (error: any) {
