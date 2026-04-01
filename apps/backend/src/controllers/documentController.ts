@@ -138,7 +138,8 @@ export class DocumentController {
     try {
       const docs = await prisma.document.findMany({
         where: {
-          organizationId: req.user.organizationId
+          organizationId: req.user.organizationId,
+          status: { in: ['COMPLETED', 'NEEDS_REVIEW'] }
         } as any,
         orderBy: { uploadedAt: 'desc' },
         take: 10
