@@ -25,6 +25,13 @@ export class RuleEngineService {
     const reasons: string[] = [];
     let decision: 'APPROVED' | 'NEEDS_REVIEW' | 'FLAGGED' = 'APPROVED';
 
+    // 0. Fetch summary for fallback detection
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      select: { summary: true }
+    });
+    const summary = doc?.summary || null;
+
     // 1. Resolve amount based on priority: manual_amount > TOTAL_AMOUNT > amount
     const amount = this.resolveAmount(facts);
 
@@ -47,8 +54,8 @@ export class RuleEngineService {
       reasons.push('Amount exceeds threshold');
     }
 
-    // Rule B: category = "Food" OR merchant is food-related AND amount > 50 -> FLAGGED
-    if (amount !== null && amount > 50 && (category === 'Food' || this.isFoodMerchant(merchantName))) {
+    // Rule B: category = "Food" OR merchant OR summary is food-related AND amount > 50 -> FLAGGED
+    if (amount !== null && amount > 50 && (category === 'Food' || this.isFoodMerchant(merchantName) || this.isFoodSummary(summary))) {
       setDecision('FLAGGED');
       reasons.push('High food expense');
     }
@@ -139,6 +146,37 @@ export class RuleEngineService {
       'deli', 'bakery', 'fast food', 'pizza', 'burger', 'taco', 'sushi', 
       'grill', 'pub', 'bar', 'bistro', 'steakhouse', 'ramen', 'cafeteria'
     ];
+    return foodKeywords.some(keyword => normalized.includes(keyword));
+  }
+
+  /**
+   * Fallback detection using AI Summary when merchant or category is unclear.
+   */
+  private isFoodSummary(summary: string | null): boolean {
+    if (!summary) return false;
+
+    const normalized = summary.toLowerCase();
+
+    const foodKeywords = [
+      'restaurant',
+      'cafe',
+      'coffee',
+      'meal',
+      'dinner',
+      'lunch',
+      'breakfast',
+      'pizza',
+      'burger',
+      'bistro',
+      'bar',
+      'grill',
+      'food',
+      'taco',
+      'sushi',
+      'steak',
+      'kitchen'
+    ];
+
     return foodKeywords.some(keyword => normalized.includes(keyword));
   }
 }
