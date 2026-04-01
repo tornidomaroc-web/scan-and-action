@@ -41,22 +41,30 @@ function App() {
       <BrowserRouter>
         <div className={isRTL ? 'rtl' : 'ltr'} dir={isRTL ? 'rtl' : 'ltr'}>
           <Routes>
-            {/* Public route */}
-            <Route path="/landing" element={<LandingScreen />} />
+            {/* Landing page is accessible to everyone at / */}
+            <Route path="/" element={<LandingScreen />} />
 
-            {/* Private vs Auth routes map here */}
-            {!user ? (
-              <Route path="*" element={<AuthScreen />} />
-            ) : (
+            {/* Specific Login route */}
+            <Route 
+              path="/login" 
+              element={!user ? <AuthScreen /> : <Navigate to="/dashboard" replace />} 
+            />
+
+            {/* Protected Routes */}
+            {user ? (
               <Route element={<Layout />}>
-                <Route index element={<DashboardScreen t={t} />} />
+                <Route path="dashboard" element={<DashboardScreen t={t} />} />
                 <Route path="activity" element={<ActivityScreen t={t} />} />
                 <Route path="search" element={<SearchScreen t={t} rtl={isRTL} currentLanguage={language} />} />
                 <Route path="queue" element={<ReviewQueueScreen t={t} />} />
                 <Route path="documents/:id" element={<DocumentDetailScreen t={t} />} />
                 <Route path="settings" element={<SettingsScreen t={t} />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
+                {/* Redirect any other authenticated path to dashboard */}
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Route>
+            ) : (
+              // Redirect any other guest path to landing
+              <Route path="*" element={<Navigate to="/" replace />} />
             )}
           </Routes>
         </div>

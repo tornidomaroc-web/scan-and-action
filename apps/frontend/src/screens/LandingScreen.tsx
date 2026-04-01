@@ -14,7 +14,7 @@ export function LandingScreen() {
             Upload your receipts and get a clean, categorized expense report in seconds — no spreadsheets, no manual work, no guesswork.
           </p>
           <div className="pt-4">
-            <Link to="/?intent=upload" className="inline-block text-center px-8 py-4 bg-indigo-600 text-white font-bold text-lg rounded-xl hover:bg-indigo-700 transition-colors shadow-lg hover:shadow-xl w-full sm:w-auto">
+            <Link to="/login" className="inline-block text-center px-8 py-4 bg-indigo-600 text-white font-bold text-lg rounded-xl hover:bg-indigo-700 transition-colors shadow-lg hover:shadow-xl w-full sm:w-auto">
               See My Expenses — Free
             </Link>
           </div>
@@ -119,7 +119,7 @@ export function LandingScreen() {
           </h2>
           <p className="text-xl text-indigo-100">Join freelancers and business owners who automate their finances.</p>
           <div className="pt-4">
-            <Link to="/?intent=upload" className="inline-block text-center px-8 py-4 bg-white text-indigo-600 font-bold text-lg rounded-xl hover:bg-slate-100 transition-colors shadow-lg hover:shadow-xl w-full sm:w-auto">
+            <Link to="/login" className="inline-block text-center px-8 py-4 bg-white text-indigo-600 font-bold text-lg rounded-xl hover:bg-slate-100 transition-colors shadow-lg hover:shadow-xl w-full sm:w-auto">
               Get My Expense Report — Free
             </Link>
           </div>
