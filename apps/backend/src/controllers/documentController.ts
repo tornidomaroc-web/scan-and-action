@@ -60,7 +60,7 @@ export class DocumentController {
 
   public static async getStats(req: Request, res: Response, next: NextFunction) {
     try {
-      const organizationId = (req as any).user?.organizationId;
+      const organizationId = req.user.organizationId;
       if (!organizationId) {
         console.error('[DocumentController] Missing organizationId in request user context');
         return res.status(401).json({ error: 'User organization context not found' });
@@ -68,7 +68,7 @@ export class DocumentController {
 
       console.log(`[DocumentController] Computing stats for org: ${organizationId}`);
 
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(organizationId)) {
         console.error(`[DocumentController] INVALID UUID detected in getStats: ${organizationId}`);
         return res.status(400).json({ error: 'Invalid organization context' });
