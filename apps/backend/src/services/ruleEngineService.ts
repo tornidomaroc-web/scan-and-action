@@ -47,8 +47,8 @@ export class RuleEngineService {
       reasons.push('Amount exceeds threshold');
     }
 
-    // Rule B: category = "Food" AND amount > 50 -> FLAGGED
-    if (category === 'Food' && amount !== null && amount > 50) {
+    // Rule B: category = "Food" OR merchant is food-related AND amount > 50 -> FLAGGED
+    if (amount !== null && amount > 50 && (category === 'Food' || this.isFoodMerchant(merchantName))) {
       setDecision('FLAGGED');
       reasons.push('High food expense');
     }
@@ -125,5 +125,20 @@ export class RuleEngineService {
     });
 
     return !!duplicate;
+  }
+
+  /**
+   * Identifies if a merchant name is likely food or restaurant related.
+   * Keywords exclude 'grocery' as per specific business requirements.
+   */
+  private isFoodMerchant(name: string | null): boolean {
+    if (!name) return false;
+    const normalized = name.toLowerCase();
+    const foodKeywords = [
+      'starbucks', 'mcdonalds', 'restaurant', 'cafe', 'uber eats', 'grubhub', 
+      'deli', 'bakery', 'fast food', 'pizza', 'burger', 'taco', 'sushi', 
+      'grill', 'pub', 'bar', 'bistro', 'steakhouse', 'ramen', 'cafeteria'
+    ];
+    return foodKeywords.some(keyword => normalized.includes(keyword));
   }
 }
