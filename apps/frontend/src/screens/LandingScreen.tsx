@@ -93,19 +93,19 @@ export function LandingScreen() {
       {/* 2. Problem Section */}
       <div className="py-24 px-6 bg-slate-50">
         <div className="max-w-4xl mx-auto space-y-12">
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-900 text-center uppercase italic">The "Pile of Receipts" Problem</h2>
+          <h2 className="text-3xl sm:text-4xl font-black text-slate-900 text-center uppercase">Still typing receipts manually?</h2>
           <div className="grid sm:grid-cols-3 gap-8">
             <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
               <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-xl">!</div>
-              <p className="font-bold text-slate-800 text-lg leading-snug">Hours lost manually typing receipt data into spreadsheets</p>
+              <p className="font-bold text-slate-800 text-lg leading-snug">You’re still typing every receipt by hand</p>
             </div>
             <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
               <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-xl">!</div>
-              <p className="font-bold text-slate-800 text-lg leading-snug">Messy receipts and missing amounts causing accounting errors</p>
+              <p className="font-bold text-slate-800 text-lg leading-snug">Receipts with missing amounts break your reports</p>
             </div>
             <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
               <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-xl">!</div>
-              <p className="font-bold text-slate-800 text-lg leading-snug">Discovering missing deductions too late in the tax season</p>
+              <p className="font-bold text-slate-800 text-lg leading-snug">You find mistakes only after it’s too late</p>
             </div>
           </div>
         </div>
@@ -116,21 +116,21 @@ export function LandingScreen() {
         <div className="max-w-4xl mx-auto text-center space-y-16">
           <div className="space-y-4">
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 uppercase italic">How it works</h2>
-            <p className="text-slate-500 font-bold uppercase tracking-widest italic text-sm">AI does the heavy lifting. You review only what matters.</p>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">You don’t review everything. Only what needs attention.</p>
           </div>
           
           <div className="grid sm:grid-cols-3 gap-12 sm:gap-4 relative">
             <div className="space-y-6 relative z-10">
               <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-indigo-100">1</div>
-              <h3 className="text-xl font-black text-slate-900 uppercase italic">Upload receipts</h3>
+              <h3 className="text-xl font-black text-slate-900 uppercase leading-tight">Upload receipts</h3>
             </div>
             <div className="space-y-6 relative z-10">
               <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-indigo-100">2</div>
-              <h3 className="text-xl font-black text-slate-900 uppercase italic">AI extracts and fixes inconsistent or missing data</h3>
+              <h3 className="text-xl font-black text-slate-900 uppercase leading-tight">AI extracts and fixes the data</h3>
             </div>
             <div className="space-y-6 relative z-10">
               <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-indigo-100">3</div>
-              <h3 className="text-xl font-black text-slate-900 uppercase italic">Review only flagged receipts</h3>
+              <h3 className="text-xl font-black text-slate-900 uppercase leading-tight">You review only what matters</h3>
             </div>
           </div>
         </div>
@@ -138,18 +138,18 @@ export function LandingScreen() {
 
       {/* 4. Value Section */}
       <div className="py-24 px-6 bg-slate-50">
-        <div className="max-w-5xl mx-auto grid sm:grid-cols-3 gap-8">
-          <div className="space-y-4 text-center sm:text-left">
-            <h3 className="font-black text-slate-900 text-2xl uppercase italic leading-tight">Save hours of manual data entry every month</h3>
+        <div className="max-w-5xl mx-auto grid sm:grid-cols-3 gap-8 text-center sm:text-left">
+          <div className="space-y-4">
+            <h3 className="font-black text-slate-900 text-2xl uppercase leading-tight">Stop wasting hours on manual entry</h3>
             <p className="text-slate-600 font-medium">Automatic recognition makes typing a thing of the past.</p>
           </div>
-          <div className="space-y-4 text-center sm:text-left">
-            <h3 className="font-black text-slate-900 text-2xl uppercase italic leading-tight">Catch duplicate and inconsistent expenses early</h3>
+          <div className="space-y-4">
+            <h3 className="font-black text-slate-900 text-2xl uppercase leading-tight">Catch errors before they cost you</h3>
             <p className="text-slate-600 font-medium">Built-in validation rules flag suspicious data instantly.</p>
           </div>
-          <div className="space-y-4 text-center sm:text-left">
-            <h3 className="font-black text-slate-900 text-2xl uppercase italic leading-tight">Get clean, validated data ready for accounting</h3>
-            <p className="text-slate-600 font-medium">Export pure CSV data without the formatting mess.</p>
+          <div className="space-y-4">
+            <h3 className="font-black text-slate-900 text-2xl uppercase leading-tight">Get clean data you can actually use</h3>
+            <p className="text-slate-600 font-medium">Export validated CSV data ready for your accounting tool.</p>
           </div>
         </div>
       </div>
@@ -196,12 +196,12 @@ export function LandingScreen() {
       {/* 6. Final CTA Section */}
       <div className="py-32 px-6 bg-slate-900 text-center">
         <div className="max-w-3xl mx-auto space-y-10">
-          <h2 className="text-4xl sm:text-5xl font-black text-white italic uppercase leading-tight">Turn receipts into clean data in seconds</h2>
+          <h2 className="text-4xl sm:text-5xl font-black text-white uppercase leading-tight">Turn receipts into clean data in seconds</h2>
           <div className="space-y-6">
-            <Link to="/login" className="inline-block px-12 py-6 bg-indigo-600 text-white font-black text-2xl rounded-2xl hover:bg-indigo-700 transition-all shadow-2xl hover:shadow-indigo-500/40 active:scale-95 uppercase italic tracking-tight">
-              Start for Free – No Credit Card
+            <Link to="/login" className="inline-block px-12 py-6 bg-indigo-600 text-white font-black text-2xl rounded-2xl hover:bg-indigo-700 transition-all shadow-2xl hover:shadow-indigo-500/40 active:scale-95 uppercase tracking-tight">
+              Start Free – 10 Scans Included
             </Link>
-            <p className="text-slate-500 font-bold text-sm uppercase tracking-widest italic">10 free scans. Upgrade anytime.</p>
+            <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">No credit card. Takes 30 seconds.</p>
           </div>
         </div>
       </div>
