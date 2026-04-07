@@ -176,6 +176,7 @@ export const strings = {
     totalAmount: 'Total Amount',
     decisionField: 'Decision',
     decisionReason: 'Decision Reason',
+    recently: 'Recently',
   },
   fr: {
     header: 'Scanner et Agir',
@@ -353,6 +354,7 @@ export const strings = {
     totalAmount: 'Montant Total',
     decisionField: 'Décision',
     decisionReason: 'Raison de la Décision',
+    recently: 'Récemment',
   },
   ar: {
     header: 'المسح والإجراء',
@@ -530,5 +532,6 @@ export const strings = {
     totalAmount: 'المبلغ الإجمالي',
     decisionField: 'القرار',
     decisionReason: 'سبب القرار',
+    recently: 'مؤخراً',
   },
 };
