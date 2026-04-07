@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Zap, CheckCircle2, Crown, Star } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useStrings } from '../i18n/useStrings';
 
 interface PaywallModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface PaywallModalProps {
 type Plan = 'monthly' | 'yearly';
 
 export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) => {
+  const s = useStrings();
   const { user } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<Plan>('yearly');
 

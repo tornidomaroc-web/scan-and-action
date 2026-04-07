@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useStrings } from '../i18n/useStrings';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface SidebarProps {
   onNewScan: () => void;
@@ -25,6 +27,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan }) => {
+  const s = useStrings();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { showToast } = useToast();
@@ -45,11 +48,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
   };
 
   const navItems = [
-    { to: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard', end: true },
-    { to: '/activity', icon: <Activity size={20} />, label: 'Activity' },
-    { to: '/search', icon: <Search size={20} />, label: 'Search' },
-    { to: '/queue', icon: <ClipboardList size={20} />, label: 'Review Queue' },
-    { to: '/settings', icon: <Settings size={20} />, label: 'Settings' },
+    { to: '/dashboard', icon: <LayoutDashboard size={20} />, label: s.dashboard, end: true },
+    { to: '/activity', icon: <Activity size={20} />, label: s.recentActivity },
+    { to: '/search', icon: <Search size={20} />, label: s.search },
+    { to: '/queue', icon: <ClipboardList size={20} />, label: s.queue },
+    { to: '/settings', icon: <Settings size={20} />, label: s.settings },
   ];
 
   const userName = user?.email?.split('@')[0] || 'User';
@@ -91,7 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
         <div style={{ width: '36px', height: '36px', background: 'var(--accent)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Zap size={20} color="white" />
         </div>
-        <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.025em' }}>Scan & Action</span>
+        <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.025em' }}>{s.header}</span>
       </div>
 
       {/* Primary Action */}
@@ -123,6 +126,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
 
       {/* Theme Toggle & User Info */}
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border)' }}>
+        <div style={{ marginBottom: '4px' }}>
+          <LanguageSwitcher />
+        </div>
         <button
           onClick={toggleTheme}
           style={{
@@ -142,7 +148,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
           }}
         >
           {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-          {theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+          {theme === 'light' ? s.switchDark : s.switchLight}
         </button>
 
         <div style={{ position: 'relative' }}>
@@ -165,20 +171,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
                 onClick={() => { navigate('/settings'); setIsMenuOpen(false); }}
                 style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: '14px', color: 'var(--text-primary)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
-                <User size={16} color="var(--text-secondary)" /> My Profile
+                <User size={16} color="var(--text-secondary)" /> {s.myProfile}
               </button>
               <button
                 onClick={() => { navigate('/settings'); setIsMenuOpen(false); }}
                 style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: '14px', color: 'var(--text-primary)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
-                <Settings size={16} color="var(--text-secondary)" /> Settings
+                <Settings size={16} color="var(--text-secondary)" /> {s.settings}
               </button>
               <div style={{ borderTop: '1px solid var(--border)' }} />
               <button
                 onClick={handleLogout}
                 style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: '14px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}
               >
-                <LogOut size={16} /> Sign Out
+                <LogOut size={16} /> {s.signOut}
               </button>
             </div>
           )}
@@ -205,7 +211,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
               <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName}</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
-                  {plan === 'PRO' ? 'Pro Plan' : plan === 'FREE' ? 'Free Plan' : 'Checking Plan...'}
+                  {plan === 'PRO' ? s.proPlan : plan === 'FREE' ? s.freePlan : 'Checking Plan...'}
                 </p>
                 {plan === 'FREE' && (
                   <button

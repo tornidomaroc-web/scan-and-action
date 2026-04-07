@@ -12,8 +12,10 @@ import {
   ArrowRight,
   ShieldCheck
 } from 'lucide-react';
+import { useStrings } from '../i18n/useStrings';
 
 export const AuthScreen: React.FC = () => {
+  const s = useStrings();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -57,7 +59,7 @@ export const AuthScreen: React.FC = () => {
             <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
                <Zap size={28} className="text-white" />
             </div>
-            <span className="text-2xl font-black text-white tracking-tight">Scan & Action</span>
+            <span className="text-2xl font-black text-white tracking-tight">{s.header}</span>
           </div>
 
           <p className="text-blue-400 font-bold uppercase tracking-[0.2em] text-xs mb-4">
@@ -119,7 +121,7 @@ export const AuthScreen: React.FC = () => {
             <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-blue-500/20 rotate-3">
                <Zap size={32} className="text-white" />
             </div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Scan & Action</h2>
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{s.header}</h2>
           </div>
 
           <div className="bg-white dark:bg-slate-800 p-10 lg:p-12 rounded-[40px] shadow-xl shadow-slate-200/60 dark:shadow-none border border-slate-200/50 dark:border-slate-700/50">

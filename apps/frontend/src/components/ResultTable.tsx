@@ -1,5 +1,6 @@
 import React from 'react';
 import { EmptyState } from './EmptyState';
+import { useStrings } from '../i18n/useStrings';
 
 type ResultTableProps = {
   data: any[];
@@ -12,8 +13,9 @@ export const ResultTable = ({
   emptyStateComponent,
   onRowClick,
 }: ResultTableProps) => {
+  const s = useStrings();
   if (!data || data.length === 0) {
-    return (emptyStateComponent || <EmptyState message="No data available." />) as any;
+    return (emptyStateComponent || <EmptyState message={s.noData} />) as any;
   }
 
   const headers = Object.keys(data[0]).filter(h => h !== 'id');

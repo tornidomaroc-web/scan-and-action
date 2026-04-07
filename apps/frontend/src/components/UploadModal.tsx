@@ -5,6 +5,7 @@ import { uploadDocument } from '../services/uploadService';
 import { documentService } from '../services/documentService';
 import { useToast } from '../contexts/ToastContext';
 import { PaywallModal } from './PaywallModal';
+import { useStrings } from '../i18n/useStrings';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface UploadModalProps {
 }
 
 export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuccess, plan }) => {
+  const s = useStrings();
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -311,9 +313,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
         <div className="px-8 py-6 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-              {status === 'idle' ? 'Upload Documents' : 
-               status === 'success' ? (isProcessing ? 'Extracting Intelligence' : 'Extraction Complete') :
-               status === 'partial' ? 'Partial Success' : 'Requirements Missing'}
+              {status === 'idle' ? s.upload : 
+               status === 'success' ? (isProcessing ? 'Extracting Intelligence' : s.uploadSuccess) :
+               status === 'partial' ? 'Partial Success' : s.uploadError}
             </h2>
             <p className="text-sm font-medium text-gray-500 dark:text-slate-400 mt-1">
               {status === 'idle' ? 'Select one or more files for AI extraction.' : 
@@ -344,7 +346,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-black shadow-lg shadow-blue-500/25 flex items-center justify-center gap-3 transition-all active:scale-[0.98] border-2 border-blue-500/50"
               >
                 <Camera size={24} />
-                Scan with Camera
+                {s.scanWithCamera}
               </button>
               <input
                 ref={cameraInputRef}
@@ -380,10 +382,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                 <Upload size={24} className="text-blue-600 dark:text-blue-400" />
               </div>
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                Drop files or <span className="text-blue-600 dark:text-blue-400 underline pointer-events-auto">browse</span>
+                {s.dropFiles} <span className="text-blue-600 dark:text-blue-400 underline pointer-events-auto">{s.browse}</span>
               </h3>
               <p className="text-xs font-medium text-gray-500 dark:text-slate-400">
-                Supports PDF, PNG, JPG up to 10MB per file
+                {s.supportedFormats}
               </p>
             </div>
           </div>
@@ -460,18 +462,18 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                 <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-slate-800">
                   <div className="flex justify-between text-sm font-bold text-gray-900 dark:text-white mb-2">
                     <span className="flex items-center gap-2">
-                      {status === 'success' ? (
-                        Object.values(docStatus).some(s => s === 'PROCESSING') ? (
+                       {status === 'success' ? (
+                        Object.values(docStatus).some(st => st === 'PROCESSING') ? (
                           <><CheckCircle size={18} className="text-emerald-600"/> Uploaded ✔️ Processing...</>
                         ) : (
-                          <><CheckCircle size={18} className="text-emerald-600"/> Success</>
+                          <><CheckCircle size={18} className="text-emerald-600"/> {s.uploadSuccess}</>
                         )
                       ) : status === 'partial' ? (
                         <><AlertCircle size={18} className="text-amber-600"/> Partial Success ({results.success}/{results.total})</>
                       ) : status === 'error' ? (
-                        <><AlertCircle size={18} className="text-red-600"/> Requirements Missing</>
+                        <><AlertCircle size={18} className="text-red-600"/> {s.uploadError}</>
                       ) : (
-                        <><Loader2 size={18} className="animate-spin text-blue-600"/> Ingesting...</>
+                        <><Loader2 size={18} className="animate-spin text-blue-600"/> {s.uploading}</>
                       )}
                     </span>
                     {uploading && <span className="text-gray-500 dark:text-slate-400 font-black">{progress}%</span>}

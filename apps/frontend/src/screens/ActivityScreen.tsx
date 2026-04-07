@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
+import { useStrings } from '../i18n/useStrings';
 
 const formatDate = (dateString: string) => {
   if (!dateString) return 'Recently';
@@ -21,6 +22,7 @@ const formatDate = (dateString: string) => {
 };
 
 export const ActivityScreen = ({ t }: { t: any }) => {
+  const s = useStrings();
   const navigate = useNavigate();
   const [activity, setActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +36,7 @@ export const ActivityScreen = ({ t }: { t: any }) => {
       setError(null);
     } catch (err: any) {
       console.error('[Activity] Fetch failed:', err);
-      setError('Failed to load activity history. Please check your connection.');
+      setError(s.failedActivity);
     } finally {
       setLoading(false);
     }
@@ -48,7 +50,7 @@ export const ActivityScreen = ({ t }: { t: any }) => {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <Loader2 className="animate-spin text-blue-500 mb-4" size={40} />
-        <p className="text-slate-500 font-bold">Loading activity history...</p>
+        <p className="text-slate-500 font-bold">{s.loadingActivity}</p>
       </div>
     );
   }
@@ -74,13 +76,13 @@ export const ActivityScreen = ({ t }: { t: any }) => {
             className="flex items-center gap-2 text-slate-500 hover:text-blue-500 font-bold mb-4 transition-colors group"
           >
             <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-            Back to Control Center
+            {s.backToCenter}
           </button>
           <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-2">
-            Activity History
+            {s.activityHistory}
           </h1>
           <p className="text-lg font-bold text-slate-500 dark:text-slate-400">
-            Comprehensive audit of your document extractions (v1: Top 100).
+            {s.auditDesc}
           </p>
         </div>
       </header>
@@ -89,10 +91,10 @@ export const ActivityScreen = ({ t }: { t: any }) => {
         <div className="flex items-center gap-3 mb-8 pb-6 border-b border-slate-50 dark:border-slate-700/30">
           <Activity size={22} className="text-blue-500" strokeWidth={2.5} /> 
           <h2 className="text-xl font-black text-slate-900 dark:text-white">
-            Historical Intelligence
+            {s.historicalIntel}
           </h2>
           <span className="ml-auto px-3 py-1 bg-slate-100 dark:bg-slate-700 rounded-full text-[10px] font-black uppercase text-slate-500 tracking-wider">
-            {activity.length} Records
+            {activity.length} {s.records}
           </span>
         </div>
         
@@ -102,7 +104,7 @@ export const ActivityScreen = ({ t }: { t: any }) => {
               <div className="w-16 h-16 bg-slate-50 dark:bg-slate-900/50 text-slate-300 rounded-full flex items-center justify-center mb-4">
                 <FileText size={32} />
               </div>
-              <p className="font-black text-slate-900 dark:text-white text-lg">No activity recorded yet.</p>
+              <p className="font-black text-slate-900 dark:text-white text-lg">{s.noActivity}</p>
               <p className="text-slate-500 font-bold">Your processed documents will appear here.</p>
             </div>
           ) : (
@@ -129,7 +131,7 @@ export const ActivityScreen = ({ t }: { t: any }) => {
                     ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/30 border-amber-100 dark:border-amber-800' 
                     : 'text-slate-400 bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800'
                 }`}>
-                  {item.status.replace('_', ' ')}
+                  {item.status === 'COMPLETED' ? s.completed : item.status === 'NEEDS_REVIEW' ? s.needsReview : s.rejected}
                 </div>
               </div>
             ))

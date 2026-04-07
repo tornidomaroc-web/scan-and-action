@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { useStrings } from '../i18n/useStrings';
 
 type Props = {
   decision: 'APPROVED' | 'NEEDS_REVIEW' | 'FLAGGED' | null;
@@ -7,6 +8,7 @@ type Props = {
 };
 
 export const DecisionBanner: React.FC<Props> = ({ decision, reason }) => {
+  const s = useStrings();
   if (!decision) return null;
 
   const config = {
@@ -25,8 +27,8 @@ export const DecisionBanner: React.FC<Props> = ({ decision, reason }) => {
       text: 'text-yellow-900 dark:text-yellow-100',
       accent: 'text-yellow-600 dark:text-yellow-400',
       icon: <AlertTriangle size={24} />,
-      title: 'Needs Review',
-      subtitle: 'This expense requires your attention',
+      title: s.needsReviewTitle,
+      subtitle: s.expenseAttention,
     },
     APPROVED: {
       bg: 'bg-emerald-50 dark:bg-emerald-900/20',
@@ -57,7 +59,7 @@ export const DecisionBanner: React.FC<Props> = ({ decision, reason }) => {
           </p>
           {reason && (
             <div className={`pt-3 border-t border-current/10 ${current.text}`}>
-              <p className="text-xs font-black uppercase tracking-widest opacity-60 mb-2">Findings rationale</p>
+              <p className="text-xs font-black uppercase tracking-widest opacity-60 mb-2">{s.findingsRationale}</p>
               <p className="text-sm font-medium leading-relaxed">{reason}</p>
             </div>
           )}

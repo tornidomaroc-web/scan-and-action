@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { CheckCircle, XCircle, Clock, FileText, ChevronRight, Filter } from 'lucide-react';
+import { CheckCircle, XCircle, FileText, ChevronRight, Filter, SlidersHorizontal, ArrowRight } from 'lucide-react';
 import { documentService } from '../services/documentService';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
 import { ReviewBadge } from '../components/SharedComponents';
 import { useToast } from '../contexts/ToastContext';
+import { useStrings } from '../i18n/useStrings';
 
-export const ReviewQueueScreen = ({ t }: { t: any }) => {
+export const ReviewQueueScreen = ({ t, rtl }: any) => {
+  const s = useStrings();
   const navigate = useNavigate();
   const { onSuccess } = useOutletContext<{ onSuccess: () => void }>();
   const [docs, setDocs] = useState<any[]>([]);
@@ -88,19 +90,19 @@ export const ReviewQueueScreen = ({ t }: { t: any }) => {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-end justify-between mb-10">
         <div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white">{t.reviewTitle || 'Review Queue'}</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-2 font-bold text-lg">{t.reviewDesc || 'Validate extracted intelligence from new documents.'}</p>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-2">{s.queue}</h1>
+          <p className="text-lg font-bold text-slate-500 dark:text-slate-400">{s.validationQueue}</p>
         </div>
         <button className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-5 py-2.5 rounded-full text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm">
-           <Filter size={16} />
-           Filters
+           <SlidersHorizontal size={16} />
+           {s.filters}
         </button>
       </div>
 
       {docs.length === 0 ? (
         <div className="card py-24 bg-white dark:bg-slate-800 border-dashed border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center rounded-[32px]">
           <EmptyState 
-            message={t.allCaughtUp || 'All Caught Up!'} 
+            message={s.allCaughtUp} 
             description="You've reviewed all pending documents. Great work today."
             icon={<div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 rounded-3xl flex items-center justify-center mb-0 shadow-lg shadow-emerald-100 dark:shadow-none"><CheckCircle size={40} /></div>}
           />
@@ -109,18 +111,18 @@ export const ReviewQueueScreen = ({ t }: { t: any }) => {
         <div className="bg-white dark:bg-slate-800 rounded-[32px] overflow-hidden shadow-2xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700">
           <table className="saas-table">
             <thead>
-              <tr className="dark:bg-slate-800/50">
-                <th className="pl-10 dark:text-slate-400">Document Source</th>
-                <th className="dark:text-slate-400">Processing Status</th>
-                <th className="dark:text-slate-400">AI Confidence</th>
-                <th className="dark:text-slate-400">Extracted Date</th>
-                <th className="text-right pr-10 dark:text-slate-400">Quick Actions</th>
+              <tr className="border-b border-slate-100 dark:border-slate-700/50">
+                <th className="group px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{s.documentSource}</th>
+                <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{s.processingStatus}</th>
+                <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{s.aiConfidence}</th>
+                <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{s.extractedDate}</th>
+                <th className="px-6 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{s.quickActions}</th>
               </tr>
             </thead>
             <tbody className="dark:divide-slate-700">
               {docs.map((doc) => (
                 <tr key={doc.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-700/40 transition-all group">
-                  <td className="pl-10">
+                  <td className="pl-10 py-6">
                     <div className="flex items-center">
                       <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mr-5 shadow-sm group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                         <FileText size={22} />
@@ -131,21 +133,21 @@ export const ReviewQueueScreen = ({ t }: { t: any }) => {
                       </div>
                     </div>
                   </td>
-                  <td>
-                    <span className="badge badge-pending scale-110 origin-left dark:bg-amber-900/30 dark:text-amber-400">
-                      <div className="badge-dot dark:bg-amber-400" />
-                      PENDING REVIEW
+                  <td className="px-6 py-6">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        {s.pendingReviewStatus}
                     </span>
                   </td>
-                  <td>
+                  <td className="px-6 py-6">
                     <ReviewBadge confidence={doc.overallConfidence || 0.92} status={doc.status} />
                   </td>
-                  <td>
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-lg">
-                      {doc.date || 'Recently'}
+                  <td className="px-6 py-6">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                      {doc.date ? new Date(doc.date).toLocaleDateString() : s.recently}
                     </span>
                   </td>
-                  <td className="text-right pr-10">
+                  <td className="px-6 py-6 text-right">
                     <div className="flex items-center justify-end gap-4">
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-6 group-hover:translate-x-0 duration-300">
                         <button 
@@ -165,10 +167,10 @@ export const ReviewQueueScreen = ({ t }: { t: any }) => {
                       </div>
                       <button 
                         onClick={() => navigate(`/documents/${doc.id}`)}
-                        className="flex items-center gap-2.5 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white px-6 py-3 rounded-2xl text-xs font-black transition-all shadow-xl shadow-slate-200 dark:shadow-none active:scale-95 whitespace-nowrap"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg active:scale-95"
                       >
-                        Deep Review
-                        <ChevronRight size={16} strokeWidth={3} />
+                        {s.deepReview}
+                        <ArrowRight size={14} />
                       </button>
                     </div>
                   </td>

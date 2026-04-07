@@ -22,10 +22,12 @@ import { ChartPlaceholder, ReportCard } from '../components/SharedComponents';
 import { QueryResultDto } from '../types';
 import { searchService } from '../services/searchService';
 import { reportsService } from '../services/reportsService';
+import { useStrings } from '../i18n/useStrings';
 
 interface SearchPrompt {
   id: string;
   label: string;
+  display: string;
   query: string;
   description?: string;
   mode: 'autorun' | 'populate';
@@ -33,6 +35,7 @@ interface SearchPrompt {
 }
 
 export const SearchScreen = ({ t, rtl, currentLanguage }: any) => {
+  const s = useStrings();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
@@ -79,7 +82,7 @@ export const SearchScreen = ({ t, rtl, currentLanguage }: any) => {
 
   // UNIFIED PROMPT HANDLER (Single source of truth for all shortcuts)
   const handlePromptClick = async (prompt: SearchPrompt) => {
-    setQuery(prompt.query);
+    setQuery(prompt.display);
     setErrorMsg('');
     
     // Always maintain focus for immediate manual correction
@@ -95,15 +98,15 @@ export const SearchScreen = ({ t, rtl, currentLanguage }: any) => {
   };
 
   const suggestionPrompts: SearchPrompt[] = [
-    { id: 'spend', label: 'Total spend this month', query: 'What is my total spend this month?', mode: 'populate', icon: <TrendingUp size={14} /> },
-    { id: 'invoices', label: 'Recent invoices', query: 'Show my recent invoices', mode: 'populate', icon: <FileText size={14} /> },
-    { id: 'categories', label: 'Expenses by category', query: 'Analyze expenses by category', mode: 'populate', icon: <History size={14} /> }
+    { id: 'spend', label: s.totalSpend, display: s.totalSpendQuery, query: 'What is my total spend this month?', mode: 'populate', icon: <TrendingUp size={14} /> },
+    { id: 'invoices', label: s.recentInvoices, display: s.recentInvoicesQuery, query: 'Show my recent invoices', mode: 'populate', icon: <FileText size={14} /> },
+    { id: 'categories', label: s.expensesByCategory, display: s.expensesByCategoryQuery, query: 'Analyze expenses by category', mode: 'populate', icon: <History size={14} /> }
   ];
 
   const galleryPrompts: SearchPrompt[] = [
-    { id: 'monthly', label: 'Monthly Spending', description: 'Analyze trends across all vendors', query: 'Summarize monthly spending across vendors', mode: 'populate', icon: <TrendingUp size={24} /> },
-    { id: 'recent', label: 'Recent Activity', description: 'View latest document extractions', query: 'Show recent document activity', mode: 'autorun', icon: <FileText size={24} /> },
-    { id: 'atrisk', label: 'At Risk Assets', description: 'Identify audits needing review', query: 'Identify high-risk audits needing review', mode: 'populate', icon: <ShieldAlert size={24} /> }
+    { id: 'monthly', label: s.monthlySpending, display: s.monthlySpendingQuery, description: s.monthlySpendingDesc, query: 'Summarize monthly spending across vendors', mode: 'populate', icon: <TrendingUp size={24} /> },
+    { id: 'recent', label: s.recentActivity, display: s.recentActivityQuery, description: s.recentActivityDesc, query: 'Show recent document activity', mode: 'autorun', icon: <FileText size={24} /> },
+    { id: 'atrisk', label: s.atRiskAssets, display: s.atRiskAssetsQuery, description: s.atRiskAssetsDesc, query: 'Identify high-risk audits needing review', mode: 'populate', icon: <ShieldAlert size={24} /> }
   ];
 
   return (
@@ -112,10 +115,10 @@ export const SearchScreen = ({ t, rtl, currentLanguage }: any) => {
       <div className={`transition-all duration-700 ease-in-out ${result || loading ? 'mb-12' : 'mt-20 mb-16'}`}>
         <div className="text-center mb-8">
           <p className="text-blue-600 dark:text-blue-400 font-black uppercase tracking-[0.2em] text-[10px] mb-3">
-            Intelligent Document Search
+            {s.intelligentSearch}
           </p>
           <h1 className="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
-            Ask anything about your <span className="text-blue-600 dark:text-blue-500 italic">data</span>
+            {s.askAnything.split('data')[0]}<span className="text-blue-600 dark:text-blue-500 italic">data</span>
           </h1>
         </div>
 
@@ -131,7 +134,7 @@ export const SearchScreen = ({ t, rtl, currentLanguage }: any) => {
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder='e.g. "What is my total spend this month?"'
+              placeholder={s.searchPlaceholder}
               className="w-full pl-16 pr-16 py-6 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 rounded-[28px] text-xl font-bold text-slate-900 dark:text-white placeholder-slate-300 dark:placeholder-slate-500 shadow-xl shadow-slate-200/50 dark:shadow-none outline-none transition-all"
             />
             {query && (
@@ -202,7 +205,7 @@ export const SearchScreen = ({ t, rtl, currentLanguage }: any) => {
 
             <div className="text-center pt-8">
               <p className="text-slate-400 dark:text-slate-500 font-black text-sm uppercase tracking-widest animate-pulse">
-                 Analyzing your document library...
+                 {s.analyzingDocs}
               </p>
             </div>
           </div>
@@ -224,7 +227,7 @@ export const SearchScreen = ({ t, rtl, currentLanguage }: any) => {
 
             {result.requiresClarification && (
               <div className="max-w-2xl mx-auto">
-                 <ClarificationCard message={result.answerText || t.clarifyFailed} />
+                 <ClarificationCard message={result.answerText || s.clarifyFailed} />
               </div>
             )}
 
@@ -243,7 +246,7 @@ export const SearchScreen = ({ t, rtl, currentLanguage }: any) => {
                     <div className="flex items-center justify-between px-2">
                        <h3 className="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
                           <SlidersHorizontal size={14} /> 
-                          Raw Data Engine
+                          {s.rawDataEngine}
                        </h3>
                        <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">
                           {result.resultCount} findings • {result.executionTimeMs}ms
@@ -256,7 +259,7 @@ export const SearchScreen = ({ t, rtl, currentLanguage }: any) => {
                         emptyStateComponent={
                           <div className="py-20 text-center">
                             <EmptyState 
-                              message="No matching data found." 
+                              message={s.noMatchingData} 
                               description="Try adjusting your filters or search terms. Your workspace might not have documents covering this specific query yet."
                             >
                               <div className="flex flex-wrap justify-center gap-2 mt-6 max-w-sm mx-auto">
@@ -284,7 +287,7 @@ export const SearchScreen = ({ t, rtl, currentLanguage }: any) => {
                 <div className="pt-10 border-t border-slate-100 dark:border-slate-800 px-4">
                   <p className="text-[10px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3">
                     <Info size={14} className="text-blue-500" />
-                    Powered by extracted document intelligence
+                    {s.poweredBy}
                   </p>
                 </div>
               </>
@@ -297,19 +300,19 @@ export const SearchScreen = ({ t, rtl, currentLanguage }: any) => {
             <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800/50 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-slate-100 dark:border-slate-700">
                <Sparkles size={40} className="text-blue-500/50" />
             </div>
-            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4 italic tracking-tight">Ask anything about your documents</h3>
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4 italic tracking-tight">{s.askDocs}</h3>
             <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto font-bold mb-12">
-               Your workspace is fully indexed. Query by date, vendor, or category.
+               {s.workspaceIndexed}
             </p>
             
             <div className="max-w-4xl mx-auto">
               <div className="flex items-center justify-between mb-8 px-2">
-                <span className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Workspace Insights Gallery</span>
+                <span className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{s.insightsGallery}</span>
                 <button 
-                  onClick={() => handlePromptClick({ id: 'browse', label: 'Browse All', query: 'Explore all intelligence reports', mode: 'populate', icon: <ArrowRight size={14} /> })}
+                  onClick={() => handlePromptClick({ id: 'browse', label: s.browseAll, display: s.browseAllQuery, query: 'Explore all intelligence reports', mode: 'populate', icon: <ArrowRight size={14} /> })}
                   className="text-blue-600 dark:text-blue-400 text-xs font-black uppercase tracking-widest hover:underline flex items-center gap-2"
                 >
-                  Browse All <ArrowRight size={14} />
+                  {s.browseAll} <ArrowRight size={14} />
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

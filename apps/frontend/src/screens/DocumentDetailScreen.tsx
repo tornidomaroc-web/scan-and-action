@@ -6,16 +6,27 @@ import { ErrorState } from '../components/ErrorState';
 import { ReviewBadge } from '../components/SharedComponents';
 import { DecisionBanner } from '../components/DecisionBanner';
 import { FixActionPanel } from '../components/FixActionPanel';
+import { useStrings } from '../i18n/useStrings';
 
 export const DocumentDetailScreen = ({
   t,
 }: {
   t: any;
 }) => {
+  const s = useStrings();
+  const fieldLabel = (key: string): string => {
+    const map: Record<string, string> = {
+      TRANSACTION_DATE: s.transactionDate,
+      TOTAL_AMOUNT: s.totalAmount,
+      decision: s.decisionField,
+      decision_reason: s.decisionReason,
+    };
+    return map[key] || key;
+  };
   const { id: documentId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
-  if (!documentId) return <ErrorState title={t.errorTitle} message="Missing document ID" />;
+  if (!documentId) return <ErrorState title={s.errorTitle} message="Missing document ID" />;
   const [doc, setDoc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -55,8 +66,8 @@ export const DocumentDetailScreen = ({
 
   if (loading) return <DocumentDetailSkeleton />;
 
-  if (errorMsg) return <div className="max-w-[1000px] mx-auto py-12"><ErrorState title={t.errorTitle} message={errorMsg} onRetry={() => window.location.reload()} /></div>;
-  if (!doc) return <div className="max-w-[1000px] mx-auto py-12"><ErrorState title={t.errorTitle} message={t.docNotFound} /></div>;
+  if (errorMsg) return <div className="max-w-[1000px] mx-auto py-12"><ErrorState title={s.errorTitle} message={errorMsg} onRetry={() => window.location.reload()} /></div>;
+  if (!doc) return <div className="max-w-[1000px] mx-auto py-12"><ErrorState title={s.errorTitle} message={s.docNotFound} /></div>;
 
   const isImageFile = typeof doc.signedFileUrl === 'string' && /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.originalFileName || '');
   const isPdfFile = typeof doc.signedFileUrl === 'string' && /\.pdf$/i.test(doc.originalFileName || '');
@@ -75,13 +86,13 @@ export const DocumentDetailScreen = ({
         <div className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm group-hover:border-blue-500 transition-colors">
           <ChevronLeft size={18} strokeWidth={3} />
         </div>
-        {t.backToSearch || 'Back to Workspace'}
+        {s.backToSearch || 'Back to Workspace'}
       </button>
 
       <div className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-slate-100 dark:border-slate-800 shadow-2xl shadow-slate-200/40 dark:shadow-none">
         <div className="flex items-start justify-between mb-10">
           <div>
-            <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-3 leading-tight">
+            <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-3 leading-tight truncate max-w-full">
               {doc.originalFileName || `Document ${doc.id}`}
             </h1>
             <div className="flex items-center gap-3">
@@ -89,11 +100,13 @@ export const DocumentDetailScreen = ({
                 <FileText size={18} strokeWidth={2.5} />
               </div>
               <p className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.2em] text-[10px]">
-                Verified AI Intelligence Extraction
+                {s.verifiedExtraction}
               </p>
             </div>
           </div>
-          <ReviewBadge confidence={doc.overallConfidence} status={doc.status} />
+          <div className="max-w-[200px] truncate">
+            <ReviewBadge confidence={doc.overallConfidence} status={doc.status} />
+          </div>
         </div>
 
         <DecisionBanner decision={decision} reason={reason} />
@@ -107,21 +120,21 @@ export const DocumentDetailScreen = ({
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
           {[
-            { label: t.status, value: doc.status.replace('_', ' '), color: 'text-blue-600' },
-            { label: t.type, value: doc.documentType || 'General', color: 'text-slate-600 dark:text-slate-300' },
-            { label: t.date, value: new Date(doc.uploadedAt).toLocaleDateString(), color: 'text-slate-600 dark:text-slate-300' },
-            { label: t.docLanguage, value: doc.detectedLanguage?.toUpperCase() || 'EN', color: 'text-slate-600 dark:text-slate-300' },
+            { label: s.status, value: doc.status.replace('_', ' '), color: 'text-blue-600' },
+            { label: s.type, value: doc.documentType || 'General', color: 'text-slate-600 dark:text-slate-300' },
+            { label: s.date, value: new Date(doc.uploadedAt).toLocaleDateString(), color: 'text-slate-600 dark:text-slate-300' },
+            { label: s.docLanguage, value: doc.detectedLanguage?.toUpperCase() || 'EN', color: 'text-slate-600 dark:text-slate-300' },
           ].map((item, i) => (
-            <div key={i} className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-700/50">
-              <span className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{item.label}</span>
-              <span className={`text-sm font-black uppercase tracking-tight ${item.color}`}>{item.value}</span>
+            <div key={i} className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-700/50 overflow-hidden">
+              <span className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 truncate">{item.label}</span>
+              <span className={`text-sm font-black uppercase tracking-tight truncate block ${item.color}`}>{item.value}</span>
             </div>
           ))}
         </div>
 
         {doc.signedFileUrl && (
           <div className="mb-12">
-            <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-5 italic ml-1">Source Visualization</h3>
+            <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-5 italic ml-1">{s.sourceVisualization}</h3>
             <div className="rounded-3xl overflow-hidden border-2 border-slate-100 dark:border-slate-800 shadow-2xl bg-slate-50 dark:bg-slate-800">
               {isImageFile ? (
                 <img
@@ -151,7 +164,7 @@ export const DocumentDetailScreen = ({
         )}
 
         <div className="bg-blue-600 dark:bg-blue-600/10 p-8 rounded-[32px] text-white dark:text-slate-100 mb-12 border-l-8 border-blue-400 dark:border-blue-500 shadow-xl shadow-blue-600/10 dark:shadow-none">
-          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-200 dark:text-blue-400 mb-4 opacity-80">AI Synthesis</h4>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-200 dark:text-blue-400 mb-4 opacity-80">{s.aiSynthesis}</h4>
           <p className="text-base font-bold leading-relaxed opacity-90">{doc.summary}</p>
         </div>
 
@@ -160,7 +173,7 @@ export const DocumentDetailScreen = ({
              <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-xl shadow-emerald-500/20 dark:shadow-none">
                 <CheckCircle size={22} strokeWidth={2.5} />
              </div>
-             {t.extractedFacts || 'Extracted Intelligence'}
+             {s.extractedFacts}
           </h3>
           
           {doc.facts && doc.facts.length > 0 ? (
@@ -168,15 +181,15 @@ export const DocumentDetailScreen = ({
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t.key || 'Fact Label'}</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t.value || 'Data Value'}</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t.confidence || 'Precision'}</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{s.factLabel}</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{s.dataValue}</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{s.precision}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                   {doc.facts.map((fact: any, i: number) => (
                     <tr key={i} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="px-8 py-5 font-black text-slate-900 dark:text-slate-100 text-sm group-hover:text-blue-600 transition-colors">{fact.key}</td>
+                      <td className="px-8 py-5 font-black text-slate-900 dark:text-slate-100 text-sm group-hover:text-blue-600 transition-colors">{fieldLabel(fact.key)}</td>
                       <td className="px-8 py-5 font-bold text-slate-600 dark:text-slate-300 text-sm">
                         {fact.valueString || fact.valueNumber || String(fact.valueDate)} {fact.currency || ''}
                       </td>
@@ -186,7 +199,7 @@ export const DocumentDetailScreen = ({
                              ? 'text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800' 
                              : 'text-amber-700 bg-amber-50 dark:bg-amber-900/30 border-amber-100 dark:border-amber-800'
                          }`}>
-                            {Math.round(fact.confidence * 100)}% Match
+                            {Math.round(fact.confidence * 100)}% {s.match}
                          </span>
                       </td>
                     </tr>
@@ -196,13 +209,13 @@ export const DocumentDetailScreen = ({
             </div>
           ) : (
             <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-8 text-center border border-dashed border-slate-200 dark:border-slate-700 text-slate-400 font-bold italic">
-               {t.noFacts || 'No structured data identified.'}
+               {s.noFacts}
             </div>
           )}
         </div>
 
         <div className="mt-16 pt-10 border-t border-slate-100 dark:border-slate-800">
-          <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-6 ml-1">Graph Relationships</h3>
+          <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-6 ml-1">{s.graphRelationships}</h3>
           {doc.entities && doc.entities.length > 0 ? (
             <div className="flex gap-3 flex-wrap">
               {doc.entities.map((ent: any, i: number) => (
@@ -213,7 +226,7 @@ export const DocumentDetailScreen = ({
               ))}
             </div>
           ) : (
-            <p className="text-slate-400 text-sm font-bold italic ml-1">{t.noEntities || 'No linked entities found.'}</p>
+            <p className="text-slate-400 text-sm font-bold italic ml-1">{s.noEntities}</p>
           )}
         </div>
       </div>
