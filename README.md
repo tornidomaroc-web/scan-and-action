@@ -1,10 +1,20 @@
-# Scan & Action — AI-Powered Invoice Processing
+<div align="center">
 
-> Automatically extract, classify, and act on invoice data using Gemini Vision AI.
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0a1628,50:1e3a5f,100:0ea5e9&height=160&section=header&text=Scan%20%26%20Action&fontSize=52&fontColor=ffffff&fontAlignY=40&desc=AI-Powered%20Invoice%20Processing&descAlignY=62&descColor=7dd3fc&animation=fadeIn" width="100%"/>
 
-[![Deploy with Vercel](https://vercel.com/button)](https://scan-and-action.vercel.app)
-![TypeScript](https://img.shields.io/badge/TypeScript-91%25-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+<br/>
+
+[![Live](https://img.shields.io/badge/●_LIVE-1D9E75?style=for-the-badge)](https://scan-and-action.vercel.app)
+[![Launch App](https://img.shields.io/badge/scan--and--action.vercel.app-Launch%20Now-0ea5e9?style=for-the-badge&logo=vercel&logoColor=white)](https://scan-and-action.vercel.app)
+[![Gemini Vision](https://img.shields.io/badge/Gemini%20Vision-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
+[![Next.js 14](https://img.shields.io/badge/Next.js%2014-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org)
+[![License](https://img.shields.io/badge/MIT-1D9E75?style=for-the-badge)](LICENSE)
+
+> **Automatically extract, classify, and act on invoice data using Gemini Vision AI.**
+
+</div>
+
+---
 
 ## What it does
 
@@ -65,3 +75,9 @@ PRs are welcome. Please open an issue first to discuss what you'd like to change
 ## License
 
 MIT © 2025 Scan & Action
+
+---
+
+<div align="center">
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0a1628,50:1e3a5f,100:0ea5e9&height=100&section=footer&animation=fadeIn" width="100%"/>
+</div>
