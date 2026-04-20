@@ -9,6 +9,9 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { Layout } from './components/Layout';
 import { LandingScreen } from './screens/LandingScreen';
+import { TermsOfService } from './screens/TermsOfService';
+import { PrivacyPolicy } from './screens/PrivacyPolicy';
+import { RefundPolicy } from './screens/RefundPolicy';
 import { useAuth } from './contexts/AuthContext';
 import { strings } from './i18n/strings';
 import { ToastProvider } from './contexts/ToastContext';
@@ -49,6 +52,11 @@ function App() {
               path="/login" 
               element={!user ? <AuthScreen /> : <Navigate to="/dashboard" replace />} 
             />
+
+            {/* Legal Routes */}
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/refund" element={<RefundPolicy />} />
 
             {/* Protected Routes */}
             {user ? (
