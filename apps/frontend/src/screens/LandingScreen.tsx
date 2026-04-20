@@ -205,6 +205,14 @@ export function LandingScreen() {
           </div>
         </div>
       </div>
+
+      <footer style={{ textAlign: 'center', padding: '24px', color: '#666', fontSize: '13px' }}>
+        <Link to="/terms">Terms of Service</Link>
+        {" · "}
+        <Link to="/privacy">Privacy Policy</Link>
+        {" · "}
+        <Link to="/refund">Refund Policy</Link>
+      </footer>
     </div>
   );
 }
