@@ -3,22 +3,28 @@ import crypto from 'crypto';
 import { prisma } from '../prismaClient';
 
 export class WebhookController {
-  public static async handleLemonSqueezy(req: Request, res: Response) {
+  public static async handlePaddle(req: Request, res: Response) {
     console.log('[Webhook HEARTBEAT] Request received at', new Date().toISOString());
     try {
-      const secret = process.env.LEMON_SQUEEZY_WEBHOOK_SECRET || '';
+      const secret = process.env.PADDLE_WEBHOOK_SECRET || '';
 
       const rawBody = req.body as Buffer;
-      const signature = req.get('X-Signature') || '';
+      const signatureHeader = req.get('paddle-signature') || '';
+      
+      const tsPart = signatureHeader.split(';').find(p => p.startsWith('ts='));
+      const h1Part = signatureHeader.split(';').find(p => p.startsWith('h1='));
+      
+      const timestamp = tsPart?.split('=')[1];
+      const signature = h1Part?.split('=')[1];
 
       console.log('[Webhook DEBUG]', {
         secretLength: secret.length,
-        signatureLength: signature.length,
-        signatureStart: signature.slice(0, 12),
+        hasSignature: !!signature,
+        timestamp
       });
 
       if (!secret) {
-        console.warn('[Webhook] Missing LEMON_SQUEEZY_WEBHOOK_SECRET');
+        console.warn('[Webhook] Missing PADDLE_WEBHOOK_SECRET');
         return res.status(500).send('Webhook secret not configured');
       }
 
@@ -28,23 +34,20 @@ export class WebhookController {
       }
 
       const hmac = crypto.createHmac('sha256', secret);
-      const digest = hmac.update(rawBody).digest('hex');
+      const digest = hmac.update(`${timestamp}:${rawBody}`).digest('hex');
 
-      const expected = Buffer.from(digest, 'hex');
-      const received = Buffer.from(signature, 'hex');
-
-      if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
+      if (digest !== signature) {
         console.warn('[Webhook] Invalid signature received');
         return res.status(401).send('Invalid signature');
       }
 
       const event = JSON.parse(rawBody.toString('utf8'));
-      const eventName = event.meta?.event_name;
-      const email = event.data?.attributes?.user_email;
+      const eventName = event.event_type;
+      const email = event.data?.customer?.email || event.data?.email;
 
       console.log(`[Webhook] Received ${eventName} for ${email}`);
 
-      if (eventName === 'order_created' || eventName === 'subscription_created') {
+      if (eventName === 'transaction.completed' || eventName === 'subscription.created') {
         if (email) {
           const user = await prisma.user.findUnique({
             where: { email },
@@ -67,15 +70,10 @@ export class WebhookController {
       }
 
       // -----------------------------------------------------------------------
-      // FIX-05 — DEFINITIVE DOWNGRADE: Handle subscription expiration
+      // Paddle Downgrade Logic: subscription.expired or transaction.refunded
       // -----------------------------------------------------------------------
-      // We ONLY downgrade on terminal 'expired' states. 
-      // We intentionally SKIP immediate downgrade for:
-      // - subscription_cancelled (user has access until end of paid period)
-      // - subscription_updated with status 'past_due' or 'unpaid' (grace period)
-      // -----------------------------------------------------------------------
-      const isExplicitExpired = eventName === 'subscription_expired';
-      const isStatusExpiredUpdate = eventName === 'subscription_updated' && event.data?.attributes?.status === 'expired';
+      const isExplicitExpired = eventName === 'subscription.expired' || eventName === 'transaction.refunded';
+      const isStatusExpiredUpdate = eventName === 'subscription.updated' && event.data?.status === 'expired';
 
       if (isExplicitExpired || isStatusExpiredUpdate) {
         if (email) {
@@ -101,7 +99,7 @@ export class WebhookController {
 
       return res.status(200).send('OK');
     } catch (error: any) {
-      console.error('[Webhook] Error processing Lemon Squeezy event:', error.message || error);
+      console.error('[Webhook] Error processing Paddle event:', error.message || error);
       return res.status(500).send('Internal Server Error');
     }
   }

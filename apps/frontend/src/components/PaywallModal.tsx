@@ -20,15 +20,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
 
   const handleUpgrade = () => {
     const email = user?.email || '';
-    
-    // Variant ID Mapping
-    const variants = {
-      monthly: 'b199b8bc-8a26-4bc2-b6b7-ed7b4c6a6c16',
-      yearly: 'ff283ed2-aeeb-4027-b102-38ee70fab31f'
-    };
-
-    const variantId = variants[selectedPlan];
-    const checkoutUrl = `https://jadtrader.lemonsqueezy.com/checkout/buy/${variantId}?checkout[email]=${encodeURIComponent(email)}`;
+    const checkoutUrl = `https://buy.paddle.com/product/pri_01kpnqr5df47ce3nvfh92qmxc9?email=${encodeURIComponent(email)}`;
 
     window.open(checkoutUrl, '_blank');
   };
