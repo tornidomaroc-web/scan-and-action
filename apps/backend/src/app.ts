@@ -15,12 +15,12 @@ const allowedOrigins = rawOrigins.split(',').map((o) => o.trim());
 app.use(cors({ origin: allowedOrigins }));
 console.log(`[CORS] Allowed origins: ${allowedOrigins.join(', ')}`);
 
-// Lemon Squeezy Webhook (Unprotected & Raw)
+// Paddle Webhook (Unprotected & Raw)
 // MUST be registered before global express.json() to capture raw body for signature
 app.post(
-  '/webhooks/lemon-squeezy',
+  '/api/webhook/paddle',
   express.raw({ type: 'application/json' }),
-  WebhookController.handleLemonSqueezy
+  WebhookController.handlePaddle
 );
 
 app.use(express.json());
