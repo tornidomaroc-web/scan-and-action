@@ -91,6 +91,26 @@ export class WebhookController {
 
       console.log(`[Webhook] Received ${eventName} (${eventId || 'no-id'}) for ${email}`);
 
+      // From here on, a thrown error must release the idempotency claim:
+      // otherwise a transient failure marks the event "processed" and
+      // Paddle's retry gets skipped — losing a paid upgrade.
+      try {
+        await WebhookController.processEvent(event, eventName, eventId, email);
+      } catch (processingError) {
+        if (eventId) {
+          await prisma.webhookEvent.delete({ where: { id: eventId } }).catch(() => {});
+        }
+        throw processingError;
+      }
+
+      return res.status(200).send('OK');
+    } catch (error: any) {
+      console.error('[Webhook] Error processing Paddle event:', error.message || error);
+      return res.status(500).send('Internal Server Error');
+    }
+  }
+
+  private static async processEvent(event: any, eventName: string, eventId: string | undefined, email: string | undefined) {
       if (eventName === 'transaction.completed' || eventName === 'subscription.created') {
         if (email) {
           const user = await prisma.user.findUnique({
@@ -144,11 +164,5 @@ export class WebhookController {
           }
         }
       }
-
-      return res.status(200).send('OK');
-    } catch (error: any) {
-      console.error('[Webhook] Error processing Paddle event:', error.message || error);
-      return res.status(500).send('Internal Server Error');
-    }
   }
 }
