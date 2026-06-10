@@ -173,3 +173,8 @@ model GeneratedReport {
 
   @@index([organizationId])
 }
+model WebhookEvent {
+  id          String   @id // Paddle event_id — primary key gives us idempotency for free
+  eventType   String
+  processedAt DateTime @default(now())
+}

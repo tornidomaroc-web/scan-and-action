@@ -2,26 +2,26 @@ import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { prisma } from '../prismaClient';
 
+// Reject events whose signature timestamp is older than this (replay window).
+// Paddle retries failed deliveries within minutes; 5 minutes is generous for
+// legitimate retries while keeping captured payloads unusable.
+const MAX_EVENT_AGE_SECONDS = 5 * 60;
+// Tolerate small clock skew between Paddle and us for "future" timestamps.
+const MAX_CLOCK_SKEW_SECONDS = 60;
+
 export class WebhookController {
   public static async handlePaddle(req: Request, res: Response) {
-    console.log('[Webhook HEARTBEAT] Request received at', new Date().toISOString());
     try {
       const secret = process.env.PADDLE_WEBHOOK_SECRET || '';
 
       const rawBody = req.body as Buffer;
       const signatureHeader = req.get('paddle-signature') || '';
-      
+
       const tsPart = signatureHeader.split(';').find(p => p.startsWith('ts='));
       const h1Part = signatureHeader.split(';').find(p => p.startsWith('h1='));
-      
+
       const timestamp = tsPart?.split('=')[1];
       const signature = h1Part?.split('=')[1];
-
-      console.log('[Webhook DEBUG]', {
-        secretLength: secret.length,
-        hasSignature: !!signature,
-        timestamp
-      });
 
       if (!secret) {
         console.warn('[Webhook] Missing PADDLE_WEBHOOK_SECRET');
@@ -33,19 +33,63 @@ export class WebhookController {
         return res.status(400).send('Invalid body');
       }
 
-      const hmac = crypto.createHmac('sha256', secret);
-      const digest = hmac.update(`${timestamp}:${rawBody}`).digest('hex');
+      if (!timestamp || !signature) {
+        console.warn('[Webhook] Missing ts/h1 in paddle-signature header');
+        return res.status(401).send('Invalid signature header');
+      }
 
-      if (digest !== signature) {
+      // Freshness: reject replayed events outside the allowed window.
+      const eventAgeSeconds = Math.floor(Date.now() / 1000) - Number(timestamp);
+      if (
+        !Number.isFinite(eventAgeSeconds) ||
+        eventAgeSeconds > MAX_EVENT_AGE_SECONDS ||
+        eventAgeSeconds < -MAX_CLOCK_SKEW_SECONDS
+      ) {
+        console.warn(`[Webhook] Stale or invalid timestamp (age: ${eventAgeSeconds}s)`);
+        return res.status(401).send('Stale webhook event');
+      }
+
+      // Constant-time signature comparison.
+      const digest = crypto
+        .createHmac('sha256', secret)
+        .update(`${timestamp}:${rawBody}`)
+        .digest();
+      let signatureBuffer: Buffer;
+      try {
+        signatureBuffer = Buffer.from(signature, 'hex');
+      } catch {
+        return res.status(401).send('Invalid signature');
+      }
+      if (signatureBuffer.length !== digest.length || !crypto.timingSafeEqual(digest, signatureBuffer)) {
         console.warn('[Webhook] Invalid signature received');
         return res.status(401).send('Invalid signature');
       }
 
       const event = JSON.parse(rawBody.toString('utf8'));
       const eventName = event.event_type;
+      const eventId = event.event_id;
       const email = event.data?.customer?.email || event.data?.email;
 
-      console.log(`[Webhook] Received ${eventName} for ${email}`);
+      // Idempotency: record the event ID before processing; the primary key
+      // makes duplicate deliveries (Paddle retries) no-ops. Duplicates get a
+      // 200 so Paddle stops retrying.
+      if (eventId) {
+        try {
+          await prisma.webhookEvent.create({
+            data: { id: eventId, eventType: eventName || 'unknown' }
+          });
+        } catch (err: any) {
+          if (err.code === 'P2002') {
+            console.log(`[Webhook] Duplicate delivery skipped: ${eventId} (${eventName})`);
+            return res.status(200).send('OK (duplicate)');
+          }
+          throw err;
+        }
+      } else {
+        console.warn(`[Webhook] Event without event_id (${eventName}) — processing without idempotency guard`);
+      }
+
+      console.log(`[Webhook] Received ${eventName} (${eventId || 'no-id'}) for ${email}`);
 
       if (eventName === 'transaction.completed' || eventName === 'subscription.created') {
         if (email) {
@@ -64,8 +108,12 @@ export class WebhookController {
 
             console.log(`[Webhook] Successfully upgraded Org ${orgId} to PRO for user ${email}`);
           } else {
-            console.warn(`[Webhook] User or organization not found for email: ${email}`);
+            // Loud and grep-able: a paid checkout that did not result in an
+            // upgrade is a support incident, not a debug detail.
+            console.warn(`[Webhook][ALERT] PRO upgrade NOT applied — no user/org matches checkout email "${email}" (event ${eventId || 'no-id'}). Customer paid but is still on FREE.`);
           }
+        } else {
+          console.warn(`[Webhook][ALERT] ${eventName} carried no customer email (event ${eventId || 'no-id'}) — upgrade cannot be applied.`);
         }
       }
 
@@ -92,7 +140,7 @@ export class WebhookController {
 
             console.log(`[Webhook] DOWNGRADE: Org ${orgId} reverted to FREE (ref: ${email}, event: ${eventName})`);
           } else {
-            console.warn(`[Webhook] Downgrade skipped: No organization found for ${email}`);
+            console.warn(`[Webhook][ALERT] Downgrade NOT applied — no user/org matches email "${email}" (event ${eventId || 'no-id'}, ${eventName}).`);
           }
         }
       }
