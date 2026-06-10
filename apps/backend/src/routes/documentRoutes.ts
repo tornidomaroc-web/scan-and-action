@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { DocumentController } from '../controllers/documentController';
 import { UploadController } from '../controllers/uploadController';
+import { uploadIpLimiter, uploadOrgLimiter } from '../middleware/rateLimits';
 
 const router = Router();
 
@@ -37,6 +38,6 @@ router.get('/all', DocumentController.getAllDocuments);
 router.get('/:id', DocumentController.getDocumentDetail);
 router.patch('/:id/status', DocumentController.updateStatus);
 router.post('/:id/action', DocumentController.applyFixAction);
-router.post('/upload', upload.single('file'), UploadController.uploadDocument);
+router.post('/upload', uploadIpLimiter, uploadOrgLimiter, upload.single('file'), UploadController.uploadDocument);
 
 export default router;
