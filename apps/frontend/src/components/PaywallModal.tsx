@@ -11,6 +11,15 @@ interface PaywallModalProps {
 
 type Plan = 'monthly' | 'yearly';
 
+// Paddle price IDs come from the deploy environment (Vercel), one per plan.
+// The legacy hardcoded ID is kept only as a fallback so checkout cannot dead-end
+// if a deploy goes out before the env vars are set.
+const LEGACY_PRICE_ID = 'pri_01kpnqr5df47ce3nvfh92qmxc9';
+const PADDLE_PRICE_IDS: Record<Plan, string> = {
+  monthly: import.meta.env.VITE_PADDLE_PRICE_ID_MONTHLY || LEGACY_PRICE_ID,
+  yearly: import.meta.env.VITE_PADDLE_PRICE_ID_YEARLY || LEGACY_PRICE_ID,
+};
+
 export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) => {
   const s = useStrings();
   const { user } = useAuth();
@@ -19,8 +28,12 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
   if (!isOpen) return null;
 
   const handleUpgrade = () => {
+    const priceId = PADDLE_PRICE_IDS[selectedPlan];
+    if (priceId === LEGACY_PRICE_ID) {
+      console.warn(`[Paywall] VITE_PADDLE_PRICE_ID_${selectedPlan.toUpperCase()} not set — using legacy fallback price.`);
+    }
     const email = user?.email || '';
-    const checkoutUrl = `https://buy.paddle.com/product/pri_01kpnqr5df47ce3nvfh92qmxc9?email=${encodeURIComponent(email)}`;
+    const checkoutUrl = `https://buy.paddle.com/product/${priceId}?email=${encodeURIComponent(email)}`;
 
     window.open(checkoutUrl, '_blank');
   };
