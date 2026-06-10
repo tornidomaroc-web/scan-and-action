@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 import { Request } from 'express';
 
 // All limiters use the default in-memory store, which is correct for the
@@ -35,7 +35,9 @@ export const uploadOrgLimiter = rateLimit({
   limit: 120,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  keyGenerator: (req: Request) => req.user?.organizationId || req.ip || 'unknown',
+  // IP fallback goes through ipKeyGenerator so IPv6 clients are keyed by
+  // subnet, not per-address (prevents trivial limit evasion).
+  keyGenerator: (req: Request) => req.user?.organizationId || ipKeyGenerator(req.ip || ''),
   message: limitResponse('Your workspace has reached the hourly upload limit. Please try again later.')
 });
 
