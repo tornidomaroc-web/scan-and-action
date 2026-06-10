@@ -1,7 +1,28 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Environment files — never commit credentials; .env.example is the template
 .env
-dist
-build
-.vite
-coverage
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# Logs & coverage
 *.log
+coverage/
+
+# Local debug artifacts (DB dumps, captured API responses, scratch output)
+db_dump*
+*_response.json
+*.local
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
