@@ -21,6 +21,9 @@ db_dump*
 *_response.json
 *.local
 
+# Sales data — lives in this folder locally but must never reach the repo
+leads/
+
 # Editor / OS noise
 .DS_Store
 Thumbs.db
