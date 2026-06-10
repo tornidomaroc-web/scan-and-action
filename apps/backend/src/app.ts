@@ -7,6 +7,10 @@ import { WebhookController } from './controllers/webhookController';
 
 const app = express();
 
+// Railway terminates TLS at a proxy in front of us; trust exactly one hop so
+// express-rate-limit keys on the real client IP from X-Forwarded-For.
+app.set('trust proxy', 1);
+
 // Restrict CORS to known frontend origins.
 // Set ALLOWED_ORIGINS (comma-separated) in your Render environment variables.
 // e.g. ALLOWED_ORIGINS=https://scan-and-action.vercel.app,http://localhost:5173
@@ -23,8 +27,10 @@ app.post(
   WebhookController.handlePaddle
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// JSON bodies are small (search queries, status updates, fix actions).
+// File uploads go through multer as multipart, not JSON, so 1mb is generous.
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Health check for deployment verification
 app.get('/api/health', (req, res) => {
