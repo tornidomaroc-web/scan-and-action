@@ -15,39 +15,6 @@ export const authMiddleware = async (
 ) => {
   const authHeader = req.headers.authorization;
 
-  // -----------------------------------------------------------------------
-  // DEV BYPASS — internal automated testing only.
-  // Completely inert in production. Never reachable when NODE_ENV=production.
-  // -----------------------------------------------------------------------
-  if (process.env.NODE_ENV !== 'production') {
-    if (authHeader === 'Bearer test-token' || req.headers['x-bypass-auth'] === 'test-secret-123') {
-       const testUserId = '769f583b-3197-4560-84a1-0675713437e2';
-       const dbUser = await prisma.user.upsert({
-         where: { id: testUserId },
-         update: {},
-         create: { id: testUserId, email: 'sys-demo-user@mock.local', preferredLanguage: 'en' },
-         include: { memberships: true }
-       });
-
-       let organizationId: string;
-       if (dbUser.memberships.length === 0) {
-          const newOrg = await prisma.organization.create({
-            data: {
-              name: 'Demo Workspace',
-              slug: `demo-${testUserId.slice(0, 8)}`,
-              members: { create: { userId: testUserId, role: 'OWNER' } }
-            }
-          });
-          organizationId = newOrg.id;
-       } else {
-          organizationId = dbUser.memberships[0].organizationId;
-       }
-
-       req.user = { id: testUserId, email: 'sys-demo-user@mock.local', organizationId };
-       return next();
-    }
-  }
-
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Missing or malformed access token' });
   }
