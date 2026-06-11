@@ -1,6 +1,14 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
+import { z } from 'zod';
 import { prisma } from '../prismaClient';
+
+// Checkout.open sends customData {userId} — the Supabase UUID, which is also
+// User.id. Paddle copies checkout custom_data to the subscription and on to
+// every future transaction, so it is present on upgrade, renewal, refund, and
+// expiry events alike. Paddle Billing payloads carry no email, so this is the
+// primary match; email remains a fallback for manual/imported events.
+const customDataSchema = z.object({ userId: z.string().uuid() });
 
 // Reject events whose signature timestamp is older than this (replay window).
 // Paddle retries failed deliveries within minutes; 5 minutes is generous for
@@ -89,7 +97,7 @@ export class WebhookController {
         console.warn(`[Webhook] Event without event_id (${eventName}) — processing without idempotency guard`);
       }
 
-      console.log(`[Webhook] Received ${eventName} (${eventId || 'no-id'}) for ${email}`);
+      console.log(`[Webhook] Received ${eventName} (${eventId || 'no-id'}) for ${email || event.data?.custom_data?.userId || 'unidentified user'}`);
 
       // From here on, a thrown error must release the idempotency claim:
       // otherwise a transient failure marks the event "processed" and
@@ -110,58 +118,85 @@ export class WebhookController {
     }
   }
 
+  // Pulls a valid userId out of custom_data, or null. Malformed values are
+  // logged and discarded rather than thrown: a non-UUID string would make the
+  // Prisma UUID-column lookup throw, 500 the webhook, and trigger pointless
+  // Paddle retries — fail safe to the email fallback instead.
+  private static extractUserId(event: any, eventId: string | undefined): string | null {
+    const customData = event.data?.custom_data;
+    const parsed = customDataSchema.safeParse(customData);
+    if (parsed.success) return parsed.data.userId;
+    if (customData?.userId !== undefined) {
+      console.warn(`[Webhook] custom_data.userId is malformed (${JSON.stringify(customData.userId)}) on event ${eventId || 'no-id'} — ignoring it.`);
+    }
+    return null;
+  }
+
+  // Primary match: custom_data.userId → User.id. Fallback: customer email
+  // (absent from Paddle Billing payloads, but may serve manual or imported
+  // events). Returns the matched user plus a human-readable ref for logs.
+  private static async findUserForEvent(event: any, eventId: string | undefined, email: string | undefined) {
+    const userId = WebhookController.extractUserId(event, eventId);
+    if (userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { memberships: true },
+      });
+      if (user) return { user, ref: `userId ${userId}` };
+      console.warn(`[Webhook] custom_data.userId ${userId} matches no user (event ${eventId || 'no-id'}) — trying email fallback.`);
+    }
+
+    if (email) {
+      const user = await prisma.user.findUnique({
+        where: { email },
+        include: { memberships: true },
+      });
+      if (user) return { user, ref: `email ${email}` };
+    }
+
+    return { user: null, ref: `userId ${userId || 'none'}, email ${email || 'none'}` };
+  }
+
   private static async processEvent(event: any, eventName: string, eventId: string | undefined, email: string | undefined) {
-      if (eventName === 'transaction.completed' || eventName === 'subscription.created') {
-        if (email) {
-          const user = await prisma.user.findUnique({
-            where: { email },
-            include: { memberships: true },
+      const isUpgrade = eventName === 'transaction.completed' || eventName === 'subscription.created';
+      const isDowngrade =
+        eventName === 'subscription.expired' ||
+        eventName === 'transaction.refunded' ||
+        (eventName === 'subscription.updated' && event.data?.status === 'expired');
+
+      if (!isUpgrade && !isDowngrade) return;
+
+      const { user, ref } = await WebhookController.findUserForEvent(event, eventId, email);
+
+      if (isUpgrade) {
+        if (user && user.memberships.length > 0) {
+          const orgId = user.memberships[0].organizationId;
+
+          await prisma.organization.update({
+            where: { id: orgId },
+            data: { plan: 'PRO' },
           });
 
-          if (user && user.memberships.length > 0) {
-            const orgId = user.memberships[0].organizationId;
-
-            await prisma.organization.update({
-              where: { id: orgId },
-              data: { plan: 'PRO' },
-            });
-
-            console.log(`[Webhook] Successfully upgraded Org ${orgId} to PRO for user ${email}`);
-          } else {
-            // Loud and grep-able: a paid checkout that did not result in an
-            // upgrade is a support incident, not a debug detail.
-            console.warn(`[Webhook][ALERT] PRO upgrade NOT applied — no user/org matches checkout email "${email}" (event ${eventId || 'no-id'}). Customer paid but is still on FREE.`);
-          }
+          console.log(`[Webhook] Successfully upgraded Org ${orgId} to PRO (${ref})`);
         } else {
-          console.warn(`[Webhook][ALERT] ${eventName} carried no customer email (event ${eventId || 'no-id'}) — upgrade cannot be applied.`);
+          // Loud and grep-able: a paid checkout that did not result in an
+          // upgrade is a support incident, not a debug detail.
+          console.warn(`[Webhook][ALERT] PRO upgrade NOT applied — no user/org matches ${ref} (event ${eventId || 'no-id'}, ${eventName}). Customer paid but is still on FREE.`);
         }
       }
 
-      // -----------------------------------------------------------------------
-      // Paddle Downgrade Logic: subscription.expired or transaction.refunded
-      // -----------------------------------------------------------------------
-      const isExplicitExpired = eventName === 'subscription.expired' || eventName === 'transaction.refunded';
-      const isStatusExpiredUpdate = eventName === 'subscription.updated' && event.data?.status === 'expired';
+      if (isDowngrade) {
+        if (user && user.memberships.length > 0) {
+          const orgId = user.memberships[0].organizationId;
 
-      if (isExplicitExpired || isStatusExpiredUpdate) {
-        if (email) {
-          const user = await prisma.user.findUnique({
-            where: { email },
-            include: { memberships: true },
+          await prisma.organization.update({
+            where: { id: orgId },
+            data: { plan: 'FREE' },
           });
 
-          if (user && user.memberships.length > 0) {
-            const orgId = user.memberships[0].organizationId;
-
-            await prisma.organization.update({
-              where: { id: orgId },
-              data: { plan: 'FREE' },
-            });
-
-            console.log(`[Webhook] DOWNGRADE: Org ${orgId} reverted to FREE (ref: ${email}, event: ${eventName})`);
-          } else {
-            console.warn(`[Webhook][ALERT] Downgrade NOT applied — no user/org matches email "${email}" (event ${eventId || 'no-id'}, ${eventName}).`);
-          }
+          console.log(`[Webhook] DOWNGRADE: Org ${orgId} reverted to FREE (${ref}, event: ${eventName})`);
+        } else {
+          console.warn(`[Webhook][ALERT] Downgrade NOT applied — no user/org matches ${ref} (event ${eventId || 'no-id'}, ${eventName}).`);
         }
       }
   }

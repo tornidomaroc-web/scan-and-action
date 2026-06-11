@@ -14,7 +14,7 @@ const PrivacyPolicy: React.FC = () => {
       <div className="space-y-8 leading-relaxed">
         <section>
           <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">1. Data Collected</h2>
-          <p>We collect information you provide directly, such as account details and uploaded document images. We also collect metadata necessary for service improvement and security.</p>
+          <p>Scan & Action is a product operated by KnowFlow, which is responsible for the personal data described in this policy. We collect information you provide directly, such as account details and uploaded document images. We also collect metadata necessary for service improvement and security.</p>
         </section>
 
         <section>
@@ -28,8 +28,8 @@ const PrivacyPolicy: React.FC = () => {
         </section>
 
         <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">4. Third Party Services (Google Gemini)</h2>
-          <p>Document analysis is performed via Google Gemini Vision API. Data shared with this provider is limited to the minimum required for extraction and is subject to their privacy policies.</p>
+          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">4. Third Party Services</h2>
+          <p>Document analysis is performed via Google Gemini Vision API. Data shared with this provider is limited to the minimum required for extraction and is subject to their privacy policies. Payments are processed by Paddle.com, our Merchant of Record, which handles your payment details under its own privacy policy.</p>
         </section>
 
         <section>
@@ -39,11 +39,11 @@ const PrivacyPolicy: React.FC = () => {
 
         <section>
           <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">6. Contact</h2>
-          <p>For any privacy-related inquiries, please contact us at [contact@scan-and-action.com].</p>
+          <p>For any privacy-related inquiries, please contact us at support@scan-action.com.</p>
         </section>
 
         <footer className="pt-10 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-500">
-          Last updated: April 20, 2026 | Contact: [contact@scan-and-action.com]
+          Last updated: June 11, 2026 | Contact: support@scan-action.com
         </footer>
       </div>
     </div>

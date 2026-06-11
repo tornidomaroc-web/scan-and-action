@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Zap, CheckCircle2, Crown, Star } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useStrings } from '../i18n/useStrings';
+import { getPaddle, PaddleNotConfiguredError } from '../lib/paddle';
 
 interface PaywallModalProps {
   isOpen: boolean;
@@ -12,30 +13,55 @@ interface PaywallModalProps {
 type Plan = 'monthly' | 'yearly';
 
 // Paddle price IDs come from the deploy environment (Vercel), one per plan.
-// The legacy hardcoded ID is kept only as a fallback so checkout cannot dead-end
-// if a deploy goes out before the env vars are set.
-const LEGACY_PRICE_ID = 'pri_01kpnqr5df47ce3nvfh92qmxc9';
-const PADDLE_PRICE_IDS: Record<Plan, string> = {
-  monthly: import.meta.env.VITE_PADDLE_PRICE_ID_MONTHLY || LEGACY_PRICE_ID,
-  yearly: import.meta.env.VITE_PADDLE_PRICE_ID_YEARLY || LEGACY_PRICE_ID,
+// No fallback: a misconfigured deploy must surface an error, never open a
+// checkout at the wrong price.
+const PADDLE_PRICE_IDS: Record<Plan, string | undefined> = {
+  monthly: import.meta.env.VITE_PADDLE_PRICE_ID_MONTHLY,
+  yearly: import.meta.env.VITE_PADDLE_PRICE_ID_YEARLY,
 };
+
+// Post-checkout landing. The custom domain, not the vercel.app alias, so the
+// URL customers see (and bookmark) is the canonical one.
+const CHECKOUT_SUCCESS_URL = 'https://www.scan-action.com/?checkout=success';
 
 export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) => {
   const s = useStrings();
   const { user } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<Plan>('yearly');
+  const [openingCheckout, setOpeningCheckout] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleUpgrade = () => {
-    const priceId = PADDLE_PRICE_IDS[selectedPlan];
-    if (priceId === LEGACY_PRICE_ID) {
-      console.warn(`[Paywall] VITE_PADDLE_PRICE_ID_${selectedPlan.toUpperCase()} not set — using legacy fallback price.`);
-    }
-    const email = user?.email || '';
-    const checkoutUrl = `https://buy.paddle.com/product/${priceId}?email=${encodeURIComponent(email)}`;
+  const handleUpgrade = async () => {
+    setCheckoutError(null);
 
-    window.open(checkoutUrl, '_blank');
+    const priceId = PADDLE_PRICE_IDS[selectedPlan];
+    if (!priceId) {
+      console.error(`[Paywall] VITE_PADDLE_PRICE_ID_${selectedPlan.toUpperCase()} is not set — refusing to open checkout.`);
+      setCheckoutError('Checkout is not available right now. Please contact support.');
+      return;
+    }
+
+    setOpeningCheckout(true);
+    try {
+      const paddle = await getPaddle();
+      paddle.Checkout.open({
+        items: [{ priceId, quantity: 1 }],
+        ...(user?.email ? { customer: { email: user.email } } : {}),
+        ...(user?.id ? { customData: { userId: user.id } } : {}),
+        settings: { successUrl: CHECKOUT_SUCCESS_URL },
+      });
+    } catch (err) {
+      console.error('[Paywall] Failed to open Paddle checkout:', err);
+      setCheckoutError(
+        err instanceof PaddleNotConfiguredError
+          ? 'Checkout is not available in this environment.'
+          : 'Could not open checkout. Please check your connection and try again.'
+      );
+    } finally {
+      setOpeningCheckout(false);
+    }
   };
 
   return createPortal(
@@ -135,12 +161,18 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
           </div>
 
           <div className="flex flex-col gap-3">
+            {checkoutError && (
+              <div role="alert" className="text-sm font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 text-center">
+                {checkoutError}
+              </div>
+            )}
             <button
               onClick={handleUpgrade}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
+              disabled={openingCheckout}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-wait text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
             >
               <Crown size={20} fill="white" className="group-hover:rotate-12 transition-transform" />
-              Upgrade Now - {selectedPlan === 'monthly' ? '$9/mo' : '$59/yr'}
+              {openingCheckout ? 'Opening checkout…' : `Upgrade Now - ${selectedPlan === 'monthly' ? '$9/mo' : '$59/yr'}`}
             </button>
             <button
               onClick={onClose}

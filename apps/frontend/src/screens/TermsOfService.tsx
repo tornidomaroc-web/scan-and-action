@@ -14,7 +14,7 @@ const TermsOfService: React.FC = () => {
       <div className="space-y-8 leading-relaxed">
         <section>
           <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-blue-600">1. Acceptance of Terms</h2>
-          <p>By accessing or using Scan & Action, you agree to be bound by these Terms of Service. If you do not agree, please do not use the service.</p>
+          <p>Scan & Action is a product operated by KnowFlow ("KnowFlow", "we", "us"). These Terms of Service are an agreement between you and KnowFlow. By accessing or using Scan & Action, you agree to be bound by these Terms of Service. If you do not agree, please do not use the service.</p>
         </section>
 
         <section>
@@ -29,12 +29,12 @@ const TermsOfService: React.FC = () => {
 
         <section>
           <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-blue-600">4. Payment Terms</h2>
-          <p>Subscription fees are billed in advance. All payments are processed via third-party providers. You agree to provide valid payment information and authorize us to charge relevant fees.</p>
+          <p>Subscription fees are billed in advance. Our order process is conducted by our online reseller Paddle.com; Paddle is the Merchant of Record for all our orders. You agree to provide valid payment information and authorize the relevant fees to be charged. Refunds are governed by our Refund Policy, which includes a 14-day money-back guarantee.</p>
         </section>
 
         <section>
           <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-blue-600">5. Limitation of Liability</h2>
-          <p>Scan & Action is provided "as is". We are not liable for any indirect, incidental, or consequential damages resulting from the use or inability to use our services.</p>
+          <p>Scan & Action is provided "as is". KnowFlow is not liable for any indirect, incidental, or consequential damages resulting from the use or inability to use our services.</p>
         </section>
 
         <section>
@@ -43,12 +43,12 @@ const TermsOfService: React.FC = () => {
         </section>
 
         <footer className="pt-10 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-500">
-          Last updated: April 20, 2026 | Contact: [contact@scan-and-action.com]
+          Last updated: June 11, 2026 | Contact: support@scan-action.com
         </footer>
       </div>
     </div>
   );
 };
 
-export default TermsOfService; // Named export might be better if others use it, but App.tsx uses default/named interchangeably. I'll use named export as in other screens.
+export default TermsOfService;
 export { TermsOfService };

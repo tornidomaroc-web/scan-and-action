@@ -13,27 +13,27 @@ const RefundPolicy: React.FC = () => {
 
       <div className="space-y-8 leading-relaxed">
         <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-red-600">1. Subscription Cancellation</h2>
+          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-red-600">1. 14-Day Money-Back Guarantee</h2>
+          <p>Every purchase of a Scan & Action subscription comes with a 14-day money-back guarantee. If you request a refund within 14 days of your purchase, you will receive a full refund.</p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-red-600">2. How to Request a Refund</h2>
+          <p>Our order process is conducted by our online reseller Paddle.com. Paddle is the Merchant of Record for all our orders and handles all payments and refunds. To request a refund, contact Paddle at <a href="https://paddle.net" className="underline">paddle.net</a> or email us at support@scan-action.com and we will arrange it for you.</p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-red-600">3. Processing Time</h2>
+          <p>Refunds are issued to your original payment method. The time for the funds to appear in your account depends on your payment provider, typically 5-10 business days.</p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-red-600">4. Subscription Cancellation</h2>
           <p>You can cancel your Scan & Action subscription at any time through your account settings or by contacting our support team. Your access will continue until the end of the current billing period.</p>
         </section>
 
-        <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-red-600">2. Refund Eligibility</h2>
-          <p>We offer a 7-day money-back guarantee for first-time subscribers. If you are unsatisfied with the service, you can request a full refund within 7 days of your initial purchase.</p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-red-600">3. How to Request</h2>
-          <p>To request a refund, please send an email to [contact@scan-and-action.com] with your account details and reasoning. Requests must be sent within the eligibility window.</p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-red-600">4. Processing Time</h2>
-          <p>Once approved, refunds are processed within 5-10 business days. The actual time for the funds to appear in your account depends on your financial institution.</p>
-        </section>
-
         <footer className="pt-10 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-500">
-          Last updated: April 20, 2026 | Contact: [contact@scan-and-action.com]
+          Last updated: June 11, 2026 | Contact: support@scan-action.com
         </footer>
       </div>
     </div>
