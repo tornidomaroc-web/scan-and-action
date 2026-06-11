@@ -26,12 +26,10 @@ export const Layout: React.FC = () => {
   }, [searchParams, setSearchParams]);
 
   const handleNewScan = () => {
-    console.log('DEBUG: handleNewScan triggered in Layout');
     setIsUploadOpen(true);
   };
 
   const handleUploadSuccess = () => {
-    console.log('DEBUG: handleUploadSuccess triggered in Layout');
     setRefreshCount(prev => prev + 1);
   };
 

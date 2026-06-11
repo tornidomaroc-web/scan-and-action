@@ -1,4 +1,8 @@
 module.exports = {
+  // The theme toggle (Sidebar) and the index.html boot script drive a `dark`
+  // class on <html>; without this, Tailwind `dark:` styles follow the OS
+  // instead and the toggle only half-works.
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",

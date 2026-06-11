@@ -63,7 +63,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
   };
 
   const handleNewScanClick = () => {
-    console.log('DEBUG: New Scan button clicked in Sidebar');
     onNewScan();
   };
 

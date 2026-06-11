@@ -13,7 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { PaywallModal } from '../components/PaywallModal';
 import { useStrings } from '../i18n/useStrings';
 
-export const SettingsScreen = ({ t }: { t: any }) => {
+export const SettingsScreen = () => {
   const s = useStrings();
   const { user } = useAuth();
   // Safe extraction with fallback to {} if context is missing

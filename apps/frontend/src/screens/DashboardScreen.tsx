@@ -24,7 +24,7 @@ const formatDate = (dateString: string) => {
   }).format(date);
 };
 
-export const DashboardScreen = ({ t }: { t: any }) => {
+export const DashboardScreen = () => {
   const s = useStrings();
   const navigate = useNavigate();
   const { refreshCount, onNewScan } = useOutletContext<{ refreshCount: number, onNewScan: () => void }>();

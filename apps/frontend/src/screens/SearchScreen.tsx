@@ -23,6 +23,7 @@ import { QueryResultDto } from '../types';
 import { searchService } from '../services/searchService';
 import { reportsService } from '../services/reportsService';
 import { useStrings } from '../i18n/useStrings';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface SearchPrompt {
   id: string;
@@ -34,8 +35,11 @@ interface SearchPrompt {
   icon: React.ReactNode;
 }
 
-export const SearchScreen = ({ t, rtl, currentLanguage }: any) => {
+export const SearchScreen = () => {
   const s = useStrings();
+  // The active UI language drives the search/report API language too. This
+  // previously came from App's never-updated state, so the API always got 'en'.
+  const { language: currentLanguage } = useLanguage();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
