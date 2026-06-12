@@ -12,6 +12,7 @@ import {
 import { useStrings } from '../i18n/useStrings';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
+import { useIsDesktop } from '../hooks/useMediaQuery';
 
 const formatDate = (dateString: string) => {
   if (!dateString) return 'Recently';
@@ -33,6 +34,29 @@ export const DashboardScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [expanding, setExpanding] = useState(false);
+  const isDesktop = useIsDesktop();
+
+  // On mobile there is no Activity tab: the full history lives here.
+  // Desktop keeps the dedicated /activity screen reached via the sidebar.
+  const handleViewAll = async () => {
+    if (isDesktop) {
+      navigate('/activity');
+      return;
+    }
+    if (expanding) return;
+    setExpanding(true);
+    try {
+      const all = await documentService.getAllActivity();
+      if (all) setRecentActivity(all);
+      setIsExpanded(true);
+    } catch (err) {
+      console.error('[Dashboard] Full activity fetch failed:', err);
+      setIsExpanded(true); // still expand to whatever is already loaded
+    } finally {
+      setExpanding(false);
+    }
+  };
 
   const fetchData = async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -263,10 +287,11 @@ export const DashboardScreen = () => {
               <Activity size={22} className="text-blue-500" strokeWidth={2.5} /> 
               {s.recentActivity}
             </h2>
-            {recentActivity.length > 4 && (
-              <button 
-                onClick={() => navigate('/activity')}
-                className="text-sm font-black text-blue-500 hover:text-blue-600 flex items-center gap-1 transition-colors"
+            {recentActivity.length > 4 && !(isExpanded && !isDesktop) && (
+              <button
+                onClick={handleViewAll}
+                disabled={expanding}
+                className="text-sm font-black text-blue-500 hover:text-blue-600 flex items-center gap-1 transition-colors disabled:opacity-50"
               >
                 {s.viewAll}
               </button>

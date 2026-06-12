@@ -2,6 +2,9 @@ export const strings = {
   en: {
     header: 'Scan & Action',
     dashboard: 'Dashboard',
+    home: 'Home',
+    searchTab: 'Search',
+    queueTab: 'Queue',
     search: 'Ask a question...',
     upload: 'Upload Receipt',
     uploading: 'Uploading...',
@@ -181,6 +184,9 @@ export const strings = {
   fr: {
     header: 'Scanner et Agir',
     dashboard: 'Tableau de bord',
+    home: 'Accueil',
+    searchTab: 'Recherche',
+    queueTab: 'File',
     search: 'Posez une question...',
     upload: 'Télécharger le Reçu',
     uploading: 'Téléchargement...',
@@ -359,6 +365,9 @@ export const strings = {
   ar: {
     header: 'المسح والإجراء',
     dashboard: 'لوحة القيادة',
+    home: 'الرئيسية',
+    searchTab: 'بحث',
+    queueTab: 'المراجعة',
     search: 'اسأل سؤالاً...',
     upload: 'رفع إيصال',
     uploading: 'جارٍ الرفع...',
