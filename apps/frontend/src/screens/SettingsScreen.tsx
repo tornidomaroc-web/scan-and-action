@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import {
   User,
   Settings,
@@ -11,7 +11,8 @@ import {
   SlidersHorizontal,
   Globe,
   Sun,
-  Moon
+  Moon,
+  LogOut
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PaywallModal } from '../components/PaywallModal';
@@ -21,7 +22,13 @@ import { useTheme } from '../hooks/useTheme';
 
 export const SettingsScreen = () => {
   const s = useStrings();
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
+  };
   // Safe extraction with fallback to {} if context is missing
   const context = useOutletContext<{ plan?: 'FREE' | 'PRO', onSuccess?: () => void }>() || {};
   const { plan = 'FREE', onSuccess } = context;
@@ -54,7 +61,7 @@ export const SettingsScreen = () => {
                 <h3 className="text-lg md:text-2xl font-black text-slate-900 dark:text-white mb-1 uppercase tracking-tight truncate">
                   {userName}
                 </h3>
-                <p className="text-sm md:text-base text-slate-500 font-bold break-all">{user?.email}</p>
+                <p className="text-sm md:text-base text-slate-500 font-bold truncate" title={user?.email}>{user?.email}</p>
               </div>
             </div>
 
@@ -66,6 +73,16 @@ export const SettingsScreen = () => {
                 </div>
                 <span className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-xs whitespace-nowrap">{s.personalWorkspace}</span>
               </div>
+
+              {/* On mobile the desktop sidebar (and its sign-out) is hidden,
+                  so this is the only way to log out on a phone. */}
+              <button
+                onClick={handleLogout}
+                className="w-full min-h-[44px] flex items-center justify-center gap-2 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/40 rounded-2xl font-black text-sm uppercase tracking-wider hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors active:scale-[0.99]"
+              >
+                <LogOut size={18} strokeWidth={2.5} />
+                {s.signOut}
+              </button>
             </div>
           </section>
 

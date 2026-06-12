@@ -2,14 +2,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot, Root } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
+
+const authMocks = vi.hoisted(() => ({ signOut: vi.fn(async () => {}) }));
 
 vi.mock('../src/contexts/AuthContext', () => ({
   useAuth: () => ({
     user: { id: '7f1e2d3c-4b5a-4678-9abc-def012345678', email: 'prefs-check@example.com' },
     session: null,
     loading: false,
-    signOut: async () => {},
+    signOut: authMocks.signOut,
   }),
 }));
 vi.mock('../src/lib/supabase', () => ({ supabase: { auth: {} } }));
@@ -33,7 +35,10 @@ function mount() {
       <LanguageProvider>
         <ToastProvider>
           <MemoryRouter initialEntries={['/settings']}>
-            <SettingsScreen />
+            <Routes>
+              <Route path="/settings" element={<SettingsScreen />} />
+              <Route path="/login" element={<div>LOGIN-STUB</div>} />
+            </Routes>
           </MemoryRouter>
         </ToastProvider>
       </LanguageProvider>
@@ -92,6 +97,23 @@ describe('Settings — Preferences section (mobile home for language & theme)', 
     expect(localStorage.getItem('lang')).toBe('fr');
     expect(container.textContent).toContain(strings.fr.preferences);
     expect(document.documentElement.dir).toBe('ltr');
+  });
+
+  it('shows a sign-out button that calls signOut and returns to login', async () => {
+    const btn = buttonByText(strings.en.signOut);
+    expect(btn.className).toContain('min-h-[44px]');
+    click(btn);
+    expect(authMocks.signOut).toHaveBeenCalled();
+    await vi.waitFor(() => expect(container.textContent).toContain('LOGIN-STUB'));
+  });
+
+  it('email truncates with ellipsis instead of breaking mid-word', () => {
+    const email = [...container.querySelectorAll('p')].find(
+      (p) => p.textContent === 'prefs-check@example.com'
+    )!;
+    expect(email).toBeTruthy();
+    expect(email.className).toContain('truncate');
+    expect(email.className).not.toContain('break-all');
   });
 
   it('switching to Arabic flips the document to RTL', () => {
