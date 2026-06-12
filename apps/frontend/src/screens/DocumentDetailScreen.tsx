@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, CheckCircle, FileText } from 'lucide-react';
+import { ChevronLeft, CheckCircle, XCircle, FileText } from 'lucide-react';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
 import { ReviewBadge } from '../components/SharedComponents';
 import { DecisionBanner } from '../components/DecisionBanner';
 import { FixActionPanel } from '../components/FixActionPanel';
+import { useToast } from '../contexts/ToastContext';
 import { useStrings } from '../i18n/useStrings';
 
 export const DocumentDetailScreen = () => {
@@ -23,9 +24,31 @@ export const DocumentDetailScreen = () => {
   const navigate = useNavigate();
   
   if (!documentId) return <ErrorState title={s.errorTitle} message="Missing document ID" />;
+  const { showToast } = useToast();
   const [doc, setDoc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const [actioning, setActioning] = useState(false);
+
+  // Same review actions as the queue, surfaced here so a mobile user who
+  // tapped through to the detail can resolve the document in place.
+  const handleReviewAction = async (action: 'approve' | 'reject') => {
+    if (actioning) return;
+    setActioning(true);
+    try {
+      await documentService.updateStatus(documentId!, action === 'approve' ? 'COMPLETED' : 'REJECTED');
+      showToast(
+        action === 'approve' ? 'Document approved and intelligence verified.' : 'Document marked as rejected.',
+        action === 'approve' ? 'success' : 'info'
+      );
+      navigate('/queue');
+    } catch (error) {
+      console.error('[DocumentDetail] Review action failed:', error);
+      showToast("We couldn't update this review item. Please try again.", 'error');
+    } finally {
+      setActioning(false);
+    }
+  };
 
   const handleRefresh = () => {
     setLoading(true);
@@ -85,9 +108,9 @@ export const DocumentDetailScreen = () => {
         {s.backToSearch || 'Back to Workspace'}
       </button>
 
-      <div className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-slate-100 dark:border-slate-800 shadow-2xl shadow-slate-200/40 dark:shadow-none">
-        <div className="flex items-start justify-between mb-10">
-          <div>
+      <div className="bg-white dark:bg-slate-900 rounded-[40px] p-5 md:p-10 border border-slate-100 dark:border-slate-800 shadow-2xl shadow-slate-200/40 dark:shadow-none">
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-10">
+          <div className="min-w-0">
             <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-3 leading-tight truncate max-w-full">
               {doc.originalFileName || `Document ${doc.id}`}
             </h1>
@@ -100,7 +123,7 @@ export const DocumentDetailScreen = () => {
               </p>
             </div>
           </div>
-          <div className="max-w-[200px] truncate">
+          <div className="max-w-[200px] truncate flex-shrink-0">
             <ReviewBadge confidence={doc.overallConfidence} status={doc.status} />
           </div>
         </div>
@@ -173,7 +196,30 @@ export const DocumentDetailScreen = () => {
           </h3>
           
           {doc.facts && doc.facts.length > 0 ? (
-            <div className="bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+            <>
+            {/* Mobile: stacked label/value rows — the 3-column table clips
+                at phone widths. */}
+            <div className="md:hidden bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm divide-y divide-slate-50 dark:divide-slate-800">
+              {doc.facts.map((fact: any, i: number) => (
+                <div key={i} className="p-4">
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{fieldLabel(fact.key)}</span>
+                    <span className={`flex-shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black border whitespace-nowrap ${
+                      fact.confidence > 0.9
+                        ? 'text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800'
+                        : 'text-amber-700 bg-amber-50 dark:bg-amber-900/30 border-amber-100 dark:border-amber-800'
+                    }`}>
+                      {Math.round(fact.confidence * 100)}% {s.match}
+                    </span>
+                  </div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100 break-words">
+                    {fact.valueString || fact.valueNumber || String(fact.valueDate)} {fact.currency || ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
@@ -203,6 +249,7 @@ export const DocumentDetailScreen = () => {
                 </tbody>
               </table>
             </div>
+            </>
           ) : (
             <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-8 text-center border border-dashed border-slate-200 dark:border-slate-700 text-slate-400 font-bold italic">
                {s.noFacts}
@@ -226,6 +273,31 @@ export const DocumentDetailScreen = () => {
           )}
         </div>
       </div>
+
+      {/* Sticky review actions: bottom-20 clears the mobile tab bar;
+          md:bottom-6 sits above the viewport edge on desktop. */}
+      {doc.status === 'NEEDS_REVIEW' && (
+        <div className="sticky bottom-20 md:bottom-6 z-40 mt-8">
+          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl shadow-slate-900/10 p-3 flex gap-3">
+            <button
+              onClick={() => handleReviewAction('approve')}
+              disabled={actioning}
+              className="flex-1 min-h-[44px] flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-600/20"
+            >
+              <CheckCircle size={18} strokeWidth={2.5} />
+              {s.approve}
+            </button>
+            <button
+              onClick={() => handleReviewAction('reject')}
+              disabled={actioning}
+              className="flex-1 min-h-[44px] flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-red-600/20"
+            >
+              <XCircle size={18} strokeWidth={2.5} />
+              {s.reject}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

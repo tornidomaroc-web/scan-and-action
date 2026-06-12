@@ -88,12 +88,12 @@ export const ReviewQueueScreen = () => {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-end justify-between mb-10">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
         <div>
           <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-2">{s.queue}</h1>
           <p className="text-lg font-bold text-slate-500 dark:text-slate-400">{s.validationQueue}</p>
         </div>
-        <button className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-5 py-2.5 rounded-full text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm">
+        <button className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-5 py-2.5 rounded-full text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm w-fit">
            <SlidersHorizontal size={16} />
            {s.filters}
         </button>
@@ -108,7 +108,67 @@ export const ReviewQueueScreen = () => {
           />
         </div>
       ) : (
-        <div className="bg-white dark:bg-slate-800 rounded-[32px] overflow-hidden shadow-2xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700">
+        <>
+        {/* Mobile card list (<md). The table's last-column actions are
+            unreachable at phone widths (overflow-hidden clips them), so
+            every card is tappable and carries its own 44px actions. */}
+        <div className="md:hidden space-y-4">
+          {docs.map((doc) => (
+            <article
+              key={doc.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(`/documents/${doc.id}`)}
+              onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/documents/${doc.id}`); }}
+              className="bg-white dark:bg-slate-800 rounded-3xl p-4 border border-slate-100 dark:border-slate-700 shadow-sm cursor-pointer active:scale-[0.99] transition-transform"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 flex-shrink-0 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
+                  <FileText size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-black text-slate-900 dark:text-slate-100 text-sm truncate mb-0.5">{doc.originalFileName || doc.name}</p>
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{doc.type || 'Invoice'}</p>
+                </div>
+                <ChevronRight size={18} className="text-slate-300 dark:text-slate-600 flex-shrink-0" />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800 whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  {s.pendingReviewStatus}
+                </span>
+                <ReviewBadge confidence={doc.overallConfidence || 0.92} status={doc.status} />
+                <span className="ml-auto text-xs font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                  {doc.date ? new Date(doc.date).toLocaleDateString() : s.recently}
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleAction(doc.id, 'approve'); }}
+                  disabled={actioningId === doc.id}
+                  aria-label={`${s.approve} ${doc.originalFileName || doc.name}`}
+                  className="flex-1 min-h-[44px] flex items-center justify-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800 rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <CheckCircle size={18} strokeWidth={2.5} />
+                  {s.approve}
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleAction(doc.id, 'reject'); }}
+                  disabled={actioningId === doc.id}
+                  aria-label={`${s.reject} ${doc.originalFileName || doc.name}`}
+                  className="flex-1 min-h-[44px] flex items-center justify-center gap-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-800 rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <XCircle size={18} strokeWidth={2.5} />
+                  {s.reject}
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="hidden md:block bg-white dark:bg-slate-800 rounded-[32px] overflow-hidden shadow-2xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700">
           <table className="saas-table">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-700/50">
@@ -121,7 +181,11 @@ export const ReviewQueueScreen = () => {
             </thead>
             <tbody className="dark:divide-slate-700">
               {docs.map((doc) => (
-                <tr key={doc.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-700/40 transition-all group">
+                <tr
+                  key={doc.id}
+                  onClick={() => navigate(`/documents/${doc.id}`)}
+                  className="hover:bg-slate-50/40 dark:hover:bg-slate-700/40 transition-all group cursor-pointer"
+                >
                   <td className="pl-10 py-6">
                     <div className="flex items-center">
                       <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mr-5 shadow-sm group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
@@ -149,24 +213,30 @@ export const ReviewQueueScreen = () => {
                   </td>
                   <td className="px-6 py-6 text-right">
                     <div className="flex items-center justify-end gap-4">
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-6 group-hover:translate-x-0 duration-300">
-                        <button 
-                          onClick={() => handleAction(doc.id, 'approve')}
-                          className="p-2.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-2xl transition-all hover:scale-110 active:scale-90"
-                          title="Approve"
+                      {/* Always visible: hover-revealed controls are invisible
+                          and untappable on touch devices. */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleAction(doc.id, 'approve'); }}
+                          disabled={actioningId === doc.id}
+                          className="p-2.5 min-w-[44px] min-h-[44px] text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-2xl transition-all hover:scale-110 active:scale-90 disabled:opacity-50"
+                          title={s.approve}
+                          aria-label={`${s.approve} ${doc.originalFileName || doc.name}`}
                         >
                           <CheckCircle size={24} strokeWidth={2.5} />
                         </button>
-                        <button 
-                          onClick={() => handleAction(doc.id, 'reject')}
-                          className="p-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-2xl transition-all hover:scale-110 active:scale-90"
-                          title="Reject"
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleAction(doc.id, 'reject'); }}
+                          disabled={actioningId === doc.id}
+                          className="p-2.5 min-w-[44px] min-h-[44px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-2xl transition-all hover:scale-110 active:scale-90 disabled:opacity-50"
+                          title={s.reject}
+                          aria-label={`${s.reject} ${doc.originalFileName || doc.name}`}
                         >
                           <XCircle size={24} strokeWidth={2.5} />
                         </button>
                       </div>
-                      <button 
-                        onClick={() => navigate(`/documents/${doc.id}`)}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/documents/${doc.id}`); }}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg active:scale-95"
                       >
                         {s.deepReview}
@@ -179,6 +249,7 @@ export const ReviewQueueScreen = () => {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );
