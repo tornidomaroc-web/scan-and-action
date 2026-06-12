@@ -120,11 +120,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
             canvas.toBlob((blob) => {
               clearTimeout(timeoutId);
               if (blob) {
-                const processedFile = new File([blob], file.name, { 
+                const processedFile = new File([blob], file.name, {
                   type: file.type,
-                  lastModified: Date.now() 
+                  lastModified: Date.now()
                 });
-                console.log(`[Preprocessing] Success for ${file.name} (Enhanced)`);
                 resolve(processedFile);
               } else {
                 resolve(file);

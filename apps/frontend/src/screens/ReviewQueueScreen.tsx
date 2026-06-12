@@ -8,7 +8,7 @@ import { ReviewBadge } from '../components/SharedComponents';
 import { useToast } from '../contexts/ToastContext';
 import { useStrings } from '../i18n/useStrings';
 
-export const ReviewQueueScreen = ({ t, rtl }: any) => {
+export const ReviewQueueScreen = () => {
   const s = useStrings();
   const navigate = useNavigate();
   const { onSuccess } = useOutletContext<{ onSuccess: () => void }>();

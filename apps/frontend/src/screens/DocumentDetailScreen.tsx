@@ -8,11 +8,7 @@ import { DecisionBanner } from '../components/DecisionBanner';
 import { FixActionPanel } from '../components/FixActionPanel';
 import { useStrings } from '../i18n/useStrings';
 
-export const DocumentDetailScreen = ({
-  t,
-}: {
-  t: any;
-}) => {
+export const DocumentDetailScreen = () => {
   const s = useStrings();
   const fieldLabel = (key: string): string => {
     const map: Record<string, string> = {

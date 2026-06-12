@@ -21,7 +21,7 @@ const formatDate = (dateString: string) => {
   }).format(date);
 };
 
-export const ActivityScreen = ({ t }: { t: any }) => {
+export const ActivityScreen = () => {
   const s = useStrings();
   const navigate = useNavigate();
   const [activity, setActivity] = useState<any[]>([]);
