@@ -316,3 +316,27 @@
     padding-bottom: 40px;
   }
 }
+
+/* ============================================================
+   Mobile type scale (<md).
+   The design system leans on ultra-heavy weights (font-black),
+   uppercase, and wide letter-spacing. At phone widths that
+   combination forces letter-by-letter wrapping and clipped
+   pills/CTAs. Tone the primitives down globally below 768px
+   instead of patching each component; rules sit after the
+   @tailwind directives so they win over same-specificity
+   utilities, and md:* variants are untouched.
+   ============================================================ */
+@media (max-width: 767px) {
+  .text-6xl { font-size: 2rem; line-height: 2.5rem; }
+  .text-5xl { font-size: 1.75rem; line-height: 2.25rem; }
+  .text-4xl { font-size: 1.5rem; line-height: 2rem; }
+  .text-3xl { font-size: 1.375rem; line-height: 1.85rem; }
+  .text-2xl { font-size: 1.25rem; line-height: 1.75rem; }
+  .text-xl { font-size: 1.125rem; line-height: 1.6rem; }
+  .font-black { font-weight: 700; }
+  .tracking-widest { letter-spacing: 0.06em; }
+  .tracking-wider { letter-spacing: 0.03em; }
+  .tracking-\[0\.15em\], .tracking-\[0\.2em\] { letter-spacing: 0.06em; }
+  .tracking-\[0\.3em\], .tracking-\[0\.4em\] { letter-spacing: 0.08em; }
+}

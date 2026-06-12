@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
-import { Outlet, useSearchParams } from 'react-router-dom';
+import { Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import { UploadModal } from './UploadModal';
+import { BottomTabBar } from './BottomTabBar';
 import { documentService } from '../services/documentService';
 import { Camera, Menu } from 'lucide-react';
 
@@ -9,13 +10,18 @@ export const Layout: React.FC = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [refreshCount, setRefreshCount] = useState(0);
   const [plan, setPlan] = useState<'FREE' | 'PRO' | undefined>(undefined);
+  const [pendingCount, setPendingCount] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
 
+  // Re-fetched on navigation too, so the Queue tab badge reflects
+  // approvals/rejections made in the queue as soon as the user leaves it.
   useEffect(() => {
     documentService.getStats().then(stats => {
       if (stats?.plan) setPlan(stats.plan);
+      if (typeof stats?.pendingCount === 'number') setPendingCount(stats.pendingCount);
     }).catch(err => console.error('[Layout] Plan fetch failed:', err));
-  }, [refreshCount]);
+  }, [refreshCount, location.pathname]);
 
   useEffect(() => {
     if (searchParams.get('intent') === 'upload') {
@@ -62,11 +68,14 @@ export const Layout: React.FC = () => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 md:ml-[280px] min-h-screen overflow-y-auto">
+      <main className="flex-1 md:ml-[280px] min-h-screen overflow-y-auto pb-20 md:pb-0">
         <div className="p-4 md:p-8 lg:p-12 xl:p-16">
           <Outlet context={{ refreshCount, onNewScan: handleNewScan, onSuccess: handleUploadSuccess, plan }} />
         </div>
       </main>
+
+      {/* Mobile Bottom Tab Bar (hidden on md+) */}
+      <BottomTabBar pendingCount={pendingCount} />
 
       {/* Global Contextual Modals */}
       <UploadModal
