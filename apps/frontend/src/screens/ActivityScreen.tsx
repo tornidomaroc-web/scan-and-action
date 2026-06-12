@@ -111,20 +111,20 @@ export const ActivityScreen = () => {
             activity.map((item, i) => (
               <div key={item.id} 
                 onClick={() => navigate(`/documents/${item.id}`)}
-                className={`group flex items-center justify-between py-4 px-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all cursor-pointer ${i !== activity.length - 1 ? 'border-b border-slate-50 dark:border-slate-700/30' : ''}`}
+                className={`group flex items-center justify-between gap-3 py-4 px-3 md:px-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all cursor-pointer ${i !== activity.length - 1 ? 'border-b border-slate-50 dark:border-slate-700/30' : ''}`}
               >
-                <div className="flex items-center gap-5">
-                  <div className="w-12 h-12 bg-slate-50 dark:bg-slate-900 text-slate-400 group-hover:bg-white dark:group-hover:bg-slate-800 rounded-xl flex items-center justify-center border border-slate-100 dark:border-slate-800 group-hover:scale-110 transition-all duration-300">
-                    <FileText size={20} strokeWidth={2.5} />
+                <div className="flex items-center gap-3 md:gap-5 min-w-0">
+                  <div className="w-10 h-10 md:w-12 md:h-12 flex-shrink-0 bg-slate-50 dark:bg-slate-900 text-slate-400 group-hover:bg-white dark:group-hover:bg-slate-800 rounded-xl flex items-center justify-center border border-slate-100 dark:border-slate-800 group-hover:scale-110 transition-all duration-300">
+                    <FileText strokeWidth={2.5} className="w-[18px] h-[18px] md:w-5 md:h-5" />
                   </div>
-                  <div>
-                    <p className="font-black text-slate-900 dark:text-slate-100 text-base mb-0.5 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{item.originalFileName || 'Unnamed Document'}</p>
+                  <div className="min-w-0">
+                    <p className="font-black text-slate-900 dark:text-slate-100 text-sm md:text-base mb-0.5 group-hover:text-blue-600 transition-colors uppercase tracking-tight truncate">{item.originalFileName || 'Unnamed Document'}</p>
                     <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest italic leading-none">
                       {formatDate(item.uploadedAt)}
                     </p>
                   </div>
                 </div>
-                <div className={`px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase border ${
+                <div className={`flex-shrink-0 whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase border ${
                   item.status === 'COMPLETED' 
                     ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800' 
                     : item.status === 'NEEDS_REVIEW' 

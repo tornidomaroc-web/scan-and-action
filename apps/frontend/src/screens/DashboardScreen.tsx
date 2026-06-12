@@ -155,10 +155,10 @@ export const DashboardScreen = () => {
 
       {/* Action Banner */}
       {stats.pendingCount > 0 && (
-        <div className="bg-white dark:bg-slate-800 border-l-4 border-amber-500 rounded-2xl p-6 mb-10 flex items-center justify-between shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700">
-          <div className="flex items-center gap-5">
-            <div className="bg-amber-50 dark:bg-amber-900/30 p-3 rounded-2xl text-amber-600 dark:text-amber-400">
-              <Activity size={24} strokeWidth={2.5} />
+        <div className="bg-white dark:bg-slate-800 border-l-4 border-amber-500 rounded-2xl p-5 md:p-6 mb-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700">
+          <div className="flex items-center gap-4 md:gap-5 min-w-0">
+            <div className="bg-amber-50 dark:bg-amber-900/30 p-2.5 md:p-3 rounded-2xl text-amber-600 dark:text-amber-400 flex-shrink-0">
+              <Activity strokeWidth={2.5} className="w-5 h-5 md:w-6 md:h-6" />
             </div>
             <div>
               <h3 className="text-lg font-black text-slate-900 dark:text-white mb-0.5 uppercase tracking-tight">
@@ -169,9 +169,9 @@ export const DashboardScreen = () => {
               </p>
             </div>
           </div>
-          <button 
+          <button
             onClick={() => navigate('/queue')}
-            className="btn btn-primary px-8 py-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 whitespace-nowrap"
+            className="btn btn-primary w-full sm:w-auto px-6 md:px-8 py-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 sm:whitespace-nowrap"
           >
             {s.finalizeProcessing}
           </button>
@@ -182,18 +182,18 @@ export const DashboardScreen = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         {[
           { 
-            label: s.processedDocs, 
-            value: stats.totalCount.toLocaleString(), 
-            icon: <FileText size={20} />, 
+            label: s.processedDocs,
+            value: stats.totalCount.toLocaleString(),
+            icon: <FileText className="w-[18px] h-[18px] md:w-5 md:h-5" />,
             color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30',
             tooltip: 'Successful extractions and review-ready documents. Rejected or failed uploads are not included.',
             description: s.docsSubtitle
           },
-          { label: s.pendingReview, value: stats.pendingCount.toLocaleString(), icon: <Clock size={20} />, color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/30' },
+          { label: s.pendingReview, value: stats.pendingCount.toLocaleString(), icon: <Clock className="w-[18px] h-[18px] md:w-5 md:h-5" />, color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/30' },
           { 
             label: s.avgConfidence, 
-            value: `${(stats.averageConfidence * 100).toFixed(1)}%`, 
-            icon: <Zap size={20} />, 
+            value: `${(stats.averageConfidence * 100).toFixed(1)}%`,
+            icon: <Zap className="w-[18px] h-[18px] md:w-5 md:h-5" />,
             color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30',
             badge: (
               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ml-auto ${confidenceInfo.colorClass}`}>
@@ -203,9 +203,9 @@ export const DashboardScreen = () => {
             )
           },
         ].map((stat, i) => (
-          <div key={i} className="bg-white dark:bg-slate-800 rounded-[32px] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700 transition-all hover:translate-y-[-4px] hover:shadow-2xl duration-300">
+          <div key={i} className="bg-white dark:bg-slate-800 rounded-[32px] p-5 md:p-8 shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700 transition-all hover:translate-y-[-4px] hover:shadow-2xl duration-300">
             <div className="flex items-center gap-3 mb-5">
-              <div className={`${stat.color} p-2.5 rounded-xl`}>{stat.icon}</div>
+              <div className={`${stat.color} p-2 md:p-2.5 rounded-xl flex-shrink-0`}>{stat.icon}</div>
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest truncate">{stat.label}</span>
                 {stat.tooltip && (
@@ -220,7 +220,7 @@ export const DashboardScreen = () => {
               </div>
             </div>
             <div className="flex flex-col gap-1">
-              <div className="flex items-baseline gap-2">
+              <div className="flex items-baseline gap-2 flex-wrap">
                 <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">{stat.value}</span>
                 {stat.badge}
               </div>
@@ -238,24 +238,24 @@ export const DashboardScreen = () => {
       <div className="mb-12">
          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mb-5 ml-2 italic">{s.workflowActions}</h3>
          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-            <button onClick={onNewScan} className="group bg-white dark:bg-slate-800 p-6 rounded-2xl border-2 border-slate-100 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-xl active:scale-95 text-left flex items-center gap-4">
-               <div className="bg-blue-600 p-3 rounded-2xl text-white group-hover:scale-110 transition-transform"><FileText size={20} strokeWidth={2.5} /></div>
-               <div>
-                  <span className="font-black text-slate-900 dark:text-white block">{s.newScan}</span>
+            <button onClick={onNewScan} className="group bg-white dark:bg-slate-800 p-4 md:p-6 rounded-2xl border-2 border-slate-100 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-xl active:scale-95 text-left flex items-center gap-3 md:gap-4">
+               <div className="bg-blue-600 p-2.5 md:p-3 rounded-2xl text-white group-hover:scale-110 transition-transform flex-shrink-0"><FileText strokeWidth={2.5} className="w-[18px] h-[18px] md:w-5 md:h-5" /></div>
+               <div className="min-w-0">
+                  <span className="font-black text-slate-900 dark:text-white block text-sm md:text-base leading-tight">{s.newScan}</span>
                   <span className="text-[10px] font-bold text-blue-500 uppercase tracking-tight">{s.uploadData}</span>
                </div>
             </button>
-            <button onClick={() => navigate('/search')} className="group bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-blue-500 transition-all shadow-sm hover:shadow-xl active:scale-95 text-left flex items-center gap-4">
-               <div className="bg-slate-100 dark:bg-slate-700 p-3 rounded-2xl text-slate-600 dark:text-slate-400 group-hover:bg-blue-500 group-hover:text-white transition-all"><Zap size={20} /></div>
-               <div>
-                  <span className="font-black text-slate-900 dark:text-white block">{s.search}</span>
+            <button onClick={() => navigate('/search')} className="group bg-white dark:bg-slate-800 p-4 md:p-6 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-blue-500 transition-all shadow-sm hover:shadow-xl active:scale-95 text-left flex items-center gap-3 md:gap-4">
+               <div className="bg-slate-100 dark:bg-slate-700 p-2.5 md:p-3 rounded-2xl text-slate-600 dark:text-slate-400 group-hover:bg-blue-500 group-hover:text-white transition-all flex-shrink-0"><Zap className="w-[18px] h-[18px] md:w-5 md:h-5" /></div>
+               <div className="min-w-0">
+                  <span className="font-black text-slate-900 dark:text-white block text-sm md:text-base leading-tight">{s.search}</span>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{s.queryAI}</span>
                </div>
             </button>
-            <button onClick={() => navigate('/queue')} className="group bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-amber-500 transition-all shadow-sm hover:shadow-xl active:scale-95 text-left flex items-center gap-4">
-               <div className="bg-slate-100 dark:bg-slate-700 p-3 rounded-2xl text-slate-600 dark:text-slate-400 group-hover:bg-amber-500 group-hover:text-white transition-all"><Clock size={20} /></div>
-               <div>
-                  <span className="font-black text-slate-900 dark:text-white block">{s.reviewTitle}</span>
+            <button onClick={() => navigate('/queue')} className="group bg-white dark:bg-slate-800 p-4 md:p-6 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-amber-500 transition-all shadow-sm hover:shadow-xl active:scale-95 text-left flex items-center gap-3 md:gap-4">
+               <div className="bg-slate-100 dark:bg-slate-700 p-2.5 md:p-3 rounded-2xl text-slate-600 dark:text-slate-400 group-hover:bg-amber-500 group-hover:text-white transition-all flex-shrink-0"><Clock className="w-[18px] h-[18px] md:w-5 md:h-5" /></div>
+               <div className="min-w-0">
+                  <span className="font-black text-slate-900 dark:text-white block text-sm md:text-base leading-tight">{s.reviewTitle}</span>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{s.validate}</span>
                </div>
             </button>
@@ -268,11 +268,11 @@ export const DashboardScreen = () => {
                    alert('Export failed. Please try again.');
                  }
                }} 
-               className="group bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-emerald-500 transition-all shadow-sm hover:shadow-xl active:scale-95 text-left flex items-center gap-4"
+               className="group bg-white dark:bg-slate-800 p-4 md:p-6 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-emerald-500 transition-all shadow-sm hover:shadow-xl active:scale-95 text-left flex items-center gap-3 md:gap-4"
             >
-               <div className="bg-slate-100 dark:bg-slate-700 p-3 rounded-2xl text-slate-600 dark:text-slate-400 group-hover:bg-emerald-500 group-hover:text-white transition-all"><Database size={20} /></div>
-               <div>
-                  <span className="font-black text-slate-900 dark:text-white block">{s.exportCSV}</span>
+               <div className="bg-slate-100 dark:bg-slate-700 p-2.5 md:p-3 rounded-2xl text-slate-600 dark:text-slate-400 group-hover:bg-emerald-500 group-hover:text-white transition-all flex-shrink-0"><Database className="w-[18px] h-[18px] md:w-5 md:h-5" /></div>
+               <div className="min-w-0">
+                  <span className="font-black text-slate-900 dark:text-white block text-sm md:text-base leading-tight">{s.exportCSV}</span>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{s.downloadData}</span>
                </div>
             </button>
@@ -281,10 +281,10 @@ export const DashboardScreen = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-[3fr_1fr] gap-8">
         {/* Recent Activity */}
-        <div className="bg-white dark:bg-slate-800 rounded-[32px] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700">
-          <div className="flex items-center justify-between mb-8">
+        <div className="bg-white dark:bg-slate-800 rounded-[32px] p-5 md:p-8 shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700">
+          <div className="flex items-center justify-between gap-3 mb-8">
             <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-              <Activity size={22} className="text-blue-500" strokeWidth={2.5} /> 
+              <Activity className="text-blue-500 w-5 h-5 md:w-[22px] md:h-[22px] flex-shrink-0" strokeWidth={2.5} />
               {s.recentActivity}
             </h2>
             {recentActivity.length > 4 && !(isExpanded && !isDesktop) && (
@@ -317,20 +317,20 @@ export const DashboardScreen = () => {
               recentActivity.slice(0, isExpanded ? undefined : 4).map((item, i) => (
                 <div key={item.id} 
                   onClick={() => navigate(`/documents/${item.id}`)}
-                  className={`group flex items-center justify-between py-4 px-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all cursor-pointer ${i !== (isExpanded ? recentActivity.length - 1 : (Math.min(recentActivity.length, 4) - 1)) ? 'border-b border-slate-50 dark:border-slate-700/30' : ''}`}
+                  className={`group flex items-center justify-between gap-3 py-4 px-3 md:px-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all cursor-pointer ${i !== (isExpanded ? recentActivity.length - 1 : (Math.min(recentActivity.length, 4) - 1)) ? 'border-b border-slate-50 dark:border-slate-700/30' : ''}`}
                 >
-                  <div className="flex items-center gap-5">
-                    <div className="w-12 h-12 bg-slate-50 dark:bg-slate-900 text-slate-400 group-hover:bg-white dark:group-hover:bg-slate-800 rounded-xl flex items-center justify-center border border-slate-100 dark:border-slate-800 group-hover:scale-110 transition-all duration-300">
-                      <FileText size={20} strokeWidth={2.5} />
+                  <div className="flex items-center gap-3 md:gap-5 min-w-0">
+                    <div className="w-10 h-10 md:w-12 md:h-12 flex-shrink-0 bg-slate-50 dark:bg-slate-900 text-slate-400 group-hover:bg-white dark:group-hover:bg-slate-800 rounded-xl flex items-center justify-center border border-slate-100 dark:border-slate-800 group-hover:scale-110 transition-all duration-300">
+                      <FileText strokeWidth={2.5} className="w-[18px] h-[18px] md:w-5 md:h-5" />
                     </div>
-                    <div>
-                      <p className="font-black text-slate-900 dark:text-slate-100 text-base mb-0.5 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{item.originalFileName || 'Unnamed Document'}</p>
+                    <div className="min-w-0">
+                      <p className="font-black text-slate-900 dark:text-slate-100 text-sm md:text-base mb-0.5 group-hover:text-blue-600 transition-colors uppercase tracking-tight truncate">{item.originalFileName || 'Unnamed Document'}</p>
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest italic leading-none">
                         {formatDate(item.uploadedAt)}
                       </p>
                     </div>
                   </div>
-                  <div className={`px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase border ${
+                  <div className={`flex-shrink-0 whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase border ${
                     item.status === 'COMPLETED' 
                       ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800' 
                       : item.status === 'NEEDS_REVIEW' 
