@@ -45,26 +45,26 @@ export const SettingsScreen = () => {
       <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8">
         <div className="space-y-8">
           {/* Identity Card */}
-          <section className="bg-white dark:bg-slate-800 rounded-[32px] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700">
-            <div className="flex items-center gap-6 mb-8">
-              <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-blue-500/20">
+          <section className="bg-white dark:bg-slate-800 rounded-[32px] p-5 md:p-8 shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-4 md:gap-6 mb-8">
+              <div className="w-16 h-16 md:w-20 md:h-20 flex-shrink-0 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl md:text-3xl font-black shadow-lg shadow-blue-500/20">
                 {userName.charAt(0).toUpperCase()}
               </div>
-              <div>
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-1 uppercase tracking-tight">
+              <div className="min-w-0">
+                <h3 className="text-lg md:text-2xl font-black text-slate-900 dark:text-white mb-1 uppercase tracking-tight truncate">
                   {userName}
                 </h3>
-                <p className="text-slate-500 font-bold">{user?.email}</p>
+                <p className="text-sm md:text-base text-slate-500 font-bold break-all">{user?.email}</p>
               </div>
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-3">
-                  <User className="text-slate-400" size={20} />
-                  <span className="font-bold text-slate-700 dark:text-slate-300">{s.accountType}</span>
+                  <User className="text-slate-400 flex-shrink-0" size={18} />
+                  <span className="font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">{s.accountType}</span>
                 </div>
-                <span className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-xs">{s.personalWorkspace}</span>
+                <span className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-xs whitespace-nowrap">{s.personalWorkspace}</span>
               </div>
             </div>
           </section>
