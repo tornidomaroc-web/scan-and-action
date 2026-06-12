@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './Sidebar';
 import { Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import { UploadModal } from './UploadModal';
 import { BottomTabBar } from './BottomTabBar';
+import { CaptureSheet, CaptureSheetHandle } from './CaptureSheet';
+import { ProcessingTray } from './ProcessingTray';
+import { ProcessingProvider } from '../contexts/ProcessingContext';
+import { useIsDesktop } from '../hooks/useMediaQuery';
 import { documentService } from '../services/documentService';
 import { Camera, Menu } from 'lucide-react';
 
@@ -13,6 +17,8 @@ export const Layout: React.FC = () => {
   const [pendingCount, setPendingCount] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
+  const captureRef = useRef<CaptureSheetHandle>(null);
+  const isDesktop = useIsDesktop();
 
   // Re-fetched on navigation too, so the Queue tab badge reflects
   // approvals/rejections made in the queue as soon as the user leaves it.
@@ -31,8 +37,14 @@ export const Layout: React.FC = () => {
     }
   }, [searchParams, setSearchParams]);
 
+  // Mobile goes straight to the camera (one tap, no modal); desktop keeps
+  // the drag-drop modal where it earns its place.
   const handleNewScan = () => {
-    setIsUploadOpen(true);
+    if (isDesktop) {
+      setIsUploadOpen(true);
+    } else {
+      captureRef.current?.open();
+    }
   };
 
   const handleUploadSuccess = () => {
@@ -44,6 +56,7 @@ export const Layout: React.FC = () => {
   };
 
   return (
+    <ProcessingProvider onJobSettled={handleUploadSuccess}>
     <div className="flex flex-col md:flex-row min-h-screen w-full bg-slate-50 dark:bg-slate-950 transition-colors duration-500">
       {/* Mobile Top Bar */}
       <header className="flex md:hidden items-center justify-between px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-[60] shadow-sm">
@@ -75,7 +88,13 @@ export const Layout: React.FC = () => {
       </main>
 
       {/* Mobile Bottom Tab Bar (hidden on md+) */}
-      <BottomTabBar pendingCount={pendingCount} />
+      <BottomTabBar pendingCount={pendingCount} onScan={() => captureRef.current?.open()} />
+
+      {/* App-level processing tray: chip above the tab bar + tray sheet */}
+      <ProcessingTray />
+
+      {/* Mobile one-tap camera capture (hidden input + confirm sheet) */}
+      <CaptureSheet ref={captureRef} plan={plan} />
 
       {/* Global Contextual Modals */}
       <UploadModal
@@ -85,5 +104,6 @@ export const Layout: React.FC = () => {
         plan={plan}
       />
     </div>
+    </ProcessingProvider>
   );
 };

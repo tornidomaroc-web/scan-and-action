@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, File as FileIcon, CheckCircle, AlertCircle, Loader2, Clock, Camera } from 'lucide-react';
+import { X, Upload, File as FileIcon, CheckCircle, AlertCircle, Loader2, Camera } from 'lucide-react';
 import { uploadDocument } from '../services/uploadService';
-import { documentService } from '../services/documentService';
 import { useToast } from '../contexts/ToastContext';
+import { useProcessing } from '../contexts/ProcessingContext';
+import { preprocessImage } from '../lib/imagePreprocess';
 import { PaywallModal } from './PaywallModal';
 import { useStrings } from '../i18n/useStrings';
 
@@ -24,47 +25,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
   const [results, setResults] = useState<{ success: number; total: number }>({ success: 0, total: 0 });
   const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
   const [showPaywall, setShowPaywall] = useState(false);
-  // docStatus tracks async processing state per file name: PROCESSING | COMPLETED | NEEDS_REVIEW | FAILED
-  const [docStatus, setDocStatus] = useState<Record<string, string>>({});
-  const pollTimers = useRef<Record<string, ReturnType<typeof setInterval>>>({});
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const { showToast } = useToast();
-
-  // Polls a single document until it leaves PROCESSING (or 90s timeout)
-  const startPolling = (fileName: string, documentId: string) => {
-    const startTime = Date.now();
-    const TIMEOUT_MS = 90_000;
-    const INTERVAL_MS = 3_000;
-
-    setDocStatus(prev => ({ ...prev, [fileName]: 'PROCESSING' }));
-
-    const timer = setInterval(async () => {
-      try {
-        if (Date.now() - startTime > TIMEOUT_MS) {
-          clearInterval(timer);
-          setDocStatus(prev => ({ ...prev, [fileName]: 'FAILED' }));
-          return;
-        }
-        const doc = await documentService.getDocumentDetail(documentId);
-        const s: string = doc.status ?? 'PROCESSING';
-        setDocStatus(prev => ({ ...prev, [fileName]: s }));
-        if (s !== 'PROCESSING') {
-          clearInterval(timer);
-          delete pollTimers.current[fileName];
-          if (s === 'COMPLETED' || s === 'NEEDS_REVIEW') {
-            // Refresh dashboard data once processing is confirmed
-            onSuccess?.();
-          }
-        }
-      } catch {
-        clearInterval(timer);
-        setDocStatus(prev => ({ ...prev, [fileName]: 'FAILED' }));
-      }
-    }, INTERVAL_MS);
-
-    pollTimers.current[fileName] = timer;
-  };
+  // Processing now lives at app level: uploads hand off to the tray and the
+  // modal can close freely (no more 90s hostage-taking while polling).
+  const { trackUpload } = useProcessing();
 
   useEffect(() => {
     if (isOpen) {
@@ -75,83 +41,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
       setResults({ success: 0, total: 0 });
       setFileErrors({});
       setShowPaywall(false);
-      setDocStatus({});
-    } else {
-      // Clear all poll timers when modal closes
-      Object.values(pollTimers.current).forEach(clearInterval);
-      pollTimers.current = {};
     }
   }, [isOpen]);
 
-  /**
-   * Safe, browser-side image enhancement (Contrast 1.15)
-   * Skips PDFs and times out after 2 seconds.
-   */
-  const preprocessImage = async (file: File): Promise<File> => {
-    if (!file.type.startsWith('image/') || file.type.includes('pdf')) {
-      return file;
-    }
-
-    return new Promise((resolve) => {
-      const timeoutId = setTimeout(() => {
-        console.warn(`[Preprocessing] Timeout for ${file.name}, using original.`);
-        resolve(file);
-      }, 2000);
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            
-            if (!ctx) {
-              clearTimeout(timeoutId);
-              return resolve(file);
-            }
-
-            // Apply light contrast (1.15)
-            ctx.filter = 'contrast(1.15)';
-            ctx.drawImage(img, 0, 0);
-
-            canvas.toBlob((blob) => {
-              clearTimeout(timeoutId);
-              if (blob) {
-                const processedFile = new File([blob], file.name, {
-                  type: file.type,
-                  lastModified: Date.now()
-                });
-                resolve(processedFile);
-              } else {
-                resolve(file);
-              }
-            }, file.type, 0.95);
-          } catch (err) {
-            console.error(`[Preprocessing] Error for ${file.name}:`, err);
-            clearTimeout(timeoutId);
-            resolve(file);
-          }
-        };
-        img.onerror = () => {
-          clearTimeout(timeoutId);
-          resolve(file);
-        };
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = () => {
-        clearTimeout(timeoutId);
-        resolve(file);
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
   const addFiles = async (newFiles: FileList | File[]) => {
     let incomingFiles = Array.from(newFiles);
-    
+
     // Phase 2: Apply light contrast enhancement to images
     incomingFiles = await Promise.all(incomingFiles.map(f => preprocessImage(f)));
 
@@ -165,7 +60,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
         setShowPaywall(true);
         return; // Reject ALL incoming files for better UX clarity
       }
-      
+
       if (plan === undefined) {
         showToast('Verifying account status...', 'info');
         return; // Reject until plan is confirmed (Neutral behavior)
@@ -175,11 +70,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
     const validFiles = incomingFiles.filter(newFile => {
       return !files.some(f => f.name === newFile.name && f.size === newFile.size && f.lastModified === newFile.lastModified);
     });
-    
+
     if (validFiles.length < incomingFiles.length) {
       showToast('Duplicate files ignored', 'info');
     }
-    
+
     setFiles(prev => [...prev, ...validFiles]);
   };
 
@@ -240,9 +135,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
           const result = await uploadDocument(currentFile);
           successCount++;
           successfulFileIndices.push(i);
-          // If backend returned async PROCESSING status, begin polling
-          if (result?.documentId && result?.status === 'PROCESSING') {
-            startPolling(currentFile.name, result.documentId);
+          // Async processing is tracked app-wide now: the tray polls by
+          // documentId and survives this modal closing.
+          if (result?.documentId) {
+            trackUpload(result.documentId, currentFile.name);
           }
         } catch (err: any) {
           console.error(`Failed to upload ${currentFile.name}:`, err);
@@ -283,16 +179,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
     }
   };
 
-  const isProcessing = Object.values(docStatus).some(s => s === 'PROCESSING');
-
-  const handleSafeClose = () => {
-    if (isProcessing) {
-      showToast('Extraction in progress. Please wait...', 'info');
-      return;
-    }
-    onClose();
-  };
-
   const resetToIdle = () => {
     setStatus('idle');
     setProgress(0);
@@ -301,36 +187,30 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
   if (!isOpen) return null;
 
   return createPortal(
-    <div 
+    <div
       className="fixed inset-0 z-[10000] flex justify-center items-center bg-gray-900/80 dark:bg-black/60 backdrop-blur-sm p-4"
-      onClick={handleSafeClose}
+      onClick={onClose}
     >
-      <div 
+      <div
         className="w-full max-w-[560px] bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 border dark:border-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-8 py-6 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-              {status === 'idle' ? s.upload : 
-               status === 'success' ? (isProcessing ? 'Extracting Intelligence' : s.uploadSuccess) :
+              {status === 'idle' ? s.upload :
+               status === 'success' ? s.uploadSuccess :
                status === 'partial' ? 'Partial Success' : s.uploadError}
             </h2>
             <p className="text-sm font-medium text-gray-500 dark:text-slate-400 mt-1">
-              {status === 'idle' ? 'Select one or more files for AI extraction.' : 
-               status === 'success' && isProcessing ? 'Please wait while we analyze your documents...' :
-               status === 'success' ? 'All documents have been successfully verified.' :
+              {status === 'idle' ? 'Select one or more files for AI extraction.' :
+               status === 'success' ? 'Uploaded. Extraction continues in the background — you can close this.' :
                'Please review the status of your items below.'}
             </p>
           </div>
-          <button 
-            onClick={handleSafeClose}
-            disabled={isProcessing}
-            className={`p-2 rounded-lg transition-colors ${
-              isProcessing 
-                ? 'text-gray-200 dark:text-slate-700 cursor-not-allowed' 
-                : 'text-gray-400 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800'
-            }`}
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg transition-colors text-gray-400 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800"
           >
             <X size={24} />
           </button>
@@ -340,7 +220,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
           {/* Mobile-First Camera Action: Always available */}
           {!uploading && status === 'idle' && (
             <div className="mb-6">
-              <button 
+              <button
                 onClick={() => cameraInputRef.current?.click()}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-black shadow-lg shadow-blue-500/25 flex items-center justify-center gap-3 transition-all active:scale-[0.98] border-2 border-blue-500/50"
               >
@@ -360,8 +240,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
 
           <div
             className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all mb-6 ${
-              isDragging 
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-[1.02]' 
+              isDragging
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-[1.02]'
                 : 'border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 hover:border-gray-400 dark:hover:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-800'
             }`}
             onDragOver={handleDragOver}
@@ -375,7 +255,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
               accept=".pdf,.png,.jpg,.jpeg"
             />
-            
+
             <div className="relative z-0 pointer-events-none flex flex-col items-center">
               <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center mb-4 shadow-sm border border-gray-200 dark:border-slate-700">
                 <Upload size={24} className="text-blue-600 dark:text-blue-400" />
@@ -393,50 +273,34 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
             <div className="space-y-4">
               <div className="max-h-[240px] overflow-y-auto pr-2 space-y-2">
                 {files.map((f, idx) => {
-                  const ds = docStatus[f.name];
                   const hasError = !!fileErrors[f.name];
-                  const isProcessing = ds === 'PROCESSING';
-                  const isCompleted = ds === 'COMPLETED' || ds === 'NEEDS_REVIEW';
-                  const isFailed = ds === 'FAILED';
                   return (
                   <div key={`${f.name}-${idx}`} className={`p-3 rounded-lg border flex flex-col gap-2 shadow-sm transition-colors ${
-                    hasError || isFailed ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50'
-                    : isCompleted ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/50'
+                    hasError ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50'
                     : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'
                   }`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-sm border flex-shrink-0 ${
-                          hasError || isFailed ? 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800/40'
-                          : isCompleted ? 'bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800/40'
+                          hasError ? 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800/40'
                           : 'bg-white dark:bg-slate-700 border-gray-100 dark:border-slate-600'
                         }`}>
-                          {hasError || isFailed ? (
+                          {hasError ? (
                             <AlertCircle size={20} className="text-red-600 dark:text-red-400" />
-                          ) : isCompleted ? (
-                            <CheckCircle size={20} className="text-emerald-600 dark:text-emerald-400" />
-                          ) : isProcessing ? (
-                            <Loader2 size={20} className="animate-spin text-blue-600 dark:text-blue-400" />
                           ) : (
                             <FileIcon size={20} className="text-blue-600 dark:text-blue-400" />
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className={`text-sm font-bold truncate ${
-                            hasError || isFailed ? 'text-red-900 dark:text-red-200'
-                            : isCompleted ? 'text-emerald-900 dark:text-emerald-100'
-                            : 'text-gray-900 dark:text-slate-100'
+                            hasError ? 'text-red-900 dark:text-red-200' : 'text-gray-900 dark:text-slate-100'
                           }`}>{f.name}</p>
                           <p className="text-[10px] font-semibold text-gray-500 dark:text-slate-400 mt-0.5 uppercase tracking-wider">
                             {(f.size / 1024 / 1024).toFixed(2)} MB • {f.type.split('/')[1]?.toUpperCase() || 'FILE'}
-                            {isProcessing && <span className="ml-1 text-blue-500">• Analysing…</span>}
-                            {ds === 'NEEDS_REVIEW' && <span className="ml-1 text-amber-500">• Needs Review</span>}
-                            {ds === 'COMPLETED' && <span className="ml-1 text-emerald-500">• Done</span>}
-                            {isFailed && <span className="ml-1 text-red-500">• Failed</span>}
                           </p>
                         </div>
                       </div>
-                      {!uploading && !isProcessing && (
+                      {!uploading && (
                         <button
                           onClick={() => removeFile(idx)}
                           className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -445,9 +309,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                           <X size={16} />
                         </button>
                       )}
-                      {isProcessing && <Clock size={14} className="text-blue-400 flex-shrink-0" />}
                     </div>
-                    {(hasError || isFailed) && (
+                    {hasError && (
                       <p className="text-[11px] font-bold text-red-600 dark:text-red-400 bg-red-100/50 dark:bg-red-900/20 px-2 py-1 rounded">
                         {fileErrors[f.name] || 'AI extraction failed. Please try again.'}
                       </p>
@@ -462,11 +325,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                   <div className="flex justify-between text-sm font-bold text-gray-900 dark:text-white mb-2">
                     <span className="flex items-center gap-2">
                        {status === 'success' ? (
-                        Object.values(docStatus).some(st => st === 'PROCESSING') ? (
-                          <><CheckCircle size={18} className="text-emerald-600"/> Uploaded ✔️ Processing...</>
-                        ) : (
-                          <><CheckCircle size={18} className="text-emerald-600"/> {s.uploadSuccess}</>
-                        )
+                        <><CheckCircle size={18} className="text-emerald-600"/> {s.uploadSuccess}</>
                       ) : status === 'partial' ? (
                         <><AlertCircle size={18} className="text-amber-600"/> Partial Success ({results.success}/{results.total})</>
                       ) : status === 'error' ? (
@@ -480,7 +339,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
 
                   {uploading && (
                     <div className="h-3 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden border border-gray-200/50 dark:border-slate-700/50 mb-6">
-                      <div 
+                      <div
                         className={`h-full transition-all duration-500 ease-out ${status === 'error' ? 'bg-red-500' : 'bg-blue-600 dark:bg-blue-500'}`}
                         style={{ width: `${progress}%` }}
                       />
@@ -489,19 +348,19 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
 
                   {!uploading && status !== 'idle' && (
                     <div className="space-y-4">
-                      {status === 'success' && !isProcessing ? (
+                      {status === 'success' ? (
                         <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50 rounded-2xl p-6 text-center">
                            <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-emerald-100 dark:border-emerald-800">
                              <CheckCircle size={24} className="text-emerald-500" />
                            </div>
-                           <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100 mb-1 tracking-tight">Verified</h3>
+                           <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100 mb-1 tracking-tight">Uploaded</h3>
                            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                             Document intelligence extracted successfully.
+                             Extraction runs in the background — track it from the processing chip.
                            </p>
-                           
+
                            <div className="grid grid-cols-2 gap-4 mt-6">
                              <button
-                               onClick={handleSafeClose}
+                               onClick={onClose}
                                className="btn-secondary py-3 text-sm font-black dark:bg-slate-800 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400"
                              >
                                Done
@@ -517,7 +376,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                       ) : (
                         <div className="grid grid-cols-2 gap-4">
                           <button
-                            onClick={handleSafeClose}
+                            onClick={onClose}
                             className="btn-secondary py-3 text-sm font-black dark:bg-slate-800"
                           >
                             Close Modal
@@ -536,7 +395,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
               ) : (
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100 dark:border-slate-800">
                   <button
-                    onClick={handleSafeClose}
+                    onClick={onClose}
                     className="w-full btn-secondary py-3 text-base font-black dark:bg-slate-800"
                   >
                     Cancel
