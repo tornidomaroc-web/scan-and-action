@@ -20,6 +20,7 @@ vi.mock('../src/lib/supabase', () => ({ supabase: { auth: {} } }));
 import { strings } from '../src/i18n/strings';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { ToastProvider } from '../src/contexts/ToastContext';
+import { ProcessingProvider } from '../src/contexts/ProcessingContext';
 import { DashboardScreen } from '../src/screens/DashboardScreen';
 import { ActivityScreen } from '../src/screens/ActivityScreen';
 import { SearchScreen } from '../src/screens/SearchScreen';
@@ -56,7 +57,10 @@ function renderModalInDom(lang: Lang, element: React.ReactElement): string {
   flushSync(() => {
     root.render(
       <LanguageProvider>
-        <ToastProvider>{element}</ToastProvider>
+        <ToastProvider>
+          {/* UploadModal hands processing off to the app-level tray now */}
+          <ProcessingProvider>{element}</ProcessingProvider>
+        </ToastProvider>
       </LanguageProvider>
     );
   });
