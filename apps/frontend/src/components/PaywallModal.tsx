@@ -21,8 +21,10 @@ const PADDLE_PRICE_IDS: Record<Plan, string | undefined> = {
 };
 
 // Post-checkout landing. The custom domain, not the vercel.app alias, so the
-// URL customers see (and bookmark) is the canonical one.
-const CHECKOUT_SUCCESS_URL = 'https://www.scan-action.com/?checkout=success';
+// URL customers see (and bookmark) is the canonical one. Must land on
+// /dashboard: that's where Layout reads ?checkout=success and shows the
+// PRO welcome — the bare / route is the logged-out marketing page.
+const CHECKOUT_SUCCESS_URL = 'https://www.scan-action.com/dashboard?checkout=success';
 
 export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) => {
   const s = useStrings();
@@ -66,15 +68,15 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[11000] flex justify-center items-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in duration-300"
+      className="fixed inset-0 z-[11000] flex justify-center items-end sm:items-center bg-slate-900/60 backdrop-blur-md p-0 sm:p-4 animate-in fade-in duration-300"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[480px] bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-200 dark:border-slate-800"
+        className="w-full max-w-[480px] bg-white dark:bg-slate-900 rounded-t-[32px] sm:rounded-[32px] shadow-2xl overflow-y-auto max-h-[92vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 border border-slate-200 dark:border-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with Icon */}
-        <div className="bg-blue-600 p-8 text-center relative overflow-hidden">
+        <div className="bg-blue-600 p-6 sm:p-8 text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full opacity-10">
             <div className="absolute top-[-20px] left-[-20px] w-40 h-40 rounded-full bg-white blur-3xl animate-pulse" />
             <div className="absolute bottom-[-20px] right-[-20px] w-40 h-40 rounded-full bg-white blur-3xl animate-pulse" />
@@ -89,15 +91,16 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
           </div>
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 text-white/60 hover:text-white rounded-full hover:bg-white/10 transition-all"
+            aria-label="Close"
+            className="absolute top-2 right-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/60 hover:text-white rounded-full hover:bg-white/10 transition-all"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-8">
-          <p className="text-slate-600 dark:text-slate-400 font-bold text-center mb-8 leading-relaxed">
+        <div className="p-5 sm:p-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-8">
+          <p className="text-slate-600 dark:text-slate-400 font-bold text-center mb-6 sm:mb-8 leading-relaxed">
             Unlock the full power of Scan & Action. <span className="text-slate-900 dark:text-white">PRO</span> gives you the ultimate productivity workflow.
           </p>
 
@@ -112,7 +115,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
               {/* Monthly Plan */}
               <button
                 onClick={() => setSelectedPlan('monthly')}
-                className={`flex flex-col p-4 rounded-2xl border-2 text-left transition-all relative ${selectedPlan === 'monthly'
+                className={`flex flex-col p-4 min-h-[88px] rounded-2xl border-2 text-left transition-all relative ${selectedPlan === 'monthly'
                   ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-900/10 shadow-lg shadow-blue-500/5'
                   : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700'
                   }`}
@@ -124,7 +127,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
               {/* Yearly Plan */}
               <button
                 onClick={() => setSelectedPlan('yearly')}
-                className={`flex flex-col p-4 rounded-2xl border-2 text-left transition-all relative ${selectedPlan === 'yearly'
+                className={`flex flex-col p-4 min-h-[88px] rounded-2xl border-2 text-left transition-all relative ${selectedPlan === 'yearly'
                   ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-900/10 shadow-lg shadow-blue-500/5 ring-4 ring-blue-500/10'
                   : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700'
                   }`}
@@ -176,7 +179,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
             </button>
             <button
               onClick={onClose}
-              className="w-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 py-2 rounded-xl font-bold text-sm transition-all"
+              className="w-full min-h-[44px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 py-2 rounded-xl font-bold text-sm transition-all"
             >
               Maybe later
             </button>

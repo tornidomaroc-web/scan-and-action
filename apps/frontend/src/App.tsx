@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { SearchScreen } from './screens/SearchScreen';
 import { DocumentDetailScreen } from './screens/DocumentDetailScreen';
 import { ReviewQueueScreen } from './screens/ReviewQueueScreen';
@@ -17,6 +17,17 @@ import { ToastProvider } from './contexts/ToastContext';
 
 // Language and direction are owned by LanguageContext (persisted to
 // localStorage, sets dir/lang on <html>); screens read it via useStrings.
+
+// Safety net for checkout redirects that land on the marketing page (any
+// Paddle session opened before the successUrl pointed at /dashboard):
+// forward signed-in users to the dashboard so the PRO welcome still fires.
+export const LandingRoute: React.FC<{ authenticated: boolean }> = ({ authenticated }) => {
+  const [searchParams] = useSearchParams();
+  if (authenticated && searchParams.get('checkout') === 'success') {
+    return <Navigate to="/dashboard?checkout=success" replace />;
+  }
+  return <LandingScreen />;
+};
 
 function App() {
   const { user, loading } = useAuth();
@@ -42,7 +53,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           {/* Landing page is accessible to everyone at / */}
-          <Route path="/" element={<LandingScreen />} />
+          <Route path="/" element={<LandingRoute authenticated={!!user} />} />
 
           {/* Specific Login route */}
           <Route
