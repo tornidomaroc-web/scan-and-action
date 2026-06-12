@@ -4,6 +4,7 @@ import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/authMiddleware';
 import { WebhookController } from './controllers/webhookController';
+import { isAllowedOrigin } from './corsOrigin';
 
 const app = express();
 
@@ -16,8 +17,16 @@ app.set('trust proxy', 1);
 // e.g. ALLOWED_ORIGINS=https://scan-and-action.vercel.app,http://localhost:5173
 const rawOrigins = process.env.ALLOWED_ORIGINS || 'http://localhost:5173,https://scan-and-action.vercel.app';
 const allowedOrigins = rawOrigins.split(',').map((o) => o.trim());
-app.use(cors({ origin: allowedOrigins }));
-console.log(`[CORS] Allowed origins: ${allowedOrigins.join(', ')}`);
+app.use(
+  cors({
+    origin(origin, callback) {
+      // No Origin header means a non-browser request (Paddle webhook, health
+      // check, curl) — `false` skips the CORS headers without rejecting it.
+      callback(null, !!origin && isAllowedOrigin(origin, allowedOrigins));
+    },
+  })
+);
+console.log(`[CORS] Allowed origins: ${allowedOrigins.join(', ')} + Vercel previews of this project`);
 
 // Paddle Webhook (Unprotected & Raw)
 // MUST be registered before global express.json() to capture raw body for signature
