@@ -340,3 +340,25 @@
   .tracking-\[0\.15em\], .tracking-\[0\.2em\] { letter-spacing: 0.06em; }
   .tracking-\[0\.3em\], .tracking-\[0\.4em\] { letter-spacing: 0.08em; }
 }
+
+/* Indeterminate progress for in-flight processing jobs (tray). Purely
+   presentational reassurance for slow extractions (large files, PDFs). */
+@keyframes indeterminate-slide {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+.progress-indeterminate {
+  position: relative;
+  overflow: hidden;
+}
+.progress-indeterminate::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 40%;
+  border-radius: 9999px;
+  background: #3b82f6;
+  animation: indeterminate-slide 1.2s ease-in-out infinite;
+}
