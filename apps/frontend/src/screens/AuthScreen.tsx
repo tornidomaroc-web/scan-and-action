@@ -13,9 +13,11 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { useStrings } from '../i18n/useStrings';
+import { useToast } from '../contexts/ToastContext';
 
 export const AuthScreen: React.FC = () => {
   const s = useStrings();
+  const { showToast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,10 +37,10 @@ export const AuthScreen: React.FC = () => {
       } else {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        alert('Check your email for the confirmation link!');
+        showToast(s.authConfirmEmailToast, 'success');
       }
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password');
+      setError(err.message || s.authGenericError);
     } finally {
       setLoading(false);
     }
@@ -63,13 +65,13 @@ export const AuthScreen: React.FC = () => {
           </div>
 
           <p className="text-blue-400 font-bold uppercase tracking-[0.2em] text-xs mb-4">
-            Intellectual Automation
+            {s.authKicker}
           </p>
           <h1 className="text-5xl font-black text-white leading-[1.1] tracking-tight mb-4">
-            Turn Documents Into <span className="text-blue-500">Actionable</span> Intelligence
+            {s.authHeadlinePre}<span className="text-blue-500">{s.authHeadlineEmphasis}</span>{s.authHeadlinePost}
           </h1>
           <p className="text-xl text-slate-300 font-bold mb-10">
-            Stop wasting hours reviewing documents manually.
+            {s.authSubheadline}
           </p>
 
           <div className="space-y-8">
@@ -78,8 +80,8 @@ export const AuthScreen: React.FC = () => {
                 <Zap size={20} className="text-blue-500" />
               </div>
               <div>
-                <h4 className="text-white font-bold text-lg mb-1">Instant Data Extraction</h4>
-                <p className="text-slate-500 text-sm font-medium">99%+ accuracy on invoices, receipts, and complex forms.</p>
+                <h4 className="text-white font-bold text-lg mb-1">{s.authFeat1Title}</h4>
+                <p className="text-slate-500 text-sm font-medium">{s.authFeat1Desc}</p>
               </div>
             </div>
 
@@ -88,8 +90,8 @@ export const AuthScreen: React.FC = () => {
                 <Brain size={20} className="text-blue-500" />
               </div>
               <div>
-                <h4 className="text-white font-bold text-lg mb-1">Intelligent Insights & Search</h4>
-                <p className="text-slate-500 text-sm font-medium">Query your entire document library using natural language.</p>
+                <h4 className="text-white font-bold text-lg mb-1">{s.authFeat2Title}</h4>
+                <p className="text-slate-500 text-sm font-medium">{s.authFeat2Desc}</p>
               </div>
             </div>
 
@@ -98,8 +100,8 @@ export const AuthScreen: React.FC = () => {
                 <BarChart size={20} className="text-blue-500" />
               </div>
               <div>
-                <h4 className="text-white font-bold text-lg mb-1">Audit-Ready Reports</h4>
-                <p className="text-slate-500 text-sm font-medium">Generate professional audit reports in a single click.</p>
+                <h4 className="text-white font-bold text-lg mb-1">{s.authFeat3Title}</h4>
+                <p className="text-slate-500 text-sm font-medium">{s.authFeat3Desc}</p>
               </div>
             </div>
           </div>
@@ -107,7 +109,7 @@ export const AuthScreen: React.FC = () => {
           <div className="mt-16 pt-12 border-t border-white/5">
              <div className="flex items-center gap-2 text-slate-500 font-bold text-sm">
                 <ShieldCheck size={18} className="text-emerald-500" />
-                Trusted by teams managing thousands of documents monthly
+                {s.authTrust}
              </div>
           </div>
         </div>
@@ -127,17 +129,17 @@ export const AuthScreen: React.FC = () => {
           <div className="bg-white dark:bg-slate-800 p-10 lg:p-12 rounded-[40px] shadow-xl shadow-slate-200/60 dark:shadow-none border border-slate-200/50 dark:border-slate-700/50">
             <div className="mb-10 lg:text-left text-center">
               <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-3 italic">
-                {isLogin ? 'Welcome back' : 'Create your workspace'}
+                {isLogin ? s.authWelcomeBack : s.authCreateWorkspace}
               </h2>
               <p className="text-slate-500 dark:text-slate-400 font-bold text-base leading-relaxed">
-                {isLogin ? 'Log in to manage your intelligence' : 'Start your journey to automated precision'}
+                {isLogin ? s.authLoginSubtitle : s.authSignupSubtitle}
               </p>
             </div>
 
             <form onSubmit={handleAuth} className="space-y-6">
               <div className="space-y-2">
                 <label htmlFor="email" className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] pl-1 flex items-center gap-2">
-                  <Mail size={12} /> Email Address
+                  <Mail size={12} /> {s.authEmailLabel}
                 </label>
                 <input
                   id="email"
@@ -147,18 +149,18 @@ export const AuthScreen: React.FC = () => {
                   required
                   autoFocus
                   className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-100 dark:border-slate-700/50 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 rounded-2xl text-slate-900 dark:text-white font-bold placeholder-slate-350 dark:placeholder-slate-600 transition-all outline-none"
-                  placeholder="name@company.com"
+                  placeholder={s.authEmailPlaceholder}
                 />
               </div>
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center px-1">
                   <label htmlFor="password" className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <Lock size={12} /> Password
+                    <Lock size={12} /> {s.authPasswordLabel}
                   </label>
                   {isLogin && (
                     <button type="button" className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline">
-                      Forgot Password?
+                      {s.authForgotPassword}
                     </button>
                   )}
                 </div>
@@ -197,11 +199,11 @@ export const AuthScreen: React.FC = () => {
                 {loading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    {isLogin ? 'Signing in...' : 'Registering...'}
+                    {isLogin ? s.authSigningIn : s.authRegistering}
                   </>
                 ) : (
                   <>
-                    {isLogin ? 'Continue to Dashboard' : 'Access Workspace'}
+                    {isLogin ? s.authContinueCta : s.authAccessCta}
                     <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
@@ -210,19 +212,19 @@ export const AuthScreen: React.FC = () => {
               <div className="pt-2 text-center">
                 <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center justify-center gap-2">
                   <ShieldCheck size={12} className="text-emerald-500" />
-                  Secure login • Enterprise-grade encryption
+                  {s.authSecureNote}
                 </p>
               </div>
             </form>
 
             <div className="mt-10 pt-8 border-t border-slate-100 dark:border-slate-800 text-center">
               <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
-                {isLogin ? "Don't have an account?" : "Already have an account?"}
+                {isLogin ? s.authNoAccount : s.authHaveAccount}
                 <button
                   onClick={() => { setIsLogin(!isLogin); setError(null); }}
                   className="ml-2 text-blue-600 dark:text-blue-400 hover:underline font-black"
                 >
-                  {isLogin ? 'Create Account' : 'Sign In'}
+                  {isLogin ? s.authCreateAccountCta : s.authSignInCta}
                 </button>
               </p>
             </div>
