@@ -5,6 +5,7 @@ import { UploadModal } from './UploadModal';
 import { BottomTabBar } from './BottomTabBar';
 import { CaptureSheet, CaptureSheetHandle } from './CaptureSheet';
 import { ProcessingTray } from './ProcessingTray';
+import { ProWelcome } from './ProWelcome';
 import { ProcessingProvider } from '../contexts/ProcessingContext';
 import { useIsDesktop } from '../hooks/useMediaQuery';
 import { documentService } from '../services/documentService';
@@ -15,6 +16,7 @@ export const Layout: React.FC = () => {
   const [refreshCount, setRefreshCount] = useState(0);
   const [plan, setPlan] = useState<'FREE' | 'PRO' | undefined>(undefined);
   const [pendingCount, setPendingCount] = useState(0);
+  const [showProWelcome, setShowProWelcome] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const captureRef = useRef<CaptureSheetHandle>(null);
@@ -34,6 +36,21 @@ export const Layout: React.FC = () => {
       setIsUploadOpen(true);
       searchParams.delete('intent');
       setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  // Post-payment confirmation: Paddle redirects here with ?checkout=success.
+  // Celebrate, refetch the plan (twice — the webhook that flips FREE->PRO can
+  // lag the redirect by a few seconds), and clean the URL so a refresh
+  // doesn't re-trigger it.
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'success') {
+      setShowProWelcome(true);
+      setRefreshCount(prev => prev + 1);
+      const lagRefetch = setTimeout(() => setRefreshCount(prev => prev + 1), 5000);
+      searchParams.delete('checkout');
+      setSearchParams(searchParams, { replace: true });
+      return () => clearTimeout(lagRefetch);
     }
   }, [searchParams, setSearchParams]);
 
@@ -95,6 +112,9 @@ export const Layout: React.FC = () => {
 
       {/* Mobile one-tap camera capture (hidden input + confirm sheet) */}
       <CaptureSheet ref={captureRef} plan={plan} />
+
+      {/* Post-payment celebration (?checkout=success) */}
+      {showProWelcome && <ProWelcome onClose={() => setShowProWelcome(false)} />}
 
       {/* Global Contextual Modals */}
       <UploadModal
