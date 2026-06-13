@@ -37,8 +37,8 @@ export const Layout: React.FC = () => {
     }
   }, [searchParams, setSearchParams]);
 
-  // Mobile goes straight to the camera (one tap, no modal); desktop keeps
-  // the drag-drop modal where it earns its place.
+  // Mobile opens the source chooser (camera or gallery/Files incl. PDF);
+  // desktop keeps the drag-drop modal where it earns its place.
   const handleNewScan = () => {
     if (isDesktop) {
       setIsUploadOpen(true);

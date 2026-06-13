@@ -170,6 +170,69 @@ describe('CaptureSheet — one-tap mobile capture', () => {
     setInputFiles(input, [new File(['img'], 'photo.jpg', { type: 'image/jpeg' })]);
   }
 
+  function pickPdf() {
+    const input = document.body.querySelector('[data-testid="file-input"]') as HTMLInputElement;
+    setInputFiles(input, [new File(['pdf'], 'invoice.pdf', { type: 'application/pdf' })]);
+  }
+
+  it('scan action opens the source chooser: Take Photo + Choose File (single-file, PDF-capable)', () => {
+    const ref = mountCapture('PRO');
+    flushSync(() => ref.current!.open());
+
+    const chooser = document.body.querySelector('[data-testid="source-chooser"]')!;
+    expect(chooser).toBeTruthy();
+    expect(chooser.textContent).toContain(strings.en.takePhoto);
+    expect(chooser.textContent).toContain(strings.en.chooseFile);
+
+    const cameraInput = document.body.querySelector('[data-testid="capture-input"]')!;
+    const fileInput = document.body.querySelector('[data-testid="file-input"]')!;
+    // camera path unchanged
+    expect(cameraInput.getAttribute('capture')).toBe('environment');
+    // file path must NOT force the camera and must accept PDFs
+    expect(fileInput.getAttribute('capture')).toBeNull();
+    expect(fileInput.getAttribute('accept')).toContain('application/pdf');
+    // money path: chooser stays single-file — the FREE batch gate can't be reached
+    expect(cameraInput.hasAttribute('multiple')).toBe(false);
+    expect(fileInput.hasAttribute('multiple')).toBe(false);
+  });
+
+  it('a PDF via Choose File shows icon + filename (no img) and reaches uploadDocument', async () => {
+    (uploadDocument as any).mockResolvedValue({ documentId: 'doc-pdf', status: 'PROCESSING' });
+    (documentService.getDocumentDetail as any).mockResolvedValue({ status: 'PROCESSING' });
+    mountCapture('PRO');
+    pickPdf();
+
+    const sheet = document.body.querySelector('[data-testid="capture-sheet"]')!;
+    expect(sheet.textContent).toContain('invoice.pdf');
+    expect(sheet.querySelector('img')).toBeNull();
+
+    const extract = [...document.body.querySelectorAll('button')].find(
+      (b) => b.textContent?.includes(strings.en.extract)
+    )!;
+    click(extract);
+
+    await vi.waitFor(() => expect(uploadDocument).toHaveBeenCalled());
+    expect((uploadDocument as any).mock.calls[0][0].name).toBe('invoice.pdf');
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain(strings.en.processingChip.replace('{n}', '1'))
+    );
+  });
+
+  it('MONEY PATH: LIMIT_REACHED via the file-picker path still triggers the paywall', async () => {
+    (uploadDocument as any).mockRejectedValue(new Error('LIMIT_REACHED'));
+    mountCapture('FREE');
+    pickPdf();
+
+    const extract = [...document.body.querySelectorAll('button')].find(
+      (b) => b.textContent?.includes(strings.en.extract)
+    )!;
+    click(extract);
+
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain('Unlock the full power of Scan & Action')
+    );
+  });
+
   it('photo confirm sheet appears with Extract and Retake', () => {
     mountCapture('PRO');
     pickPhoto();
