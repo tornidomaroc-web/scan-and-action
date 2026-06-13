@@ -79,20 +79,34 @@ export const ProcessingTray: React.FC = () => {
                             }
                           : undefined
                       }
-                      className={`flex items-center gap-3 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 ${
+                      className={`p-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 ${
                         openable ? 'cursor-pointer hover:border-blue-400' : ''
                       }`}
                     >
-                      <div className="w-9 h-9 flex-shrink-0 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center">
-                        <FileText size={16} className="text-slate-400" />
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 flex-shrink-0 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center">
+                          <FileText size={16} className="text-slate-400" />
+                        </div>
+                        <p className="flex-1 min-w-0 text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{job.fileName}</p>
+                        {statusIcon(job)}
+                        {openable && <ChevronRight size={16} className="text-slate-300 flex-shrink-0" />}
                       </div>
-                      <p className="flex-1 min-w-0 text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{job.fileName}</p>
-                      {statusIcon(job)}
-                      {openable && <ChevronRight size={16} className="text-slate-300 flex-shrink-0" />}
+                      {job.status === 'PROCESSING' && (
+                        <div
+                          data-testid="job-progress"
+                          className="progress-indeterminate h-1 mt-2.5 rounded-full bg-slate-200 dark:bg-slate-700"
+                        />
+                      )}
                     </div>
                   );
                 })}
               </div>
+
+              {processingCount > 0 && (
+                <p className="mt-4 text-xs font-bold text-slate-400 dark:text-slate-500 text-center leading-relaxed">
+                  {s.processingHint}
+                </p>
+              )}
 
               {jobs.some((j) => j.status !== 'PROCESSING') && (
                 <button

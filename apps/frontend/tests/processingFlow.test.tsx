@@ -114,10 +114,26 @@ describe('ProcessingContext — app-level tray', () => {
     click(document.body.querySelector('[data-testid="processing-chip"]')!);
     const tray = document.body.querySelector('[data-testid="processing-tray"]')!;
     expect(tray.textContent).toContain('snap.jpg');
+    // duration reassurance: indeterminate bar + hint while in flight
+    expect(tray.querySelector('[data-testid="job-progress"]')).toBeTruthy();
+    expect(tray.textContent).toContain(strings.en.processingHint);
     // job stays persisted while PROCESSING (the resume set)
     const stored = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
     expect(stored).toHaveLength(1);
     expect(stored[0].documentId).toBe('doc-x');
+  });
+
+  it('settled jobs show neither the progress bar nor the duration hint', async () => {
+    (documentService.getDocumentDetail as any).mockResolvedValue({ status: 'COMPLETED' });
+    mount(<TrackButton />);
+
+    click([...container.querySelectorAll('button')].find((b) => b.textContent === 'TRACK')!);
+    await vi.waitFor(() => expect(settled).toHaveBeenCalled());
+
+    click(document.body.querySelector('[data-testid="processing-chip"]')!);
+    const tray = document.body.querySelector('[data-testid="processing-tray"]')!;
+    expect(tray.querySelector('[data-testid="job-progress"]')).toBeNull();
+    expect(tray.textContent).not.toContain(strings.en.processingHint);
   });
 
   it('resume-on-mount: a recent PROCESSING job picks its poll back up', async () => {
