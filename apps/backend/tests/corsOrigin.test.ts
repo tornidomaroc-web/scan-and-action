@@ -63,4 +63,17 @@ describe('isAllowedOrigin', () => {
     expect(isAllowedOrigin('https://scan-action.com.evil.com', ALLOWLIST)).toBe(false);
     expect(isAllowedOrigin('http://localhost:3000', ALLOWLIST)).toBe(false);
   });
+
+  it('accepts the Capacitor native app origins regardless of ALLOWED_ORIGINS', () => {
+    // The Android WebView serves the bundled UI from https://localhost; iOS will
+    // use capacitor://localhost. These must work even with an empty allowlist.
+    expect(isAllowedOrigin('https://localhost', [])).toBe(true);
+    expect(isAllowedOrigin('capacitor://localhost', [])).toBe(true);
+  });
+
+  it('does not let the native exception widen to arbitrary localhost ports/schemes', () => {
+    expect(isAllowedOrigin('http://localhost', ALLOWLIST)).toBe(false);
+    expect(isAllowedOrigin('https://localhost:8080', ALLOWLIST)).toBe(false);
+    expect(isAllowedOrigin('https://localhost.attacker.com', ALLOWLIST)).toBe(false);
+  });
 });

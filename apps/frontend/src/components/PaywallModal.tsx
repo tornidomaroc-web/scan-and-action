@@ -4,6 +4,7 @@ import { X, Zap, CheckCircle2, Crown, Star } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useStrings } from '../i18n/useStrings';
 import { getPaddle, PaddleNotConfiguredError } from '../lib/paddle';
+import { useBackDismiss } from '../native/useBackDismiss';
 
 interface PaywallModalProps {
   isOpen: boolean;
@@ -32,6 +33,9 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
   const [selectedPlan, setSelectedPlan] = useState<Plan>('yearly');
   const [openingCheckout, setOpeningCheckout] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  // Android back button closes the modal before navigating (no-op on web).
+  useBackDismiss(isOpen, onClose);
 
   if (!isOpen) return null;
 

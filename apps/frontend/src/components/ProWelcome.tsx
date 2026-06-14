@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Crown, Sparkles } from 'lucide-react';
 import { useStrings } from '../i18n/useStrings';
+import { useBackDismiss } from '../native/useBackDismiss';
 
 // Post-payment celebration: the highest-emotion moment in the product.
 // Deliberately a dismissible overlay rather than a toast — it can't be
@@ -9,6 +10,10 @@ import { useStrings } from '../i18n/useStrings';
 // flips the plan to PRO.
 export const ProWelcome: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const s = useStrings();
+
+  // Android back button dismisses the celebration (no-op on web). It's only
+  // mounted while open, so it's always active.
+  useBackDismiss(true, onClose);
 
   return createPortal(
     <div

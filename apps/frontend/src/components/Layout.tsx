@@ -76,7 +76,7 @@ export const Layout: React.FC = () => {
     <ProcessingProvider onJobSettled={handleUploadSuccess}>
     <div className="flex flex-col md:flex-row min-h-screen w-full bg-slate-50 dark:bg-slate-950 transition-colors duration-500">
       {/* Mobile Top Bar */}
-      <header className="flex md:hidden items-center justify-between px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-[60] shadow-sm">
+      <header className="flex md:hidden items-center justify-between px-6 pb-4 pt-[max(1rem,env(safe-area-inset-top))] bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-[60] shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
             <Camera size={18} className="text-white" />

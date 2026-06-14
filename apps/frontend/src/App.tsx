@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { SearchScreen } from './screens/SearchScreen';
 import { DocumentDetailScreen } from './screens/DocumentDetailScreen';
@@ -14,6 +14,8 @@ import { PrivacyPolicy } from './screens/PrivacyPolicy';
 import { RefundPolicy } from './screens/RefundPolicy';
 import { useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { NativeBackButton } from './native/NativeBackButton';
+import { hideSplash } from './native/shell';
 
 // Language and direction are owned by LanguageContext (persisted to
 // localStorage, sets dir/lang on <html>); screens read it via useStrings.
@@ -31,6 +33,11 @@ export const LandingRoute: React.FC<{ authenticated: boolean }> = ({ authenticat
 
 function App() {
   const { user, loading } = useAuth();
+
+  // Dismiss the native splash once React has mounted (no-op on web).
+  useEffect(() => {
+    hideSplash();
+  }, []);
 
   // Wait for Supabase to resolve the session before choosing a screen
   if (loading) {
@@ -51,6 +58,7 @@ function App() {
   return (
     <ToastProvider>
       <BrowserRouter>
+        <NativeBackButton />
         <Routes>
           {/* Landing page is accessible to everyone at / */}
           <Route path="/" element={<LandingRoute authenticated={!!user} />} />
