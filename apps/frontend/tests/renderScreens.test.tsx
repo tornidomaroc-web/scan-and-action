@@ -145,6 +145,25 @@ describe('per-screen render check (EN/FR/AR)', () => {
     }
   });
 
+  it('AuthScreen renders translated copy in EN/FR/AR (no hardcoded English)', () => {
+    const outputs = LANGS.map((lang) => renderAt(lang, '/login', <AuthScreen />));
+    // Each locale shows its own headline, feature blurb, and primary CTA
+    for (let i = 0; i < LANGS.length; i++) {
+      const lang = LANGS[i];
+      expect(outputs[i]).toContain(htmlEscape(strings[lang].authHeadlineEmphasis));
+      expect(outputs[i]).toContain(htmlEscape(strings[lang].authFeat1Title));
+      expect(outputs[i]).toContain(htmlEscape(strings[lang].authContinueCta));
+      // default view is login mode, so the footer toggle offers account creation
+      expect(outputs[i]).toContain(htmlEscape(strings[lang].authCreateAccountCta));
+    }
+    // FR/AR must actually differ from EN (proves strings are wired, not hardcoded)
+    expect(outputs[1]).not.toEqual(outputs[0]);
+    expect(outputs[2]).not.toEqual(outputs[0]);
+    // The old hardcoded English headline must be gone from FR/AR
+    expect(outputs[1]).not.toContain('Turn Documents Into');
+    expect(outputs[2]).not.toContain('Turn Documents Into');
+  });
+
   it('all three locales expose the same string keys (no missing translations)', () => {
     const enKeys = Object.keys(strings.en).sort();
     expect(Object.keys(strings.fr).sort()).toEqual(enKeys);
