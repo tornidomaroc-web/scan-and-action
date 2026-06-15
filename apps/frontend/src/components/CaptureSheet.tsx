@@ -7,6 +7,8 @@ import { useProcessing } from '../contexts/ProcessingContext';
 import { useToast } from '../contexts/ToastContext';
 import { PaywallModal } from './PaywallModal';
 import { useStrings } from '../i18n/useStrings';
+import { ensureCameraPermission } from '../native/camera';
+import { useBackDismiss } from '../native/useBackDismiss';
 
 export interface CaptureSheetHandle {
   open: () => void;
@@ -34,6 +36,11 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
   useImperativeHandle(ref, () => ({
     open: () => setChooserOpen(true),
   }));
+
+  // Android back button dismisses an open sheet before navigating (no-op on web).
+  // Arrows defer reading the handlers so this stays above their declarations.
+  useBackDismiss(chooserOpen, () => setChooserOpen(false));
+  useBackDismiss(!!file && !uploading, () => close());
 
   const releasePreview = () => {
     if (previewUrl && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(previewUrl);
@@ -131,7 +138,16 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
 
               <div className="space-y-3">
                 <button
-                  onClick={() => {
+                  onClick={async () => {
+                    // Native: ensure CAMERA is granted before the <input capture>
+                    // fires ACTION_IMAGE_CAPTURE (which fails on a declared-but-
+                    // ungranted permission). If denied, keep the chooser open so
+                    // "Choose File" still works. No-op on web.
+                    const ok = await ensureCameraPermission();
+                    if (!ok) {
+                      showToast(s.cameraPermissionDenied, 'error');
+                      return;
+                    }
                     setChooserOpen(false);
                     cameraInputRef.current?.click();
                   }}

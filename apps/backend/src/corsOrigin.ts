@@ -14,6 +14,18 @@
 const VERCEL_PREVIEW_ORIGIN =
   /^https:\/\/scan-and-action(-[a-z0-9-]+)?-tornidomaroc-webs-projects\.vercel\.app$/;
 
+// The Capacitor Android app bundles its own UI and serves it from a fixed
+// localhost origin (androidScheme: 'https' -> https://localhost). iOS (a future
+// chunk) uses capacitor://localhost. These are constant per-platform origins —
+// NOT the dev server (http://localhost:5173) and NOT an arbitrary localhost port
+// — so allowing them exactly does not widen the surface for a browser attacker,
+// who can never make a page served from https://localhost reach a real user.
+const NATIVE_APP_ORIGINS = new Set(['https://localhost', 'capacitor://localhost']);
+
 export function isAllowedOrigin(origin: string, allowedOrigins: string[]): boolean {
-  return allowedOrigins.includes(origin) || VERCEL_PREVIEW_ORIGIN.test(origin);
+  return (
+    allowedOrigins.includes(origin) ||
+    NATIVE_APP_ORIGINS.has(origin) ||
+    VERCEL_PREVIEW_ORIGIN.test(origin)
+  );
 }

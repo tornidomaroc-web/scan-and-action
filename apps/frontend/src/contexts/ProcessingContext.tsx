@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import { documentService } from '../services/documentService';
 import { useToast } from './ToastContext';
 
@@ -101,9 +103,21 @@ export const ProcessingProvider: React.FC<{
 
   const startPolling = (documentId: string) => {
     stopPolling(documentId);
-    const pollStart = Date.now();
+    let pollStart = Date.now();
+    let lastTick = Date.now();
 
     const check = async () => {
+      const now = Date.now();
+      // Native background / web tab-throttling suspends JS timers. On resume the
+      // pending tick fires with a stale clock — without this the elapsed time
+      // would blow past POLL_TIMEOUT_MS and wrongly settle a still-running job as
+      // FAILED. A large gap between ticks means we were suspended, so we grant a
+      // fresh window instead of counting the gap. (Fixes warm-resume on Android.)
+      if (now - lastTick > POLL_INTERVAL_MS * 3) {
+        pollStart = now;
+      }
+      lastTick = now;
+
       try {
         const doc = await documentService.getDocumentDetail(documentId);
         const status: string = doc?.status ?? 'PROCESSING';
@@ -135,12 +149,34 @@ export const ProcessingProvider: React.FC<{
   };
 
   // Resume-on-mount: anything that survived the storage filter above picks
-  // its poll back up — this is what survives phone backgrounding.
+  // its poll back up — this is what survives a cold app start.
   useEffect(() => {
     jobsRef.current.forEach((j) => startPolling(j.documentId));
     return () => {
       Object.values(timersRef.current).forEach(clearInterval);
       timersRef.current = {};
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Warm resume on native: backgrounding the Android app does NOT remount this
+  // provider (so the mount effect above won't re-run), yet timers are suspended
+  // while backgrounded. When the app returns to the foreground, restart polling
+  // for in-flight jobs so the tray shows fresh status immediately and the
+  // timeout window is reset. No-op on web (guarded by isNativePlatform).
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let remove: (() => void) | undefined;
+    App.addListener('appStateChange', ({ isActive }) => {
+      if (!isActive) return;
+      jobsRef.current
+        .filter((j) => j.status === 'PROCESSING')
+        .forEach((j) => startPolling(j.documentId));
+    }).then((h) => {
+      remove = h.remove;
+    });
+    return () => {
+      remove?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -5,6 +5,24 @@ node_modules/
 .env
 .env.*
 !.env.example
+# Exception: the frontend's production API base is public (already in the web
+# bundle) and must be tracked so the Capacitor Android build is reproducible.
+!apps/frontend/.env.production
+
+# ── Capacitor / Android ──────────────────────────────────────────
+# The android/ project IS committed (it's the native app). Only its generated
+# build artifacts and local SDK pointers are ignored.
+apps/frontend/android/.gradle/
+apps/frontend/android/build/
+apps/frontend/android/app/build/
+apps/frontend/android/capacitor-cordova-android-plugins/
+apps/frontend/android/local.properties
+apps/frontend/android/.idea/
+apps/frontend/android/app/src/main/assets/public/
+apps/frontend/android/app/src/main/assets/capacitor.config.json
+apps/frontend/android/app/src/main/assets/capacitor.plugins.json
+*.keystore
+*.jks
 
 # Build output
 dist/

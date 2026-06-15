@@ -41,3 +41,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      # Lightweight Capacitor check: copies the web build into the Android
+      # project and regenerates native plugin config. Catches a broken
+      # capacitor.config / missing webDir / plugin mismatch. Deliberately NO
+      # Gradle assemble here (no JDK/Android SDK) to keep CI fast.
+      - run: npx cap sync android
