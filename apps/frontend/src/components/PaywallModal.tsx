@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useStrings } from '../i18n/useStrings';
 import { getPaddle, PaddleNotConfiguredError } from '../lib/paddle';
 import { useBackDismiss } from '../native/useBackDismiss';
+import { isNativePlatform } from '../native/shell';
 
 interface PaywallModalProps {
   isOpen: boolean;
@@ -38,6 +39,57 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
   useBackDismiss(isOpen, onClose);
 
   if (!isOpen) return null;
+
+  // Google Play forbids non-Play payment UI for digital goods. Inside the native
+  // app we never render the Paddle checkout, never call getPaddle()/Checkout.open,
+  // and never load the Paddle SDK — we show a neutral "coming soon" placeholder
+  // with NO link or reference to paying on the web (anti-steering). Real in-app
+  // purchase is a later chunk. This branch is dead on web (isNativePlatform() is
+  // false there), so the web checkout flow below is unchanged.
+  if (isNativePlatform()) {
+    return createPortal(
+      <div
+        className="fixed inset-0 z-[11000] flex justify-center items-end sm:items-center bg-slate-900/60 backdrop-blur-md p-0 sm:p-4 animate-in fade-in duration-300"
+        onClick={onClose}
+      >
+        <div
+          className="w-full max-w-[480px] bg-white dark:bg-slate-900 rounded-t-[32px] sm:rounded-[32px] shadow-2xl overflow-y-auto max-h-[92vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 border border-slate-200 dark:border-slate-800"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bg-blue-600 p-6 sm:p-8 text-center relative overflow-hidden">
+            <div className="relative z-10">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner border border-white/30">
+                <Crown size={32} className="text-white" fill="white" />
+              </div>
+              <h2 className="text-2xl font-black text-white tracking-tight uppercase italic">
+                {s.proComingSoonTitle}
+              </h2>
+            </div>
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="absolute top-2 right-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/60 hover:text-white rounded-full hover:bg-white/10 transition-all"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="p-5 sm:p-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-8">
+            <p className="text-slate-600 dark:text-slate-400 font-bold text-center mb-8 leading-relaxed">
+              {s.proComingSoonBody}
+            </p>
+            <button
+              onClick={onClose}
+              className="w-full min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-all"
+            >
+              {s.proComingSoonDismiss}
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
 
   const handleUpgrade = async () => {
     setCheckoutError(null);
