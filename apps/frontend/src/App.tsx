@@ -15,7 +15,7 @@ import { RefundPolicy } from './screens/RefundPolicy';
 import { useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { NativeBackButton } from './native/NativeBackButton';
-import { hideSplash } from './native/shell';
+import { hideSplash, isNativePlatform } from './native/shell';
 
 // Language and direction are owned by LanguageContext (persisted to
 // localStorage, sets dir/lang on <html>); screens read it via useStrings.
@@ -25,6 +25,16 @@ import { hideSplash } from './native/shell';
 // forward signed-in users to the dashboard so the PRO welcome still fires.
 export const LandingRoute: React.FC<{ authenticated: boolean }> = ({ authenticated }) => {
   const [searchParams] = useSearchParams();
+  // The native app has no marketing page: a user who installed it doesn't need a
+  // pitch, and a logged-out marketing screen would expose subscription pricing /
+  // an upgrade CTA inside the store app (Google Play anti-steering). So "/" goes
+  // straight to the dashboard (if signed in) or the login screen. /login itself
+  // forwards already-authenticated users to /dashboard, so there is no loop.
+  // Guarded by isNativePlatform() — dead on web, so web "/" still renders the
+  // marketing LandingScreen exactly as before.
+  if (isNativePlatform()) {
+    return <Navigate to={authenticated ? '/dashboard' : '/login'} replace />;
+  }
   if (authenticated && searchParams.get('checkout') === 'success') {
     return <Navigate to="/dashboard?checkout=success" replace />;
   }
