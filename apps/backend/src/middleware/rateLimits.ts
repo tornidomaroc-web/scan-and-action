@@ -53,3 +53,18 @@ export const searchLimiter = rateLimit({
   legacyHeaders: false,
   message: limitResponse('Too many search requests. Please wait a few minutes and try again.')
 });
+
+/**
+ * Account-deletion limiter: 5 attempts / hour, keyed per authenticated user
+ * (falls back to IP defensively). Deletion is a rare, deliberate action — a
+ * tight cap blunts both accidental retry storms and any attempt to hammer the
+ * endpoint. Runs after authMiddleware, so req.user is normally set.
+ */
+export const accountDeletionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => req.user?.id || ipKeyGenerator(req.ip || ''),
+  message: limitResponse('Too many account-deletion attempts. Please wait a while and try again.')
+});

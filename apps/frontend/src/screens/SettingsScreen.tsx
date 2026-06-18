@@ -12,10 +12,12 @@ import {
   Globe,
   Sun,
   Moon,
-  LogOut
+  LogOut,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PaywallModal } from '../components/PaywallModal';
+import { DeleteAccountModal } from '../components/DeleteAccountModal';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { useStrings } from '../i18n/useStrings';
 import { useTheme } from '../hooks/useTheme';
@@ -34,6 +36,7 @@ export const SettingsScreen = () => {
   const { plan = 'FREE', onSuccess } = context;
   
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
   const userName = user?.email?.split('@')[0] || 'User';
@@ -189,6 +192,29 @@ export const SettingsScreen = () => {
               </div>
             )}
           </section>
+
+          {/* Danger Zone — account deletion (required by Google Play & Apple).
+              Platform-independent: shown on web and native alike. */}
+          <section className="bg-white dark:bg-slate-800 rounded-[32px] p-5 md:p-8 shadow-xl shadow-slate-200/40 dark:shadow-none border border-red-100 dark:border-red-900/40">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-red-50 dark:bg-red-900/30 p-2.5 rounded-xl text-red-600 dark:text-red-400">
+                <Trash2 size={20} strokeWidth={2.5} />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                {s.dangerZone}
+              </h3>
+            </div>
+            <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+              {s.deleteAccountDesc}
+            </p>
+            <button
+              onClick={() => setIsDeleteOpen(true)}
+              className="w-full min-h-[44px] flex items-center justify-center gap-2 p-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-colors active:scale-[0.99]"
+            >
+              <Trash2 size={18} strokeWidth={2.5} />
+              {s.deleteAccount}
+            </button>
+          </section>
         </div>
 
         {/* Info Sidebar */}
@@ -215,9 +241,15 @@ export const SettingsScreen = () => {
         </div>
       </div>
 
-      <PaywallModal 
+      <PaywallModal
         isOpen={isPaywallOpen}
         onClose={() => setIsPaywallOpen(false)}
+      />
+
+      <DeleteAccountModal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onDeleted={() => navigate('/login')}
       />
     </div>
   );
