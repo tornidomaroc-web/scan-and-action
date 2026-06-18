@@ -12,6 +12,7 @@ import { LandingScreen } from './screens/LandingScreen';
 import { TermsOfService } from './screens/TermsOfService';
 import { PrivacyPolicy } from './screens/PrivacyPolicy';
 import { RefundPolicy } from './screens/RefundPolicy';
+import { DeleteAccountInfo } from './screens/DeleteAccountInfo';
 import { useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { NativeBackButton } from './native/NativeBackButton';
@@ -83,6 +84,9 @@ function App() {
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/refund" element={<RefundPolicy />} />
+          {/* Public account-deletion info page (Google Play data-deletion
+              policy): reachable logged-out, even after uninstall. */}
+          <Route path="/delete-account" element={<DeleteAccountInfo />} />
 
           {/* Protected Routes */}
           {user ? (
