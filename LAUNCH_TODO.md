@@ -3,6 +3,13 @@
 > Living checklist for the Google Play / Apple App Store launch. Tick items off as
 > they're completed. Keep this up to date across sessions so deferred steps are never lost.
 
+## CURRENT STATE (updated today)
+
+- App is **SUBMITTED** and the closed-testing release was **APPROVED by Google**. Status has moved past "In review"; the closed-testing release now shows as **published**. Track: **Closed testing - Alpha**.
+- The tester opt-in link (web) is **live** and was sent to the Fiverr seller (**Touseef Ijaz**, order **#FO837C01CEF08**, Standard plan, 20–25 testers, 14 days, delivery ~**Jul 3 2026**). Seller confirmed he can access the app and that testers will start shortly.
+- Review/test account `unicornapps.support@gmail.com` is set to **PRO** directly in the DB (no Paddle backing).
+- **Now waiting for:** at least **12 testers to opt in** + **14 days of testing** before "Apply for production" unlocks.
+
 ## Current status (as of this session)
 
 - Android app is live via Capacitor. Package: `com.scanaction.app`. versionCode 1, versionName 1.0.
@@ -27,20 +34,23 @@
 - [ ] **targetSdk:** currently 35 (meets Play's current minimum for new apps). May need a bump to 36 around Aug 2026 if Play warns at upload — bump `compileSdk`/`targetSdk` in `apps/frontend/android/variables.gradle` and rebuild.
 - [ ] **APPLY FOR PRODUCTION:** only after the closed test has run 14 days with 12+ opted-in testers (testers via Grayo on Fiverr, Premium plan, testers create their own in-app accounts, India required as a target country). Coordinate with Grayo — they provide the production-access questionnaire answers; do NOT apply independently.
 - [ ] **GEMINI BILLING TIER:** The app currently uses a Gemini API key on the FREE tier ("Niveau sans frais", even though a billing account is linked). On the free tier, Google may use submitted content to improve its products — which is why the Play Data Safety form was filled in declaring document data as SHARED with Google. ACTION (later, when usage/users grow): upgrade to the genuine PAID Gemini tier so customer document content is NOT used for training. This strengthens customer privacy/trust and lets us potentially update the Data Safety "Shared" disclosure. Reference: https://ai.google.dev/gemini-api/terms
+- [ ] **PHOTO PERMISSION FALLBACK:** The app uses `READ_MEDIA_IMAGES` and we filled Google's "Photo and video permissions" declaration (justified as: users upload existing receipt/invoice/document photos from their gallery for the core scanning feature). **RISK:** Google's photo/video policy is strict and may reject this since the app's image access is on-demand (per upload) rather than broad/continuous. **FALLBACK if rejected:** migrate from `READ_MEDIA_IMAGES` to the Android **Photo Picker** (`PickVisualMedia` / `ACTION_PICK` via the system photo picker), which needs no broad storage permission and removes this declaration requirement entirely. This is a clean technical fix. Implement only if the reviewer flags it.
+- [ ] **MONITOR TESTER OPT-INS:** Watch the "testers currently opted-in" counter in Play Console (needs **≥12**). Watch `unicornapps.support@gmail.com` for tester feedback and any Google emails.
+- [ ] **AFTER 14 DAYS + 12 TESTERS:** Apply for production (answer Google's questionnaire about the closed test; coordinate with the seller for tester feedback/notes).
 
 ## Remaining Play Console "set up your app" tasks (to finish BEFORE the clock starts)
 
 - [x] Privacy policy URL (https://www.scan-action.com/privacy)
 - [x] Sign-in details (test account: `unicornapps.support@gmail.com`, now PRO; full-access box checked)
-- [ ] Ads declaration (answer "No" for now — app has no ads yet; revisit when ads are built)
-- [ ] Content rating questionnaire
-- [ ] Target audience
-- [ ] Data safety
-- [ ] Government apps
-- [ ] Financial features
-- [ ] Health
-- [ ] App category + contact details
-- [ ] Store listing (app icon, screenshots, short + full description) in EN / FR / AR
-- [ ] Select countries/regions for the closed track (include India for Grayo testers)
-- [ ] Add testers to the closed track
-- [ ] Send the release to Google for review
+- [x] Ads declaration (answered **No** — app has no ads yet; revisit when ads are built)
+- [x] Content rating questionnaire
+- [x] Target audience (**18+**)
+- [x] Data safety (completed truthfully)
+- [x] Government apps (**No**)
+- [x] Financial features (**none**)
+- [x] Health (**none**)
+- [x] App category (**Productivity**) + contact details
+- [x] Store listing (app icon + feature graphic + 7 phone/tablet screenshots + descriptions)
+- [x] Select countries/regions for the closed track (**177 countries, includes Pakistan**)
+- [x] Add testers to the closed track (created **"Scan Action Testers"** email list with **25 testers** from the Fiverr seller)
+- [x] Send the release to Google for review
