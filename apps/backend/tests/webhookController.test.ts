@@ -206,7 +206,13 @@ describe('WebhookController.handlePaddle', () => {
       res
     );
 
-    expect(prisma.webhookEvent.delete).toHaveBeenCalledWith({ where: { id: 'evt_release_me' } });
+    // The idempotency key is source-namespaced ("paddle:<event_id>"). The claim
+    // is created and released under the SAME key — otherwise the release would
+    // no-op and Paddle's retry would be lost.
+    expect(prisma.webhookEvent.create).toHaveBeenCalledWith({
+      data: { id: 'paddle:evt_release_me', eventType: 'transaction.completed' },
+    });
+    expect(prisma.webhookEvent.delete).toHaveBeenCalledWith({ where: { id: 'paddle:evt_release_me' } });
     expect(res.status).toHaveBeenCalledWith(500);
   });
 });

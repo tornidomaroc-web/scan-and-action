@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native"]
 }
 
@@ -15,24 +15,35 @@ model User {
   preferredLanguage String   @default("en")
   createdAt         DateTime @default(now())
 
-  memberships       Membership[]
-  queryLogs         QueryLog[]
+  memberships Membership[]
+  queryLogs   QueryLog[]
 }
 
 model Organization {
-  id            String   @id @default(uuid()) @db.Uuid
-  name          String
-  slug          String   @unique
-  plan          PlanType @default(FREE)
-  scanCount     Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String
+  slug         String    @unique
+  // `plan` stays a STORED column — the sole entitlement value read by
+  // uploadController and getStats. It is recomputed and written by the shared
+  // entitlement service (Step 2b) whenever a Subscription source changes; it is
+  // NEVER computed at read time.
+  plan         PlanType  @default(FREE)
+  // Manual entitlement floor. null = derive purely from Subscription sources.
+  // Non-null = a manual grant (e.g. ENTERPRISE deals, or the review account
+  // which has no billing source). Webhooks must NEVER write this column.
+  // Derivation contract: plan = max(planOverride ?? FREE, PRO if any source ACTIVE else FREE)
+  // with ordering FREE(0) < PRO(1) < ENTERPRISE(2).
+  planOverride PlanType?
+  scanCount    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  members       Membership[]
-  documents     Document[]
-  entities      Entity[]
-  savedReports  SavedReportDefinition[]
+  members          Membership[]
+  documents        Document[]
+  entities         Entity[]
+  savedReports     SavedReportDefinition[]
   generatedReports GeneratedReport[]
+  subscriptions    Subscription[]
 }
 
 enum PlanType {
@@ -41,15 +52,45 @@ enum PlanType {
   ENTERPRISE
 }
 
-model Membership {
-  id             String       @id @default(uuid()) @db.Uuid
-  userId         String       @db.Uuid
-  organizationId String       @db.Uuid
-  role           MemberRole   @default(MEMBER)
-  joinedAt       DateTime     @default(now())
+// One row per (organization, billing source). Each source independently
+// reports whether it is ACTIVE; the derived Organization.plan is PRO if ANY
+// source is ACTIVE (subject to the planOverride floor). Per-source state lets
+// Paddle (web) and RevenueCat (mobile) coexist on one entitlement.
+model Subscription {
+  id               String             @id @default(uuid()) @db.Uuid
+  organizationId   String             @db.Uuid
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  source           BillingSource
+  status           SubscriptionStatus @default(INACTIVE)
+  externalId       String? // Paddle subscription_id / RevenueCat original_transaction_id
+  currentPeriodEnd DateTime?
+  lastEventAt      DateTime? // occurred_at of last applied event (out-of-order guard, used in 2b)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  @@unique([organizationId, source])
+  @@index([organizationId])
+}
+
+enum BillingSource {
+  PADDLE
+  REVENUECAT
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Membership {
+  id             String     @id @default(uuid()) @db.Uuid
+  userId         String     @db.Uuid
+  organizationId String     @db.Uuid
+  role           MemberRole @default(MEMBER)
+  joinedAt       DateTime   @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([userId, organizationId])
 }
@@ -62,55 +103,55 @@ enum MemberRole {
 }
 
 model Document {
-  id                String   @id @default(uuid()) @db.Uuid
-  organizationId    String   @db.Uuid
+  id                String       @id @default(uuid()) @db.Uuid
+  organizationId    String       @db.Uuid
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  userId            String   @db.Uuid  // The user who uploaded it
+  userId            String       @db.Uuid // The user who uploaded it
   originalFileName  String
   fileUrl           String
   documentType      String
   documentSubtype   String?
   detectedLanguage  String
-  rawText           String   @db.Text
-  normalizedText    String   @db.Text
-  summary           String?  @db.Text
+  rawText           String       @db.Text
+  normalizedText    String       @db.Text
+  summary           String?      @db.Text
   overallConfidence Float
   status            String
-  uploadedAt        DateTime @default(now())
+  uploadedAt        DateTime     @default(now())
   processedAt       DateTime?
 
-  facts             DocumentFact[]
-  documentEntities  DocumentEntity[]
+  facts            DocumentFact[]
+  documentEntities DocumentEntity[]
 
   @@index([organizationId])
 }
 
 model DocumentFact {
-  id           String   @id @default(uuid()) @db.Uuid
-  documentId   String   @db.Uuid
-  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  factType     String
-  key          String
-  valueString  String?
-  valueNumber  Float?
-  valueDate    DateTime?
-  currency     String?
-  confidence   Float
-  sourceSpan   String
-  isReviewed   Boolean  @default(false)
+  id          String    @id @default(uuid()) @db.Uuid
+  documentId  String    @db.Uuid
+  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  factType    String
+  key         String
+  valueString String?
+  valueNumber Float?
+  valueDate   DateTime?
+  currency    String?
+  confidence  Float
+  sourceSpan  String
+  isReviewed  Boolean   @default(false)
 
   @@index([documentId])
 }
 
 model Entity {
-  id               String           @id @default(uuid()) @db.Uuid
-  organizationId   String           @db.Uuid
-  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  entityType       String
-  canonicalName    String
-  aliases          String[]
-  metadataJson     Json
-  createdAt        DateTime         @default(now())
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entityType     String
+  canonicalName  String
+  aliases        String[]
+  metadataJson   Json
+  createdAt      DateTime     @default(now())
 
   documentEntities DocumentEntity[]
 
@@ -118,13 +159,13 @@ model Entity {
 }
 
 model DocumentEntity {
-  id          String   @id @default(uuid()) @db.Uuid
-  documentId  String   @db.Uuid
-  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  entityId    String   @db.Uuid
-  entity      Entity   @relation(fields: [entityId], references: [id])
-  role        String
-  confidence  Float
+  id         String   @id @default(uuid()) @db.Uuid
+  documentId String   @db.Uuid
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  entityId   String   @db.Uuid
+  entity     Entity   @relation(fields: [entityId], references: [id])
+  role       String
+  confidence Float
 
   @@index([documentId])
 }
@@ -145,16 +186,16 @@ model QueryLog {
 }
 
 model SavedReportDefinition {
-  id                String   @id @default(uuid()) @db.Uuid
-  organizationId    String   @db.Uuid
+  id                String       @id @default(uuid()) @db.Uuid
+  organizationId    String       @db.Uuid
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   title             String
   description       String
   queryTemplateJson Json
   schedule          String?
-  createdAt         DateTime @default(now())
+  createdAt         DateTime     @default(now())
 
-  generatedReports  GeneratedReport[]
+  generatedReports GeneratedReport[]
 
   @@index([organizationId])
 }
@@ -173,8 +214,13 @@ model GeneratedReport {
 
   @@index([organizationId])
 }
+
 model WebhookEvent {
-  id          String   @id // Paddle event_id — primary key gives us idempotency for free
+  // Source-namespaced event id, e.g. "paddle:evt_123" / "revenuecat:<id>".
+  // Namespacing prevents a RevenueCat event id from colliding with a Paddle one
+  // on this PK (which would silently drop a paid event as a "duplicate").
+  // The PK column type is unchanged (TEXT) — namespacing is done at write time.
+  id          String   @id
   eventType   String
   processedAt DateTime @default(now())
 }
