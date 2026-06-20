@@ -10,7 +10,9 @@
     "prisma:generate": "prisma generate",
     "db:push": "npx prisma db push",
     "postinstall": "prisma generate",
-    "test": "vitest run"
+    "test": "vitest run",
+    "backfill:subscriptions": "tsx scripts/backfillSubscriptions.ts",
+    "verify:entitlement": "tsx scripts/verifyEntitlement.ts"
   },
   "keywords": [],
   "author": "",

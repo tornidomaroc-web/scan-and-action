@@ -81,10 +81,15 @@ export class WebhookController {
       // Idempotency: record the event ID before processing; the primary key
       // makes duplicate deliveries (Paddle retries) no-ops. Duplicates get a
       // 200 so Paddle stops retrying.
+      // The stored key is source-namespaced ("paddle:<event_id>") so a future
+      // RevenueCat event id cannot collide with a Paddle one on this shared PK
+      // and get silently dropped as a duplicate. Paddle behaviour is otherwise
+      // unchanged — same idempotency, same release-claim-on-error below.
+      const webhookEventKey = eventId ? `paddle:${eventId}` : undefined;
       if (eventId) {
         try {
           await prisma.webhookEvent.create({
-            data: { id: eventId, eventType: eventName || 'unknown' }
+            data: { id: webhookEventKey!, eventType: eventName || 'unknown' }
           });
         } catch (err: any) {
           if (err.code === 'P2002') {
@@ -106,7 +111,7 @@ export class WebhookController {
         await WebhookController.processEvent(event, eventName, eventId, email);
       } catch (processingError) {
         if (eventId) {
-          await prisma.webhookEvent.delete({ where: { id: eventId } }).catch(() => {});
+          await prisma.webhookEvent.delete({ where: { id: webhookEventKey! } }).catch(() => {});
         }
         throw processingError;
       }
