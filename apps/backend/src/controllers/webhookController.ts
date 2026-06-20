@@ -1,7 +1,10 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { z } from 'zod';
+import { SubscriptionStatus } from '@prisma/client';
 import { prisma } from '../prismaClient';
+import { resolveBillingOrg } from '../services/entitlement/resolveBillingOrg';
+import { applyEntitlementChange } from '../services/entitlement/applyEntitlementChange';
 
 // Checkout.open sends customData {userId} — the Supabase UUID, which is also
 // User.id. Paddle copies checkout custom_data to the subscription and on to
@@ -137,72 +140,80 @@ export class WebhookController {
     return null;
   }
 
-  // Primary match: custom_data.userId → User.id. Fallback: customer email
-  // (absent from Paddle Billing payloads, but may serve manual or imported
-  // events). Returns the matched user plus a human-readable ref for logs.
-  private static async findUserForEvent(event: any, eventId: string | undefined, email: string | undefined) {
-    const userId = WebhookController.extractUserId(event, eventId);
-    if (userId) {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: { memberships: true },
-      });
-      if (user) return { user, ref: `userId ${userId}` };
-      console.warn(`[Webhook] custom_data.userId ${userId} matches no user (event ${eventId || 'no-id'}) — trying email fallback.`);
+  // Maps a Paddle event to the source-agnostic entitlement status the shared
+  // service understands, or null to ignore the event.
+  //
+  // ACTIVE  : transaction.completed, subscription.created (new purchase/renewal),
+  //           and subscription.updated for any status EXCEPT expired — this
+  //           covers PRODUCT_CHANGE (plan change) and grace/dunning (past_due),
+  //           which must NOT yank access mid-dunning (confirmed decision).
+  // INACTIVE: subscription.expired, transaction.refunded, and subscription.updated
+  //           with status 'expired'.
+  // null    : everything else (ignored, exactly as before).
+  //
+  // Behaviour preserved from the previous controller for every event it acted on.
+  // The ONE intentional addition: subscription.updated with a non-expired status
+  // now maps to ACTIVE (previously a no-op). See PR notes.
+  private static classifyPaddleStatus(eventName: string, data: any): SubscriptionStatus | null {
+    if (eventName === 'transaction.completed' || eventName === 'subscription.created') {
+      return 'ACTIVE';
     }
-
-    if (email) {
-      const user = await prisma.user.findUnique({
-        where: { email },
-        include: { memberships: true },
-      });
-      if (user) return { user, ref: `email ${email}` };
+    if (eventName === 'subscription.updated') {
+      return data?.status === 'expired' ? 'INACTIVE' : 'ACTIVE';
     }
-
-    return { user: null, ref: `userId ${userId || 'none'}, email ${email || 'none'}` };
+    if (eventName === 'subscription.expired' || eventName === 'transaction.refunded') {
+      return 'INACTIVE';
+    }
+    return null;
   }
 
+  // Paddle stamps every event with a top-level occurred_at. Used by the service's
+  // out-of-order guard. Best-effort: undefined if absent/unparseable.
+  private static extractOccurredAt(event: any): Date | undefined {
+    const raw = event?.occurred_at;
+    if (!raw) return undefined;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+  }
+
+  // Thin mapper: classify -> resolve org -> apply via the shared service. All the
+  // billing logic (per-source state, derivation, plan write) lives in the service;
+  // all the event-shape/identity parsing lives here.
   private static async processEvent(event: any, eventName: string, eventId: string | undefined, email: string | undefined) {
-      const isUpgrade = eventName === 'transaction.completed' || eventName === 'subscription.created';
-      const isDowngrade =
-        eventName === 'subscription.expired' ||
-        eventName === 'transaction.refunded' ||
-        (eventName === 'subscription.updated' && event.data?.status === 'expired');
+      const status = WebhookController.classifyPaddleStatus(eventName, event.data);
+      if (!status) return;
 
-      if (!isUpgrade && !isDowngrade) return;
+      const userId = WebhookController.extractUserId(event, eventId);
+      const ref = `userId ${userId || 'none'}, email ${email || 'none'}`;
 
-      const { user, ref } = await WebhookController.findUserForEvent(event, eventId, email);
+      const resolved = await resolveBillingOrg(userId, email);
 
-      if (isUpgrade) {
-        if (user && user.memberships.length > 0) {
-          const orgId = user.memberships[0].organizationId;
-
-          await prisma.organization.update({
-            where: { id: orgId },
-            data: { plan: 'PRO' },
-          });
-
-          console.log(`[Webhook] Successfully upgraded Org ${orgId} to PRO (${ref})`);
-        } else {
-          // Loud and grep-able: a paid checkout that did not result in an
-          // upgrade is a support incident, not a debug detail.
+      if (!resolved) {
+        // Loud and grep-able: a paid checkout / billing change that did not map to
+        // an org is a support incident, not a debug detail.
+        if (status === 'ACTIVE') {
           console.warn(`[Webhook][ALERT] PRO upgrade NOT applied — no user/org matches ${ref} (event ${eventId || 'no-id'}, ${eventName}). Customer paid but is still on FREE.`);
-        }
-      }
-
-      if (isDowngrade) {
-        if (user && user.memberships.length > 0) {
-          const orgId = user.memberships[0].organizationId;
-
-          await prisma.organization.update({
-            where: { id: orgId },
-            data: { plan: 'FREE' },
-          });
-
-          console.log(`[Webhook] DOWNGRADE: Org ${orgId} reverted to FREE (${ref}, event: ${eventName})`);
         } else {
           console.warn(`[Webhook][ALERT] Downgrade NOT applied — no user/org matches ${ref} (event ${eventId || 'no-id'}, ${eventName}).`);
         }
+        return;
       }
+
+      const externalId = event.data?.subscription_id || event.data?.id || undefined;
+      const eventOccurredAt = WebhookController.extractOccurredAt(event);
+
+      const result = await applyEntitlementChange({
+        organizationId: resolved.organizationId,
+        source: 'PADDLE',
+        status,
+        externalId,
+        eventOccurredAt,
+      });
+
+      console.log(
+        `[Webhook] ${eventName} -> Org ${resolved.organizationId} [PADDLE ${status}]: ` +
+          `plan ${result.previousPlan} -> ${result.newPlan} ` +
+          `(${result.applied ? 'applied' : 'stale event, plan reconciled only'}) (${ref})`
+      );
   }
 }
