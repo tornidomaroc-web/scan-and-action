@@ -1,30 +1,33 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import crypto from 'crypto';
 
+// Idempotency table lives on prisma; user/org resolution and the plan write now
+// live behind the resolver + service, which we mock to keep this a controller
+// (mapping + infra) unit test. Service/resolver correctness is covered by their
+// own tests.
 vi.mock('../src/prismaClient', () => ({
   prisma: {
-    user: { findUnique: vi.fn() },
-    organization: { update: vi.fn() },
     webhookEvent: { create: vi.fn(), delete: vi.fn() },
   },
 }));
+vi.mock('../src/services/entitlement/resolveBillingOrg', () => ({
+  resolveBillingOrg: vi.fn(),
+}));
+vi.mock('../src/services/entitlement/applyEntitlementChange', () => ({
+  applyEntitlementChange: vi.fn(),
+}));
 
 import { prisma } from '../src/prismaClient';
+import { resolveBillingOrg } from '../src/services/entitlement/resolveBillingOrg';
+import { applyEntitlementChange } from '../src/services/entitlement/applyEntitlementChange';
 import { WebhookController } from '../src/controllers/webhookController';
 
 const SECRET = 'test-webhook-secret';
 const USER_ID = '7f1e2d3c-4b5a-4678-9abc-def012345678';
 const ORG_ID = 'org-uuid-1';
 
-const userWithMembership = {
-  id: USER_ID,
-  email: 'buyer@example.com',
-  memberships: [{ organizationId: ORG_ID }],
-};
-
 // Builds a correctly signed request the way Paddle does: h1 = HMAC-SHA256
-// over `${ts}:${rawBody}` — so these tests also exercise the Phase 0
-// signature path end to end.
+// over `${ts}:${rawBody}` — so these tests also exercise the signature path.
 function signedRequest(eventBody: object, overrides: { signature?: string } = {}) {
   const rawBody = Buffer.from(JSON.stringify(eventBody), 'utf8');
   const ts = Math.floor(Date.now() / 1000);
@@ -58,6 +61,14 @@ describe('WebhookController.handlePaddle', () => {
     vi.clearAllMocks();
     process.env.PADDLE_WEBHOOK_SECRET = SECRET;
     (prisma.webhookEvent.create as any).mockResolvedValue({});
+    (prisma.webhookEvent.delete as any).mockResolvedValue({});
+    // Defaults: resolution succeeds, service reports an upgrade.
+    (resolveBillingOrg as any).mockResolvedValue({ organizationId: ORG_ID });
+    (applyEntitlementChange as any).mockResolvedValue({
+      previousPlan: 'FREE',
+      newPlan: 'PRO',
+      applied: true,
+    });
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
@@ -66,8 +77,7 @@ describe('WebhookController.handlePaddle', () => {
     vi.restoreAllMocks();
   });
 
-  it('upgrades the org when custom_data.userId matches a user (no email in payload, like real Paddle Billing events)', async () => {
-    (prisma.user.findUnique as any).mockResolvedValue(userWithMembership);
+  it('upgrades the org (PADDLE ACTIVE) when custom_data.userId matches a user (no email in payload, like real Paddle Billing events)', async () => {
     const res = mockResponse();
 
     await WebhookController.handlePaddle(
@@ -75,18 +85,15 @@ describe('WebhookController.handlePaddle', () => {
       res
     );
 
-    expect(prisma.user.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: USER_ID } })
+    expect(resolveBillingOrg).toHaveBeenCalledWith(USER_ID, undefined);
+    expect(applyEntitlementChange).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId: ORG_ID, source: 'PADDLE', status: 'ACTIVE' })
     );
-    expect(prisma.organization.update).toHaveBeenCalledWith({
-      where: { id: ORG_ID },
-      data: { plan: 'PRO' },
-    });
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
-  it('applies no change and logs an ALERT when userId matches no user and there is no email', async () => {
-    (prisma.user.findUnique as any).mockResolvedValue(null);
+  it('applies no change and logs an ALERT when resolution fails and there is no email', async () => {
+    (resolveBillingOrg as any).mockResolvedValue(null);
     const res = mockResponse();
 
     await WebhookController.handlePaddle(
@@ -94,26 +101,30 @@ describe('WebhookController.handlePaddle', () => {
       res
     );
 
-    expect(prisma.organization.update).not.toHaveBeenCalled();
+    expect(applyEntitlementChange).not.toHaveBeenCalled();
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('[Webhook][ALERT]'));
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
   it('applies no change and logs an ALERT when custom_data is missing entirely', async () => {
+    (resolveBillingOrg as any).mockResolvedValue(null);
     const res = mockResponse();
 
     await WebhookController.handlePaddle(signedRequest(transactionCompleted({})), res);
 
-    expect(prisma.user.findUnique).not.toHaveBeenCalled();
-    expect(prisma.organization.update).not.toHaveBeenCalled();
+    // No identifiers extracted -> resolver called with (null, undefined).
+    expect(resolveBillingOrg).toHaveBeenCalledWith(null, undefined);
+    expect(applyEntitlementChange).not.toHaveBeenCalled();
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('[Webhook][ALERT]'));
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
   it('does not throw on malformed userId (non-UUID, wrong type) — logs and fails safe', async () => {
+    (resolveBillingOrg as any).mockResolvedValue(null);
     for (const bad of [12345, 'not-a-uuid', { nested: true }, null]) {
       vi.clearAllMocks();
       (prisma.webhookEvent.create as any).mockResolvedValue({});
+      (resolveBillingOrg as any).mockResolvedValue(null);
       const res = mockResponse();
 
       await WebhookController.handlePaddle(
@@ -121,13 +132,12 @@ describe('WebhookController.handlePaddle', () => {
         res
       );
 
-      expect(prisma.organization.update).not.toHaveBeenCalled();
+      expect(applyEntitlementChange).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
     }
   });
 
   it('falls back to email matching when custom_data is absent but the payload carries an email', async () => {
-    (prisma.user.findUnique as any).mockResolvedValue(userWithMembership);
     const res = mockResponse();
 
     await WebhookController.handlePaddle(
@@ -135,17 +145,18 @@ describe('WebhookController.handlePaddle', () => {
       res
     );
 
-    expect(prisma.user.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { email: 'buyer@example.com' } })
+    expect(resolveBillingOrg).toHaveBeenCalledWith(null, 'buyer@example.com');
+    expect(applyEntitlementChange).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId: ORG_ID, source: 'PADDLE', status: 'ACTIVE' })
     );
-    expect(prisma.organization.update).toHaveBeenCalledWith({
-      where: { id: ORG_ID },
-      data: { plan: 'PRO' },
-    });
   });
 
-  it('downgrades to FREE on subscription.expired matched via custom_data.userId', async () => {
-    (prisma.user.findUnique as any).mockResolvedValue(userWithMembership);
+  it('downgrades (PADDLE INACTIVE) on subscription.expired matched via custom_data.userId', async () => {
+    (applyEntitlementChange as any).mockResolvedValue({
+      previousPlan: 'PRO',
+      newPlan: 'FREE',
+      applied: true,
+    });
     const res = mockResponse();
 
     await WebhookController.handlePaddle(
@@ -157,16 +168,16 @@ describe('WebhookController.handlePaddle', () => {
       res
     );
 
-    expect(prisma.organization.update).toHaveBeenCalledWith({
-      where: { id: ORG_ID },
-      data: { plan: 'FREE' },
-    });
+    expect(applyEntitlementChange).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId: ORG_ID, source: 'PADDLE', status: 'INACTIVE' })
+    );
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
-  // Phase 0 regression guards: signature and idempotency behavior unchanged.
+  // Infra regression guards: signature, replay, idempotency, release-claim — must
+  // be byte-for-byte unchanged by the Step 2b refactor.
 
-  it('rejects a bad signature with 401 and never touches the database', async () => {
+  it('rejects a bad signature with 401 and never touches the database or service', async () => {
     const res = mockResponse();
 
     await WebhookController.handlePaddle(
@@ -178,7 +189,8 @@ describe('WebhookController.handlePaddle', () => {
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(prisma.webhookEvent.create).not.toHaveBeenCalled();
-    expect(prisma.organization.update).not.toHaveBeenCalled();
+    expect(resolveBillingOrg).not.toHaveBeenCalled();
+    expect(applyEntitlementChange).not.toHaveBeenCalled();
   });
 
   it('skips duplicate deliveries via the idempotency table (P2002 → 200, no processing)', async () => {
@@ -192,13 +204,12 @@ describe('WebhookController.handlePaddle', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.send).toHaveBeenCalledWith('OK (duplicate)');
-    expect(prisma.user.findUnique).not.toHaveBeenCalled();
-    expect(prisma.organization.update).not.toHaveBeenCalled();
+    expect(resolveBillingOrg).not.toHaveBeenCalled();
+    expect(applyEntitlementChange).not.toHaveBeenCalled();
   });
 
-  it('releases the idempotency claim when processing fails, so Paddle retries are not lost', async () => {
-    (prisma.user.findUnique as any).mockRejectedValue(new Error('db down'));
-    (prisma.webhookEvent.delete as any).mockResolvedValue({});
+  it('releases the idempotency claim (namespaced key) when processing fails, so Paddle retries are not lost', async () => {
+    (applyEntitlementChange as any).mockRejectedValue(new Error('db down'));
     const res = mockResponse();
 
     await WebhookController.handlePaddle(
@@ -206,9 +217,8 @@ describe('WebhookController.handlePaddle', () => {
       res
     );
 
-    // The idempotency key is source-namespaced ("paddle:<event_id>"). The claim
-    // is created and released under the SAME key — otherwise the release would
-    // no-op and Paddle's retry would be lost.
+    // Claim created and released under the SAME source-namespaced key, else the
+    // release no-ops and Paddle's retry is lost.
     expect(prisma.webhookEvent.create).toHaveBeenCalledWith({
       data: { id: 'paddle:evt_release_me', eventType: 'transaction.completed' },
     });
