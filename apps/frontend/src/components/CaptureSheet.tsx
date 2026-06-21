@@ -9,6 +9,7 @@ import { PaywallModal } from './PaywallModal';
 import { useStrings } from '../i18n/useStrings';
 import { ensureCameraPermission } from '../native/camera';
 import { useBackDismiss } from '../native/useBackDismiss';
+import { isNativePlatform } from '../native/shell';
 
 export interface CaptureSheetHandle {
   open: () => void;
@@ -86,11 +87,21 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
       close();
     } catch (err: any) {
       const errorMessage = err.message || 'Processing failed';
-      showToast(`${file.name}: ${errorMessage}`, 'error');
+      const isLimit = errorMessage === 'LIMIT_REACHED';
+      const isMultiDoc = errorMessage === 'Please upload a single document per image';
 
-      // Trigger Paywall if error is multi-document validation OR limit reached AND user is not PRO
-      if ((errorMessage === 'Please upload a single document per image' || errorMessage === 'LIMIT_REACHED') && plan !== 'PRO') {
-        setShowPaywall(true);
+      if ((isLimit || isMultiDoc) && plan !== 'PRO') {
+        if (isNativePlatform()) {
+          // Native: pure status, NO upsell/paywall (anti-steering). Show a neutral
+          // limit message instead of the raw error code or a "Go PRO" prompt.
+          showToast(isLimit ? s.freePlanLimitReached : s.freePlanSingleDoc, 'info');
+        } else {
+          // Web: legitimate sell surface — surface the error and open the paywall.
+          showToast(`${file.name}: ${errorMessage}`, 'error');
+          setShowPaywall(true);
+        }
+      } else {
+        showToast(`${file.name}: ${errorMessage}`, 'error');
       }
     } finally {
       setUploading(false);

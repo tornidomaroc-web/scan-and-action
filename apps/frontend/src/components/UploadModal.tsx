@@ -7,6 +7,7 @@ import { useProcessing } from '../contexts/ProcessingContext';
 import { preprocessImage } from '../lib/imagePreprocess';
 import { PaywallModal } from './PaywallModal';
 import { useStrings } from '../i18n/useStrings';
+import { isNativePlatform } from '../native/shell';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -57,7 +58,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
     // -----------------------------------------------------------------------
     if (totalPotentialCount > 1) {
       if (plan === 'FREE') {
-        setShowPaywall(true);
+        if (isNativePlatform()) {
+          // Native: pure status, NO upsell/paywall (anti-steering).
+          showToast(s.freePlanSingleDoc, 'info');
+        } else {
+          setShowPaywall(true);
+        }
         return; // Reject ALL incoming files for better UX clarity
       }
 
@@ -144,11 +150,20 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
           console.error(`Failed to upload ${currentFile.name}:`, err);
           const errorMessage = err.message || 'Processing failed';
           setFileErrors(prev => ({ ...prev, [currentFile.name]: errorMessage }));
-          showToast(`${currentFile.name}: ${errorMessage}`, 'error');
 
-          // Trigger Paywall if error is multi-document validation OR limit reached AND user is not PRO
-          if ((errorMessage === 'Please upload a single document per image' || errorMessage === 'LIMIT_REACHED') && plan !== 'PRO') {
-            setShowPaywall(true);
+          const isLimit = errorMessage === 'LIMIT_REACHED';
+          const isMultiDoc = errorMessage === 'Please upload a single document per image';
+          if ((isLimit || isMultiDoc) && plan !== 'PRO') {
+            if (isNativePlatform()) {
+              // Native: pure status, NO upsell/paywall (anti-steering).
+              showToast(isLimit ? s.freePlanLimitReached : s.freePlanSingleDoc, 'info');
+            } else {
+              // Web: legitimate sell surface — surface the error and open the paywall.
+              showToast(`${currentFile.name}: ${errorMessage}`, 'error');
+              setShowPaywall(true);
+            }
+          } else {
+            showToast(`${currentFile.name}: ${errorMessage}`, 'error');
           }
         }
         setProgress(Math.round(((i + 1) / totalCount) * 100));

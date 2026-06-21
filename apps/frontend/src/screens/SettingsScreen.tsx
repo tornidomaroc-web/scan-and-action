@@ -21,6 +21,7 @@ import { DeleteAccountModal } from '../components/DeleteAccountModal';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { useStrings } from '../i18n/useStrings';
 import { useTheme } from '../hooks/useTheme';
+import { isNativePlatform } from '../native/shell';
 
 export const SettingsScreen = () => {
   const s = useStrings();
@@ -153,6 +154,24 @@ export const SettingsScreen = () => {
                     {s.proActiveDesc}
                   </p>
                 </div>
+              </div>
+            ) : isNativePlatform() ? (
+              // Native build: anti-steering. Reflect entitlement state ONLY — no
+              // pricing, no checkout/external link, no "Go PRO" upsell CTA. The web
+              // upsell (Paddle checkout) lives in the branch below and is unchanged.
+              <div className="bg-white dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 rounded-[32px] p-8 text-center shadow-sm">
+                <div className="inline-flex bg-blue-100 dark:bg-blue-900/30 p-4 rounded-3xl text-blue-600 dark:text-blue-400 mb-6">
+                  <Zap size={32} strokeWidth={2.5} className="fill-blue-500" />
+                </div>
+                <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">{s.freeTier}</h4>
+                <div className="bg-amber-50 dark:bg-amber-900/10 border-l-4 border-amber-400 p-5 rounded-r-2xl mb-6 max-w-[360px] mx-auto text-left">
+                  <p className="text-amber-700 dark:text-amber-500 font-black text-sm leading-relaxed italic">
+                    {s.freeLimit}
+                  </p>
+                </div>
+                <p className="text-slate-500 font-bold max-w-[320px] mx-auto text-sm">
+                  {s.proAutoUnlock}
+                </p>
               </div>
             ) : (
               <div className="bg-white dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 rounded-[32px] p-8 text-center shadow-sm">

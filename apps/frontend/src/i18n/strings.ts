@@ -140,6 +140,10 @@ export const strings = {
     proComingSoonTitle: 'Pro is coming soon',
     proComingSoonBody: 'In-app upgrades aren’t available yet — they’re coming in a future update. If your workspace already has Pro, your features stay unlocked here automatically.',
     proComingSoonDismiss: 'Got it',
+    // Native-only neutral status copy (no pricing, no links, no upsell — anti-steering).
+    freePlanLimitReached: 'You’ve reached the free limit of 10 scans.',
+    freePlanSingleDoc: 'Free plan supports one document at a time.',
+    proAutoUnlock: 'If your workspace has Pro, features unlock here automatically.',
     dangerZone: 'Danger Zone',
     deleteAccount: 'Delete account',
     deleteAccountDesc: 'Permanently delete your account and all of your data. This cannot be undone.',
@@ -386,6 +390,10 @@ export const strings = {
     proComingSoonTitle: 'Pro arrive bientôt',
     proComingSoonBody: 'Les mises à niveau dans l’application ne sont pas encore disponibles — elles arriveront dans une prochaine mise à jour. Si votre espace de travail dispose déjà de Pro, vos fonctionnalités restent débloquées ici automatiquement.',
     proComingSoonDismiss: 'Compris',
+    // Native-only neutral status copy (no pricing, no links, no upsell — anti-steering).
+    freePlanLimitReached: 'Vous avez atteint la limite gratuite de 10 analyses.',
+    freePlanSingleDoc: 'Le plan gratuit prend en charge un document à la fois.',
+    proAutoUnlock: 'Si votre espace de travail dispose de Pro, les fonctionnalités se débloquent ici automatiquement.',
     dangerZone: 'Zone sensible',
     deleteAccount: 'Supprimer le compte',
     deleteAccountDesc: 'Supprimez définitivement votre compte et toutes vos données. Cette action est irréversible.',
@@ -632,6 +640,10 @@ export const strings = {
     proComingSoonTitle: 'النسخة Pro قادمة قريبًا',
     proComingSoonBody: 'ترقيات الاشتراك داخل التطبيق غير متوفرة بعد — ستتوفر في تحديث قادم. إذا كانت مساحة عملك تتضمّن Pro بالفعل، فستظل ميزاتك مفعّلة هنا تلقائيًا.',
     proComingSoonDismiss: 'حسنًا',
+    // Native-only neutral status copy (no pricing, no links, no upsell — anti-steering).
+    freePlanLimitReached: 'لقد وصلت إلى الحد المجاني وهو 10 عمليات مسح.',
+    freePlanSingleDoc: 'الخطة المجانية تدعم مستندًا واحدًا في كل مرة.',
+    proAutoUnlock: 'إذا كانت مساحة عملك تتضمّن Pro، فستُفعّل الميزات هنا تلقائيًا.',
     dangerZone: 'منطقة حسّاسة',
     deleteAccount: 'حذف الحساب',
     deleteAccountDesc: 'احذف حسابك وجميع بياناتك نهائيًا. لا يمكن التراجع عن هذا الإجراء.',

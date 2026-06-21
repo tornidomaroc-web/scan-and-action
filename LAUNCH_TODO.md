@@ -10,6 +10,25 @@
 - Review/test account `unicornapps.support@gmail.com` is set to **PRO** directly in the DB (no Paddle backing).
 - **Now waiting for:** at least **12 testers to opt in** + **14 days of testing** before "Apply for production" unlocks.
 
+## INVARIANT — Android (native) anti-steering (do NOT violate)
+
+The Android (native) build must **never** contain pricing, external-payment links, or any
+copy/CTA that steers the user toward paying for PRO outside the app. **Reflect entitlement
+state only** (e.g. "Pro Active", "Free Tier", the free scan limit as information). A mention
+of "Pro" is fine; an active *sell* is not. Subscriptions are sold **only** on the web (Paddle),
+because the Morocco-based developer account cannot register as a Google Play merchant.
+
+- The `isNativePlatform()` gate in `PaywallModal.tsx` (web checkout/prices render only when it
+  is false) is the single most important guard — **keep it intact**.
+- The Settings billing card, and the scan-limit / multi-doc triggers in `CaptureSheet.tsx` and
+  `UploadModal.tsx`, are native-gated to show neutral status (no "Go PRO" CTA, no paywall) —
+  see strings `freePlanLimitReached` / `freePlanSingleDoc` / `proAutoUnlock`.
+- Any future UI change to the native build **must preserve this invariant.** When adding a Pro/
+  upgrade surface, gate it behind `!isNativePlatform()`.
+- Note (web-only, low risk): `/privacy` and `/refund` legal routes mention subscription
+  cancellation/refund and Paddle; they are **not linked from any in-app surface** so they are
+  unreachable in the native UI. Revisit their copy if they are ever linked from inside the app.
+
 ## Current status (as of this session)
 
 - Android app is live via Capacitor. Package: `com.scanaction.app`. versionCode 1, versionName 1.0.
