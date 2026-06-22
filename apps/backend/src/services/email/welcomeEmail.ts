@@ -15,6 +15,20 @@ const WELCOME_SUBJECT = 'Welcome to Scan & Action';
 // Web upgrade flows through login — there is no direct Paddle link.
 const LOGIN_URL = 'https://www.scan-action.com/login';
 
+/**
+ * Env-based kill switch for welcome-email sending. Default OFF: welcome emails
+ * are held unless WELCOME_EMAIL_ENABLED is explicitly the string 'true'
+ * (case-insensitive, trimmed). This lets us keep the path deployed but dormant
+ * until the compliance placeholders (POSTAL_ADDRESS, unsubscribe mailbox) are
+ * filled, WITHOUT touching RESEND_API_KEY (which also drives other email).
+ *
+ * Read at call time so flipping the env + redeploy takes effect with no code
+ * change — mirrors how the mailer reads RESEND_API_KEY.
+ */
+export function isWelcomeEmailEnabled(): boolean {
+  return process.env.WELCOME_EMAIL_ENABLED?.trim().toLowerCase() === 'true';
+}
+
 function buildWelcomeHtml(): string {
   // Minimal, clean HTML. The mailer appends the compliance footer
   // (postal address + List-Unsubscribe) automatically, so it is intentionally
@@ -69,6 +83,17 @@ function buildWelcomeText(): string {
  * duplicate window and risks spamming, which is worse than a rare miss.
  */
 export async function sendWelcomeEmailOnce(userId: string, email: string): Promise<void> {
+  // Kill switch is checked BEFORE the atomic claim on purpose: when held we make
+  // no DB write and no send, so welcomeEmailSentAt stays null and the user is
+  // not silently marked "welcomed" without receiving anything.
+  if (!isWelcomeEmailEnabled()) {
+    console.log(
+      `[WelcomeEmail] Held: WELCOME_EMAIL_ENABLED is not 'true'. ` +
+        `No claim, no send for user ${userId}.`,
+    );
+    return;
+  }
+
   let claimed = false;
   try {
     const claim = await prisma.user.updateMany({

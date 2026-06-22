@@ -12,7 +12,7 @@ vi.mock('./mailer', () => ({
 
 import { prisma } from '../../prismaClient';
 import { sendTransactionalEmail } from './mailer';
-import { sendWelcomeEmailOnce } from './welcomeEmail';
+import { sendWelcomeEmailOnce, isWelcomeEmailEnabled } from './welcomeEmail';
 
 const updateMany = prisma.user.updateMany as unknown as ReturnType<typeof vi.fn>;
 const sendMock = sendTransactionalEmail as unknown as ReturnType<typeof vi.fn>;
@@ -29,8 +29,14 @@ beforeEach(() => {
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
   sendMock.mockResolvedValue({ status: 'sent', id: 'resend-id' });
+  // Default-off kill switch: the claim/send tests below exercise the ENABLED
+  // behaviour, so opt in explicitly. The disabled path has its own describe.
+  process.env.WELCOME_EMAIL_ENABLED = 'true';
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  delete process.env.WELCOME_EMAIL_ENABLED;
+});
 
 describe('sendWelcomeEmailOnce — atomic claim', () => {
   it('sends exactly once when the claim affects 1 row (winner)', async () => {
@@ -120,5 +126,51 @@ describe('sendWelcomeEmailOnce — fail-safe / non-blocking', () => {
     await flush();
 
     expect(order).toEqual(['claim', 'send']);
+  });
+});
+
+describe('isWelcomeEmailEnabled — default-off kill switch', () => {
+  afterEach(() => delete process.env.WELCOME_EMAIL_ENABLED);
+
+  it('is false when unset', () => {
+    delete process.env.WELCOME_EMAIL_ENABLED;
+    expect(isWelcomeEmailEnabled()).toBe(false);
+  });
+
+  it("is true only for the exact string 'true' (case-insensitive, trimmed)", () => {
+    for (const v of ['true', 'TRUE', 'True', '  true  ']) {
+      process.env.WELCOME_EMAIL_ENABLED = v;
+      expect(isWelcomeEmailEnabled()).toBe(true);
+    }
+  });
+
+  it('is false for any other value', () => {
+    for (const v of ['', 'false', '0', '1', 'yes', 'on', 'enabled', 'truthy']) {
+      process.env.WELCOME_EMAIL_ENABLED = v;
+      expect(isWelcomeEmailEnabled()).toBe(false);
+    }
+  });
+});
+
+describe('sendWelcomeEmailOnce — held by kill switch', () => {
+  it('makes NO claim and NO send when WELCOME_EMAIL_ENABLED is unset', async () => {
+    delete process.env.WELCOME_EMAIL_ENABLED;
+
+    await expect(sendWelcomeEmailOnce(USER_ID, EMAIL)).resolves.toBeUndefined();
+    await flush();
+
+    // Critically: no DB write (claim not burned) and no send attempted.
+    expect(updateMany).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("makes NO claim and NO send when WELCOME_EMAIL_ENABLED is 'false'", async () => {
+    process.env.WELCOME_EMAIL_ENABLED = 'false';
+
+    await sendWelcomeEmailOnce(USER_ID, EMAIL);
+    await flush();
+
+    expect(updateMany).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
   });
 });
