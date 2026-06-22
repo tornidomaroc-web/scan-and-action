@@ -19,11 +19,13 @@ const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 /**
  * Fallback From address used only if MAIL_FROM is unset, so a misconfigured
  * env can never crash a caller. The domain MUST match the verified Resend
- * sending domain. scan-action.com is verified on the `send` subdomain, so the
- * From address lives on send.scan-action.com. Set MAIL_FROM explicitly in
- * every real environment; this default is a safety net, not a config source.
+ * sending domain. The verified domain on the production Resend key is the apex
+ * scan-action.com (empirically: noreply@scan-action.com is accepted, the `send`
+ * subdomain is rejected 403), so the From address lives on scan-action.com. Set
+ * MAIL_FROM explicitly in every real environment; this default is a safety net,
+ * not a config source.
  */
-const DEFAULT_MAIL_FROM = 'Scan & Action <noreply@send.scan-action.com>';
+const DEFAULT_MAIL_FROM = 'Scan & Action <noreply@scan-action.com>';
 
 /**
  * Compliance footer. The postal address is a PLACEHOLDER — replace the bracket
@@ -37,8 +39,12 @@ const POSTAL_ADDRESS = '[Your Company Name], [Street Address], [City, Postal/ZIP
  * Address used for mailto-based unsubscribe. Recipients can always unsubscribe
  * by emailing this; if you wire a one-click HTTPS endpoint later, set
  * MAIL_UNSUBSCRIBE_URL and it will be advertised as RFC 8058 one-click too.
+ *
+ * On the apex (scan-action.com) to match the verified sender domain. NOTE: this
+ * is a placeholder — the unsubscribe inbox routing is NOT wired up yet; mail to
+ * this address is not yet received/processed (separate deferred task).
  */
-const UNSUBSCRIBE_MAILTO = 'unsubscribe@send.scan-action.com';
+const UNSUBSCRIBE_MAILTO = 'unsubscribe@scan-action.com';
 
 export interface TransactionalEmailParams {
   /** Single recipient address. */

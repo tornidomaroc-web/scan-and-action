@@ -38,7 +38,7 @@ describe('sendTransactionalEmail', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
     process.env.RESEND_API_KEY = 'test_key';
-    process.env.MAIL_FROM = 'Scan & Action <noreply@send.scan-action.com>';
+    process.env.MAIL_FROM = 'Scan & Action <noreply@scan-action.com>';
     delete process.env.MAIL_UNSUBSCRIBE_URL;
   });
 
@@ -64,13 +64,13 @@ describe('sendTransactionalEmail', () => {
     expect(init.headers.Authorization).toBe('Bearer test_key');
 
     const body = JSON.parse(init.body);
-    expect(body.from).toBe('Scan & Action <noreply@send.scan-action.com>');
+    expect(body.from).toBe('Scan & Action <noreply@scan-action.com>');
     expect(body.to).toEqual(['user@example.com']);
     expect(body.subject).toBe('Welcome');
     // Compliance: footer with postal address + unsubscribe is appended.
     expect(body.html).toContain('<p>Hello</p>');
     expect(body.html).toContain('unsubscribe');
-    expect(body.headers['List-Unsubscribe']).toContain('mailto:unsubscribe@send.scan-action.com');
+    expect(body.headers['List-Unsubscribe']).toContain('mailto:unsubscribe@scan-action.com');
     // Without MAIL_UNSUBSCRIBE_URL, no one-click header is advertised.
     expect(body.headers['List-Unsubscribe-Post']).toBeUndefined();
   });
