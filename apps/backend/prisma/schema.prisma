@@ -14,6 +14,13 @@ model User {
   email             String   @unique
   preferredLanguage String   @default("en")
   createdAt         DateTime @default(now())
+  // One-time welcome-email guard (PR4b). null = not yet sent. Set atomically
+  // (claim-then-send) the first time a brand-new user is provisioned. Existing
+  // users created before this column stay null and are NEVER retroactively
+  // emailed: the send path is reached only on genuine first-time provisioning
+  // (the zero-memberships branch in authMiddleware), which pre-existing users
+  // never enter. No backfill — safe additive nullable column.
+  welcomeEmailSentAt DateTime?
 
   memberships Membership[]
   queryLogs   QueryLog[]

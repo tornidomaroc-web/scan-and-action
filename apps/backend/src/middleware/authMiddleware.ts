@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { prisma } from '../prismaClient';
+import { sendWelcomeEmailOnce } from '../services/email/welcomeEmail';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -61,6 +62,14 @@ export const authMiddleware = async (
         }
       });
       organizationId = newOrg.id;
+
+      // Best-effort, one-time welcome email. Reached ONLY here, on genuine
+      // first-time provisioning (zero memberships) — pre-existing users always
+      // have a membership and never enter this branch, so they are never
+      // emailed. The helper awaits only its atomic claim (a fast UPDATE) and
+      // fires the actual send detached; it never throws, so the auth response
+      // below is unaffected by any email outcome (sent/skipped/failed).
+      await sendWelcomeEmailOnce(userId, email);
     } else {
       // For MVP, just use the first organization found.
       organizationId = dbUser.memberships[0].organizationId;
