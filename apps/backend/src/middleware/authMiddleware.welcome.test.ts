@@ -61,8 +61,13 @@ beforeEach(() => {
   h.orgCreate.mockResolvedValue({ id: ORG_ID });
   h.updateMany.mockResolvedValue({ count: 1 });
   h.sendMail.mockResolvedValue({ status: 'sent', id: 'resend-id' });
+  // Welcome sending is default-off; these tests exercise the ENABLED path.
+  process.env.WELCOME_EMAIL_ENABLED = 'true';
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  delete process.env.WELCOME_EMAIL_ENABLED;
+});
 
 describe('authMiddleware — welcome email wiring', () => {
   it('first-time user (zero memberships): provisions, claims, and sends — auth succeeds', async () => {
@@ -138,5 +143,23 @@ describe('authMiddleware — welcome email wiring', () => {
     expect(h.sendMail).not.toHaveBeenCalled();
     expect(next).toHaveBeenCalledTimes(1);
     expect(res.statusCode).toBe(0);
+  });
+
+  it('kill switch held (WELCOME_EMAIL_ENABLED unset): provisioning ok, no claim, no send', async () => {
+    delete process.env.WELCOME_EMAIL_ENABLED;
+    h.upsert.mockResolvedValue({ id: USER_ID, email: EMAIL, memberships: [] });
+    const { req, res, next } = makeReqRes();
+
+    await authMiddleware(req, res, next);
+    await flush();
+
+    // Org is still provisioned and auth still succeeds...
+    expect(h.orgCreate).toHaveBeenCalledTimes(1);
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.statusCode).toBe(0);
+    expect(req.user.organizationId).toBe(ORG_ID);
+    // ...but the welcome path is fully held: no claim burned, no send.
+    expect(h.updateMany).not.toHaveBeenCalled();
+    expect(h.sendMail).not.toHaveBeenCalled();
   });
 });
