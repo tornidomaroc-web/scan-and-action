@@ -1,3 +1,23 @@
+// =============================================================================
+// ⚠️  QUARANTINED — NOT PRODUCTION-READY — DO NOT RUN  ⚠️
+// =============================================================================
+// This re-engagement reminder script is parked. It is a FUTURE growth feature
+// and is not used during closed testing. It is intentionally a no-op unless the
+// explicit opt-in env var ALLOW_SEND_REMINDERS=true is set (see guard below).
+//
+// Why it is quarantined (it would MISDELIVER if run today):
+//   1. It sends from the Resend SANDBOX sender `onboarding@resend.dev` instead
+//      of the verified apex sender `noreply@scan-action.com`. The production
+//      Resend key is scoped to the apex, so a real send would be rejected.
+//   2. It links to a DEAD URL `https://scan-and-action.vercel.app/queue`.
+//
+// Before ANY future use, this script MUST be fixed (NOT done here — this PR only
+// quarantines, it does not fix):
+//   (a) send via the real mailer / apex sender (noreply@scan-action.com), e.g.
+//       route through apps/backend/src/services/email/mailer.ts; and
+//   (b) fix the queue link to https://www.scan-action.com/...
+// =============================================================================
+
 const { PrismaClient } = require('@prisma/client');
 const fs = require('fs');
 const path = require('path');
@@ -165,6 +185,17 @@ async function main() {
 
   console.log(`--- REMINDER JOB COMPLETE: ${sentCount} Emails Sent ---`);
   await prisma.$disconnect();
+}
+
+// Quarantine guard: short-circuit BEFORE main() runs — i.e. before any DB query,
+// email send, or cache write. Running this script is a deliberate no-op unless
+// the opt-in env var is set. See the DO-NOT-RUN header block at the top of file.
+if (process.env.ALLOW_SEND_REMINDERS !== 'true') {
+  console.warn(
+    'send_reminders.js is quarantined and not production-ready ' +
+      '(sandbox sender + dead queue link); set ALLOW_SEND_REMINDERS=true to override. Exiting.'
+  );
+  process.exit(0);
 }
 
 main().catch(err => {
