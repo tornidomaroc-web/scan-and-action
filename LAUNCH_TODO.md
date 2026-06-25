@@ -3,12 +3,16 @@
 > Living checklist for the Google Play / Apple App Store launch. Tick items off as
 > they're completed. Keep this up to date across sessions so deferred steps are never lost.
 
-## CURRENT STATE (updated today)
+## CURRENT STATE (verified against Google Play Console 2026-06-25)
 
-- App is **SUBMITTED** and the closed-testing release was **APPROVED by Google**. Status has moved past "In review"; the closed-testing release now shows as **published**. Track: **Closed testing - Alpha**.
-- The tester opt-in link (web) is **live** and was sent to the Fiverr seller (**Touseef Ijaz**, order **#FO837C01CEF08**, Standard plan, 20–25 testers, 14 days, delivery ~**Jul 3 2026**). Seller confirmed he can access the app and that testers will start shortly.
-- Review/test account `unicornapps.support@gmail.com` is set to **PRO** directly in the DB (no Paddle backing).
-- **Now waiting for:** at least **12 testers to opt in** + **14 days of testing** before "Apply for production" unlocks.
+- App is **SUBMITTED** and the closed-testing release is **APPROVED & published**. Track: **Closed testing - Alpha**. All "set up your app" tasks are complete (see bottom section).
+- **Closed-testing clock IS RUNNING.** Play Console's "Apply for production" criteria show:
+  1. Publish a closed testing release — **DONE**.
+  2. Have at least 12 testers opted in — **DONE** (12 testers opted in).
+  3. Run the closed test with ≥12 testers for ≥14 days — **IN PROGRESS**: dashboard reads *"12 testers have currently been opted in for 5 days continuously"* → **~9 days remain** as of 2026-06-25.
+- **Path to production is now just time:** keep ≥12 testers opted in continuously for the remaining ~9 days, then "Apply for production" unlocks. **No engineering blocks this.** The only risk is testers dropping below 12 (which can reset the continuity counter), so monitor the opted-in count.
+- Review/test account `unicornapps.support@gmail.com` holds **PRO via `Organization.planOverride`** (verified live, SAFE — see CLEANUP item; reset to `null` post-production-review).
+- **NOTE (history corrected):** earlier versions of this file said the "clock has NOT started," "still completing setup tasks," and carried tester-vendor ambiguity (Touseef Ijaz/Standard vs Grayo/Premium). Those notes were **STALE** — superseded by the verified dashboard state above. Whatever the original tester-sourcing vendor, the dashboard now confirms 12 testers opted in and the 14-day clock running.
 
 ## INVARIANT — Android (native) anti-steering (do NOT violate)
 
@@ -80,8 +84,8 @@ Earlier labels in this file were inconsistent (AdMob tagged "Phase C", RevenueCa
 - [ ] **APPLY FOR PRODUCTION:** only after the closed test has run 14 days with 12+ opted-in testers (testers via Grayo on Fiverr, Premium plan, testers create their own in-app accounts, India required as a target country). Coordinate with Grayo — they provide the production-access questionnaire answers; do NOT apply independently.
 - [ ] **GEMINI BILLING TIER:** The app currently uses a Gemini API key on the FREE tier ("Niveau sans frais", even though a billing account is linked). On the free tier, Google may use submitted content to improve its products — which is why the Play Data Safety form was filled in declaring document data as SHARED with Google. ACTION (later, when usage/users grow): upgrade to the genuine PAID Gemini tier so customer document content is NOT used for training. This strengthens customer privacy/trust and lets us potentially update the Data Safety "Shared" disclosure. Reference: https://ai.google.dev/gemini-api/terms
 - [ ] **PHOTO PERMISSION FALLBACK:** The app uses `READ_MEDIA_IMAGES` and we filled Google's "Photo and video permissions" declaration (justified as: users upload existing receipt/invoice/document photos from their gallery for the core scanning feature). **RISK:** Google's photo/video policy is strict and may reject this since the app's image access is on-demand (per upload) rather than broad/continuous. **FALLBACK if rejected:** migrate from `READ_MEDIA_IMAGES` to the Android **Photo Picker** (`PickVisualMedia` / `ACTION_PICK` via the system photo picker), which needs no broad storage permission and removes this declaration requirement entirely. This is a clean technical fix. Implement only if the reviewer flags it.
-- [ ] **MONITOR TESTER OPT-INS:** Watch the "testers currently opted-in" counter in Play Console (needs **≥12**). Watch `unicornapps.support@gmail.com` for tester feedback and any Google emails.
-- [ ] **AFTER 14 DAYS + 12 TESTERS:** Apply for production (answer Google's questionnaire about the closed test; coordinate with the seller for tester feedback/notes).
+- [ ] **MONITOR TESTER OPT-INS (clock running — ~9 days left as of 2026-06-25):** Keep the "testers currently opted-in" counter at **≥12** continuously; if it drops below 12 the 14-day continuity counter can reset. Watch `unicornapps.support@gmail.com` for tester feedback and any Google emails.
+- [ ] **AFTER THE 14-DAY CLOCK COMPLETES (~Jul 4 2026):** "Apply for production" unlocks; answer Google's questionnaire about the closed test (coordinate with the tester vendor for feedback/notes). Then complete the post-production-review items (review-account reset, etc.).
 
 ## Open engineering items (from the email / monetization workstream)
 
@@ -92,7 +96,7 @@ Earlier labels in this file were inconsistent (AdMob tagged "Phase C", RevenueCa
 - [ ] **Re-engagement (reminder) emails — POST-LAUNCH:** the script `apps/backend/scripts/send_reminders.js` is currently **QUARANTINED** — a DO-NOT-RUN header + a hard runtime guard make it a no-op that exits unless `ALLOW_SEND_REMINDERS=true` (done in PR #37). Not needed during closed testing; it would misdeliver today (Resend **sandbox** sender `onboarding@resend.dev` + dead `https://scan-and-action.vercel.app/queue` link), and it is dormant (not wired to any cron). Before enabling this feature: (1) route sending through the real mailer / verified **apex sender `noreply@scan-action.com`** instead of the sandbox `onboarding@resend.dev`; (2) fix the dead queue link to `https://www.scan-action.com/...`; (3) remove/relax the quarantine guard; and (4) confirm it's intentionally wired to a scheduler. **Revisit once there's a real returning-user base to re-engage.**
 - [ ] **authMiddleware provisioning-race hardening (latent bug):** two concurrent first-time requests for the SAME user can both enter the zero-memberships branch; the loser hits a unique-constraint **P2002** on `organization.create`, which currently bubbles to the generic `catch` → a spurious **401**. This was **NOT** the tester-signup symptom, and it's now rare (email confirmation serializes a user's first login), but harden before production scale: catch P2002 and treat it as "already provisioned" (re-read memberships and continue) instead of 401. Keep the deterministic `workspace-<uuid8>` slug.
 
-## Remaining Play Console "set up your app" tasks (to finish BEFORE the clock starts)
+## Play Console "set up your app" tasks — ALL COMPLETE (clock is now running)
 
 - [x] Privacy policy URL (https://www.scan-action.com/privacy)
 - [x] Sign-in details (test account: `unicornapps.support@gmail.com`, now PRO; full-access box checked)
