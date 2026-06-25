@@ -42,7 +42,7 @@ because the Morocco-based developer account cannot register as a Google Play mer
   - Native app opens on login screen with no logged-out pricing.
   - In-app account deletion (`DELETE /api/account`) + public `/delete-account` web page.
   - Account-deletion privacy section.
-- The **14-day closed-testing clock has NOT started yet** — still completing Play Console "set up your app" tasks.
+- The **14-day closed-testing clock IS RUNNING** — all Play Console "set up your app" tasks are complete and 12 testers are opted in (dashboard: "12 testers opted in for 5 days continuously"). **~9 days remain (~Jul 4 2026).** See CURRENT STATE for the verified detail.
 - Review account: `unicornapps.support@gmail.com` holds PRO via **`Organization.planOverride = PRO`** (NOT bare `Organization.plan`), with **no Paddle/billing subscription** backing it, so the Google reviewer sees Pro features. This is **structurally protected**: `applyEntitlementChange` never writes `planOverride`, and `derivePlan` treats it as a floor — so no billing event or plan recompute can downgrade it. **Verified against the live DB** (2026-06-25): `planOverride = PRO`, `plan = PRO` (the cached derivation), zero `Subscription` rows. (The earlier note that this was "set on `Organization.plan` directly" was inaccurate — it's on `planOverride`, the safe place; no fix needed.)
 
 ## Completed (this session — email / transactional system + tester-signup unblock)
