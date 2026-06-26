@@ -15,12 +15,17 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ auth: { getUser: h.getUser } }),
 }));
 
-vi.mock('../prismaClient', () => ({
-  prisma: {
+vi.mock('../prismaClient', () => {
+  const prisma: any = {
     user: { upsert: h.upsert, updateMany: h.updateMany },
     organization: { create: h.orgCreate },
-  },
-}));
+    membership: { findMany: vi.fn().mockResolvedValue([]) },
+  };
+  // Interactive transaction: hand the same client back as the tx handle, so a
+  // nested organization.create inside prisma.$transaction(...) hits h.orgCreate.
+  prisma.$transaction = (fn: any) => fn(prisma);
+  return { prisma };
+});
 
 vi.mock('../services/email/mailer', () => ({
   sendTransactionalEmail: h.sendMail,
