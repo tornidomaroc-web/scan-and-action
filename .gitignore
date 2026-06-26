@@ -23,6 +23,8 @@ apps/frontend/android/app/src/main/assets/capacitor.config.json
 apps/frontend/android/app/src/main/assets/capacitor.plugins.json
 *.keystore
 *.jks
+# Android signing config — holds keystore path + store/key passwords. Never commit.
+apps/frontend/android/key.properties
 
 # Build output
 dist/
