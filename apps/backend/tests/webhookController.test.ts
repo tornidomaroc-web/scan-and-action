@@ -56,6 +56,39 @@ function transactionCompleted(data: object, eventId = 'evt_test_1') {
   };
 }
 
+// A Paddle Billing subscription.* event. `data.status` carries the subscription
+// status the handler maps on (active/trialing/past_due/paused/canceled).
+function subscriptionEvent(
+  eventType: string,
+  data: object = {},
+  eventId = `evt_${eventType.replace(/\./g, '_')}`
+) {
+  return {
+    event_id: eventId,
+    event_type: eventType,
+    data: { id: 'sub_1', custom_data: { userId: USER_ID }, ...data },
+  };
+}
+
+// A Paddle Billing adjustment.created event (how refunds arrive). On live
+// accounts these often land as status 'pending_approval' before Paddle reviews.
+function adjustmentCreated(data: object = {}, eventId = 'evt_adj_1') {
+  return {
+    event_id: eventId,
+    event_type: 'adjustment.created',
+    data: {
+      id: 'adj_1',
+      action: 'refund',
+      status: 'pending_approval',
+      subscription_id: 'sub_1',
+      transaction_id: 'txn_1',
+      customer_id: 'ctm_1',
+      custom_data: { userId: USER_ID },
+      ...data,
+    },
+  };
+}
+
 describe('WebhookController.handlePaddle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -151,26 +184,119 @@ describe('WebhookController.handlePaddle', () => {
     );
   });
 
-  it('downgrades (PADDLE INACTIVE) on subscription.expired matched via custom_data.userId', async () => {
+  // ── Paddle Billing event → entitlement status mapping ──────────────────────
+  // Replaces the previous dead-event behaviour. Paddle Billing emits NEITHER
+  // 'subscription.expired' NOR 'transaction.refunded', and has no 'expired'
+  // subscription status — so the old downgrade path could never fire. The real
+  // contract is asserted below.
+
+  const downgrade = () =>
     (applyEntitlementChange as any).mockResolvedValue({
       previousPlan: 'PRO',
       newPlan: 'FREE',
       applied: true,
     });
-    const res = mockResponse();
 
+  it('subscription.created → ACTIVE (PRO)', async () => {
+    const res = mockResponse();
     await WebhookController.handlePaddle(
-      signedRequest({
-        event_id: 'evt_test_exp',
-        event_type: 'subscription.expired',
-        data: { id: 'sub_1', status: 'expired', custom_data: { userId: USER_ID } },
-      }),
+      signedRequest(subscriptionEvent('subscription.created', { status: 'active' })),
       res
     );
+    expect(applyEntitlementChange).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId: ORG_ID, source: 'PADDLE', status: 'ACTIVE' })
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
 
+  it('transaction.completed → ACTIVE (PRO)', async () => {
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(transactionCompleted({ custom_data: { userId: USER_ID } })),
+      res
+    );
+    expect(applyEntitlementChange).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'PADDLE', status: 'ACTIVE' })
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  // subscription.updated maps by data.status. active/trialing/past_due keep PRO
+  // (past_due deliberately stays ACTIVE so access is not yanked mid-dunning);
+  // paused/canceled downgrade to FREE.
+  const updatedCases: Array<{ status: string; expected: 'ACTIVE' | 'INACTIVE' }> = [
+    { status: 'active', expected: 'ACTIVE' },
+    { status: 'trialing', expected: 'ACTIVE' },
+    { status: 'past_due', expected: 'ACTIVE' },
+    { status: 'paused', expected: 'INACTIVE' },
+    { status: 'canceled', expected: 'INACTIVE' },
+  ];
+  for (const { status, expected } of updatedCases) {
+    it(`subscription.updated status=${status} → ${expected}`, async () => {
+      if (expected === 'INACTIVE') downgrade();
+      const res = mockResponse();
+      await WebhookController.handlePaddle(
+        signedRequest(subscriptionEvent('subscription.updated', { status })),
+        res
+      );
+      expect(applyEntitlementChange).toHaveBeenCalledWith(
+        expect.objectContaining({ organizationId: ORG_ID, source: 'PADDLE', status: expected })
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+    });
+  }
+
+  it('subscription.canceled → INACTIVE (FREE) — authoritative terminal downgrade', async () => {
+    downgrade();
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(subscriptionEvent('subscription.canceled', { status: 'canceled' })),
+      res
+    );
     expect(applyEntitlementChange).toHaveBeenCalledWith(
       expect.objectContaining({ organizationId: ORG_ID, source: 'PADDLE', status: 'INACTIVE' })
     );
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('adjustment.created (refund) → NO entitlement change, logs a tagged [ALERT] for manual review', async () => {
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(adjustmentCreated({ status: 'pending_approval' })),
+      res
+    );
+    // v1 policy: refunds are surfaced for manual review, NOT auto-downgraded.
+    expect(applyEntitlementChange).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('[Webhook][ALERT]'));
+    // Identifying context present for finding the order; no secret material.
+    const logged = (console.warn as any).mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(logged).toMatch(/adj_1/);
+    expect(logged).toMatch(/refund/);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('override (ENTERPRISE) org is NOT downgraded by a canceled event — controller delegates to the floor-owning service and never writes plan itself', async () => {
+    // The planOverride FLOOR is enforced inside applyEntitlementChange/derivePlan
+    // (covered there: derivePlan "ENTERPRISE override survives an INACTIVE billing
+    // source"). At the controller boundary we assert OUR part: a canceled event is
+    // mapped to INACTIVE and handed to the floor-owning service, which returns the
+    // unchanged ENTERPRISE plan. The controller has no path that writes
+    // Organization.plan/planOverride directly — note the prisma mock here exposes
+    // only webhookEvent, so any direct plan write would throw and fail this test.
+    (applyEntitlementChange as any).mockResolvedValue({
+      previousPlan: 'ENTERPRISE',
+      newPlan: 'ENTERPRISE',
+      applied: true,
+    });
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(subscriptionEvent('subscription.canceled', { status: 'canceled' })),
+      res
+    );
+    expect(applyEntitlementChange).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId: ORG_ID, source: 'PADDLE', status: 'INACTIVE' })
+    );
+    // Floor held inside the service; the webhook completed without a direct write.
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
