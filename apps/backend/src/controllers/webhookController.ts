@@ -140,31 +140,55 @@ export class WebhookController {
     return null;
   }
 
-  // Maps a Paddle event to the source-agnostic entitlement status the shared
-  // service understands, or null to ignore the event.
+  // Maps a Paddle BILLING event to the source-agnostic entitlement status the
+  // shared service understands, or null to ignore the event.
   //
-  // ACTIVE  : transaction.completed, subscription.created (new purchase/renewal),
-  //           and subscription.updated for any status EXCEPT expired — this
-  //           covers PRODUCT_CHANGE (plan change) and grace/dunning (past_due),
-  //           which must NOT yank access mid-dunning (confirmed decision).
-  // INACTIVE: subscription.expired, transaction.refunded, and subscription.updated
-  //           with status 'expired'.
-  // null    : everything else (ignored, exactly as before).
+  // This is the real Paddle Billing contract. The previous mapping waited on
+  // 'subscription.expired', 'transaction.refunded', and a subscription status of
+  // 'expired' — NONE of which Paddle Billing ever emits (cancellation fires
+  // 'subscription.canceled'; refunds arrive as 'adjustment.created'; the status
+  // enum is active/trialing/past_due/paused/canceled, never 'expired'). That made
+  // the entire downgrade path dead. Corrected mapping:
   //
-  // Behaviour preserved from the previous controller for every event it acted on.
-  // The ONE intentional addition: subscription.updated with a non-expired status
-  // now maps to ACTIVE (previously a no-op). See PR notes.
+  // ACTIVE  : transaction.completed, subscription.created, and subscription.updated
+  //           whose status is active / trialing / past_due. past_due deliberately
+  //           stays ACTIVE so access is NOT yanked mid-dunning — if dunning
+  //           ultimately fails Paddle cancels the sub, which downgrades via
+  //           subscription.canceled below. trialing is ACTIVE so a future trial
+  //           grants access even though no trial is configured today.
+  // INACTIVE: subscription.canceled (the authoritative terminal downgrade — fires
+  //           at period end for cancel-at-period-end, or immediately for an
+  //           immediate cancel), and subscription.updated whose status is
+  //           paused / canceled.
+  // null    : everything else (ignored). adjustment.created (refunds) is handled
+  //           separately in processEvent as log-only — see logRefundForReview.
   private static classifyPaddleStatus(eventName: string, data: any): SubscriptionStatus | null {
     if (eventName === 'transaction.completed' || eventName === 'subscription.created') {
       return 'ACTIVE';
     }
-    if (eventName === 'subscription.updated') {
-      return data?.status === 'expired' ? 'INACTIVE' : 'ACTIVE';
-    }
-    if (eventName === 'subscription.expired' || eventName === 'transaction.refunded') {
+    if (eventName === 'subscription.canceled') {
       return 'INACTIVE';
     }
+    if (eventName === 'subscription.updated') {
+      return WebhookController.classifySubscriptionStatus(data?.status);
+    }
     return null;
+  }
+
+  // Maps a Paddle Billing subscription status to entitlement. Statuses:
+  // active, trialing, past_due (all keep access), paused, canceled (revoke).
+  private static classifySubscriptionStatus(status: unknown): SubscriptionStatus {
+    if (status === 'paused' || status === 'canceled') {
+      return 'INACTIVE';
+    }
+    if (status === 'active' || status === 'trialing' || status === 'past_due') {
+      return 'ACTIVE';
+    }
+    // Unknown/absent status: keep access (fail safe — 'subscription.canceled' is
+    // the authoritative terminal downgrade, so a stray update can never strand a
+    // paying customer on FREE). Log so an unexpected status is noticed.
+    console.warn(`[Webhook] Unrecognized subscription.updated status '${status}' — defaulting to ACTIVE`);
+    return 'ACTIVE';
   }
 
   // Paddle stamps every event with a top-level occurred_at. Used by the service's
@@ -176,10 +200,38 @@ export class WebhookController {
     return Number.isNaN(d.getTime()) ? undefined : d;
   }
 
+  // Refund visibility for manual review (v1 policy: log-only, no entitlement
+  // change). Logs ONLY non-secret business identifiers (ids, action, status) so
+  // the order can be found in the Paddle dashboard — never any token or secret.
+  //
+  // TODO(refund-auto-revoke): a future follow-up MAY auto-revoke on refund, but
+  // only when strictly gated on action === 'refund' AND status === 'approved' AND
+  // a full-amount refund — never on 'pending_approval' and never a partial refund.
+  private static logRefundForReview(event: any, eventId: string | undefined): void {
+    const d = event?.data || {};
+    console.warn(
+      `[Webhook][ALERT] Refund adjustment received — manual review required, NO entitlement change applied. ` +
+        `adjustment_id=${d.id || 'unknown'} action=${d.action || 'unknown'} status=${d.status || 'unknown'} ` +
+        `subscription_id=${d.subscription_id || 'none'} transaction_id=${d.transaction_id || 'none'} ` +
+        `customer_id=${d.customer_id || 'none'} event_id=${eventId || 'no-id'}`
+    );
+  }
+
   // Thin mapper: classify -> resolve org -> apply via the shared service. All the
   // billing logic (per-source state, derivation, plan write) lives in the service;
   // all the event-shape/identity parsing lives here.
   private static async processEvent(event: any, eventName: string, eventId: string | undefined, email: string | undefined) {
+      // Refunds arrive as adjustment.created (action 'refund'), often as status
+      // 'pending_approval' until Paddle reviews. v1 deliberately does NOT
+      // auto-downgrade on a refund: a pending refund may be rejected, and a
+      // partial/goodwill refund must not revoke an otherwise-active subscription.
+      // subscription.canceled remains the authoritative entitlement downgrade.
+      // We surface refunds loudly for manual review instead.
+      if (eventName === 'adjustment.created') {
+        WebhookController.logRefundForReview(event, eventId);
+        return;
+      }
+
       const status = WebhookController.classifyPaddleStatus(eventName, event.data);
       if (!status) return;
 
