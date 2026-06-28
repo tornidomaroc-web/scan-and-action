@@ -16,10 +16,18 @@ vi.mock('../src/services/entitlement/resolveBillingOrg', () => ({
 vi.mock('../src/services/entitlement/applyEntitlementChange', () => ({
   applyEntitlementChange: vi.fn(),
 }));
+// The Discord alert sink is best-effort observability layered on top of the
+// existing console.* logs. It is mocked here so we assert it is *invoked* on the
+// failure paths without making real HTTP calls, and so we can prove a failing
+// alert never changes the webhook's HTTP response.
+vi.mock('../src/services/discordAlert', () => ({
+  sendDiscordAlert: vi.fn(),
+}));
 
 import { prisma } from '../src/prismaClient';
 import { resolveBillingOrg } from '../src/services/entitlement/resolveBillingOrg';
 import { applyEntitlementChange } from '../src/services/entitlement/applyEntitlementChange';
+import { sendDiscordAlert } from '../src/services/discordAlert';
 import { WebhookController } from '../src/controllers/webhookController';
 
 const SECRET = 'test-webhook-secret';
@@ -102,8 +110,10 @@ describe('WebhookController.handlePaddle', () => {
       newPlan: 'PRO',
       applied: true,
     });
+    (sendDiscordAlert as any).mockResolvedValue(undefined);
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -349,6 +359,110 @@ describe('WebhookController.handlePaddle', () => {
       data: { id: 'paddle:evt_release_me', eventType: 'transaction.completed' },
     });
     expect(prisma.webhookEvent.delete).toHaveBeenCalledWith({ where: { id: 'paddle:evt_release_me' } });
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
+
+  // ── Discord alert sink wiring ──────────────────────────────────────────────
+  // The sink is fired ALONGSIDE the existing console.* on the four founder-
+  // actionable failure paths. It must never alter control flow or HTTP status,
+  // and a failing sink must never change the webhook response.
+
+  it('fires a Discord alert (alongside the console ALERT) on the unresolved-user ACTIVE path, still 200', async () => {
+    (resolveBillingOrg as any).mockResolvedValue(null);
+    const res = mockResponse();
+
+    await WebhookController.handlePaddle(
+      signedRequest(transactionCompleted({ custom_data: { userId: USER_ID } })),
+      res
+    );
+
+    // Existing log record intact.
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('[Webhook][ALERT]'));
+    // New push alert fired with actionable, non-secret context.
+    expect(sendDiscordAlert).toHaveBeenCalledTimes(1);
+    const [message] = (sendDiscordAlert as any).mock.calls[0];
+    expect(String(message)).toMatch(/FREE|PRO/);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('fires a Discord alert on the unresolved-user INACTIVE (downgrade-not-applied) path, still 200', async () => {
+    (resolveBillingOrg as any).mockResolvedValue(null);
+    const res = mockResponse();
+
+    await WebhookController.handlePaddle(
+      signedRequest(subscriptionEvent('subscription.canceled', { status: 'canceled' })),
+      res
+    );
+
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('[Webhook][ALERT]'));
+    expect(sendDiscordAlert).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('fires a Discord alert on the refund (adjustment.created) path, still 200', async () => {
+    const res = mockResponse();
+
+    await WebhookController.handlePaddle(
+      signedRequest(adjustmentCreated({ status: 'pending_approval' })),
+      res
+    );
+
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('[Webhook][ALERT]'));
+    expect(sendDiscordAlert).toHaveBeenCalledTimes(1);
+    const [message, context] = (sendDiscordAlert as any).mock.calls[0];
+    // Actionable refund identifiers carried through to the alert.
+    const blob = `${message} ${JSON.stringify(context ?? {})}`;
+    expect(blob).toMatch(/adj_1/);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('fires a Discord alert on the processing-failure / 500 path, still 500', async () => {
+    (applyEntitlementChange as any).mockRejectedValue(new Error('db down'));
+    const res = mockResponse();
+
+    await WebhookController.handlePaddle(
+      signedRequest(transactionCompleted({ custom_data: { userId: USER_ID } })),
+      res
+    );
+
+    expect(console.error).toHaveBeenCalled();
+    expect(sendDiscordAlert).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
+
+  it('does NOT fire a Discord alert on the happy upgrade path', async () => {
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(transactionCompleted({ custom_data: { userId: USER_ID } })),
+      res
+    );
+    expect(sendDiscordAlert).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('a failing Discord alert does NOT change the webhook HTTP response (200 stays 200)', async () => {
+    (resolveBillingOrg as any).mockResolvedValue(null);
+    (sendDiscordAlert as any).mockRejectedValue(new Error('discord down'));
+    const res = mockResponse();
+
+    await WebhookController.handlePaddle(
+      signedRequest(transactionCompleted({ custom_data: { userId: USER_ID } })),
+      res
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('a failing Discord alert does NOT change the webhook HTTP response (500 stays 500)', async () => {
+    (applyEntitlementChange as any).mockRejectedValue(new Error('db down'));
+    (sendDiscordAlert as any).mockRejectedValue(new Error('discord down'));
+    const res = mockResponse();
+
+    await WebhookController.handlePaddle(
+      signedRequest(transactionCompleted({ custom_data: { userId: USER_ID } })),
+      res
+    );
+
     expect(res.status).toHaveBeenCalledWith(500);
   });
 });
