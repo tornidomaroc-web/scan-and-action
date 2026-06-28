@@ -94,6 +94,19 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
   const handleUpgrade = async () => {
     setCheckoutError(null);
 
+    // Fail closed: never open a checkout we cannot attribute. custom_data.userId
+    // is the ONLY identifier that activates PRO on a live Paddle Billing event
+    // (the backend email fallback is dead for Billing payloads, which carry
+    // customer_id, not an inline email). If user.id is missing we must refuse —
+    // an opened-but-unattributable checkout means a customer could pay and be
+    // silently stranded on FREE. The paywall is auth-gated, so this should never
+    // fire in practice; the guard exists so it CANNOT.
+    if (!user?.id) {
+      console.error('[Paywall] refusing checkout: no user.id');
+      setCheckoutError('Please sign in again to upgrade.');
+      return;
+    }
+
     const priceId = PADDLE_PRICE_IDS[selectedPlan];
     if (!priceId) {
       console.error(`[Paywall] VITE_PADDLE_PRICE_ID_${selectedPlan.toUpperCase()} is not set — refusing to open checkout.`);
@@ -107,7 +120,8 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
       paddle.Checkout.open({
         items: [{ priceId, quantity: 1 }],
         ...(user?.email ? { customer: { email: user.email } } : {}),
-        ...(user?.id ? { customData: { userId: user.id } } : {}),
+        // Unconditional: the fail-closed guard above guarantees user.id exists.
+        customData: { userId: user.id },
         settings: { successUrl: CHECKOUT_SUCCESS_URL },
       });
     } catch (err) {
