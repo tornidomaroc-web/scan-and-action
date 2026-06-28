@@ -5,6 +5,16 @@ import { SubscriptionStatus } from '@prisma/client';
 import { prisma } from '../prismaClient';
 import { resolveBillingOrg } from '../services/entitlement/resolveBillingOrg';
 import { applyEntitlementChange } from '../services/entitlement/applyEntitlementChange';
+import { sendDiscordAlert } from '../services/discordAlert';
+
+// Fire a best-effort Discord alert WITHOUT awaiting and without any chance of
+// throwing into the payment path. sendDiscordAlert already never rejects; the
+// detached .catch is belt-and-suspenders so even a future regression there can
+// never surface as an unhandled rejection or delay the Paddle response. The
+// existing console.* line remains the durable record — this is the push on top.
+function fireDiscordAlert(message: string, context?: Record<string, string | number | undefined | null>): void {
+  void sendDiscordAlert(message, context).catch(() => {});
+}
 
 // Checkout.open sends customData {userId} — the Supabase UUID, which is also
 // User.id. Paddle copies checkout custom_data to the subscription and on to
@@ -122,6 +132,12 @@ export class WebhookController {
       return res.status(200).send('OK');
     } catch (error: any) {
       console.error('[Webhook] Error processing Paddle event:', error.message || error);
+      // Push alert: a 500 means Paddle will retry, but a persistent failure can
+      // silently strand a paid customer. error.message only (already logged
+      // above) — no payload, no secret.
+      fireDiscordAlert('Webhook processing FAILED (HTTP 500) — Paddle will retry; investigate if it persists.', {
+        error: error?.message || String(error),
+      });
       return res.status(500).send('Internal Server Error');
     }
   }
@@ -215,6 +231,15 @@ export class WebhookController {
         `subscription_id=${d.subscription_id || 'none'} transaction_id=${d.transaction_id || 'none'} ` +
         `customer_id=${d.customer_id || 'none'} event_id=${eventId || 'no-id'}`
     );
+    fireDiscordAlert('Refund adjustment received — manual review required (no entitlement change applied).', {
+      adjustment_id: d.id || 'unknown',
+      action: d.action || 'unknown',
+      status: d.status || 'unknown',
+      subscription_id: d.subscription_id || 'none',
+      transaction_id: d.transaction_id || 'none',
+      customer_id: d.customer_id || 'none',
+      event_id: eventId || 'no-id',
+    });
   }
 
   // Thin mapper: classify -> resolve org -> apply via the shared service. All the
@@ -245,8 +270,18 @@ export class WebhookController {
         // an org is a support incident, not a debug detail.
         if (status === 'ACTIVE') {
           console.warn(`[Webhook][ALERT] PRO upgrade NOT applied — no user/org matches ${ref} (event ${eventId || 'no-id'}, ${eventName}). Customer paid but is still on FREE.`);
+          fireDiscordAlert('PRO upgrade NOT applied — customer paid but is still on FREE (no user/org match).', {
+            event: eventName,
+            ref,
+            event_id: eventId || 'no-id',
+          });
         } else {
           console.warn(`[Webhook][ALERT] Downgrade NOT applied — no user/org matches ${ref} (event ${eventId || 'no-id'}, ${eventName}).`);
+          fireDiscordAlert('Downgrade NOT applied — no user/org match for a billing change.', {
+            event: eventName,
+            ref,
+            event_id: eventId || 'no-id',
+          });
         }
         return;
       }
