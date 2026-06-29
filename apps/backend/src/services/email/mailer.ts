@@ -13,6 +13,13 @@
 // Anti-spam compliance (this is a promotional/transactional welcome email):
 //   * List-Unsubscribe header (mailto, plus optional one-click HTTPS URL).
 //   * A physical postal address line in the footer.
+//
+// Compliance is FAIL-CLOSED: the footer (postal address + unsubscribe) is
+// appended to every email this module sends, so a commercial email is never
+// dispatched without a real physical address. If MAIL_POSTAL_ADDRESS is unset,
+// the send is skipped rather than sent with placeholder text. The postal address
+// and the unsubscribe/contact mailbox are env-driven so they can be changed
+// (e.g. swap a temporary address for a P.O. box) without a code change.
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
@@ -28,23 +35,14 @@ const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 const DEFAULT_MAIL_FROM = 'Scan & Action <noreply@scan-action.com>';
 
 /**
- * Compliance footer. The postal address is a PLACEHOLDER — replace the bracket
- * text with the real registered business address before launch. A valid postal
- * address is required by CAN-SPAM and improves deliverability.
+ * Default unsubscribe/contact mailbox, used when MAIL_UNSUBSCRIBE_MAILTO is
+ * unset. support@scan-action.com is live via Cloudflare Email Routing and
+ * forwards to a monitored inbox, so it is a working opt-out address (CAN-SPAM
+ * allows email-based opt-out) AND the natural Reply-To for replies. One mailbox,
+ * one source of truth: the List-Unsubscribe header, the footer link, and
+ * Reply-To all resolve to the same address so they can never disagree.
  */
-// TODO(PR4b/launch): replace with the real registered postal address.
-const POSTAL_ADDRESS = '[Your Company Name], [Street Address], [City, Postal/ZIP], [Country]';
-
-/**
- * Address used for mailto-based unsubscribe. Recipients can always unsubscribe
- * by emailing this; if you wire a one-click HTTPS endpoint later, set
- * MAIL_UNSUBSCRIBE_URL and it will be advertised as RFC 8058 one-click too.
- *
- * On the apex (scan-action.com) to match the verified sender domain. NOTE: this
- * is a placeholder — the unsubscribe inbox routing is NOT wired up yet; mail to
- * this address is not yet received/processed (separate deferred task).
- */
-const UNSUBSCRIBE_MAILTO = 'unsubscribe@scan-action.com';
+const DEFAULT_CONTACT_MAILTO = 'support@scan-action.com';
 
 export interface TransactionalEmailParams {
   /** Single recipient address. */
@@ -68,27 +66,58 @@ const CONTROL_CHARS = /[\r\n\0]/;
 // Deliberately loose: a single address with no surrounding whitespace and one @.
 const BASIC_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function appendComplianceFooter(html: string): string {
+/**
+ * The physical postal address for the compliance footer, read at call time from
+ * MAIL_POSTAL_ADDRESS. Returns null when unset/blank — the caller fails closed
+ * (skips the send) rather than ever rendering placeholder text.
+ */
+function getPostalAddress(): string | null {
+  return process.env.MAIL_POSTAL_ADDRESS?.trim() || null;
+}
+
+/**
+ * The unsubscribe/contact mailbox, read at call time from MAIL_UNSUBSCRIBE_MAILTO
+ * and defaulting to support@scan-action.com. Env is trusted, but since this value
+ * is interpolated into the List-Unsubscribe header and an HTML href, a malformed
+ * value (not a single clean address) falls back to the safe default as
+ * defense-in-depth against header/markup injection.
+ */
+function getContactMailto(): string {
+  const v = process.env.MAIL_UNSUBSCRIBE_MAILTO?.trim();
+  if (v && BASIC_EMAIL.test(v) && !CONTROL_CHARS.test(v)) {
+    return v;
+  }
+  if (v) {
+    console.warn(
+      '[Mailer] MAIL_UNSUBSCRIBE_MAILTO is not a single valid email address. ' +
+        'Falling back to the default contact mailbox.',
+    );
+  }
+  return DEFAULT_CONTACT_MAILTO;
+}
+
+function appendComplianceFooter(html: string, postalAddress: string, contactMailto: string): string {
   return (
     html +
     `\n<div style="margin-top:32px;padding-top:16px;border-top:1px solid #f1f5f9;` +
     `font-family:sans-serif;color:#94a3b8;font-size:12px;line-height:1.5;">` +
     `<p style="margin:0 0 4px;">You're receiving this email from Scan &amp; Action.</p>` +
-    `<p style="margin:0 0 4px;">${POSTAL_ADDRESS}</p>` +
+    `<p style="margin:0 0 4px;">${postalAddress}</p>` +
     `<p style="margin:0;">To stop receiving these emails, ` +
-    `<a href="mailto:${UNSUBSCRIBE_MAILTO}" style="color:#94a3b8;">unsubscribe here</a>.</p>` +
+    `<a href="mailto:${contactMailto}" style="color:#94a3b8;">unsubscribe here</a>.</p>` +
     `</div>`
   );
 }
 
 /**
- * Build the List-Unsubscribe header(s). Always advertises the mailto option.
- * If MAIL_UNSUBSCRIBE_URL is set (an HTTPS endpoint that accepts POST), it is
- * added and RFC 8058 one-click is enabled.
+ * Build the List-Unsubscribe header(s). Always advertises the mailto option
+ * (same address as the footer link, passed in, so they cannot disagree). If
+ * MAIL_UNSUBSCRIBE_URL is set (an HTTPS endpoint that accepts POST), it is added
+ * and RFC 8058 one-click is enabled.
  */
-function buildUnsubscribeHeaders(): Record<string, string> {
+function buildUnsubscribeHeaders(contactMailto: string): Record<string, string> {
   const oneClickUrl = process.env.MAIL_UNSUBSCRIBE_URL?.trim();
-  const parts = [`<mailto:${UNSUBSCRIBE_MAILTO}>`];
+  const parts = [`<mailto:${contactMailto}>`];
   const headers: Record<string, string> = {};
   if (oneClickUrl) {
     parts.push(`<${oneClickUrl}>`);
@@ -102,7 +131,8 @@ function buildUnsubscribeHeaders(): Record<string, string> {
  * Send a single transactional email via Resend. Fail-safe: returns a typed
  * result and never throws.
  *
- *   - 'skipped' : configuration missing (e.g. RESEND_API_KEY) — not sent.
+ *   - 'skipped' : configuration missing (RESEND_API_KEY, or the compliance
+ *                 MAIL_POSTAL_ADDRESS) — not sent.
  *   - 'failed'  : validation rejected the input, or Resend/network errored.
  *   - 'sent'    : accepted by Resend (result.id is the Resend message id).
  */
@@ -129,6 +159,20 @@ export async function sendTransactionalEmail(
     return { status: 'failed', error: 'Invalid subject' };
   }
 
+  // Compliance, fail-closed: a commercial email legally requires a real physical
+  // postal address in the footer. If it is not configured we REFUSE to send
+  // rather than dispatch placeholder text. Checked here (where the footer is
+  // built) so it protects every email this module sends.
+  const postalAddress = getPostalAddress();
+  if (!postalAddress) {
+    console.error(
+      '[Mailer] MAIL_POSTAL_ADDRESS is not set. A commercial email requires a ' +
+        'physical postal address (CAN-SPAM/compliance). Refusing to send (fail-safe).',
+    );
+    return { status: 'skipped', reason: 'MAIL_POSTAL_ADDRESS not configured' };
+  }
+  const contactMailto = getContactMailto();
+
   const from = process.env.MAIL_FROM?.trim() || DEFAULT_MAIL_FROM;
   if (!process.env.MAIL_FROM?.trim()) {
     console.warn(
@@ -139,10 +183,13 @@ export async function sendTransactionalEmail(
 
   const payload: Record<string, unknown> = {
     from,
+    // Replies go to the monitored contact mailbox (not the no-reply From), so
+    // the welcome email's "just reply to this email" actually reaches a human.
+    reply_to: contactMailto,
     to: [to],
     subject,
-    html: appendComplianceFooter(html),
-    headers: buildUnsubscribeHeaders(),
+    html: appendComplianceFooter(html, postalAddress, contactMailto),
+    headers: buildUnsubscribeHeaders(contactMailto),
   };
   if (typeof text === 'string' && text.length > 0) {
     payload.text = text;

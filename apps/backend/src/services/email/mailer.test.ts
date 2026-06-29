@@ -39,14 +39,20 @@ describe('sendTransactionalEmail', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     process.env.RESEND_API_KEY = 'test_key';
     process.env.MAIL_FROM = 'Scan & Action <noreply@scan-action.com>';
+    // A real postal address is now REQUIRED to send (fail-closed). Provide one
+    // for the happy-path tests; the fail-closed tests delete it explicitly.
+    process.env.MAIL_POSTAL_ADDRESS = 'Scan & Action, 12 Test Street, Casablanca 20000, Morocco';
     delete process.env.MAIL_UNSUBSCRIBE_URL;
+    delete process.env.MAIL_UNSUBSCRIBE_MAILTO;
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     delete process.env.RESEND_API_KEY;
     delete process.env.MAIL_FROM;
+    delete process.env.MAIL_POSTAL_ADDRESS;
     delete process.env.MAIL_UNSUBSCRIBE_URL;
+    delete process.env.MAIL_UNSUBSCRIBE_MAILTO;
   });
 
   // ---- success path ----
@@ -67,12 +73,101 @@ describe('sendTransactionalEmail', () => {
     expect(body.from).toBe('Scan & Action <noreply@scan-action.com>');
     expect(body.to).toEqual(['user@example.com']);
     expect(body.subject).toBe('Welcome');
-    // Compliance: footer with postal address + unsubscribe is appended.
+    // Compliance: footer with the real postal address + unsubscribe is appended.
     expect(body.html).toContain('<p>Hello</p>');
     expect(body.html).toContain('unsubscribe');
-    expect(body.headers['List-Unsubscribe']).toContain('mailto:unsubscribe@scan-action.com');
+    expect(body.html).toContain('Scan & Action, 12 Test Street, Casablanca 20000, Morocco');
+    // Unsubscribe now defaults to the live support@ mailbox (Cloudflare-routed).
+    expect(body.headers['List-Unsubscribe']).toContain('mailto:support@scan-action.com');
     // Without MAIL_UNSUBSCRIBE_URL, no one-click header is advertised.
     expect(body.headers['List-Unsubscribe-Post']).toBeUndefined();
+  });
+
+  // ---- compliance: physical postal address (env-driven, fail-closed) ----
+  it('renders the physical postal address from MAIL_POSTAL_ADDRESS in the footer', async () => {
+    process.env.MAIL_POSTAL_ADDRESS = 'Acme SARL, 99 Rue Unique, Rabat 10000, Morocco';
+    fetchMock.mockResolvedValueOnce(okResponse());
+
+    await sendTransactionalEmail(VALID);
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.html).toContain('Acme SARL, 99 Rue Unique, Rabat 10000, Morocco');
+    // The old hardcoded placeholder must never appear.
+    expect(body.html).not.toContain('[Street Address]');
+    expect(body.html).not.toContain('Your Company Name');
+  });
+
+  it('FAILS CLOSED — returns skipped and does NOT call fetch when MAIL_POSTAL_ADDRESS is missing', async () => {
+    delete process.env.MAIL_POSTAL_ADDRESS;
+
+    const result = await sendTransactionalEmail(VALID);
+
+    expect(result).toEqual({
+      status: 'skipped',
+      reason: 'MAIL_POSTAL_ADDRESS not configured',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    // Loud, actionable log so the missing-config reason is obvious.
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('MAIL_POSTAL_ADDRESS'));
+  });
+
+  it('treats an empty/whitespace MAIL_POSTAL_ADDRESS as missing (fail-closed)', async () => {
+    process.env.MAIL_POSTAL_ADDRESS = '   ';
+    const result = await sendTransactionalEmail(VALID);
+    expect(result.status).toBe('skipped');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // ---- compliance: unsubscribe / contact mailto (env-driven, defaults support@) ----
+  it('defaults the unsubscribe mailto to support@scan-action.com in BOTH header and footer', async () => {
+    fetchMock.mockResolvedValueOnce(okResponse());
+
+    await sendTransactionalEmail(VALID);
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.headers['List-Unsubscribe']).toContain('mailto:support@scan-action.com');
+    expect(body.html).toContain('mailto:support@scan-action.com');
+  });
+
+  it('uses MAIL_UNSUBSCRIBE_MAILTO when set, and the header + footer always agree', async () => {
+    process.env.MAIL_UNSUBSCRIBE_MAILTO = 'optout@scan-action.com';
+    fetchMock.mockResolvedValueOnce(okResponse());
+
+    await sendTransactionalEmail(VALID);
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.headers['List-Unsubscribe']).toContain('mailto:optout@scan-action.com');
+    expect(body.html).toContain('mailto:optout@scan-action.com');
+    // The default must not leak through when an override is set.
+    expect(body.headers['List-Unsubscribe']).not.toContain('support@scan-action.com');
+    expect(body.html).not.toContain('mailto:support@scan-action.com');
+  });
+
+  it('sets Reply-To to the monitored contact mailbox so replies reach a human', async () => {
+    fetchMock.mockResolvedValueOnce(okResponse());
+    await sendTransactionalEmail(VALID);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    // Default contact mailbox.
+    expect(body.reply_to).toBe('support@scan-action.com');
+  });
+
+  it('Reply-To follows MAIL_UNSUBSCRIBE_MAILTO override (single source of truth for contact address)', async () => {
+    process.env.MAIL_UNSUBSCRIBE_MAILTO = 'optout@scan-action.com';
+    fetchMock.mockResolvedValueOnce(okResponse());
+    await sendTransactionalEmail(VALID);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.reply_to).toBe('optout@scan-action.com');
+  });
+
+  it('ignores a malformed MAIL_UNSUBSCRIBE_MAILTO and falls back to the safe default', async () => {
+    process.env.MAIL_UNSUBSCRIBE_MAILTO = 'not-an-email\r\nBcc: evil@x.com';
+    fetchMock.mockResolvedValueOnce(okResponse());
+
+    await sendTransactionalEmail(VALID);
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.headers['List-Unsubscribe']).toContain('mailto:support@scan-action.com');
+    expect(body.headers['List-Unsubscribe']).not.toContain('evil@x.com');
   });
 
   it('advertises RFC 8058 one-click when MAIL_UNSUBSCRIBE_URL is set', async () => {
