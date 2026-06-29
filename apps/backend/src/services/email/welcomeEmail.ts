@@ -10,7 +10,7 @@
 import { prisma } from '../../prismaClient';
 import { sendTransactionalEmail } from './mailer';
 
-const WELCOME_SUBJECT = 'Welcome to Scan & Action';
+const WELCOME_SUBJECT = 'Thanks for joining Scan & Action';
 
 // Web upgrade flows through login — there is no direct Paddle link.
 const LOGIN_URL = 'https://www.scan-action.com/login';
@@ -37,7 +37,10 @@ function buildWelcomeHtml(): string {
     `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">` +
     `<h1 style="color:#1e293b;font-size:24px;font-weight:800;margin:0 0 12px;">Welcome to Scan &amp; Action</h1>` +
     `<p style="color:#475569;font-size:16px;line-height:1.6;margin:0 0 16px;">` +
-    `Thanks for signing up. Your workspace is ready — upload a document and let the AI turn it into structured, searchable data.` +
+    `Thanks for signing up. Your account is all set.` +
+    `</p>` +
+    `<p style="color:#475569;font-size:16px;line-height:1.6;margin:0 0 16px;">` +
+    `Next time you have a document to deal with, snap a photo or upload it and we'll pull out the details for you. Give it a try whenever you're ready.` +
     `</p>` +
     `<p style="margin:24px 0;">` +
     `<a href="${LOGIN_URL}" style="background-color:#2563eb;color:#ffffff;padding:14px 28px;` +
@@ -45,7 +48,7 @@ function buildWelcomeHtml(): string {
     `Open Scan &amp; Action</a>` +
     `</p>` +
     `<p style="color:#64748b;font-size:14px;line-height:1.6;margin:0;">` +
-    `Need anything? Just reply to this email.` +
+    `Questions, or something not working right? Just reply to this email and a real person will read it.` +
     `</p>` +
     `</div>`
   );
@@ -54,10 +57,11 @@ function buildWelcomeHtml(): string {
 function buildWelcomeText(): string {
   return (
     `Welcome to Scan & Action\n\n` +
-    `Thanks for signing up. Your workspace is ready — upload a document and let ` +
-    `the AI turn it into structured, searchable data.\n\n` +
+    `Thanks for signing up. Your account is all set.\n\n` +
+    `Next time you have a document to deal with, snap a photo or upload it ` +
+    `and we'll pull out the details for you. Give it a try whenever you're ready.\n\n` +
     `Open Scan & Action: ${LOGIN_URL}\n\n` +
-    `Need anything? Just reply to this email.`
+    `Questions, or something not working right? Just reply to this email and a real person will read it.`
   );
 }
 
