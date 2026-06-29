@@ -56,7 +56,7 @@ describe('sendWelcomeEmailOnce — atomic claim', () => {
     expect(sendMock).toHaveBeenCalledTimes(1);
     const params = sendMock.mock.calls[0][0];
     expect(params.to).toBe(EMAIL);
-    expect(params.subject).toBe('Welcome to Scan & Action');
+    expect(params.subject).toBe('Thanks for joining Scan & Action');
     expect(params.html).toContain('https://www.scan-action.com/login');
     expect(params.text).toContain('https://www.scan-action.com/login');
   });
@@ -83,6 +83,51 @@ describe('sendWelcomeEmailOnce — atomic claim', () => {
 
     expect(updateMany).toHaveBeenCalledTimes(2);
     expect(sendMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('sendWelcomeEmailOnce — humanized welcome copy', () => {
+  // Capture the params handed to the mailer for a winning claim.
+  async function sentParams() {
+    updateMany.mockResolvedValueOnce({ count: 1 });
+    await sendWelcomeEmailOnce(USER_ID, EMAIL);
+    await flush();
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    return sendMock.mock.calls[0][0] as { subject: string; html: string; text: string };
+  }
+
+  it('contains ZERO em dashes in subject, html, and text', async () => {
+    const p = await sentParams();
+    expect(p.subject).not.toContain('—'); // —
+    expect(p.html).not.toContain('—');
+    expect(p.text).not.toContain('—');
+  });
+
+  it('drops the AI-flavored "structured, searchable data" phrasing', async () => {
+    const p = await sentParams();
+    expect(p.html.toLowerCase()).not.toContain('structured, searchable data');
+    expect(p.text.toLowerCase()).not.toContain('structured, searchable data');
+  });
+
+  it('contains NO payment / subscription / upgrade steering (silent-app safe)', async () => {
+    const p = await sentParams();
+    const steering = /\b(upgrade|subscribe|subscription|pricing|price|\bpro\b|payment|pay\b|billing|checkout|plan)\b|\$/i;
+    expect(p.html).not.toMatch(steering);
+    expect(p.text).not.toMatch(steering);
+  });
+
+  it('keeps the Open Scan & Action action and the login URL in both bodies', async () => {
+    const p = await sentParams();
+    expect(p.html).toContain('Open Scan &amp; Action');
+    expect(p.html).toContain('https://www.scan-action.com/login');
+    expect(p.text).toContain('Open Scan & Action');
+    expect(p.text).toContain('https://www.scan-action.com/login');
+  });
+
+  it('keeps a working reply invitation (Reply-To routes to a monitored mailbox)', async () => {
+    const p = await sentParams();
+    expect(p.html.toLowerCase()).toContain('reply');
+    expect(p.text.toLowerCase()).toContain('reply');
   });
 });
 
