@@ -1,5 +1,0 @@
-﻿--- INCREMENT TEST ---
-ScanCount Before: 0
-ScanCount After: 1
-SUCCESS: ScanCount incremented correctly in runtime!
---- END INCREMENT TEST ---
