@@ -40,6 +40,11 @@ coverage/
 db_dump*
 *_response.json
 *.local
+# Backend DB-diagnostic dumps + reminder-job cache: local scratch that leaked
+# internal DB identifiers (org/user/batch UUIDs, row counts). Keep on disk,
+# never track.
+apps/backend/tmp/
+apps/backend/scripts/notified_batches.json
 
 # Sales data — lives in this folder locally but must never reach the repo
 leads/
