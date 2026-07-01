@@ -1,0 +1,126 @@
+/* =============================================================================
+   Scan & Action — Design Tokens (authoritative source of truth)
+   =============================================================================
+   Extracted from the approved Claude Design file "Dashboard redesign.dc.html".
+   This is the ONE place brand values live for the redesign. Screens migrate onto
+   these `--sa-*` tokens starting in PR-B; the Tailwind config maps utility color
+   names to them so `bg-accent`, `text-ink`, etc. resolve here.
+
+   Reconciliation with the pre-existing index.css variables (--background, --card,
+   --accent, …): those legacy vars still drive the current component classes
+   (.saas-card, .btn-primary, .nav-item, .badge-*) and are LEFT UNCHANGED in this
+   PR so the app does not visibly restyle before the screens are migrated. They
+   are marked deprecated in index.css and will be repointed to / replaced by these
+   tokens per-screen in PR-B, then deleted once nothing consumes them. Both layers
+   are toggled by the same `.dark` class, so light/dark remains ONE system.
+
+   Accent = indigo #635BFF (locked decision), exactly as in the approved design.
+   ============================================================================= */
+
+:root {
+  /* ── Brand accent (indigo) ─────────────────────────────────────────── */
+  --sa-accent: #635BFF;          /* primary actions, active nav, chart line   */
+  --sa-accent-hover: #5147E8;    /* hover/pressed                              */
+  --sa-accent-text: #4A3FE0;     /* accent text/links on light                */
+  --sa-accent-tint: #EEEDFE;     /* icon-tile / chip background               */
+  --sa-accent-tint-2: #F1F0FE;   /* active nav background                     */
+  --sa-accent-border: #E4E2FB;   /* border on tinted accent surfaces          */
+
+  /* ── Surfaces & lines (cool neutral) ───────────────────────────────── */
+  --sa-surface: #F5F7FA;         /* app background                            */
+  --sa-surface-raised: #FFFFFF;  /* cards, sidebar                            */
+  --sa-surface-alt: #FBFCFE;     /* subtle hover on white                     */
+  --sa-surface-muted: #F1F3F7;   /* neutral icon-tile / inset                 */
+  --sa-line: #E9EBF0;            /* default card border                       */
+  --sa-line-strong: #E4E7EC;     /* button border / stronger divider         */
+  --sa-line-sidebar: #EAECF1;    /* sidebar edge                             */
+  --sa-divider: #F0F2F6;         /* in-card row dividers                      */
+
+  /* ── Text ramp ─────────────────────────────────────────────────────── */
+  --sa-ink: #1A1F36;             /* primary text, headings                    */
+  --sa-ink-secondary: #5A6273;   /* body                                      */
+  --sa-ink-tertiary: #6B7385;    /* labels                                    */
+  --sa-ink-muted: #868FA0;       /* captions / meta                          */
+  --sa-ink-faint: #98A2B3;       /* icons, placeholders                       */
+  --sa-ink-fainter: #AEB6C2;     /* axis labels                              */
+
+  /* ── Semantic (desaturated) ────────────────────────────────────────── */
+  --sa-success: #2E9E6B;
+  --sa-success-strong: #3E9E6B;
+  --sa-success-text: #157347;
+  --sa-success-tint: #EAF6EF;
+  --sa-warning: #E0A33E;
+  --sa-warning-text: #B26A0A;
+  --sa-warning-tint: #FBEBD0;
+  --sa-danger: #D9584A;
+  --sa-danger-text: #B23A2E;
+  --sa-danger-tint: #FBECEA;
+
+  /* ── Radius scale ──────────────────────────────────────────────────── */
+  --sa-radius-sm: 6px;
+  --sa-radius-nav: 8px;
+  --sa-radius-btn: 9px;          /* buttons, icon tiles                       */
+  --sa-radius-card: 12px;        /* cards                                     */
+  --sa-radius-pill: 999px;
+
+  /* ── Elevation (quiet) ─────────────────────────────────────────────── */
+  --sa-shadow-card: 0 1px 2px rgba(20, 28, 54, 0.04);
+  --sa-shadow-raised: 0 1px 2px rgba(20, 28, 54, 0.06);
+  --sa-shadow-lg: 0 26px 60px -24px rgba(20, 28, 54, 0.30),
+                  0 10px 24px -16px rgba(20, 28, 54, 0.14);
+
+  /* ── Typography ────────────────────────────────────────────────────── */
+  --sa-font-sans: 'Inter', 'IBM Plex Sans Arabic', system-ui, -apple-system,
+                  BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --sa-text-kpi: 32px;     /* KPI figures            */
+  --sa-text-h1: 24px;      /* page title             */
+  --sa-text-h2: 18px;      /* card/section title lg  */
+  --sa-text-section: 15px; /* card title             */
+  --sa-text-body: 14px;
+  --sa-text-body-sm: 13px;
+  --sa-text-label: 12px;
+
+  --sa-tracking-tight: -0.02em; /* headings */
+  --sa-tracking-wide: 0.06em;   /* small uppercase eyebrows */
+}
+
+/* Dark palette. NOTE: the approved design provided light frames only, so these
+   dark values are DERIVED to stay coherent with the app's existing dark mode
+   (slate-based surfaces) while keeping the indigo accent. Revisit if a dark
+   design frame is produced. */
+.dark {
+  --sa-accent: #635BFF;
+  --sa-accent-hover: #6F67FF;
+  --sa-accent-text: #A7A1FF;
+  --sa-accent-tint: rgba(99, 91, 255, 0.16);
+  --sa-accent-tint-2: rgba(99, 91, 255, 0.12);
+  --sa-accent-border: rgba(99, 91, 255, 0.32);
+
+  --sa-surface: #0F172A;
+  --sa-surface-raised: #1E293B;
+  --sa-surface-alt: #24324a;
+  --sa-surface-muted: #24324a;
+  --sa-line: #334155;
+  --sa-line-strong: #3b4a63;
+  --sa-line-sidebar: #26324a;
+  --sa-divider: #2a3852;
+
+  --sa-ink: #F8FAFC;
+  --sa-ink-secondary: #CBD5E1;
+  --sa-ink-tertiary: #AFBACA;
+  --sa-ink-muted: #94A3B8;
+  --sa-ink-faint: #7C8AA0;
+  --sa-ink-fainter: #64748B;
+
+  --sa-success: #4ADE80;
+  --sa-success-strong: #34D399;
+  --sa-success-text: #6EE7B7;
+  --sa-success-tint: rgba(34, 197, 94, 0.12);
+  --sa-warning: #F5C368;
+  --sa-warning-text: #FBBF24;
+  --sa-warning-tint: rgba(234, 179, 8, 0.12);
+  --sa-danger: #F87171;
+  --sa-danger-text: #FCA5A5;
+  --sa-danger-tint: rgba(239, 68, 68, 0.12);
+}
