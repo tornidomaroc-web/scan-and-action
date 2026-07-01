@@ -18,6 +18,8 @@
     "@capacitor/core": "^7.6.6",
     "@capacitor/splash-screen": "^7.0.5",
     "@capacitor/status-bar": "^7.0.6",
+    "@fontsource/ibm-plex-sans-arabic": "^5.2.9",
+    "@fontsource/inter": "^5.2.8",
     "@paddle/paddle-js": "^1.6.4",
     "@supabase/supabase-js": "^2.99.3",
     "lucide-react": "^0.577.0",

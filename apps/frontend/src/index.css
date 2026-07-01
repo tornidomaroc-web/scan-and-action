@@ -1,9 +1,23 @@
+/* Authoritative design tokens (--sa-*). MUST precede the @tailwind directives:
+   the CSS spec requires @import to come before any other statements, or the
+   bundler drops it (which would silently disable the token layer). It shares the
+   same cascade and `.dark` toggle as the legacy vars below — light/dark stays
+   ONE system. See styles/tokens.css for the reconciliation note. */
+@import './styles/tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Tailwind infrastructure restored */
-
+/* ─────────────────────────────────────────────────────────────────────────
+   LEGACY variables (DEPRECATED — being migrated to --sa-* tokens).
+   These still drive the existing component classes (.saas-card, .btn-primary,
+   .nav-item, .saas-table, .badge-*, .skeleton, etc.). They are intentionally
+   LEFT AT THEIR CURRENT VALUES in this PR so the app does not visibly restyle
+   before the screens adopt the tokens. PR-B migrates each consumer onto the
+   --sa-* tokens (e.g. --accent → var(--sa-accent) indigo) and then removes the
+   corresponding legacy var once nothing references it.
+   ───────────────────────────────────────────────────────────────────────── */
 :root {
   --background: #f9fafb;
   --card: #ffffff;
@@ -36,7 +50,9 @@
 @layer base {
   body {
     margin: 0;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    /* Real, now-loaded stack: Inter (latin) + IBM Plex Sans Arabic (arabic),
+       with system fallbacks. Sourced from the --sa-font-sans token. */
+    font-family: var(--sa-font-sans);
     background: var(--background);
     color: var(--text-primary);
     -webkit-font-smoothing: antialiased;
