@@ -89,9 +89,16 @@ describe('post-payment confirmation (?checkout=success)', () => {
     );
     // plan/stats refetched so the UI flips to PRO
     await vi.waitFor(() => expect(documentService.getStats).toHaveBeenCalled());
-    // param cleaned: a refresh of this URL won't re-trigger the celebration
-    const probe = container.querySelector('[data-testid="location-probe"]')!;
-    expect(probe.textContent).toBe('/dashboard');
+    // param cleaned: a refresh of this URL won't re-trigger the celebration.
+    // The cleanup runs in its own async effect (Layout: searchParams.delete +
+    // setSearchParams replace), which can flush AFTER the getStats waitFor above
+    // resolves — so we must waitFor the URL too rather than assert it
+    // synchronously (that race is what flaked PR #47's CI). This still proves the
+    // param IS removed: if it were never cleaned, this waitFor would time out.
+    await vi.waitFor(() => {
+      const probe = container.querySelector('[data-testid="location-probe"]')!;
+      expect(probe.textContent).toBe('/dashboard');
+    });
 
     // explicit dismiss closes it
     const cta = [...document.body.querySelectorAll('button')].find(
