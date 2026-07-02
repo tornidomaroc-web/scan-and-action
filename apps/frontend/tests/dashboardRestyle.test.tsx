@@ -114,6 +114,29 @@ describe('Dashboard restyle — populated', () => {
   });
 });
 
+// The dashboard-facing strings this branch owns/surfaces. Em dashes are banned
+// in all user-facing copy: they're a hard rule and read as AI-written. This
+// guard bites if one is reintroduced into any of these keys, in any locale.
+const DASHBOARD_KEYS = [
+  'finishBatch', 'reviewNow', 'documentsProcessed', 'dataComingSoon',
+  'documentsByStatus', 'approvalRate', 'statusApproved', 'statusFlagged',
+  'statusProcessed', 'statusRejected', 'insight', 'tip', 'emptyTitle', 'emptyBody',
+] as const;
+
+describe('Dashboard copy — no em dashes (hard rule)', () => {
+  const locales = ['en', 'fr', 'ar'] as const;
+  for (const loc of locales) {
+    for (const key of DASHBOARD_KEYS) {
+      it(`strings.${loc}.${key} contains no em dash`, () => {
+        const value = (strings as any)[loc][key] as string;
+        expect(typeof value).toBe('string');
+        expect(value).not.toContain('—'); // — em dash
+        expect(value).not.toContain('–'); // – en dash (as punctuation)
+      });
+    }
+  }
+});
+
 describe('Dashboard restyle — empty state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
