@@ -16,7 +16,7 @@ export function LandingScreen() {
             </p>
             <div className="flex flex-col items-center lg:items-start space-y-4 pt-4">
               <Link to="/login" className="inline-block px-10 py-5 bg-indigo-600 text-white font-black text-xl rounded-2xl hover:bg-indigo-700 transition-all shadow-xl hover:shadow-indigo-500/20 active:scale-95 uppercase tracking-tight">
-                Start Free – 10 Scans Included
+                Start Free with 10 Scans Included
               </Link>
               <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">No credit card. Takes 30 seconds.</p>
             </div>
@@ -199,7 +199,7 @@ export function LandingScreen() {
           <h2 className="text-4xl sm:text-5xl font-black text-white uppercase leading-tight">Turn receipts into clean data in seconds</h2>
           <div className="space-y-6">
             <Link to="/login" className="inline-block px-12 py-6 bg-indigo-600 text-white font-black text-2xl rounded-2xl hover:bg-indigo-700 transition-all shadow-2xl hover:shadow-indigo-500/40 active:scale-95 uppercase tracking-tight">
-              Start Free – 10 Scans Included
+              Start Free with 10 Scans Included
             </Link>
             <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">No credit card. Takes 30 seconds.</p>
           </div>

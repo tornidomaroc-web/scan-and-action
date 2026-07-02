@@ -54,7 +54,7 @@ const DeleteAccountInfo: React.FC = () => {
           <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-red-600">What gets deleted</h2>
           <p>
             Deletion permanently removes your account, your workspace, and all documents, scans,
-            extracted data, and reports it contains — both from our database and from file storage.
+            extracted data, and reports it contains, both from our database and from file storage.
             This cannot be undone.
           </p>
         </section>

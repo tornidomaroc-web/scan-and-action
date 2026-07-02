@@ -219,7 +219,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
             </h2>
             <p className="text-sm font-medium text-gray-500 dark:text-slate-400 mt-1">
               {status === 'idle' ? 'Select one or more files for AI extraction.' :
-               status === 'success' ? 'Uploaded. Extraction continues in the background — you can close this.' :
+               status === 'success' ? 'Uploaded. Extraction continues in the background. You can close this.' :
                'Please review the status of your items below.'}
             </p>
           </div>
@@ -370,7 +370,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                            </div>
                            <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100 mb-1 tracking-tight">Uploaded</h3>
                            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                             Extraction runs in the background — track it from the processing chip.
+                             Extraction runs in the background. Track it from the processing chip.
                            </p>
 
                            <div className="grid grid-cols-2 gap-4 mt-6">
