@@ -1,34 +1,54 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { 
-  FileText, 
-  Clock, 
-  Database, 
-  Zap,
-  Activity,
-  Loader2,
-  Info
+import {
+  FileText,
+  Clock,
+  Gauge,
+  Search,
+  ClipboardCheck,
+  Download,
+  ScanLine,
+  ChevronRight,
+  Sparkles,
+  Lightbulb,
+  ArrowRight,
 } from 'lucide-react';
 import { useStrings } from '../i18n/useStrings';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
+import { AreaChart } from '../components/AreaChart';
 import { useIsDesktop } from '../hooks/useMediaQuery';
 
 const formatDate = (dateString: string) => {
   if (!dateString) return 'Recently';
   const date = new Date(dateString);
-  return new Intl.DateTimeFormat('en-US', { 
-    month: 'short', 
-    day: 'numeric', 
-    hour: '2-digit', 
-    minute: '2-digit' 
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(date);
+};
+
+// Maps the real document status enum (COMPLETED / NEEDS_REVIEW / REJECTED) to a
+// calm colored dot + label. No emoji.
+const statusMeta = (status: string, s: ReturnType<typeof useStrings>) => {
+  switch (status) {
+    case 'COMPLETED':
+      return { dot: 'bg-success', text: 'text-success-text', label: s.statusProcessed };
+    case 'NEEDS_REVIEW':
+      return { dot: 'bg-warning', text: 'text-warning-text', label: s.needsReview };
+    case 'REJECTED':
+      return { dot: 'bg-danger', text: 'text-danger-text', label: s.statusRejected };
+    default:
+      return { dot: 'bg-ink-faint', text: 'text-ink-muted', label: status.replace('_', ' ') };
+  }
 };
 
 export const DashboardScreen = () => {
   const s = useStrings();
   const navigate = useNavigate();
-  const { refreshCount, onNewScan } = useOutletContext<{ refreshCount: number, onNewScan: () => void }>();
+  const { refreshCount, onNewScan } = useOutletContext<{ refreshCount: number; onNewScan: () => void }>();
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [stats, setStats] = useState({ totalCount: 0, pendingCount: 0, averageConfidence: 0 });
   const [loading, setLoading] = useState(true);
@@ -38,7 +58,6 @@ export const DashboardScreen = () => {
   const isDesktop = useIsDesktop();
 
   // On mobile there is no Activity tab: the full history lives here.
-  // Desktop keeps the dedicated /activity screen reached via the sidebar.
   const handleViewAll = async () => {
     if (isDesktop) {
       navigate('/activity');
@@ -52,7 +71,7 @@ export const DashboardScreen = () => {
       setIsExpanded(true);
     } catch (err) {
       console.error('[Dashboard] Full activity fetch failed:', err);
-      setIsExpanded(true); // still expand to whatever is already loaded
+      setIsExpanded(true);
     } finally {
       setExpanding(false);
     }
@@ -61,13 +80,13 @@ export const DashboardScreen = () => {
   const fetchData = async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
-      const statsTask = documentService.getStats().catch(err => {
+      const statsTask = documentService.getStats().catch((err) => {
         console.error('[Dashboard] Stats fetch failed:', err);
         return null;
       });
-      const activityTask = documentService.getRecentActivity().catch(err => {
+      const activityTask = documentService.getRecentActivity().catch((err) => {
         console.error('[Dashboard] Activity fetch failed:', err);
-        return null; 
+        return null;
       });
 
       const [statsData, activityData] = await Promise.all([statsTask, activityTask]);
@@ -93,284 +112,274 @@ export const DashboardScreen = () => {
     fetchData(true);
   }, [refreshCount]);
 
-  const getConfidenceLevel = (score: number) => {
-    const percent = score * 100;
-    if (percent >= 90) return { label: s.excellent, colorClass: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-400/10', icon: '✅' };
-    if (percent >= 70) return { label: s.needsReview, colorClass: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 dark:bg-amber-400/10', icon: '⚠️' };
-    return { label: s.atRisk, colorClass: 'text-rose-600 dark:text-rose-400 bg-rose-500/10 dark:bg-rose-400/10', icon: '🚩' };
-  };
-
-  const confidenceInfo = getConfidenceLevel(stats.averageConfidence);
-
-  const DashboardSkeleton = () => (
-    <div className="animate-in fade-in duration-500 max-w-[1200px] mx-auto">
-      <div className="mb-10">
-        <div className="h-10 w-64 skeleton rounded-lg mb-3 dark:bg-slate-800" />
-        <div className="h-5 w-80 skeleton rounded-md dark:bg-slate-800" />
-      </div>
-      <div className="grid grid-cols-3 gap-6 mb-12">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-40 skeleton rounded-[32px] dark:bg-slate-800" />
-        ))}
-      </div>
-      <div className="grid grid-cols-4 gap-5 mb-12">
-        {[1, 2, 3, 4].map(i => (
-          <div key={i} className="h-24 skeleton rounded-2xl dark:bg-slate-800" />
-        ))}
-      </div>
-      <div className="grid grid-cols-[3fr_1fr] gap-8">
-        <div className="h-96 skeleton rounded-[32px] dark:bg-slate-800" />
-        <div className="space-y-6">
-          <div className="h-48 skeleton rounded-[32px] dark:bg-slate-800" />
-          <div className="h-32 skeleton rounded-[32px] dark:bg-slate-800" />
-        </div>
-      </div>
-    </div>
-  );
-
-  if (loading) return <DashboardSkeleton />;
-
-  if (error && !stats.totalCount && recentActivity.length === 0) {
+  // ── Loading skeleton (token-styled) ──────────────────────────────────
+  if (loading) {
     return (
-      <div className="max-w-[1200px] mx-auto py-12">
-        <ErrorState 
-          title={s.connectionError}
-          message={error}
-          onRetry={() => fetchData(true)}
-        />
+      <div className="mx-auto max-w-[1200px] animate-in fade-in duration-500">
+        <div className="mb-8">
+          <div className="skeleton mb-3 h-7 w-56 rounded-nav dark:bg-slate-800" />
+          <div className="skeleton h-4 w-80 rounded dark:bg-slate-800" />
+        </div>
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="skeleton h-32 rounded-card dark:bg-slate-800" />
+          ))}
+        </div>
+        <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
+          <div className="skeleton h-64 rounded-card dark:bg-slate-800" />
+          <div className="skeleton h-64 rounded-card dark:bg-slate-800" />
+        </div>
       </div>
     );
   }
 
+  if (error && !stats.totalCount && recentActivity.length === 0) {
+    return (
+      <div className="mx-auto max-w-[1200px] py-12">
+        <ErrorState title={s.connectionError} message={error} onRetry={() => fetchData(true)} />
+      </div>
+    );
+  }
+
+  const kpis = [
+    {
+      label: s.processedDocs,
+      value: stats.totalCount.toLocaleString(),
+      icon: <FileText size={16} />,
+      tile: 'bg-accent-tint text-accent',
+    },
+    {
+      label: s.pendingReview,
+      value: stats.pendingCount.toLocaleString(),
+      icon: <Clock size={16} />,
+      tile: 'bg-surface-muted text-ink-tertiary',
+    },
+    {
+      label: s.avgConfidence,
+      value: `${(stats.averageConfidence * 100).toFixed(1)}%`,
+      icon: <Gauge size={16} />,
+      tile: 'bg-success-tint text-success',
+    },
+  ];
+
+  const visibleActivity = recentActivity.slice(0, isExpanded ? undefined : 5);
+
   return (
-    <div className="max-w-[1200px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <header className="mb-10">
-        <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-2">
-          {s.controlCenter}
-        </h1>
-        <p className="text-lg font-bold text-slate-500 dark:text-slate-400">
-          {s.welcomeBack}
-        </p>
+    <div className="mx-auto flex max-w-[1200px] flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      {/* Header */}
+      <header>
+        <h1 className="text-title-lg font-semibold tracking-tight text-ink">{s.dashboard}</h1>
+        <p className="mt-1.5 text-sm text-ink-muted">{s.welcomeBack}</p>
       </header>
 
-      {/* Action Banner */}
+      {/* Attention banner */}
       {stats.pendingCount > 0 && (
-        <div className="bg-white dark:bg-slate-800 border-l-4 border-amber-500 rounded-2xl p-5 md:p-6 mb-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700">
-          <div className="flex items-center gap-4 md:gap-5 min-w-0">
-            <div className="bg-amber-50 dark:bg-amber-900/30 p-2.5 md:p-3 rounded-2xl text-amber-600 dark:text-amber-400 flex-shrink-0">
-              <Activity strokeWidth={2.5} className="w-5 h-5 md:w-6 md:h-6" />
-            </div>
-            <div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white mb-0.5 uppercase tracking-tight">
-                {s.finishBatch.replace('{n}', stats.pendingCount.toString())}
-              </h3>
-              <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
-                {s.finishBatchDesc}
-              </p>
-            </div>
-          </div>
+        <div className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-surface-raised px-4 py-3 shadow-card">
+          <span className="h-2 w-2 flex-shrink-0 rounded-pill bg-warning" />
+          <span className="text-sm text-ink-secondary">
+            {s.finishBatch.replace('{n}', stats.pendingCount.toString())}
+          </span>
           <button
             onClick={() => navigate('/queue')}
-            className="btn btn-primary w-full sm:w-auto px-6 md:px-8 py-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 sm:whitespace-nowrap"
+            className="ms-auto inline-flex flex-shrink-0 items-center gap-1 text-sm font-semibold text-accent-text hover:opacity-80"
           >
-            {s.finalizeProcessing}
+            {s.reviewNow}
+            <ChevronRight size={15} className="rtl:-scale-x-100" />
           </button>
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        {[
-          { 
-            label: s.processedDocs,
-            value: stats.totalCount.toLocaleString(),
-            icon: <FileText className="w-[18px] h-[18px] md:w-5 md:h-5" />,
-            color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30',
-            tooltip: 'Successful extractions and review-ready documents. Rejected or failed uploads are not included.',
-            description: s.docsSubtitle
-          },
-          { label: s.pendingReview, value: stats.pendingCount.toLocaleString(), icon: <Clock className="w-[18px] h-[18px] md:w-5 md:h-5" />, color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/30' },
-          { 
-            label: s.avgConfidence, 
-            value: `${(stats.averageConfidence * 100).toFixed(1)}%`,
-            icon: <Zap className="w-[18px] h-[18px] md:w-5 md:h-5" />,
-            color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30',
-            badge: (
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ml-auto ${confidenceInfo.colorClass}`}>
-                <span>{confidenceInfo.icon}</span>
-                {confidenceInfo.label}
-              </span>
-            )
-          },
-        ].map((stat, i) => (
-          <div key={i} className="bg-white dark:bg-slate-800 rounded-[32px] p-5 md:p-8 shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700 transition-all hover:translate-y-[-4px] hover:shadow-2xl duration-300">
-            <div className="flex items-center gap-3 mb-5">
-              <div className={`${stat.color} p-2 md:p-2.5 rounded-xl flex-shrink-0`}>{stat.icon}</div>
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest truncate">{stat.label}</span>
-                {stat.tooltip && (
-                  <div className="group relative flex-shrink-0">
-                    <Info size={14} className="text-slate-300 dark:text-slate-600 cursor-help transition-colors hover:text-blue-500" />
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-3 bg-slate-900 text-[10px] lowercase font-bold text-white rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all z-50 shadow-2xl border border-slate-800 leading-relaxed text-center first-letter:uppercase">
-                      {stat.tooltip}
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
-                    </div>
-                  </div>
-                )}
+      {/* KPI cards */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {kpis.map((k, i) => (
+          <div key={i} className="flex flex-col rounded-card border border-line bg-surface-raised p-5 shadow-card">
+            <div className="flex items-start justify-between gap-3">
+              <span className="text-[13px] font-medium text-ink-tertiary">{k.label}</span>
+              <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-btn ${k.tile}`}>
+                {k.icon}
               </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">{stat.value}</span>
-                {stat.badge}
-              </div>
-              {stat.description && (
-                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 max-w-[200px] leading-tight mt-1">
-                  {stat.description}
-                </p>
-              )}
-            </div>
+            <div className="mt-4 text-kpi font-semibold text-ink">{k.value}</div>
+            {/* Trend chip intentionally omitted: period-over-period data is not
+                available from the backend yet (arrives in PR-C). We show no chip
+                rather than an invented percentage. */}
           </div>
         ))}
       </div>
 
-      {/* Workflow Actions */}
-      <div className="mb-12">
-         <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mb-5 ml-2 italic">{s.workflowActions}</h3>
-         <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-            <button onClick={onNewScan} className="group bg-white dark:bg-slate-800 p-4 md:p-6 rounded-2xl border-2 border-slate-100 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-xl active:scale-95 text-left flex items-center gap-3 md:gap-4">
-               <div className="bg-blue-600 p-2.5 md:p-3 rounded-2xl text-white group-hover:scale-110 transition-transform flex-shrink-0"><FileText strokeWidth={2.5} className="w-[18px] h-[18px] md:w-5 md:h-5" /></div>
-               <div className="min-w-0">
-                  <span className="font-black text-slate-900 dark:text-white block text-sm md:text-base leading-tight">{s.newScan}</span>
-                  <span className="text-[10px] font-bold text-blue-500 uppercase tracking-tight">{s.uploadData}</span>
-               </div>
-            </button>
-            <button onClick={() => navigate('/search')} className="group bg-white dark:bg-slate-800 p-4 md:p-6 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-blue-500 transition-all shadow-sm hover:shadow-xl active:scale-95 text-left flex items-center gap-3 md:gap-4">
-               <div className="bg-slate-100 dark:bg-slate-700 p-2.5 md:p-3 rounded-2xl text-slate-600 dark:text-slate-400 group-hover:bg-blue-500 group-hover:text-white transition-all flex-shrink-0"><Zap className="w-[18px] h-[18px] md:w-5 md:h-5" /></div>
-               <div className="min-w-0">
-                  <span className="font-black text-slate-900 dark:text-white block text-sm md:text-base leading-tight">{s.search}</span>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{s.queryAI}</span>
-               </div>
-            </button>
-            <button onClick={() => navigate('/queue')} className="group bg-white dark:bg-slate-800 p-4 md:p-6 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-amber-500 transition-all shadow-sm hover:shadow-xl active:scale-95 text-left flex items-center gap-3 md:gap-4">
-               <div className="bg-slate-100 dark:bg-slate-700 p-2.5 md:p-3 rounded-2xl text-slate-600 dark:text-slate-400 group-hover:bg-amber-500 group-hover:text-white transition-all flex-shrink-0"><Clock className="w-[18px] h-[18px] md:w-5 md:h-5" /></div>
-               <div className="min-w-0">
-                  <span className="font-black text-slate-900 dark:text-white block text-sm md:text-base leading-tight">{s.reviewTitle}</span>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{s.validate}</span>
-               </div>
-            </button>
-            <button 
-               onClick={async () => {
-                 try {
-                   await documentService.exportCsv();
-                 } catch (err) {
-                   console.error('Export failed:', err);
-                   alert('Export failed. Please try again.');
-                 }
-               }} 
-               className="group bg-white dark:bg-slate-800 p-4 md:p-6 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-emerald-500 transition-all shadow-sm hover:shadow-xl active:scale-95 text-left flex items-center gap-3 md:gap-4"
-            >
-               <div className="bg-slate-100 dark:bg-slate-700 p-2.5 md:p-3 rounded-2xl text-slate-600 dark:text-slate-400 group-hover:bg-emerald-500 group-hover:text-white transition-all flex-shrink-0"><Database className="w-[18px] h-[18px] md:w-5 md:h-5" /></div>
-               <div className="min-w-0">
-                  <span className="font-black text-slate-900 dark:text-white block text-sm md:text-base leading-tight">{s.exportCSV}</span>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{s.downloadData}</span>
-               </div>
-            </button>
-         </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr_1fr] gap-8">
-        {/* Recent Activity */}
-        <div className="bg-white dark:bg-slate-800 rounded-[32px] p-5 md:p-8 shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700">
-          <div className="flex items-center justify-between gap-3 mb-8">
-            <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-              <Activity className="text-blue-500 w-5 h-5 md:w-[22px] md:h-[22px] flex-shrink-0" strokeWidth={2.5} />
-              {s.recentActivity}
-            </h2>
-            {recentActivity.length > 4 && !(isExpanded && !isDesktop) && (
-              <button
-                onClick={handleViewAll}
-                disabled={expanding}
-                className="text-sm font-black text-blue-500 hover:text-blue-600 flex items-center gap-1 transition-colors disabled:opacity-50"
-              >
-                {s.viewAll}
-              </button>
-            )}
-          </div>
-          
-          <div className="space-y-1">
-            {recentActivity.length === 0 ? (
-              <div className="py-20 flex flex-col items-center text-center">
-                <div className="w-16 h-16 bg-slate-50 dark:bg-slate-900/50 text-slate-300 rounded-full flex items-center justify-center mb-4">
-                  <FileText size={32} />
-                </div>
-                <p className="font-black text-slate-900 dark:text-white text-lg">Your workspace is quiet.</p>
-                <p className="text-slate-500 font-bold mb-6">Upload your first document to begin extraction.</p>
-                <button 
-                  onClick={onNewScan}
-                  className="btn btn-primary px-8 py-3 rounded-xl shadow-lg shadow-blue-500/10"
-                >
-                  Start First Scan
-                </button>
-              </div>
-            ) : (
-              recentActivity.slice(0, isExpanded ? undefined : 4).map((item, i) => (
-                <div key={item.id} 
-                  onClick={() => navigate(`/documents/${item.id}`)}
-                  className={`group flex items-center justify-between gap-3 py-4 px-3 md:px-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all cursor-pointer ${i !== (isExpanded ? recentActivity.length - 1 : (Math.min(recentActivity.length, 4) - 1)) ? 'border-b border-slate-50 dark:border-slate-700/30' : ''}`}
-                >
-                  <div className="flex items-center gap-3 md:gap-5 min-w-0">
-                    <div className="w-10 h-10 md:w-12 md:h-12 flex-shrink-0 bg-slate-50 dark:bg-slate-900 text-slate-400 group-hover:bg-white dark:group-hover:bg-slate-800 rounded-xl flex items-center justify-center border border-slate-100 dark:border-slate-800 group-hover:scale-110 transition-all duration-300">
-                      <FileText strokeWidth={2.5} className="w-[18px] h-[18px] md:w-5 md:h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-black text-slate-900 dark:text-slate-100 text-sm md:text-base mb-0.5 group-hover:text-blue-600 transition-colors uppercase tracking-tight truncate">{item.originalFileName || 'Unnamed Document'}</p>
-                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest italic leading-none">
-                        {formatDate(item.uploadedAt)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className={`flex-shrink-0 whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase border ${
-                    item.status === 'COMPLETED' 
-                      ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800' 
-                      : item.status === 'NEEDS_REVIEW' 
-                      ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/30 border-amber-100 dark:border-amber-800' 
-                      : 'text-slate-400 bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800'
-                  }`}>
-                    {item.status.replace('_', ' ')}
-                  </div>
-                </div>
-              ))
-            )}
+      {/* Analytics row: documents-processed chart + by-status breakdown.
+          Both render placeholders until PR-C supplies the series / breakdown. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
+        <div className="flex flex-col rounded-card border border-line bg-surface-raised p-5 shadow-card">
+          <h2 className="text-section font-semibold text-ink">{s.documentsProcessed}</h2>
+          <div className="mt-4">
+            {/* No series prop yet → AreaChart shows its calm placeholder. */}
+            <AreaChart placeholder={s.dataComingSoon} ariaLabel={s.documentsProcessed} />
           </div>
         </div>
 
-        {/* Intelligence Pulse Sidebar */}
-        <div className="space-y-6">
-           <div className="bg-white dark:bg-slate-800 rounded-[32px] p-8 border-l-4 border-blue-500 shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mb-4 opacity-70">{s.intelligencePulse}</h4>
-              <p className="text-sm font-bold text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
-                {s.intelligencePulseDesc.replace('{n}', stats.totalCount.toString())}
-              </p>
-              {stats.pendingCount > 0 ? (
-                <p className="text-sm font-bold text-slate-600 dark:text-slate-400 leading-relaxed mb-0">
-                   {s.intelligencePulsePending.replace('{n}', stats.pendingCount.toString())}
-                </p>
-              ) : stats.totalCount > 0 ? (
-                <p className="text-sm font-bold text-slate-600 dark:text-slate-400 leading-relaxed mb-0">
-                   {s.allSystemsVerified}
-                </p>
-              ) : null}
-           </div>
-           <div className="bg-slate-900 p-8 rounded-[32px] text-white shadow-2xl shadow-slate-900/20 border border-slate-800">
-              <div className="flex items-center gap-3 mb-4">
-                 <Zap size={20} className="text-blue-400 fill-blue-400" />
-                 <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{s.powerTip}</h4>
+        <div className="flex flex-col rounded-card border border-line bg-surface-raised p-5 shadow-card">
+          <h2 className="text-section font-semibold text-ink">{s.documentsByStatus}</h2>
+          <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-3 rounded-nav border border-dashed border-line bg-surface/40 py-10">
+            <div className="flex gap-1.5">
+              <span className="h-2 w-2 rounded-pill bg-success/50" />
+              <span className="h-2 w-2 rounded-pill bg-warning/50" />
+              <span className="h-2 w-2 rounded-pill bg-danger/50" />
+            </div>
+            <span className="text-sm font-medium text-ink-muted">{s.dataComingSoon}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick actions */}
+      <section>
+        <h2 className="mb-3 text-[13px] font-semibold text-ink-tertiary">{s.quickActions}</h2>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {/* Primary: New scan */}
+          <button
+            onClick={onNewScan}
+            className="flex items-center gap-3 rounded-card border border-accent bg-accent p-4 text-start shadow-card transition-colors hover:bg-accent-hover"
+          >
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-btn bg-white/15 text-white">
+              <ScanLine size={19} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-white">{s.newScan}</span>
+              <span className="block text-xs text-white/80">{s.uploadData}</span>
+            </span>
+          </button>
+
+          {[
+            { onClick: () => navigate('/search'), icon: <Search size={18} />, title: s.searchTab, sub: s.queryAI },
+            { onClick: () => navigate('/queue'), icon: <ClipboardCheck size={18} />, title: s.reviewTitle, sub: s.validate },
+            {
+              onClick: async () => {
+                try {
+                  await documentService.exportCsv();
+                } catch (err) {
+                  console.error('Export failed:', err);
+                  alert('Export failed. Please try again.');
+                }
+              },
+              icon: <Download size={18} />,
+              title: s.exportCSV,
+              sub: s.downloadData,
+            },
+          ].map((a, i) => (
+            <button
+              key={i}
+              onClick={a.onClick}
+              className="flex items-center gap-3 rounded-card border border-line bg-surface-raised p-4 text-start shadow-card transition-colors hover:border-line-strong hover:bg-surface-alt"
+            >
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-btn bg-surface-muted text-ink-tertiary">
+                {a.icon}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-ink">{a.title}</span>
+                <span className="block text-xs text-ink-muted">{a.sub}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Recent activity + side cards */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2.2fr_1fr]">
+        {/* Recent activity */}
+        <div className="overflow-hidden rounded-card border border-line bg-surface-raised shadow-card">
+          <div className="flex items-center justify-between border-b border-divider px-5 py-4">
+            <h2 className="text-section font-semibold text-ink">{s.recentActivity}</h2>
+            {recentActivity.length > 5 && !(isExpanded && !isDesktop) && (
+              <button
+                onClick={handleViewAll}
+                disabled={expanding}
+                className="inline-flex items-center gap-1 text-[13px] font-semibold text-accent-text hover:opacity-80 disabled:opacity-50"
+              >
+                {s.viewAll}
+                <ChevronRight size={14} className="rtl:-scale-x-100" />
+              </button>
+            )}
+          </div>
+
+          {recentActivity.length === 0 ? (
+            // Empty state
+            <div className="flex flex-col items-center px-6 py-16 text-center">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-card bg-surface-muted text-ink-faint">
+                <FileText size={26} />
               </div>
-              <p className="text-sm font-bold text-slate-300 leading-relaxed">
-                {s.powerTipText}
-              </p>
-           </div>
+              <p className="text-base font-semibold text-ink">{s.emptyTitle}</p>
+              <p className="mt-1 max-w-xs text-sm text-ink-muted">{s.emptyBody}</p>
+              <button
+                onClick={onNewScan}
+                className="mt-5 inline-flex items-center gap-2 rounded-btn bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-accent-hover"
+              >
+                <ScanLine size={16} />
+                {s.newScan}
+              </button>
+            </div>
+          ) : (
+            visibleActivity.map((item) => {
+              const meta = statusMeta(item.status, s);
+              const conf =
+                typeof item.overallConfidence === 'number'
+                  ? `${Math.round(item.overallConfidence * 100)}%`
+                  : null;
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => navigate(`/documents/${item.id}`)}
+                  className="flex cursor-pointer items-center gap-3 border-b border-divider px-5 py-3 transition-colors last:border-b-0 hover:bg-surface-alt"
+                >
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-btn border border-line bg-surface text-ink-faint">
+                    <FileText size={17} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-ink">
+                      {item.originalFileName || 'Unnamed document'}
+                    </div>
+                    <div className="mt-0.5 truncate text-xs text-ink-muted">
+                      {item.documentType ? `${item.documentType} · ` : ''}
+                      {formatDate(item.uploadedAt)}
+                    </div>
+                  </div>
+                  {conf && (
+                    <span className="hidden w-11 flex-shrink-0 text-end text-[13px] font-medium text-ink-tertiary sm:block">
+                      {conf}
+                    </span>
+                  )}
+                  <span className="inline-flex w-28 flex-shrink-0 items-center gap-2">
+                    <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-pill ${meta.dot}`} />
+                    <span className={`truncate text-xs font-medium ${meta.text}`}>{meta.label}</span>
+                  </span>
+                  <ChevronRight size={16} className="flex-shrink-0 text-ink-fainter rtl:-scale-x-100" />
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Insight + Tip (honest: derived from real totals / static guidance) */}
+        <div className="flex flex-col gap-4">
+          <div className="rounded-card border border-line bg-surface-raised p-5 shadow-card">
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="text-accent" />
+              <span className="text-[13px] font-semibold text-ink">{s.insight}</span>
+            </div>
+            <p className="mt-3 text-[13px] leading-relaxed text-ink-secondary">
+              {stats.pendingCount > 0
+                ? s.intelligencePulsePending.replace('{n}', stats.pendingCount.toString())
+                : stats.totalCount > 0
+                ? s.allSystemsVerified
+                : s.intelligencePulseDesc.replace('{n}', stats.totalCount.toString())}
+            </p>
+          </div>
+          <div className="rounded-card border border-line bg-surface-raised p-5 shadow-card">
+            <div className="flex items-center gap-2">
+              <Lightbulb size={16} className="text-warning" />
+              <span className="text-[13px] font-semibold text-ink">{s.tip}</span>
+            </div>
+            <p className="mt-3 text-[13px] leading-relaxed text-ink-secondary">{s.powerTipText}</p>
+          </div>
         </div>
       </div>
     </div>
