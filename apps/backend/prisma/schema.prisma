@@ -131,6 +131,12 @@ model Document {
   documentEntities DocumentEntity[]
 
   @@index([organizationId])
+  // PR-C1 dashboard analytics: the by-status breakdown groups on
+  // (organizationId, status); the monthly series / period counts filter on
+  // (organizationId, status, processedAt-range). These composite indexes let
+  // those aggregations use an index scan instead of an org-scan + filter.
+  @@index([organizationId, status])
+  @@index([organizationId, processedAt])
 }
 
 model DocumentFact {

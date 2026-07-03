@@ -3,6 +3,7 @@ import { prisma } from '../prismaClient';
 import { mapDocumentToDto, mapDocumentListToDto } from '../dto/documentDto';
 import { getSignedFileUrl } from '../services/storage/getSignedFileUrl';
 import { RuleEngineService } from '../services/ruleEngineService';
+import { computeDashboardAnalytics } from '../services/dashboardStatsService';
 
 export class DocumentController {
   public static async getDocumentDetail(req: Request, res: Response, next: NextFunction) {
@@ -74,12 +75,16 @@ export class DocumentController {
         return res.status(400).json({ error: 'Invalid organization context' });
       }
 
-      const [totalCount, pendingCount, avgResult, organization] = await Promise.all([
-        prisma.document.count({ 
-          where: { 
+      // UTC reference instant for the month-window analytics (PR-C1). Captured
+      // once so every bucket boundary is computed against the same clock.
+      const now = new Date();
+
+      const [totalCount, pendingCount, avgResult, organization, analytics] = await Promise.all([
+        prisma.document.count({
+          where: {
             organizationId,
             status: { in: ['COMPLETED', 'NEEDS_REVIEW'] }
-          } as any 
+          } as any
         }),
         prisma.document.count({
           where: {
@@ -88,7 +93,7 @@ export class DocumentController {
           } as any
         }),
         prisma.document.aggregate({
-          where: { 
+          where: {
             organizationId,
             status: { in: ['COMPLETED', 'NEEDS_REVIEW'] }
           } as any,
@@ -97,18 +102,26 @@ export class DocumentController {
         prisma.organization.findUnique({
           where: { id: organizationId as string },
           select: { plan: true }
-        })
+        }),
+        // Additive analytics block (statusBreakdown / monthlySeries / periods).
+        // Org-scoped internally; runs concurrently with the queries above.
+        computeDashboardAnalytics(organizationId, now)
       ]);
 
-      const averageConfidence = (avgResult && avgResult._avg) 
-        ? (avgResult._avg.overallConfidence ?? 0) 
+      const averageConfidence = (avgResult && avgResult._avg)
+        ? (avgResult._avg.overallConfidence ?? 0)
         : 0;
 
       const payload = {
+        // Unchanged legacy fields — old clients keep working.
         totalCount: totalCount || 0,
         pendingCount: pendingCount || 0,
         averageConfidence: Number(averageConfidence),
-        plan: organization?.plan || 'FREE'
+        plan: organization?.plan || 'FREE',
+        // New additive analytics (PR-C1). Consumed by the dashboard in PR-C2.
+        statusBreakdown: analytics.statusBreakdown,
+        monthlySeries: analytics.monthlySeries,
+        periods: analytics.periods
       };
       
       console.log(`[DocumentController] Stats computed successfully for ${organizationId} (Plan: ${payload.plan})`);
