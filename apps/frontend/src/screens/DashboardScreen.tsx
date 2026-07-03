@@ -12,12 +12,26 @@ import {
   Sparkles,
   Lightbulb,
   ArrowRight,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 import { useStrings } from '../i18n/useStrings';
+import { useLanguage } from '../i18n/LanguageContext';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
 import { AreaChart } from '../components/AreaChart';
 import { useIsDesktop } from '../hooks/useMediaQuery';
+import {
+  chartHasData,
+  monthLabel,
+  computeTrend,
+  breakdownRows,
+  breakdownTotal,
+  type StatusBreakdown,
+  type MonthlyPoint,
+  type Periods,
+  type BreakdownKey,
+} from '../lib/dashboardAnalytics';
 
 const formatDate = (dateString: string) => {
   if (!dateString) return 'Recently';
@@ -45,12 +59,27 @@ const statusMeta = (status: string, s: ReturnType<typeof useStrings>) => {
   }
 };
 
+interface DashboardStats {
+  totalCount: number;
+  pendingCount: number;
+  averageConfidence: number;
+  statusBreakdown?: StatusBreakdown;
+  monthlySeries?: MonthlyPoint[];
+  periods?: Periods;
+}
+
 export const DashboardScreen = () => {
   const s = useStrings();
+  const { language } = useLanguage();
+  const isRtl = language === 'ar';
   const navigate = useNavigate();
   const { refreshCount, onNewScan } = useOutletContext<{ refreshCount: number; onNewScan: () => void }>();
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
-  const [stats, setStats] = useState({ totalCount: 0, pendingCount: 0, averageConfidence: 0 });
+  const [stats, setStats] = useState<DashboardStats>({ totalCount: 0, pendingCount: 0, averageConfidence: 0 });
+  // "This month" vs "All time" scope for the Processed KPI. Defaults to all-time
+  // (the pre-C2 behavior). The control only appears when the payload carries
+  // period data, so it is never an inert filter.
+  const [period, setPeriod] = useState<'all' | 'month'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -141,20 +170,33 @@ export const DashboardScreen = () => {
     );
   }
 
+  // ── Real analytics (PR-C2), all gated on genuine data ────────────────
+  // The "This month" control only exists when the payload carries period data.
+  const showPeriodFilter = !!stats.periods;
+  // Processed KPI scope: all-time total, or this-month processed when toggled.
+  const processedValue =
+    period === 'month' && stats.periods ? stats.periods.thisMonth.processed : stats.totalCount;
+  // Trend chip pairs with the this-month scope only (a monthly delta beside an
+  // all-time total would read wrong). Zero-base handled inside computeTrend.
+  const trend = period === 'month' ? computeTrend(stats.periods) : ({ kind: 'none' } as const);
+
   const kpis = [
     {
+      key: 'processed' as const,
       label: s.processedDocs,
-      value: stats.totalCount.toLocaleString(),
+      value: processedValue.toLocaleString(),
       icon: <FileText size={16} />,
       tile: 'bg-accent-tint text-accent',
     },
     {
+      key: 'pending' as const,
       label: s.pendingReview,
       value: stats.pendingCount.toLocaleString(),
       icon: <Clock size={16} />,
       tile: 'bg-surface-muted text-ink-tertiary',
     },
     {
+      key: 'confidence' as const,
       label: s.avgConfidence,
       value: `${(stats.averageConfidence * 100).toFixed(1)}%`,
       icon: <Gauge size={16} />,
@@ -162,14 +204,53 @@ export const DashboardScreen = () => {
     },
   ];
 
+  // Chart: only draw when it is honest to (real docs + a non-zero series);
+  // otherwise the AreaChart keeps its calm placeholder. RTL gets the series
+  // reversed (newest first) so months read right-to-left.
+  const chartPoints = chartHasData(stats.totalCount, stats.monthlySeries)
+    ? stats.monthlySeries!.map((p) => ({ label: monthLabel(p.month, language), value: p.count }))
+    : undefined;
+  const chartSeries = chartPoints ? (isRtl ? [...chartPoints].reverse() : chartPoints) : undefined;
+
+  // By-status breakdown over REAL statuses; placeholder when all-zero.
+  const bdRows = breakdownRows(stats.statusBreakdown);
+  const breakdownHasData = breakdownTotal(stats.statusBreakdown) > 0;
+  const bdMeta: Record<BreakdownKey, { label: string; dot: string; text: string }> = {
+    COMPLETED: { label: s.statusProcessed, dot: 'bg-success', text: 'text-success-text' },
+    NEEDS_REVIEW: { label: s.needsReview, dot: 'bg-warning', text: 'text-warning-text' },
+    REJECTED: { label: s.statusRejected, dot: 'bg-danger', text: 'text-danger-text' },
+  };
+
   const visibleActivity = recentActivity.slice(0, isExpanded ? undefined : 5);
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
       {/* Header */}
-      <header>
-        <h1 className="text-title-lg font-semibold tracking-tight text-ink">{s.dashboard}</h1>
-        <p className="mt-1.5 text-sm text-ink-muted">{s.welcomeBack}</p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-title-lg font-semibold tracking-tight text-ink">{s.dashboard}</h1>
+          <p className="mt-1.5 text-sm text-ink-muted">{s.welcomeBack}</p>
+        </div>
+        {/* Real period control — only shown when the payload carries period data,
+            so it is never an inert filter. Switches the Processed KPI scope. */}
+        {showPeriodFilter && (
+          <div role="group" aria-label={s.documentsProcessed} className="inline-flex rounded-btn border border-line bg-surface-raised p-0.5 text-[13px] font-medium shadow-card">
+            <button
+              onClick={() => setPeriod('all')}
+              aria-pressed={period === 'all'}
+              className={`rounded-[calc(var(--sa-radius-btn)-2px)] px-3 py-1.5 transition-colors ${period === 'all' ? 'bg-accent text-white' : 'text-ink-tertiary hover:text-ink'}`}
+            >
+              {s.allTime}
+            </button>
+            <button
+              onClick={() => setPeriod('month')}
+              aria-pressed={period === 'month'}
+              className={`rounded-[calc(var(--sa-radius-btn)-2px)] px-3 py-1.5 transition-colors ${period === 'month' ? 'bg-accent text-white' : 'text-ink-tertiary hover:text-ink'}`}
+            >
+              {s.thisMonth}
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Attention banner */}
@@ -200,34 +281,68 @@ export const DashboardScreen = () => {
               </div>
             </div>
             <div className="mt-4 text-kpi font-semibold text-ink">{k.value}</div>
-            {/* Trend chip intentionally omitted: period-over-period data is not
-                available from the backend yet (arrives in PR-C). We show no chip
-                rather than an invented percentage. */}
+            {/* Trend chip on the Processed KPI only (the one metric with real
+                period data). Zero-base -> "New" badge, never a fabricated %. */}
+            {k.key === 'processed' && trend.kind !== 'none' && (
+              <div className="mt-2">
+                {trend.kind === 'new' ? (
+                  <span className="inline-flex items-center gap-1 rounded-pill bg-success-tint px-2 py-0.5 text-xs font-semibold text-success">
+                    {s.trendNew}
+                  </span>
+                ) : (
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-xs font-semibold ${
+                      trend.direction === 'down' ? 'bg-danger-tint text-danger' : 'bg-success-tint text-success'
+                    }`}
+                  >
+                    {trend.direction === 'down' ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
+                    {trend.pct > 0 ? '+' : ''}
+                    {trend.pct}% {s.vsLastMonth}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Analytics row: documents-processed chart + by-status breakdown.
-          Both render placeholders until PR-C supplies the series / breakdown. */}
+      {/* Analytics row: documents-processed chart + by-status breakdown. Each
+          renders real data when the payload has it, else the calm placeholder. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="flex flex-col rounded-card border border-line bg-surface-raised p-5 shadow-card">
           <h2 className="text-section font-semibold text-ink">{s.documentsProcessed}</h2>
           <div className="mt-4">
-            {/* No series prop yet → AreaChart shows its calm placeholder. */}
-            <AreaChart placeholder={s.dataComingSoon} ariaLabel={s.documentsProcessed} />
+            {/* Undefined series → AreaChart keeps its calm placeholder. */}
+            <AreaChart series={chartSeries} placeholder={s.dataComingSoon} ariaLabel={s.documentsProcessed} rtl={isRtl} />
           </div>
         </div>
 
         <div className="flex flex-col rounded-card border border-line bg-surface-raised p-5 shadow-card">
           <h2 className="text-section font-semibold text-ink">{s.documentsByStatus}</h2>
-          <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-3 rounded-nav border border-dashed border-line bg-surface/40 py-10">
-            <div className="flex gap-1.5">
-              <span className="h-2 w-2 rounded-pill bg-success/50" />
-              <span className="h-2 w-2 rounded-pill bg-warning/50" />
-              <span className="h-2 w-2 rounded-pill bg-danger/50" />
+          {breakdownHasData ? (
+            <div className="mt-4 flex flex-col gap-3">
+              {bdRows.map((row) => {
+                const meta = bdMeta[row.key];
+                return (
+                  <div key={row.key} className="flex items-center gap-3">
+                    <span className={`h-2 w-2 flex-shrink-0 rounded-pill ${meta.dot}`} />
+                    <span className="flex-1 truncate text-sm text-ink-secondary">{meta.label}</span>
+                    <span className="text-sm font-semibold text-ink">{row.count.toLocaleString()}</span>
+                    <span className="w-9 text-end text-xs font-medium text-ink-muted">{row.pct}%</span>
+                  </div>
+                );
+              })}
             </div>
-            <span className="text-sm font-medium text-ink-muted">{s.dataComingSoon}</span>
-          </div>
+          ) : (
+            <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-3 rounded-nav border border-dashed border-line bg-surface/40 py-10">
+              <div className="flex gap-1.5">
+                <span className="h-2 w-2 rounded-pill bg-success/50" />
+                <span className="h-2 w-2 rounded-pill bg-warning/50" />
+                <span className="h-2 w-2 rounded-pill bg-danger/50" />
+              </div>
+              <span className="text-sm font-medium text-ink-muted">{s.dataComingSoon}</span>
+            </div>
+          )}
         </div>
       </div>
 
