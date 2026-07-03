@@ -19,17 +19,30 @@ repeated across sessions. Update the checkboxes as PRs merge.
 
 ## In progress / remaining (dashboard redesign)
 
-- [ ] **PR-C1 (this PR)** — Backend analytics. Extend `GET /documents/stats`
+- [x] **PR-C1 (#52)** — Backend analytics. Extended `GET /documents/stats`
       additively with `statusBreakdown`, `monthlySeries`, and `periods`; Prisma
       aggregations (org-scoped); additive index migration; backend tests. Real
       statuses (Processed / Needs review / Rejected); approval-rate omitted; UTC
-      month boundaries for v1. **Backend only — no frontend render change.**
-- [ ] **PR-C2 (next)** — Frontend wiring. Feed real series / breakdown /
-      trend-chip; restore the **"This month" filter** as a real control; chart
-      RTL (months right-to-left). Consumes PR-C1's payload. Frontend tests. Keep
-      the placeholder when data is genuinely empty (no fabricated flat-zero).
+      month boundaries for v1. Backend only — no frontend render change.
+- [x] **PR-C2 (this PR)** — Frontend wiring. Feeds real series / breakdown /
+      trend-chip from PR-C1's payload; restores the **"This month" / "All time"**
+      control (scoped to the Processed KPI — the only metric with real period
+      data); chart RTL (series reversed, months right-to-left, highlight
+      mirrored via a minimal `rtl` prop on AreaChart). Strict no-fabrication:
+      each widget shows the calm placeholder when its data is genuinely empty
+      (chart also when `totalCount === 0` or the series sums to 0); zero-base
+      trend shows a "New" badge, never `+100%`/`∞`. Pure helpers in
+      `lib/dashboardAnalytics.ts` unit-tested; component + RTL tests added.
+
+**The core dashboard redesign (PR-A → PR-C2) is now complete.**
+
+## Remaining (post-redesign, separate work)
+
 - [ ] **Deferred** — Sidebar restyle + propagate the design system to the other
       screens (Search, Review, Settings, etc.).
+- [ ] Per-period breakdown / pending / confidence (PR-C1 only provides
+      per-period *processed* counts, so the "This month" control scopes only the
+      Processed KPI today). Would need extra backend period aggregations.
 
 ## Known separate item (NOT part of the redesign)
 

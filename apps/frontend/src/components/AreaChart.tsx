@@ -13,6 +13,9 @@ interface AreaChartProps {
   /** Localized placeholder copy shown when there is no data. */
   placeholder: string;
   ariaLabel?: string;
+  /** When true the series is already reversed for RTL (newest first), so the
+      "latest point" highlight moves to the first point instead of the last. */
+  rtl?: boolean;
 }
 
 // Fixed viewBox coordinate space (matches the approved design). The SVG scales
@@ -29,7 +32,7 @@ const PAD_B = 32; // room for x-axis labels
  * + axis labels + highlighted latest point), styled entirely with the --sa-*
  * design tokens. No charting library — hand-authored SVG.
  */
-export const AreaChart: React.FC<AreaChartProps> = ({ series, placeholder, ariaLabel }) => {
+export const AreaChart: React.FC<AreaChartProps> = ({ series, placeholder, ariaLabel, rtl }) => {
   const hasData = Array.isArray(series) && series.length >= 2;
 
   if (!hasData) {
@@ -59,8 +62,11 @@ export const AreaChart: React.FC<AreaChartProps> = ({ series, placeholder, ariaL
 
   const linePath = series!.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
   const areaPath = `${linePath} L${x(series!.length - 1).toFixed(1)},${VB_H - PAD_B} L${PAD_L},${VB_H - PAD_B} Z`;
-  const lastX = x(series!.length - 1);
-  const lastY = y(series![series!.length - 1].value);
+  // In RTL the series is passed newest-first, so the current month sits at
+  // index 0; highlight that point instead of the last.
+  const latestIdx = rtl ? 0 : series!.length - 1;
+  const lastX = x(latestIdx);
+  const lastY = y(series![latestIdx].value);
 
   // Four horizontal gridlines at quartiles of the max.
   const gridLevels = [0.25, 0.5, 0.75, 1];

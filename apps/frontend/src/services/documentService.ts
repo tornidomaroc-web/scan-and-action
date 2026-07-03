@@ -24,7 +24,17 @@ export const documentService = {
     return res.json();
   },
 
-  async getStats(): Promise<{ totalCount: number, pendingCount: number, averageConfidence: number, plan?: 'FREE' | 'PRO' }> {
+  async getStats(): Promise<{
+    totalCount: number,
+    pendingCount: number,
+    averageConfidence: number,
+    plan?: 'FREE' | 'PRO',
+    // PR-C1 additive analytics (optional: an older response without them still
+    // renders exactly as before — the widgets fall back to placeholders).
+    statusBreakdown?: { COMPLETED: number, NEEDS_REVIEW: number, REJECTED: number },
+    monthlySeries?: Array<{ month: string, count: number }>,
+    periods?: { thisMonth: { processed: number }, lastMonth: { processed: number } },
+  }> {
     const res = await fetch(`${API_BASE_URL}/documents/stats`, {
       method: 'GET',
       headers: await getAuthHeaders()
