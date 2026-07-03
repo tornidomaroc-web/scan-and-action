@@ -36,10 +36,39 @@ repeated across sessions. Update the checkboxes as PRs merge.
 
 **The core dashboard redesign (PR-A → PR-C2) is now complete.**
 
+## Phase D — design-system propagation
+
+The dashboard is the reference; Phase D carries the indigo `--sa-*` system to
+every other screen. **D1 is the high-leverage multiplier** (chrome + a token
+bridge), after which each remaining PR is a focused per-screen restyle.
+
+- [x] **PR-D1 (this PR)** — **Chrome + legacy-var/class token bridge.** Retargets
+      the legacy CSS vars (`--accent`, `--card`, `--border`, `--nav-active-*`, …)
+      to alias the `--sa-*` tokens (light + dark, single source of truth), so the
+      shared component classes (`.saas-card`, `.btn-primary`, `.nav-item`,
+      `.saas-table`, `.badge-*`, `.skeleton`) instantly reskin onto indigo with
+      token radii + quiet elevation. Restyles the chrome (`Layout`, `Sidebar`,
+      `BottomTabBar`) onto tokens and converts its physical CSS to logical
+      properties (`ms`/`me`, `start`/`end`, `border-e`, `text-start`) so the rail
+      and bottom tab bar mirror correctly in Arabic/RTL. **No anti-steering /
+      `isNativePlatform` / pricing change; Sidebar plan area stays status-only.**
+      Consequence (intended): every other screen is now recolored onto indigo and
+      picks up the restyled shared cards/buttons/tables. Screens that still carry
+      raw `blue-*` utilities in their bodies render **two-tone** (indigo chrome +
+      blue screen-body accents) until their own D-PR lands — reskinned, not broken.
+- [ ] **PR-D2** — Search screen restyle.
+- [ ] **PR-D3** — Document Detail restyle.
+- [ ] **PR-D4** — Review Queue restyle.
+- [ ] **PR-D5** — Activity restyle.
+- [ ] **PR-D6** — Settings + Paywall restyle. ⚠️ **Sensitive:** touches paywall
+      surfaces — must not alter anti-steering / `isNativePlatform` gating (PR #47).
+- [ ] **PR-D7** — Auth screen restyle.
+- [ ] **PR-D8** — Profile + modals (Upload / Capture / Delete-account) restyle.
+- [ ] **PR-D9** — Legal screens (Terms / Privacy / Delete-account info) restyle.
+- [ ] **Landing** — tracked separately from the app shell (marketing surface).
+
 ## Remaining (post-redesign, separate work)
 
-- [ ] **Deferred** — Sidebar restyle + propagate the design system to the other
-      screens (Search, Review, Settings, etc.).
 - [ ] Per-period breakdown / pending / confidence (PR-C1 only provides
       per-period *processed* counts, so the "This month" control scopes only the
       Processed KPI today). Would need extra backend period aggregations.

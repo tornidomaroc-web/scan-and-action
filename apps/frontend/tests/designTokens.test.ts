@@ -87,7 +87,7 @@ describe('typography — real fonts, self-hosted, no CDN', () => {
   });
 });
 
-describe('reconciliation — one system, legacy vars intentionally preserved', () => {
+describe('reconciliation — one system, legacy vars now bridge onto the tokens', () => {
   it('index.css imports the token layer BEFORE @tailwind (or the bundler drops it)', () => {
     const importIdx = indexCss.indexOf("@import './styles/tokens.css'");
     const tailwindIdx = indexCss.indexOf('@tailwind base');
@@ -97,9 +97,12 @@ describe('reconciliation — one system, legacy vars intentionally preserved', (
     expect(importIdx).toBeLessThan(tailwindIdx);
   });
 
-  it('legacy vars remain (unchanged this PR) so the app does not restyle yet', () => {
-    // These still drive .saas-card/.btn-primary/.nav-item; PR-B migrates them.
-    expect(indexCss).toMatch(/--accent:\s*#2563eb/i);
-    expect(indexCss).toMatch(/--background:\s*#f9fafb/i);
+  it('legacy vars alias the --sa-* tokens (PR-D1 bridge — indigo everywhere)', () => {
+    // As of PR-D1 the legacy vars that drive .saas-card/.btn-primary/.nav-item
+    // no longer carry their own hex; they alias the token layer so the indigo
+    // system is one source of truth. (Detailed per-var coverage lives in
+    // tokenBridge.test.ts.)
+    expect(indexCss).toMatch(/--accent:\s*var\(--sa-accent\)/i);
+    expect(indexCss).toMatch(/--background:\s*var\(--sa-surface\)/i);
   });
 });

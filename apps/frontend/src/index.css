@@ -10,41 +10,47 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────────────────
-   LEGACY variables (DEPRECATED — being migrated to --sa-* tokens).
+   LEGACY variables — now a thin BRIDGE onto the --sa-* token layer (PR-D1).
    These still drive the existing component classes (.saas-card, .btn-primary,
-   .nav-item, .saas-table, .badge-*, .skeleton, etc.). They are intentionally
-   LEFT AT THEIR CURRENT VALUES in this PR so the app does not visibly restyle
-   before the screens adopt the tokens. PR-B migrates each consumer onto the
-   --sa-* tokens (e.g. --accent → var(--sa-accent) indigo) and then removes the
-   corresponding legacy var once nothing references it.
+   .nav-item, .saas-table, .badge-*, .skeleton, etc.), but they no longer carry
+   their own colour values: each one ALIASES an --sa-* token so the indigo
+   design system stays a single source of truth. Retint a token in tokens.css
+   and every legacy screen follows — no divergence.
+
+   The aliases are declared in BOTH :root and .dark. That is deliberate: it is
+   correct whether the engine substitutes nested var() lazily (at point of use)
+   or eagerly (at declaration). Because the --sa-* names are identical in both
+   blocks, the .dark block simply re-pins the same alias so the dark token
+   values always flow through. Later D-PRs migrate each consumer directly onto
+   the tokens and delete the corresponding alias once nothing references it.
    ───────────────────────────────────────────────────────────────────────── */
 :root {
-  --background: #f9fafb;
-  --card: #ffffff;
-  --card-hover: rgba(0, 0, 0, 0.04);
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --border: #e5e7eb;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --nav-hover: #f3f4f6;
-  --nav-active-bg: #eff6ff;
-  --nav-active-text: #2563eb;
+  --background: var(--sa-surface);
+  --card: var(--sa-surface-raised);
+  --card-hover: var(--sa-surface-alt);
+  --text-primary: var(--sa-ink);
+  --text-secondary: var(--sa-ink-secondary);
+  --border: var(--sa-line);
+  --accent: var(--sa-accent);
+  --accent-hover: var(--sa-accent-hover);
+  --nav-hover: var(--sa-surface-muted);
+  --nav-active-bg: var(--sa-accent-tint-2);
+  --nav-active-text: var(--sa-accent-text);
   --transition-speed: 0.2s;
 }
 
 .dark {
-  --background: #0f172a;
-  --card: #1e293b;
-  --card-hover: rgba(255, 255, 255, 0.02);
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --border: #334155;
-  --accent: #3b82f6;
-  --accent-hover: #60a5fa;
-  --nav-hover: #1e293b;
-  --nav-active-bg: rgba(59, 130, 246, 0.1);
-  --nav-active-text: #60a5fa;
+  --background: var(--sa-surface);
+  --card: var(--sa-surface-raised);
+  --card-hover: var(--sa-surface-alt);
+  --text-primary: var(--sa-ink);
+  --text-secondary: var(--sa-ink-secondary);
+  --border: var(--sa-line);
+  --accent: var(--sa-accent);
+  --accent-hover: var(--sa-accent-hover);
+  --nav-hover: var(--sa-surface-muted);
+  --nav-active-bg: var(--sa-accent-tint-2);
+  --nav-active-text: var(--sa-accent-text);
 }
 
 @layer base {
@@ -64,15 +70,15 @@
   .saas-card {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: var(--sa-radius-card);
     padding: 24px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    box-shadow: var(--sa-shadow-card);
     transition: all var(--transition-speed) ease;
     color: var(--text-primary);
   }
 
   .saas-card:hover {
-    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+    box-shadow: var(--sa-shadow-raised);
   }
 
   .nav-item {
@@ -80,7 +86,7 @@
     align-items: center;
     gap: 12px;
     padding: 10px 16px;
-    border-radius: 8px;
+    border-radius: var(--sa-radius-nav);
     color: var(--text-secondary);
     font-weight: 500;
     font-size: 0.875rem;
@@ -105,7 +111,7 @@
     font-weight: 600;
     font-size: 0.875rem;
     padding: 10px 20px;
-    border-radius: 8px;
+    border-radius: var(--sa-radius-btn);
     transition: all var(--transition-speed);
     display: inline-flex;
     align-items: center;
@@ -127,7 +133,7 @@
 
   .saas-table th {
     padding: 16px 24px;
-    text-align: left;
+    text-align: start;
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -157,14 +163,12 @@
     letter-spacing: 0.05em;
   }
 
+  /* Badge palettes now derive from the semantic --sa-* tint/text tokens, which
+     already carry their own dark values — so the per-badge .dark overrides are
+     gone (one token flip handles both themes). */
   .badge-pending {
-    background-color: #fff7ed;
-    color: #c2410c;
-  }
-
-  .dark .badge-pending {
-    background-color: rgba(251, 146, 60, 0.1);
-    color: #fb923c;
+    background-color: var(--sa-warning-tint);
+    color: var(--sa-warning-text);
   }
 
   .badge-dot {
@@ -199,23 +203,13 @@
   }
 
   .badge-success {
-    background-color: #f0fdf4;
-    color: #16a34a;
-  }
-
-  .dark .badge-success {
-    background-color: rgba(34, 197, 94, 0.1);
-    color: #4ade80;
+    background-color: var(--sa-success-tint);
+    color: var(--sa-success-text);
   }
 
   .badge-danger {
-    background-color: #fef2f2;
-    color: #dc2626;
-  }
-
-  .dark .badge-danger {
-    background-color: rgba(239, 68, 68, 0.1);
-    color: #f87171;
+    background-color: var(--sa-danger-tint);
+    color: var(--sa-danger-text);
   }
 
   .chart-card {
@@ -271,14 +265,14 @@
 
   .meta-box b {
     color: var(--text-secondary);
-    margin-right: 4px;
+    margin-inline-end: 4px;
   }
 
   .summary-block {
     padding: 20px;
     background-color: var(--nav-active-bg);
-    border-left: 4px solid var(--accent);
-    border-radius: 8px;
+    border-inline-start: 4px solid var(--accent);
+    border-radius: var(--sa-radius-nav);
     font-size: 0.9375rem;
     line-height: 1.6;
     color: var(--text-primary);
@@ -292,7 +286,7 @@
   }
 
   .results-table th {
-    text-align: left;
+    text-align: start;
     padding: 12px;
     font-size: 0.75rem;
     font-weight: 700;
@@ -375,6 +369,6 @@
   left: -40%;
   width: 40%;
   border-radius: 9999px;
-  background: #3b82f6;
+  background: var(--sa-accent);
   animation: indeterminate-slide 1.2s ease-in-out infinite;
 }

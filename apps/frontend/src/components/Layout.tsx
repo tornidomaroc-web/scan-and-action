@@ -74,31 +74,32 @@ export const Layout: React.FC = () => {
 
   return (
     <ProcessingProvider onJobSettled={handleUploadSuccess}>
-    <div className="flex flex-col md:flex-row min-h-screen w-full bg-slate-50 dark:bg-slate-950 transition-colors duration-500">
+    <div className="flex flex-col md:flex-row min-h-screen w-full bg-surface transition-colors duration-500">
       {/* Mobile Top Bar */}
-      <header className="flex md:hidden items-center justify-between px-6 pb-4 pt-[max(1rem,env(safe-area-inset-top))] bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-[60] shadow-sm">
+      <header className="flex md:hidden items-center justify-between px-6 pb-4 pt-[max(1rem,env(safe-area-inset-top))] bg-surface-raised border-b border-line sticky top-0 z-[60] shadow-card">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <div className="w-8 h-8 bg-accent rounded-btn flex items-center justify-center shadow-card">
             <Camera size={18} className="text-white" />
           </div>
-          <span className="font-bold text-slate-900 dark:text-white tracking-tight">Scan & Action</span>
+          <span className="font-bold text-ink tracking-tight">Scan & Action</span>
         </div>
         <button
           onClick={handleNewScan}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2"
+          className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-btn text-sm font-bold shadow-card transition-all active:scale-95 flex items-center gap-2"
         >
           <Camera size={16} />
           Scan Receipt
         </button>
       </header>
 
-      {/* Sidebar - Fixed Layer (Hidden on Mobile) */}
-      <aside className="hidden md:block fixed inset-y-0 left-0 z-50 w-[280px] border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all duration-500">
+      {/* Sidebar - Fixed Layer (Hidden on Mobile). `start-0` + `border-e` are
+          logical, so the rail mirrors to the right edge in Arabic/RTL. */}
+      <aside className="hidden md:block fixed inset-y-0 start-0 z-50 w-[280px] border-e border-line bg-surface-raised shadow-lg dark:shadow-none transition-all duration-500">
         <Sidebar onNewScan={handleNewScan} plan={plan} onRefreshPlan={handleRefreshPlan} />
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 md:ml-[280px] min-h-screen overflow-y-auto pb-20 md:pb-0">
+      {/* Main Content Area (logical margin so it clears the rail on either edge) */}
+      <main className="flex-1 md:ms-[280px] min-h-screen overflow-y-auto pb-20 md:pb-0">
         <div className="p-4 md:p-8 lg:p-12 xl:p-16">
           <Outlet context={{ refreshCount, onNewScan: handleNewScan, onSuccess: handleUploadSuccess, plan }} />
         </div>

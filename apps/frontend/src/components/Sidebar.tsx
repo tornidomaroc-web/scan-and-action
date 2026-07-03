@@ -79,7 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
       width: '260px',
       height: '100vh',
       backgroundColor: 'var(--card)',
-      borderRight: '1px solid var(--border)',
+      borderInlineEnd: '1px solid var(--border)',
       display: 'flex',
       flexDirection: 'column',
       position: 'sticky',
@@ -90,7 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
     }}>
       {/* Branding */}
       <div style={{ padding: '32px 24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{ width: '36px', height: '36px', background: 'var(--accent)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: '36px', height: '36px', background: 'var(--accent)', borderRadius: 'var(--sa-radius-btn)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Zap size={20} color="white" />
         </div>
         <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.025em' }}>{s.header}</span>
@@ -136,7 +136,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
             alignItems: 'center',
             gap: '12px',
             padding: '10px 16px',
-            borderRadius: '8px',
+            borderRadius: 'var(--sa-radius-nav)',
             background: 'var(--nav-hover)',
             border: 'none',
             cursor: 'pointer',
@@ -160,7 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
               right: 0,
               backgroundColor: 'var(--card)',
               border: '1px solid var(--border)',
-              borderRadius: '12px',
+              borderRadius: 'var(--sa-radius-card)',
               boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05)',
               overflow: 'hidden',
               zIndex: 100,
@@ -168,20 +168,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
             }}>
               <button
                 onClick={() => { navigate('/settings'); setIsMenuOpen(false); }}
-                style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: '14px', color: 'var(--text-primary)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{ width: '100%', padding: '12px 16px', textAlign: 'start', fontSize: '14px', color: 'var(--text-primary)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
                 <User size={16} color="var(--text-secondary)" /> {s.myProfile}
               </button>
               <button
                 onClick={() => { navigate('/settings'); setIsMenuOpen(false); }}
-                style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: '14px', color: 'var(--text-primary)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{ width: '100%', padding: '12px 16px', textAlign: 'start', fontSize: '14px', color: 'var(--text-primary)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
                 <Settings size={16} color="var(--text-secondary)" /> {s.settings}
               </button>
               <div style={{ borderTop: '1px solid var(--border)' }} />
               <button
                 onClick={handleLogout}
-                style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: '14px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}
+                style={{ width: '100%', padding: '12px 16px', textAlign: 'start', fontSize: '14px', color: 'var(--sa-danger)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}
               >
                 <LogOut size={16} /> {s.signOut}
               </button>
@@ -196,7 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
               alignItems: 'center',
               gap: '12px',
               padding: '8px',
-              borderRadius: '8px',
+              borderRadius: 'var(--sa-radius-nav)',
               background: isMenuOpen ? 'var(--nav-hover)' : 'none',
               border: 'none',
               cursor: 'pointer',
@@ -206,7 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
             <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--nav-active-bg)', color: 'var(--nav-active-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '0.875rem', flexShrink: 0 }}>
               {userName.charAt(0).toUpperCase()}
             </div>
-            <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+            <div style={{ flex: 1, minWidth: 0, textAlign: 'start' }}>
               <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName}</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
