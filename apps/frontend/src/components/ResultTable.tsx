@@ -1,9 +1,10 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, FileText } from 'lucide-react';
 import { EmptyState } from './EmptyState';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { formatCellValue } from '../lib/formatCellValue';
+import { getPrimaryFields } from '../lib/searchResultCard';
 
 type ResultTableProps = {
   data: any[];
@@ -14,15 +15,18 @@ type ResultTableProps = {
 const columnLabel = (h: string) => h.replace(/([A-Z])/g, ' $1').trim();
 
 // Responsive results table restyled onto the --sa-* tokens.
-//  - Desktop (>= md): a horizontal table (unchanged layout).
-//  - Mobile (< md): each row becomes a stacked CARD of label-above-value pairs,
-//    so nothing overflows or wraps one character per line on a narrow screen.
-// Every cell value is run through formatCellValue, which turns objects/arrays
-// (e.g. `facts`, `documentEntities`) into readable text instead of the raw
-// "[object Object]", and empty values into a muted "not available" placeholder.
-// Alignment is by logical `start` and each value carries dir="auto", so Arabic
-// mirrors correctly while numerals/dates stay LTR. Rows stay clickable (read-only
-// navigation to the document) in both layouts.
+//  - Desktop (>= md): a horizontal table showing all columns (unchanged). Every
+//    cell runs through formatCellValue, so objects/arrays (`facts`,
+//    `documentEntities`) read as text instead of "[object Object]" and empty
+//    values show a muted "not available" placeholder.
+//  - Mobile (< md): PROGRESSIVE DISCLOSURE. Each row is a slim card showing only
+//    the primary fields (name, vendor, amount, translated status) rather than
+//    every column; the whole card taps through to the document detail route where
+//    the full record already lives. The long file name truncates with an ellipsis
+//    (never overflows or wraps one character per line).
+// Alignment is by logical `start` (dir="auto" on desktop values, dir="ltr" on the
+// mobile amount) so Arabic mirrors correctly while numerals stay LTR. Rows stay
+// clickable (read-only navigation to the document) in both layouts.
 export const ResultTable = ({ data, emptyStateComponent, onRowClick }: ResultTableProps) => {
   const s = useStrings();
   const { language } = useLanguage();
@@ -95,33 +99,53 @@ export const ResultTable = ({ data, emptyStateComponent, onRowClick }: ResultTab
         </table>
       </div>
 
-      {/* ── Mobile: stacked cards (< md) ──────────────────────────────────── */}
+      {/* ── Mobile: slim primary-field cards (< md) ───────────────────────── */}
       <div className="flex flex-col gap-3 md:hidden">
-        {data.map((row, i) => (
-          <div
-            key={row.id ?? i}
-            onClick={isClickable ? () => onRowClick!(row) : undefined}
-            className={`rounded-card border border-line bg-surface-raised p-4 shadow-card transition-colors ${
-              isClickable ? 'cursor-pointer active:bg-surface-alt' : ''
-            }`}
-          >
-            <dl className="flex flex-col gap-3">
-              {headers.map((h) => (
-                <div key={h} className="flex flex-col gap-0.5">
-                  <dt className="text-label font-semibold uppercase tracking-wide text-ink-tertiary">
-                    {columnLabel(h)}
-                  </dt>
-                  <dd className="break-words text-sm text-ink-secondary">{renderValue(row, h)}</dd>
+        {data.map((row, i) => {
+          const { title, vendor, amount, status } = getPrimaryFields(row, s as any, language);
+          const CardTag = isClickable ? 'button' : 'div';
+          return (
+            <CardTag
+              key={row.id ?? i}
+              type={isClickable ? 'button' : undefined}
+              onClick={isClickable ? () => onRowClick!(row) : undefined}
+              className={`flex w-full flex-col gap-3 rounded-card border border-line bg-surface-raised p-4 text-start shadow-card transition-colors ${
+                isClickable ? 'cursor-pointer active:bg-surface-alt' : ''
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-btn border border-line bg-surface text-ink-faint">
+                  <FileText size={16} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-ink">{title}</div>
+                  {vendor && <div className="mt-0.5 truncate text-xs text-ink-muted">{vendor}</div>}
                 </div>
-              ))}
-            </dl>
-            {isClickable && (
-              <div className="mt-3 flex items-center justify-end border-t border-divider pt-3 text-ink-fainter">
-                <ChevronRight size={16} className="rtl:-scale-x-100" />
+                {amount && (
+                  <span className="flex-shrink-0 text-sm font-semibold text-ink" dir="ltr">
+                    {amount}
+                  </span>
+                )}
               </div>
-            )}
-          </div>
-        ))}
+
+              {(status || isClickable) && (
+                <div className="flex items-center justify-between border-t border-divider pt-3">
+                  {status ? (
+                    <span className="inline-flex min-w-0 items-center gap-2">
+                      <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-pill ${status.dot}`} />
+                      <span className={`truncate text-xs font-medium ${status.text}`}>{status.label}</span>
+                    </span>
+                  ) : (
+                    <span />
+                  )}
+                  {isClickable && (
+                    <ChevronRight size={16} className="flex-shrink-0 text-ink-fainter rtl:-scale-x-100" />
+                  )}
+                </div>
+              )}
+            </CardTag>
+          );
+        })}
       </div>
     </>
   );

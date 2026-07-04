@@ -164,51 +164,94 @@ describe('Search restyle — answer + labels come from i18n and real data only',
     await vi.waitFor(() => expect(text()).toContain('DOC-DETAIL-STUB'));
   });
 
+  // A rich document row: a long file name, object/array columns, plus several
+  // fields that must be DROPPED from the mobile card face (progressive disclosure).
+  const LONG_NAME = 'JPEG_20260615_222241_1286235000237534355.jpg';
   const RICH_ROW = {
     id: 'doc-7',
-    originalFileName: 'Aurora Studios.pdf',
-    documentEntities: [{ role: 'VENDOR', entity: { canonicalName: 'Aurora Studios' } }],
-    facts: [{ key: 'AMOUNT', valueNumber: 4280, currency: 'USD' }],
+    originalFileName: LONG_NAME,
+    documentType: 'UNKNOWN_DOCUMENT_TYPE',
+    detectedLanguage: 'ar',
     summary: 'Quarterly retainer invoice.',
+    overallConfidence: 0.42,
+    status: 'COMPLETED',
     uploadedAt: '2026-07-01T10:00:00Z',
+    processedAt: '2026-07-02T11:00:00Z',
+    documentEntities: [{ role: 'VENDOR', entity: { canonicalName: 'Aurora Studios' } }],
+    facts: [{ key: 'AMOUNT', factType: 'AMOUNT', valueNumber: 4280, currency: 'USD' }],
     notes: null,
   };
   const tableResult = {
     intent: 'list', outputFormat: 'table', requiresClarification: false,
     data: [RICH_ROW], resultCount: 1, executionTimeMs: 50, sourceLanguage: 'en',
   };
+  // The mobile card subtree only (scopes assertions away from the desktop table,
+  // which still renders every raw column).
+  const mobileText = () => (container.querySelector('div.md\\:hidden') as HTMLElement)?.textContent ?? '';
 
-  it('formats object/array cells as readable text (never "[object Object]")', async () => {
+  it('desktop table still formats object/array cells as readable text (never "[object Object]")', async () => {
     h.executeQuery.mockResolvedValue(tableResult);
     mount('en');
     runQuery('recent invoices');
     await vi.waitFor(() => expect(text()).toContain('Aurora Studios'));
     expect(text()).not.toContain('[object Object]');
-    expect(text()).toContain('4280'); // fact value, formatted
-    expect(text()).toContain('USD');
+    // Desktop still shows the raw facts column formatted.
+    const desktop = (container.querySelector('div.md\\:block') as HTMLElement).textContent ?? '';
+    expect(desktop).toContain('4280');
+    expect(desktop).toContain('USD');
   });
 
-  it('renders the mobile stacked-card layout (label/value pairs) alongside the desktop table', async () => {
+  it('mobile card shows ONLY the primary fields (name, vendor, amount, status), not every column', async () => {
     h.executeQuery.mockResolvedValue(tableResult);
     mount('en');
     runQuery('recent invoices');
-    await vi.waitFor(() => expect(container.querySelector('dl')).toBeTruthy());
-    // Mobile cards use a <dl> of <dt> labels + <dd> values.
-    const labels = [...container.querySelectorAll('dt')].map((el) => el.textContent?.trim());
-    expect(labels).toContain('summary');
-    // Exactly one mobile card for one row.
-    const cards = container.querySelectorAll('div.md\\:hidden > div');
-    expect(cards.length).toBe(1);
-    // And the desktop table still exists (not regressed).
+    await vi.waitFor(() => expect(container.querySelector('div.md\\:hidden button')).toBeTruthy());
+    const m = mobileText();
+    // Shown primaries:
+    expect(m).toContain(LONG_NAME); // title
+    expect(m).toContain('Aurora Studios'); // vendor
+    expect(m).toContain('4,280'); // amount, currency-formatted
+    expect(m).toContain(strings.en.statusProcessed); // translated status
+    // Never the raw enum:
+    expect(m).not.toContain('COMPLETED');
+    expect(m).not.toContain('[object Object]');
+    // Dropped fields must NOT appear on the mobile card face:
+    expect(m).not.toContain('UNKNOWN_DOCUMENT_TYPE');
+    expect(m).not.toContain('Quarterly retainer invoice.'); // summary
+    expect(m).not.toContain('0.42'); // confidence
+    // One card for one row; desktop table still present (not regressed).
+    expect(container.querySelectorAll('div.md\\:hidden > button').length).toBe(1);
     expect(container.querySelector('div.md\\:block table')).toBeTruthy();
   });
 
-  it('mobile card rows still navigate read-only to the document', async () => {
+  it('mobile card title truncates (never overflows / wraps per character)', async () => {
     h.executeQuery.mockResolvedValue(tableResult);
     mount('en');
     runQuery('recent invoices');
-    await vi.waitFor(() => expect(container.querySelector('dl')).toBeTruthy());
-    const card = container.querySelector('div.md\\:hidden > div') as HTMLElement;
+    await vi.waitFor(() => expect(container.querySelector('div.md\\:hidden button')).toBeTruthy());
+    const titleEl = [...container.querySelectorAll('div.md\\:hidden button div')].find(
+      (el) => el.textContent?.trim() === LONG_NAME
+    ) as HTMLElement;
+    expect(titleEl).toBeTruthy();
+    expect(titleEl.className).toContain('truncate');
+  });
+
+  it('AR: mobile card status label is Arabic, not the raw enum', async () => {
+    h.executeQuery.mockResolvedValue(tableResult);
+    mount('ar');
+    runQuery('recent invoices');
+    await vi.waitFor(() => expect(container.querySelector('div.md\\:hidden button')).toBeTruthy());
+    const m = mobileText();
+    expect(m).toContain(strings.ar.statusProcessed);
+    expect(m).not.toContain('COMPLETED');
+  });
+
+  it('mobile card taps through to the document (read-only navigation preserved)', async () => {
+    h.executeQuery.mockResolvedValue(tableResult);
+    mount('en');
+    runQuery('recent invoices');
+    await vi.waitFor(() => expect(container.querySelector('div.md\\:hidden button')).toBeTruthy());
+    const card = container.querySelector('div.md\\:hidden > button') as HTMLElement;
     flushSync(() => card.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     await vi.waitFor(() => expect(text()).toContain('DOC-DETAIL-STUB'));
   });
