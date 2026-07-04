@@ -8,19 +8,16 @@ interface EmptyStateProps {
   children?: React.ReactNode;
 }
 
-export const EmptyState: React.FC<EmptyStateProps> = ({ 
-  message, 
-  description, 
-  icon,
-  children 
-}) => {
+// Neutral empty state restyled onto the --sa-* tokens. Symmetric (centered), so
+// it reads correctly in both LTR and RTL without any mirroring.
+export const EmptyState: React.FC<EmptyStateProps> = ({ message, description, icon, children }) => {
   return (
-    <div className="empty-state">
-      <div className="empty-state-icon">
-        {icon || <Inbox size={32} />}
+    <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-card bg-surface-muted text-ink-faint">
+        {icon || <Inbox size={26} />}
       </div>
-      <h3 className="text-lg font-bold text-slate-900 mb-1">{message}</h3>
-      {description && <p className="text-sm text-slate-500 max-w-xs mx-auto mb-6">{description}</p>}
+      <h3 className="text-section font-semibold text-ink">{message}</h3>
+      {description && <p className="mt-1 max-w-xs text-sm text-ink-muted">{description}</p>}
       {children}
     </div>
   );

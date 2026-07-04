@@ -1,14 +1,20 @@
 import React from 'react';
 import { HelpCircle } from 'lucide-react';
+import { useStrings } from '../i18n/useStrings';
 
-export const ClarificationCard = ({ message }: { message: string }) => (
-  <div className="card border-amber-100 bg-amber-50/50 flex items-start gap-4">
-    <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center shrink-0">
-      <HelpCircle size={24} />
+// Clarification prompt, restyled onto the semantic warning (amber) tokens. The
+// title is i18n so FR/AR read correctly; the flex/gap layout mirrors in RTL.
+export const ClarificationCard = ({ message }: { message: string }) => {
+  const s = useStrings();
+  return (
+    <div className="flex items-start gap-4 rounded-card border border-warning/30 bg-warning-tint p-5 shadow-card">
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-btn bg-warning/15 text-warning-text">
+        <HelpCircle size={20} />
+      </div>
+      <div className="flex-1">
+        <h3 className="text-section font-semibold text-warning-text">{s.clarificationNeeded}</h3>
+        <p className="mt-1 text-sm leading-relaxed text-ink-secondary">{message}</p>
+      </div>
     </div>
-    <div className="flex-1">
-      <h3 className="text-sm font-bold text-amber-800 uppercase tracking-widest mb-1">Clarification Needed</h3>
-      <p className="text-slate-700 font-medium leading-relaxed">{message}</p>
-    </div>
-  </div>
-);
+  );
+};

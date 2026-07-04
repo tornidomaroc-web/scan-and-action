@@ -56,7 +56,26 @@ bridge), after which each remaining PR is a focused per-screen restyle.
       picks up the restyled shared cards/buttons/tables. Screens that still carry
       raw `blue-*` utilities in their bodies render **two-tone** (indigo chrome +
       blue screen-body accents) until their own D-PR lands — reskinned, not broken.
-- [ ] **PR-D2** — Search screen restyle.
+- [x] **PR-D2** — **Search screen restyle.** Restyled `SearchScreen` and its
+      sub-components (`AnswerCard`, `ResultTable`, `ClarificationCard`,
+      `ChartPlaceholder`, `ReportCard`, plus the shared `ErrorState` /
+      `EmptyState`) onto the `--sa-*` tokens across every state: idle + insights
+      gallery, loading skeleton, answer card, data table (clickable rows →
+      `/documents/:id`, read-only), bar chart, clarification (amber), empty-data,
+      and error (red). Fixes from the read-only audit: (1) **RTL** — all physical
+      offsets/padding/borders converted to logical (`ps`/`pe`, `start`/`end`,
+      `border-s`, `text-start`, `rounded-e`, `rtl:-scale-x-100`) so Arabic
+      mirrors; numerals kept LTR. (2) **Hero H1 i18n bug** — dropped the
+      `split('data')` highlight trick that appended a literal English "data" to
+      the FR/AR strings; the translated headline now renders cleanly. (3) **i18n
+      the hardcoded English labels** — AnswerCard / ClarificationCard /
+      ChartPlaceholder / ResultTable-empty / ErrorState defaults + the two search
+      error sentences are now real keys in en/fr/ar (MSA). No-em-dash guard
+      extended to name the new keys. **No fabricated data** (answer renders only
+      the backend result; no invented comparisons). **No anti-steering / pricing
+      / `isNativePlatform` change** (Search has none; PR #47 stays green). Dead
+      code removed: `SearchScreen.loadReport` + `reportsService` + orphan
+      `SearchBar.tsx`.
 - [ ] **PR-D3** — Document Detail restyle.
 - [ ] **PR-D4** — Review Queue restyle.
 - [ ] **PR-D5** — Activity restyle.
