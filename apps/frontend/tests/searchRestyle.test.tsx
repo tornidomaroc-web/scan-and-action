@@ -164,6 +164,55 @@ describe('Search restyle — answer + labels come from i18n and real data only',
     await vi.waitFor(() => expect(text()).toContain('DOC-DETAIL-STUB'));
   });
 
+  const RICH_ROW = {
+    id: 'doc-7',
+    originalFileName: 'Aurora Studios.pdf',
+    documentEntities: [{ role: 'VENDOR', entity: { canonicalName: 'Aurora Studios' } }],
+    facts: [{ key: 'AMOUNT', valueNumber: 4280, currency: 'USD' }],
+    summary: 'Quarterly retainer invoice.',
+    uploadedAt: '2026-07-01T10:00:00Z',
+    notes: null,
+  };
+  const tableResult = {
+    intent: 'list', outputFormat: 'table', requiresClarification: false,
+    data: [RICH_ROW], resultCount: 1, executionTimeMs: 50, sourceLanguage: 'en',
+  };
+
+  it('formats object/array cells as readable text (never "[object Object]")', async () => {
+    h.executeQuery.mockResolvedValue(tableResult);
+    mount('en');
+    runQuery('recent invoices');
+    await vi.waitFor(() => expect(text()).toContain('Aurora Studios'));
+    expect(text()).not.toContain('[object Object]');
+    expect(text()).toContain('4280'); // fact value, formatted
+    expect(text()).toContain('USD');
+  });
+
+  it('renders the mobile stacked-card layout (label/value pairs) alongside the desktop table', async () => {
+    h.executeQuery.mockResolvedValue(tableResult);
+    mount('en');
+    runQuery('recent invoices');
+    await vi.waitFor(() => expect(container.querySelector('dl')).toBeTruthy());
+    // Mobile cards use a <dl> of <dt> labels + <dd> values.
+    const labels = [...container.querySelectorAll('dt')].map((el) => el.textContent?.trim());
+    expect(labels).toContain('summary');
+    // Exactly one mobile card for one row.
+    const cards = container.querySelectorAll('div.md\\:hidden > div');
+    expect(cards.length).toBe(1);
+    // And the desktop table still exists (not regressed).
+    expect(container.querySelector('div.md\\:block table')).toBeTruthy();
+  });
+
+  it('mobile card rows still navigate read-only to the document', async () => {
+    h.executeQuery.mockResolvedValue(tableResult);
+    mount('en');
+    runQuery('recent invoices');
+    await vi.waitFor(() => expect(container.querySelector('dl')).toBeTruthy());
+    const card = container.querySelector('div.md\\:hidden > div') as HTMLElement;
+    flushSync(() => card.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await vi.waitFor(() => expect(text()).toContain('DOC-DETAIL-STUB'));
+  });
+
   it('clarification renders the amber card with the i18n title', async () => {
     h.executeQuery.mockResolvedValue({
       intent: 'ambiguous', outputFormat: 'short_answer', requiresClarification: true,

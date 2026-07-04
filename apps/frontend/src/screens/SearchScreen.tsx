@@ -231,7 +231,9 @@ export const SearchScreen = () => {
                         {result.resultCount} {s.findingsLabel} &middot; {result.executionTimeMs} {s.msUnit}
                       </span>
                     </div>
-                    <div className="overflow-hidden rounded-card border border-line bg-surface-raised shadow-card">
+                    {/* Card chrome is desktop-only: on mobile the ResultTable
+                        renders its own stacked cards, so we avoid a card-in-card. */}
+                    <div className="md:overflow-hidden md:rounded-card md:border md:border-line md:bg-surface-raised md:shadow-card">
                       <ResultTable
                         data={result.data?.map(({ organizationId, userId, fileUrl, rawText, normalizedText, ...rest }: any) => rest)}
                         onRowClick={(row) => row.id && navigate(`/documents/${row.id}`)}
