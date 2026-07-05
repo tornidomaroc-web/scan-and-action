@@ -135,6 +135,28 @@ describe('i18n copy — no em/en dashes anywhere (hard rule)', () => {
   }
 });
 
+// The guard above iterates EVERY key, so the Search-redesign (D2) keys are
+// already covered. This block names them explicitly so the coverage is provable
+// (and a future refactor that narrows the guard to a subset would fail here).
+describe('i18n copy — Search redesign (D2) keys are dash-free (explicit)', () => {
+  const searchKeys = [
+    'aiInsight', 'executiveSummary', 'msProcessing', 'synthesizedFrom',
+    'clarificationNeeded', 'resultsTitle', 'findingsLabel', 'msUnit',
+    'dataVisualization', 'noChartData', 'noMatchingDataDesc',
+    'somethingWrong', 'tryAgain', 'searchFailed', 'autoRunFailed',
+  ] as const;
+  for (const loc of ['en', 'fr', 'ar'] as const) {
+    for (const key of searchKeys) {
+      it(`strings.${loc}.${key} is present and dash-free`, () => {
+        const value = (strings as Record<string, Record<string, unknown>>)[loc][key];
+        expect(typeof value).toBe('string');
+        expect(value as string).not.toContain('—');
+        expect(value as string).not.toContain('–');
+      });
+    }
+  }
+});
+
 describe('Dashboard restyle — empty state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
