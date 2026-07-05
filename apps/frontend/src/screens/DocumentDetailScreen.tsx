@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, CheckCircle, XCircle, FileText } from 'lucide-react';
+import { ChevronLeft, CheckCircle, XCircle, FileText, Network } from 'lucide-react';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
 import { ReviewBadge } from '../components/SharedComponents';
@@ -8,7 +8,18 @@ import { DecisionBanner } from '../components/DecisionBanner';
 import { FixActionPanel } from '../components/FixActionPanel';
 import { useToast } from '../contexts/ToastContext';
 import { useStrings } from '../i18n/useStrings';
+import { getStatus } from '../lib/searchResultCard';
 
+// Document detail, restyled onto the --sa-* token system (PR-D3).
+//  - Calm flat surfaces (rounded-card, quiet shadow) instead of the old
+//    oversized mega-card; every color is a token (no raw palette and no
+//    per-component theme variants), matching the D2 Search page.
+//  - The meta-grid status reuses the SAME shared status config as the Search
+//    card (getStatus), so it reads Processed / Needs review / Rejected with the
+//    same dot colors and Arabic, instead of the raw enum.
+//  - Mixed-direction values (file name, fact values, currency, entity names)
+//    are bidi-isolated so numerals and Latin text do not scramble in Arabic RTL.
+//  - All copy is i18n (three locales); no hardcoded English remains.
 export const DocumentDetailScreen = () => {
   const s = useStrings();
   const fieldLabel = (key: string): string => {
@@ -22,8 +33,8 @@ export const DocumentDetailScreen = () => {
   };
   const { id: documentId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  
-  if (!documentId) return <ErrorState title={s.errorTitle} message="Missing document ID" />;
+
+  if (!documentId) return <ErrorState title={s.errorTitle} message={s.docNotFound} />;
   const { showToast } = useToast();
   const [doc, setDoc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -37,14 +48,11 @@ export const DocumentDetailScreen = () => {
     setActioning(true);
     try {
       await documentService.updateStatus(documentId!, action === 'approve' ? 'COMPLETED' : 'REJECTED');
-      showToast(
-        action === 'approve' ? 'Document approved and intelligence verified.' : 'Document marked as rejected.',
-        action === 'approve' ? 'success' : 'info'
-      );
+      showToast(action === 'approve' ? s.toastApproved : s.toastRejected, action === 'approve' ? 'success' : 'info');
       navigate('/queue');
     } catch (error) {
       console.error('[DocumentDetail] Review action failed:', error);
-      showToast("We couldn't update this review item. Please try again.", 'error');
+      showToast(s.toastUpdateError, 'error');
     } finally {
       setActioning(false);
     }
@@ -64,29 +72,29 @@ export const DocumentDetailScreen = () => {
   }, [documentId]);
 
   const DocumentDetailSkeleton = () => (
-    <div className="max-w-[1000px] mx-auto animate-in fade-in duration-500">
-      <div className="h-6 w-32 skeleton mb-8 rounded dark:bg-slate-800" />
-      <div className="bg-white dark:bg-slate-900 rounded-[32px] p-8 border border-slate-100 dark:border-slate-800 shadow-xl">
-        <div className="flex justify-between items-start mb-8">
+    <div className="mx-auto max-w-[1000px] animate-in fade-in duration-500">
+      <div className="skeleton mb-8 h-6 w-32 rounded-btn" />
+      <div className="rounded-card border border-line bg-surface-raised p-5 shadow-card md:p-8">
+        <div className="mb-8 flex items-start justify-between">
           <div className="space-y-3">
-            <div className="h-10 w-64 skeleton rounded-lg dark:bg-slate-800" />
-            <div className="h-4 w-40 skeleton rounded dark:bg-slate-800" />
+            <div className="skeleton h-9 w-64 rounded-btn" />
+            <div className="skeleton h-4 w-40 rounded-btn" />
           </div>
-          <div className="h-10 w-32 skeleton rounded-full dark:bg-slate-800" />
+          <div className="skeleton h-8 w-28 rounded-pill" />
         </div>
-        <div className="grid grid-cols-4 gap-4 mb-10">
-          {[1,2,3,4].map(i => <div key={i} className="h-16 skeleton rounded-xl dark:bg-slate-800" />)}
+        <div className="mb-10 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-16 rounded-card" />)}
         </div>
-        <div className="h-[400px] skeleton rounded-2xl dark:bg-slate-800 mb-10" />
-        <div className="h-32 skeleton rounded-2xl dark:bg-slate-800" />
+        <div className="skeleton mb-8 h-[360px] rounded-card" />
+        <div className="skeleton h-28 rounded-card" />
       </div>
     </div>
   );
 
   if (loading) return <DocumentDetailSkeleton />;
 
-  if (errorMsg) return <div className="max-w-[1000px] mx-auto py-12"><ErrorState title={s.errorTitle} message={errorMsg} onRetry={() => window.location.reload()} /></div>;
-  if (!doc) return <div className="max-w-[1000px] mx-auto py-12"><ErrorState title={s.errorTitle} message={s.docNotFound} /></div>;
+  if (errorMsg) return <div className="mx-auto max-w-[1000px] py-12"><ErrorState title={s.errorTitle} message={errorMsg} onRetry={() => window.location.reload()} /></div>;
+  if (!doc) return <div className="mx-auto max-w-[1000px] py-12"><ErrorState title={s.errorTitle} message={s.docNotFound} /></div>;
 
   const isImageFile = typeof doc.signedFileUrl === 'string' && /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.originalFileName || '');
   const isPdfFile = typeof doc.signedFileUrl === 'string' && /\.pdf$/i.test(doc.originalFileName || '');
@@ -96,203 +104,223 @@ export const DocumentDetailScreen = () => {
   const decision = decisionFact?.valueString || null;
   const reason = reasonFact?.valueString || undefined;
 
+  // Reuse the Search card's status config so the label + dot match the card the
+  // user tapped to arrive here (Processed / Needs review / Rejected, translated).
+  const status = getStatus(doc, s as any);
+
+  const factValue = (fact: any): string => {
+    const raw = fact.valueString || fact.valueNumber || (fact.valueDate != null ? String(fact.valueDate) : '');
+    return `${raw}${fact.currency ? ` ${fact.currency}` : ''}`.trim();
+  };
+
   return (
-    <div className="max-w-[1000px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-      <button 
-        onClick={() => navigate(-1)} 
-        className="group flex items-center gap-2.5 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 font-black text-xs uppercase tracking-widest mb-10 transition-all active:scale-95"
+    <div className="mx-auto max-w-[1000px] animate-in fade-in slide-in-from-bottom-4 pb-20 duration-500">
+      <button
+        onClick={() => navigate(-1)}
+        className="group mb-8 inline-flex items-center gap-2 text-sm font-medium text-ink-secondary transition-colors hover:text-ink"
       >
-        <div className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm group-hover:border-blue-500 transition-colors">
-          <ChevronLeft size={18} strokeWidth={3} />
-        </div>
-        {s.backToSearch || 'Back to Workspace'}
+        <span className="flex h-8 w-8 items-center justify-center rounded-btn border border-line bg-surface-raised text-ink-faint shadow-card transition-colors group-hover:border-line-strong">
+          <ChevronLeft size={16} className="rtl:-scale-x-100" />
+        </span>
+        {s.backToSearch}
       </button>
 
-      <div className="bg-white dark:bg-slate-900 rounded-[40px] p-5 md:p-10 border border-slate-100 dark:border-slate-800 shadow-2xl shadow-slate-200/40 dark:shadow-none">
-        <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-10">
+      <div className="rounded-card border border-line bg-surface-raised p-5 shadow-card md:p-8">
+        <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row">
           <div className="min-w-0">
-            <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-3 leading-tight truncate max-w-full">
-              {doc.originalFileName || `Document ${doc.id}`}
+            <h1 className="mb-2 truncate text-title-lg font-semibold tracking-tight text-ink" dir="auto">
+              <bdi>{doc.originalFileName || `${s.errorTitle} ${doc.id}`}</bdi>
             </h1>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center">
-                <FileText size={18} strokeWidth={2.5} />
-              </div>
-              <p className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.2em] text-[10px]">
-                {s.verifiedExtraction}
-              </p>
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-btn bg-accent-tint text-accent">
+                <FileText size={15} />
+              </span>
+              <p className="text-label font-medium text-ink-tertiary">{s.verifiedExtraction}</p>
             </div>
           </div>
-          <div className="max-w-[200px] truncate flex-shrink-0">
+          <div className="flex-shrink-0">
             <ReviewBadge confidence={doc.overallConfidence} status={doc.status} />
           </div>
         </div>
 
         <DecisionBanner decision={decision} reason={reason} />
 
-        <FixActionPanel 
-          documentId={doc.id} 
-          decision={decision} 
-          reason={reason} 
-          onSuccess={handleRefresh} 
+        <FixActionPanel
+          documentId={doc.id}
+          decision={decision}
+          reason={reason}
+          onSuccess={handleRefresh}
         />
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+        <div className="mb-10 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="rounded-card border border-line bg-surface p-4">
+            <span className="mb-1.5 block text-label font-medium text-ink-tertiary">{s.status}</span>
+            {status ? (
+              <span className="inline-flex min-w-0 items-center gap-2">
+                <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-pill ${status.dot}`} />
+                <span className={`truncate text-sm font-medium ${status.text}`}>{status.label}</span>
+              </span>
+            ) : (
+              <span className="text-sm font-medium text-ink-muted">{s.notAvailable}</span>
+            )}
+          </div>
           {[
-            { label: s.status, value: doc.status.replace('_', ' '), color: 'text-blue-600' },
-            { label: s.type, value: doc.documentType || 'General', color: 'text-slate-600 dark:text-slate-300' },
-            { label: s.date, value: new Date(doc.uploadedAt).toLocaleDateString(), color: 'text-slate-600 dark:text-slate-300' },
-            { label: s.docLanguage, value: doc.detectedLanguage?.toUpperCase() || 'EN', color: 'text-slate-600 dark:text-slate-300' },
+            { label: s.type, value: doc.documentType || s.notAvailable },
+            { label: s.date, value: doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : s.notAvailable },
+            { label: s.docLanguage, value: doc.detectedLanguage?.toUpperCase() || 'EN' },
           ].map((item, i) => (
-            <div key={i} className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-700/50 overflow-hidden">
-              <span className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 truncate">{item.label}</span>
-              <span className={`text-sm font-black uppercase tracking-tight truncate block ${item.color}`}>{item.value}</span>
+            <div key={i} className="rounded-card border border-line bg-surface p-4">
+              <span className="mb-1.5 block text-label font-medium text-ink-tertiary">{item.label}</span>
+              <span className="block truncate text-sm font-medium text-ink" dir="auto"><bdi>{item.value}</bdi></span>
             </div>
           ))}
         </div>
 
         {doc.signedFileUrl && (
-          <div className="mb-12">
-            <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-5 italic ml-1">{s.sourceVisualization}</h3>
-            <div className="rounded-3xl overflow-hidden border-2 border-slate-100 dark:border-slate-800 shadow-2xl bg-slate-50 dark:bg-slate-800">
+          <div className="mb-10">
+            <h3 className="mb-4 text-section font-semibold text-ink">{s.sourceVisualization}</h3>
+            <div className="overflow-hidden rounded-card border border-line bg-surface">
               {isImageFile ? (
                 <img
                   src={doc.signedFileUrl}
-                  alt={doc.originalFileName || 'Document source'}
-                  className="w-full h-auto max-h-[800px] object-contain mx-auto transition-transform duration-700 hover:scale-[1.02]"
+                  alt={doc.originalFileName || s.sourceVisualization}
+                  className="mx-auto h-auto max-h-[800px] w-full object-contain"
                 />
               ) : isPdfFile ? (
                 <iframe
                   src={doc.signedFileUrl}
-                  title={doc.originalFileName || 'PDF source'}
-                  className="w-full h-[700px] border-none"
+                  title={doc.originalFileName || s.sourceVisualization}
+                  className="h-[700px] w-full border-none"
                 />
               ) : (
-                <div className="p-20 text-center">
-                   <div className="w-20 h-20 bg-white dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
-                      <FileText size={40} className="text-blue-500" />
-                   </div>
-                   <p className="text-lg font-black text-slate-900 dark:text-white mb-6">Preview unavailable for this format.</p>
-                   <a href={doc.signedFileUrl} target="_blank" rel="noreferrer" className="btn btn-primary px-8 py-3 rounded-xl shadow-lg shadow-blue-500/20">
-                     Open Original Source
-                   </a>
+                <div className="p-16 text-center">
+                  <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-card bg-surface-muted text-ink-faint">
+                    <FileText size={32} />
+                  </div>
+                  <p className="mb-5 text-sm font-medium text-ink">{s.previewUnavailable}</p>
+                  <a
+                    href={doc.signedFileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-btn bg-accent px-6 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
+                  >
+                    {s.openOriginalSource}
+                  </a>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        <div className="bg-blue-600 dark:bg-blue-600/10 p-8 rounded-[32px] text-white dark:text-slate-100 mb-12 border-l-8 border-blue-400 dark:border-blue-500 shadow-xl shadow-blue-600/10 dark:shadow-none">
-          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-200 dark:text-blue-400 mb-4 opacity-80">{s.aiSynthesis}</h4>
-          <p className="text-base font-bold leading-relaxed opacity-90">{doc.summary}</p>
-        </div>
+        {doc.summary && (
+          <div className="mb-10 rounded-card border border-accent-border bg-accent-tint p-5 text-start">
+            <h4 className="mb-2 text-label font-semibold text-accent-text">{s.aiSynthesis}</h4>
+            <p className="text-sm leading-relaxed text-ink-secondary"><bdi dir="auto">{doc.summary}</bdi></p>
+          </div>
+        )}
 
         <div>
-          <h3 className="text-xl font-black text-slate-900 dark:text-white mb-8 flex items-center gap-3">
-             <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-xl shadow-emerald-500/20 dark:shadow-none">
-                <CheckCircle size={22} strokeWidth={2.5} />
-             </div>
-             {s.extractedFacts}
+          <h3 className="mb-5 flex items-center gap-2.5 text-section font-semibold text-ink">
+            <span className="flex h-7 w-7 items-center justify-center rounded-btn bg-success-tint text-success-text">
+              <CheckCircle size={16} />
+            </span>
+            {s.extractedFacts}
           </h3>
-          
+
           {doc.facts && doc.facts.length > 0 ? (
             <>
-            {/* Mobile: stacked label/value rows — the 3-column table clips
-                at phone widths. */}
-            <div className="md:hidden bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm divide-y divide-slate-50 dark:divide-slate-800">
-              {doc.facts.map((fact: any, i: number) => (
-                <div key={i} className="p-4">
-                  <div className="flex items-center justify-between gap-3 mb-1.5">
-                    <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{fieldLabel(fact.key)}</span>
-                    <span className={`flex-shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black border whitespace-nowrap ${
-                      fact.confidence > 0.9
-                        ? 'text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800'
-                        : 'text-amber-700 bg-amber-50 dark:bg-amber-900/30 border-amber-100 dark:border-amber-800'
-                    }`}>
-                      {Math.round(fact.confidence * 100)}% {s.match}
-                    </span>
+              {/* Mobile: stacked label/value rows (the 3-column table clips at phone widths). */}
+              <div className="divide-y divide-divider overflow-hidden rounded-card border border-line bg-surface-raised md:hidden">
+                {doc.facts.map((fact: any, i: number) => (
+                  <div key={i} className="p-4">
+                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                      <span className="text-label font-medium text-ink-tertiary">{fieldLabel(fact.key)}</span>
+                      <span className={`inline-flex flex-shrink-0 items-center gap-1.5 rounded-pill px-2 py-0.5 text-label font-medium ${
+                        fact.confidence > 0.9 ? 'text-success-text' : 'text-warning-text'
+                      }`}>
+                        <span className={`h-1.5 w-1.5 rounded-pill ${fact.confidence > 0.9 ? 'bg-success' : 'bg-warning'}`} />
+                        <span dir="ltr">{Math.round(fact.confidence * 100)}%</span> {s.match}
+                      </span>
+                    </div>
+                    <p className="break-words text-sm font-medium text-ink" dir="auto"><bdi>{factValue(fact)}</bdi></p>
                   </div>
-                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100 break-words">
-                    {fact.valueString || fact.valueNumber || String(fact.valueDate)} {fact.currency || ''}
-                  </p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
 
-            <div className="hidden md:block bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{s.factLabel}</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{s.dataValue}</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{s.precision}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                  {doc.facts.map((fact: any, i: number) => (
-                    <tr key={i} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="px-8 py-5 font-black text-slate-900 dark:text-slate-100 text-sm group-hover:text-blue-600 transition-colors">{fieldLabel(fact.key)}</td>
-                      <td className="px-8 py-5 font-bold text-slate-600 dark:text-slate-300 text-sm">
-                        {fact.valueString || fact.valueNumber || String(fact.valueDate)} {fact.currency || ''}
-                      </td>
-                      <td className="px-8 py-5">
-                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black border ${
-                           fact.confidence > 0.9 
-                             ? 'text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800' 
-                             : 'text-amber-700 bg-amber-50 dark:bg-amber-900/30 border-amber-100 dark:border-amber-800'
-                         }`}>
-                            {Math.round(fact.confidence * 100)}% {s.match}
-                         </span>
-                      </td>
+              <div className="hidden overflow-hidden rounded-card border border-line bg-surface-raised md:block">
+                <table className="w-full border-collapse text-start">
+                  <thead>
+                    <tr className="border-b border-divider bg-surface-alt">
+                      <th className="px-6 py-3.5 text-start text-label font-semibold text-ink-tertiary">{s.factLabel}</th>
+                      <th className="px-6 py-3.5 text-start text-label font-semibold text-ink-tertiary">{s.dataValue}</th>
+                      <th className="px-6 py-3.5 text-start text-label font-semibold text-ink-tertiary">{s.precision}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-divider">
+                    {doc.facts.map((fact: any, i: number) => (
+                      <tr key={i} className="transition-colors hover:bg-surface-alt">
+                        <td className="px-6 py-3.5 text-sm font-medium text-ink">{fieldLabel(fact.key)}</td>
+                        <td className="px-6 py-3.5 text-sm text-ink-secondary" dir="auto"><bdi>{factValue(fact)}</bdi></td>
+                        <td className="px-6 py-3.5">
+                          <span className={`inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-label font-medium ${
+                            fact.confidence > 0.9 ? 'text-success-text' : 'text-warning-text'
+                          }`}>
+                            <span className={`h-1.5 w-1.5 rounded-pill ${fact.confidence > 0.9 ? 'bg-success' : 'bg-warning'}`} />
+                            <span dir="ltr">{Math.round(fact.confidence * 100)}%</span> {s.match}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           ) : (
-            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-8 text-center border border-dashed border-slate-200 dark:border-slate-700 text-slate-400 font-bold italic">
-               {s.noFacts}
+            <div className="rounded-card border border-dashed border-line bg-surface p-8 text-center text-sm font-medium text-ink-muted">
+              {s.noFacts}
             </div>
           )}
         </div>
 
-        <div className="mt-16 pt-10 border-t border-slate-100 dark:border-slate-800">
-          <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-6 ml-1">{s.graphRelationships}</h3>
+        <div className="mt-12 border-t border-divider pt-8">
+          <h3 className="mb-4 flex items-center gap-2 text-section font-semibold text-ink">
+            <Network size={16} className="text-ink-faint" />
+            {s.graphRelationships}
+          </h3>
           {doc.entities && doc.entities.length > 0 ? (
-            <div className="flex gap-3 flex-wrap">
+            <div className="flex flex-wrap gap-2.5">
               {doc.entities.map((ent: any, i: number) => (
-                <div key={i} className="group flex items-center gap-3 bg-white dark:bg-slate-800 px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-blue-500 shadow-sm transition-all hover:scale-105">
-                  <span className="text-[10px] font-black text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition-colors uppercase italic">{ent.role}</span>
-                  <span className="text-sm font-black text-slate-900 dark:text-slate-100 tracking-tight">{ent.name}</span>
+                <div key={i} className="inline-flex items-center gap-2 rounded-pill border border-line bg-surface px-4 py-2 text-start transition-colors hover:border-line-strong">
+                  <span className="text-label font-medium text-ink-muted">{ent.role}</span>
+                  <span className="text-sm font-medium text-ink"><bdi dir="auto">{ent.name}</bdi></span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-slate-400 text-sm font-bold italic ml-1">{s.noEntities}</p>
+            <p className="text-sm font-medium text-ink-muted">{s.noEntities}</p>
           )}
         </div>
       </div>
 
-      {/* Sticky review actions: bottom-20 clears the mobile tab bar;
-          md:bottom-6 sits above the viewport edge on desktop. */}
+      {/* Sticky review actions: bottom-20 clears the mobile tab bar; md:bottom-6
+          sits above the viewport edge on desktop. */}
       {doc.status === 'NEEDS_REVIEW' && (
-        <div className="sticky bottom-20 md:bottom-6 z-40 mt-8">
-          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl shadow-slate-900/10 p-3 flex gap-3">
+        <div className="sticky bottom-20 z-40 mt-6 md:bottom-6">
+          <div className="flex gap-3 rounded-card border border-line bg-surface-raised/95 p-3 shadow-lg backdrop-blur">
             <button
               onClick={() => handleReviewAction('approve')}
               disabled={actioning}
-              className="flex-1 min-h-[44px] flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-600/20"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-success text-sm font-semibold text-white transition-colors active:scale-[0.99] disabled:opacity-50"
             >
-              <CheckCircle size={18} strokeWidth={2.5} />
+              <CheckCircle size={18} />
               {s.approve}
             </button>
             <button
               onClick={() => handleReviewAction('reject')}
               disabled={actioning}
-              className="flex-1 min-h-[44px] flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-red-600/20"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-danger text-sm font-semibold text-white transition-colors active:scale-[0.99] disabled:opacity-50"
             >
-              <XCircle size={18} strokeWidth={2.5} />
+              <XCircle size={18} />
               {s.reject}
             </button>
           </div>

@@ -9,6 +9,11 @@ type Props = {
   onSuccess: () => void;
 };
 
+// Correction panel for documents the rule engine could not resolve, restyled
+// onto the --sa-* tokens with all copy moved to i18n (three locales). The amount
+// field is a neutral DATA-CORRECTION input: it carries a plain MAD unit label,
+// never a currency/price affordance, and nothing here reads as pricing, a
+// checkout, or an upgrade. The unit stays on the logical end so it mirrors in RTL.
 export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, onSuccess }) => {
   const s = useStrings();
   const [loading, setLoading] = useState(false);
@@ -25,13 +30,13 @@ export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, 
 
   const handleAction = async (actionType: 'amount_corrected' | 'marked_valid' | 'note_added') => {
     setError('');
-    
+
     const payload: any = {};
     if (actionType === 'amount_corrected') {
-      if (!amount) return setError('Please enter the correct amount');
+      if (!amount) return setError(s.fixErrorAmount);
       payload.amount = amount;
     } else {
-      if (!justification) return setError('Please enter a justification or note');
+      if (!justification) return setError(s.fixErrorJustification);
       payload.justification = justification;
     }
 
@@ -40,80 +45,77 @@ export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, 
       await documentService.applyFixAction(documentId, actionType, payload);
       onSuccess();
     } catch (err: any) {
-      setError(err.message || 'Action failed');
+      setError(err.message || s.fixErrorJustification);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="mb-10 p-5 md:p-8 rounded-[32px] bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-500">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-2 h-8 bg-blue-500 rounded-full" />
-        <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">{s.reviewActionRequired}</h3>
+    <div className="mb-8 rounded-card border border-dashed border-line-strong bg-surface-raised p-5 text-start">
+      <div className="mb-4 flex items-center gap-2.5">
+        <span className="h-5 w-1 flex-shrink-0 rounded-pill bg-accent" />
+        <h3 className="text-section font-semibold text-ink">{s.reviewActionRequired}</h3>
       </div>
 
       {isMissingAmount && (
-        <div className="space-y-4">
-          <p className="text-sm font-bold text-slate-600 dark:text-slate-400 leading-relaxed">
-            {s.reviewActionDesc}
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1 group">
-               <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-black group-focus-within:text-blue-500 transition-colors">$</span>
-               <input
-                 type="number"
-                 placeholder="0.00"
-                 value={amount}
-                 onChange={(e) => setAmount(e.target.value)}
-                 className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 pl-10 pr-6 text-slate-900 dark:text-white font-black outline-none focus:border-blue-500 transition-all"
-               />
+        <div className="flex flex-col gap-3">
+          <p className="text-sm leading-relaxed text-ink-secondary">{s.reviewActionDesc}</p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative flex-1">
+              <input
+                type="number"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                dir="ltr"
+                className="w-full rounded-btn border border-line bg-surface py-3 ps-4 pe-16 text-ink outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20"
+              />
+              <span className="pointer-events-none absolute end-4 top-1/2 -translate-y-1/2 text-xs font-medium text-ink-faint">
+                {s.madUnit}
+              </span>
             </div>
             <button
               onClick={() => handleAction('amount_corrected')}
               disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white px-8 py-4 sm:py-0 min-h-[44px] rounded-2xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 shadow-xl shadow-blue-600/20"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-btn bg-accent px-6 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
-              {loading ? 'Processing...' : s.saveCorrection}
+              {loading ? s.fixProcessing : s.saveCorrection}
             </button>
           </div>
         </div>
       )}
 
       {isFlagged && (
-        <div className="space-y-4">
-          <p className="text-sm font-bold text-slate-600 dark:text-slate-400 leading-relaxed">
-            This expense has been flagged for audit review. Please provide a brief business justification to mark it as valid or add a context note.
-          </p>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm leading-relaxed text-ink-secondary">{s.fixFlaggedDesc}</p>
           <textarea
-            placeholder="E.g., Client dinner for project kickoff..."
             value={justification}
             onChange={(e) => setJustification(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl py-4 px-6 text-slate-900 dark:text-white font-bold outline-none focus:border-blue-500 transition-all min-h-[100px] resize-none"
+            className="min-h-[100px] w-full resize-none rounded-btn border border-line bg-surface px-4 py-3 text-ink outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20"
           />
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <button
               onClick={() => handleAction('marked_valid')}
               disabled={loading}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 shadow-xl shadow-emerald-600/20"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-btn bg-success px-6 text-sm font-semibold text-white transition-colors disabled:opacity-50"
             >
-              Mark as Valid
+              {s.fixMarkValid}
             </button>
             <button
               onClick={() => handleAction('note_added')}
               disabled={loading}
-              className="flex-1 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 disabled:bg-slate-400 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 border border-slate-700"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-btn border border-line bg-surface px-6 text-sm font-semibold text-ink transition-colors hover:bg-surface-alt disabled:opacity-50"
             >
-              Save Note
+              {s.fixSaveNote}
             </button>
           </div>
         </div>
       )}
 
       {error && (
-        <p className="mt-4 text-xs font-black text-red-500 uppercase tracking-widest animate-in slide-in-from-top-2">
-          {error}
-        </p>
+        <p className="mt-3 text-sm font-medium text-danger-text">{error}</p>
       )}
     </div>
   );
