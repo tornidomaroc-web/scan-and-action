@@ -98,16 +98,86 @@ bridge), after which each remaining PR is a focused per-screen restyle.
       and hardened entity chips (`max-w` + truncate). All copy em-dash-free.
       **No anti-steering / pricing / `isNativePlatform` change** (detail has
       none; `nativeAntiSteering` stays green). **No fabricated data.**
-- [ ] **PR-D4** — Review Queue restyle. **← next.** Screen body still on raw
-      palette + `saas-table`; its shared components (`ReviewBadge` et al.) are
-      already migrated by D3, so this is the screen shell + table/cards only.
-- [ ] **PR-D5** — Activity restyle.
+- [x] **PR-D4 (#58)** — **Review Queue restyle.** Restyled `ReviewQueueScreen`
+      (route `/queue`) onto the `--sa-*` tokens: retired the loud oversized
+      vocabulary (`rounded-[32px]`, `shadow-2xl`, `font-black`, uppercase
+      `tracking-widest`, `animate-pulse`, hover scale/rotate, `saas-table`) for
+      the calm flat surface, and removed the dead **Filters** button and the
+      redundant desktop **Deep Review** button (the row already taps through).
+      (1) **Three data-correctness fixes** — read real `documentType` (hide the
+      type line when null, never the old `'Invoice'` fallback), real `uploadedAt`
+      (calm not-available when absent, never `'Recently'`), and real
+      `overallConfidence` (dropped the fabricated `|| 0.92`; missing shows
+      not-available). (2) **Vendor + amount** surfaced from real data via the
+      SAME shared Search helpers (`getVendor` / `getAmount`); amount renders as
+      plain data (tabular numerals), never pricing. (3) **Single status** — the
+      double "needs review" collapsed to ONE warning dot + "Needs review"
+      (shared `getStatus`), with the confidence percent + short quality meter kept
+      visually distinct; `ReviewBadge` dropped from the Queue only (untouched for
+      D3 Detail). (4) **Type label i18n** — shared `getDocTypeLabel` maps the
+      canonical enums to translated, sentence-case labels (en/fr/ar) with a
+      humanized fallback for unknown values; applied on the Queue (Detail /
+      Dashboard adopt it later — see follow-ups). (5) **Fuller mobile card**
+      (name, type, vendor, amount, date, confidence + single status + two
+      always-visible 44px actions), **per-value `dir`/`<bdi>` isolation** and
+      logical CSS, i18n for the previously hardcoded fetch-error + empty-state
+      strings, and a quiet **first-50** note. **Additive backend change** —
+      `mapDocumentToDto` now also exposes `documentEntities` (with
+      `entity.canonicalName`) and `factType` so the shared vendor/amount helpers
+      resolve on queue rows; nothing removed, **File Detail output unchanged**.
+      All copy em-dash-free. **No anti-steering / pricing / `isNativePlatform`
+      change** (`nativeAntiSteering` stays green). **No fabricated data.**
+- [ ] **PR-D5** — Activity restyle. **← next.**
 - [ ] **PR-D6** — Settings + Paywall restyle. ⚠️ **Sensitive:** touches paywall
       surfaces — must not alter anti-steering / `isNativePlatform` gating (PR #47).
 - [ ] **PR-D7** — Auth screen restyle.
 - [ ] **PR-D8** — Profile + modals (Upload / Capture / Delete-account) restyle.
 - [ ] **PR-D9** — Legal screens (Terms / Privacy / Delete-account info) restyle.
 - [ ] **Landing** — tracked separately from the app shell (marketing surface).
+
+## File Detail follow-ups (deferred from the D4 review — own PR off `main`)
+
+Found while reviewing real documents during D4. These are on the **File Detail**
+page / shared facts rendering (already merged in D3), so they are intentionally
+**out of scope for the Queue PR** and must land as a separate PR off `main`.
+Diagnosis-only so far; nothing applied.
+
+- [ ] **(2a) Localize the raw ISO date** in the Extracted Facts table.
+      `DocumentDetailScreen.tsx` `factValue` (~L111-114) renders a date fact as
+      `String(fact.valueDate)` → raw `2026-02-08T00:00:00.000Z`. Reuse the shared
+      `formatCellValue` / `formatDate` (ISO detection + `Intl.DateTimeFormat`) so
+      Detail and Search share one localized date path; handle a non-string
+      `valueDate` (Date/number) defensively.
+- [ ] **(2b) Translate/filter the raw `NEEDS_REVIEW` decision fact.** The facts
+      loop (~L240/L266) renders every fact including the rule-engine `decision`
+      fact, whose value comes through raw. Preferred fix: **filter `decision` +
+      `decision_reason` out of the facts table** (they are rule outputs already
+      surfaced by the `DecisionBanner`), removing the raw enum and the
+      duplication.
+- [ ] **(2c) Translate the raw decision reason** ("Missing amount") in
+      `DecisionBanner.tsx` (~L53, rendered raw English). The reasons are a finite
+      known set from `ruleEngineService` (`Amount exceeds threshold`, `High food
+      expense`, `Missing amount`, `Possible duplicate expense`), persisted as
+      `reasons.join(', ')`. Map each to en/fr/ar (split on `', '`, map, rejoin;
+      raw fallback for anything unknown, never fabricated).
+- [ ] **(3) Fix the entity-chip truncation edge under RTL.**
+      `DocumentDetailScreen.tsx` (~L303): `dir="auto"` is on the inner `<bdi>`,
+      but the truncating `<span>` inherits `rtl` from the page, so
+      `text-overflow: ellipsis` clips the **leading** side of a Latin name
+      (`...ICES MARRAKECH SAFI SA`). Move `dir="auto"` onto the **truncating
+      element** (matching the h1/meta pattern already in the file) so the ellipsis
+      sits at the content's natural trailing edge.
+- [ ] **Adopt the shared `getDocTypeLabel`** (added in D4) in the Detail
+      meta-grid (`DocumentDetailScreen.tsx` ~L174) and the Dashboard recent
+      activity (`DashboardScreen.tsx` ~L456), both of which still render
+      `documentType` raw uppercase — same bug class as the Queue, one shared
+      helper now available.
+- [ ] **Translate the raw `ent.role` enum** (`DocumentDetailScreen.tsx` ~L300):
+      `VENDOR` / `ISSUER` render raw uppercase in the graph-relationships chips.
+- [ ] **`factValue` latent bugs** (same helper touched for 2a): `valueString ||
+      valueNumber` drops a legitimate numeric **0** (falsy), and currency amounts
+      are concatenated raw (`${raw} ${currency}`) instead of `Intl`-formatted like
+      the shared `getAmount` — so Detail amounts are not localized/grouped.
 
 ## Remaining (post-redesign, separate work)
 
