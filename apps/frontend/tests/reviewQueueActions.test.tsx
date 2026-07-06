@@ -156,15 +156,37 @@ describe('Review queue — data correctness (D4 bug fixes)', () => {
   });
   afterEach(() => { root.unmount(); container.remove(); });
 
-  it('TYPE: renders the real documentType, never a hardcoded "Invoice" fallback', async () => {
+  it('TYPE: renders the real documentType as a TRANSLATED label, never raw or a hardcoded "Invoice"', async () => {
     (documentService.getReviewQueue as any).mockResolvedValue([
       { id: 'd-type', originalFileName: 'scan.pdf', status: 'NEEDS_REVIEW', overallConfidence: 0.8, documentType: 'RECEIPT', uploadedAt: '2026-06-01T10:00:00Z' },
     ]);
     mount('/queue');
     await vi.waitFor(() => expect(container.textContent).toContain('scan.pdf'));
-    expect(container.textContent).toContain('RECEIPT');
-    // The old bug fell back to 'Invoice' for every row; it must be gone.
+    // The real type is shown as its translated, sentence-case label...
+    expect(container.textContent).toContain(strings.en.docTypeReceipt); // 'Receipt'
+    // ...never the raw uppercase enum, and never the old 'Invoice' fallback.
+    expect(container.textContent).not.toContain('RECEIPT');
     expect(container.textContent).not.toContain('Invoice');
+  });
+
+  it('TYPE: a known INVOICE type shows the translated label, not raw uppercase', async () => {
+    (documentService.getReviewQueue as any).mockResolvedValue([
+      { id: 'd-inv', originalFileName: 'scan.pdf', status: 'NEEDS_REVIEW', overallConfidence: 0.8, documentType: 'INVOICE', uploadedAt: '2026-06-01T10:00:00Z' },
+    ]);
+    mount('/queue');
+    await vi.waitFor(() => expect(container.textContent).toContain('scan.pdf'));
+    expect(container.textContent).toContain(strings.en.docTypeInvoice); // 'Invoice'
+    expect(container.textContent).not.toContain('INVOICE'); // raw enum gone
+  });
+
+  it('TYPE: an unknown/free-form type falls back humanized, never raw uppercase', async () => {
+    (documentService.getReviewQueue as any).mockResolvedValue([
+      { id: 'd-po', originalFileName: 'scan.pdf', status: 'NEEDS_REVIEW', overallConfidence: 0.8, documentType: 'PURCHASE_ORDER', uploadedAt: '2026-06-01T10:00:00Z' },
+    ]);
+    mount('/queue');
+    await vi.waitFor(() => expect(container.textContent).toContain('scan.pdf'));
+    expect(container.textContent).toContain('Purchase order');
+    expect(container.textContent).not.toContain('PURCHASE_ORDER');
   });
 
   it('TYPE: hides the type line entirely when documentType is null (no placeholder, no guess)', async () => {

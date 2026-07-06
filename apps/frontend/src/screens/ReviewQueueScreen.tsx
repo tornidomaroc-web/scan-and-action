@@ -7,7 +7,7 @@ import { ErrorState } from '../components/ErrorState';
 import { useToast } from '../contexts/ToastContext';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
-import { getVendor, getAmount, getStatus } from '../lib/searchResultCard';
+import { getVendor, getAmount, getStatus, getDocTypeLabel } from '../lib/searchResultCard';
 
 // Review Queue, restyled onto the --sa-* token system (PR-D4).
 //  - Calm flat surfaces (rounded-card, quiet shadow), token colors only (no raw
@@ -168,6 +168,7 @@ export const ReviewQueueScreen = () => {
             const vendor = getVendor(doc);
             const amount = getAmount(doc, language);
             const dateStr = formatDate(doc.uploadedAt);
+            const typeLabel = getDocTypeLabel(doc.documentType, s as any);
             return (
               <article
                 key={doc.id}
@@ -183,10 +184,11 @@ export const ReviewQueueScreen = () => {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-ink" dir="auto"><bdi>{name}</bdi></p>
-                    {/* Type line: shown only when the real documentType is present;
-                        hidden entirely when null (no placeholder, no guessed type). */}
-                    {doc.documentType && (
-                      <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto"><bdi>{doc.documentType}</bdi></p>
+                    {/* Type line: the real documentType mapped to a translated,
+                        sentence-case label (shared getDocTypeLabel). Hidden entirely
+                        when null (no placeholder, no guessed type). */}
+                    {typeLabel && (
+                      <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto"><bdi>{typeLabel}</bdi></p>
                     )}
                     {vendor && (
                       <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto"><bdi>{vendor}</bdi></p>
@@ -254,6 +256,7 @@ export const ReviewQueueScreen = () => {
                 const vendor = getVendor(doc);
                 const amount = getAmount(doc, language);
                 const dateStr = formatDate(doc.uploadedAt);
+                const typeLabel = getDocTypeLabel(doc.documentType, s as any);
                 return (
                   <tr
                     key={doc.id}
@@ -267,8 +270,8 @@ export const ReviewQueueScreen = () => {
                         </span>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-ink" dir="auto"><bdi>{name}</bdi></p>
-                          {doc.documentType && (
-                            <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto"><bdi>{doc.documentType}</bdi></p>
+                          {typeLabel && (
+                            <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto"><bdi>{typeLabel}</bdi></p>
                           )}
                           {vendor && (
                             <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto"><bdi>{vendor}</bdi></p>
