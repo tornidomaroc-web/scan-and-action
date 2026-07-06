@@ -50,16 +50,16 @@ export const ReviewQueueScreen = () => {
       setDocs(prev => prev.filter(d => d.id !== id));
       
       if (action === 'approve') {
-        showToast('Document approved and intelligence verified.', 'success');
+        showToast(s.toastApproved, 'success');
       } else {
-        showToast('Document marked as rejected.', 'info');
+        showToast(s.toastRejected, 'info');
       }
-      
+
       // Refresh Dashboard stats
       onSuccess();
     } catch (error) {
       console.error('[ReviewQueue] Action failed:', error);
-      showToast('We couldn\'t update this review item. Please try again.', 'error');
+      showToast(s.toastUpdateError, 'error');
     } finally {
       setActioningId(null);
     }
