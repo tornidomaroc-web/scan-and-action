@@ -151,10 +151,11 @@ describe('Detail restyle — Review Queue still renders with the token component
   });
   afterEach(() => { root.unmount(); container.remove(); });
 
-  it('mounts the queue and shows the doc via the shared ReviewBadge without crashing', async () => {
+  it('mounts the queue and shows the doc with the single status-dot label without crashing', async () => {
     mount('/queue', 'en');
     await vi.waitFor(() => expect(text()).toContain('receipt-alpha.jpg'));
-    // ReviewBadge tier label renders (confidence 0.8 -> Needs review), no emoji.
+    // D4 dropped ReviewBadge from the queue (to remove the double "needs review").
+    // The single warning-dot status now carries the translated label. No emoji.
     expect(text()).toContain(strings.en.needsReview);
     for (const emoji of ['✅', '⚠️', '🚩']) {
       expect(text()).not.toContain(emoji);
