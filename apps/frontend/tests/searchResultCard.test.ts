@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getVendor, getAmount, getStatus, getPrimaryFields } from '../src/lib/searchResultCard';
+import { getVendor, getAmount, getStatus, getPrimaryFields, getDocTypeLabel } from '../src/lib/searchResultCard';
 import { strings } from '../src/i18n/strings';
 
 // ============================================================================
@@ -57,6 +57,34 @@ describe('getStatus', () => {
     expect(out.label).toBe('Some weird state');
     expect(out.label).not.toContain('_');
     expect(getStatus({}, s)).toBeNull();
+  });
+});
+
+describe('getDocTypeLabel', () => {
+  it('maps known canonical types to a TRANSLATED label in each locale (never the raw enum)', () => {
+    // English: sentence-case, real translations (not raw uppercase).
+    expect(getDocTypeLabel('INVOICE', strings.en as any)).toBe(strings.en.docTypeInvoice);
+    expect(getDocTypeLabel('RECEIPT', strings.en as any)).toBe(strings.en.docTypeReceipt);
+    expect(getDocTypeLabel('BUSINESS_CARD', strings.en as any)).toBe(strings.en.docTypeBusinessCard);
+    expect(getDocTypeLabel('UNKNOWN', strings.en as any)).toBe(strings.en.docTypeUnknown);
+    // Case-insensitive on the raw enum.
+    expect(getDocTypeLabel('invoice', strings.en as any)).toBe(strings.en.docTypeInvoice);
+    // Arabic parity: an Arabic user reads the Arabic label, not English "Invoice".
+    expect(getDocTypeLabel('INVOICE', strings.ar as any)).toBe(strings.ar.docTypeInvoice);
+    expect(getDocTypeLabel('INVOICE', strings.ar as any)).not.toBe('Invoice');
+    // French parity.
+    expect(getDocTypeLabel('INVOICE', strings.fr as any)).toBe(strings.fr.docTypeInvoice);
+  });
+  it('humanizes an unknown / free-form type (never raw uppercase) and returns null when absent', () => {
+    // Unknown enum -> humanized real value, not a guess, not raw uppercase.
+    expect(getDocTypeLabel('PURCHASE_ORDER', strings.en as any)).toBe('Purchase order');
+    expect(getDocTypeLabel('Other', strings.en as any)).toBe('Other');
+    expect(getDocTypeLabel('PURCHASE_ORDER', strings.en as any)).not.toContain('_');
+    expect(getDocTypeLabel('PURCHASE_ORDER', strings.en as any)).not.toBe('PURCHASE_ORDER');
+    // Null / empty -> null (caller hides the line, no placeholder).
+    expect(getDocTypeLabel(null, strings.en as any)).toBeNull();
+    expect(getDocTypeLabel('', strings.en as any)).toBeNull();
+    expect(getDocTypeLabel(undefined, strings.en as any)).toBeNull();
   });
 });
 

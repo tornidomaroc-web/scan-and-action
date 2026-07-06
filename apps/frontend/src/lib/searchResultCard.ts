@@ -91,6 +91,27 @@ export const getStatus = (row: any, s: Strings): CardStatus | null => {
   return { key, dot: 'bg-ink-faint', text: 'text-ink-muted', label: humanizeEnum(raw) };
 };
 
+// Known canonical document-type enums -> i18n label key. Kept next to getStatus
+// because it is the same pattern: map a raw backend enum to a TRANSLATED,
+// sentence-case label, and fall back to a humanized rendering of the real value
+// for anything unmapped (e.g. the free-form "Other" / "UNKNOWN" the extractor
+// emits). It NEVER fabricates: an unknown type shows its own humanized value, not
+// a guess. Shared so Queue / Detail / Dashboard can render types identically.
+const DOC_TYPE_LABEL_KEY: Record<string, string> = {
+  INVOICE: 'docTypeInvoice',
+  RECEIPT: 'docTypeReceipt',
+  BUSINESS_CARD: 'docTypeBusinessCard',
+  UNKNOWN: 'docTypeUnknown',
+};
+
+export const getDocTypeLabel = (rawType: unknown, s: Strings): string | null => {
+  const raw = typeof rawType === 'string' && rawType.trim() ? rawType.trim() : null;
+  if (!raw) return null;
+  const key = DOC_TYPE_LABEL_KEY[raw.toUpperCase()];
+  // Known enum -> translated label; unknown/free-form -> humanized real value.
+  return (key && s[key]) || humanizeEnum(raw);
+};
+
 const firstReadable = (row: any, language: string): string | null => {
   for (const [k, v] of Object.entries(row || {})) {
     if (k === 'id') continue;
