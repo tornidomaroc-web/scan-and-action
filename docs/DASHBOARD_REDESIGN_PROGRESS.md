@@ -76,8 +76,31 @@ bridge), after which each remaining PR is a focused per-screen restyle.
       / `isNativePlatform` change** (Search has none; PR #47 stays green). Dead
       code removed: `SearchScreen.loadReport` + `reportsService` + orphan
       `SearchBar.tsx`.
-- [ ] **PR-D3** — Document Detail restyle.
-- [ ] **PR-D4** — Review Queue restyle.
+- [x] **PR-D3** — **File Detail restyle.** Restyled `DocumentDetailScreen`
+      (route `/documents/:id`) and its shared sub-components (`DecisionBanner`,
+      `FixActionPanel`, `ReviewBadge`) onto the `--sa-*` tokens: retired the
+      oversized mega-card / heavy shadow for the calm flat surface, sentence
+      case, Lucide icons, small colored status dots, no emoji. (1) **Status
+      reconciliation** — the meta-grid status now routes through the same shared
+      config as the Search card (`getStatus` / `statusProcessed`), so it reads
+      Processed / Needs review / Rejected with matching dots and Arabic
+      (`تمت المعالجة`), never the raw enum; the rule-engine decision vocabulary
+      (Approved / Needs review / Flagged) stays a distinct tinted banner. (2)
+      **RTL** — per-value `dir`/`<bdi>` isolation on title, fact values,
+      currency, entity chips, and confidence percent so Latin text + numerals
+      do not scramble in Arabic. (3) **i18n** — every remaining hardcoded
+      English string (toasts, preview fallback, decision Flagged/Approved copy,
+      all FixActionPanel strings) moved to en/fr/ar keys; the shared queue
+      toasts routed to the same keys. (4) **`$` → neutral MAD unit** on the
+      correction input via a durable input-group that cannot overlap the typed
+      value (any locale / font / zoom). Follow-up commit fixed the long-filename
+      card overflow on mobile (`self-stretch`-bounded title + existing truncate)
+      and hardened entity chips (`max-w` + truncate). All copy em-dash-free.
+      **No anti-steering / pricing / `isNativePlatform` change** (detail has
+      none; `nativeAntiSteering` stays green). **No fabricated data.**
+- [ ] **PR-D4** — Review Queue restyle. **← next.** Screen body still on raw
+      palette + `saas-table`; its shared components (`ReviewBadge` et al.) are
+      already migrated by D3, so this is the screen shell + table/cards only.
 - [ ] **PR-D5** — Activity restyle.
 - [ ] **PR-D6** — Settings + Paywall restyle. ⚠️ **Sensitive:** touches paywall
       surfaces — must not alter anti-steering / `isNativePlatform` gating (PR #47).
