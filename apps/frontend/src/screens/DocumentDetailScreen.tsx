@@ -127,7 +127,13 @@ export const DocumentDetailScreen = () => {
 
       <div className="rounded-card border border-line bg-surface-raised p-5 shadow-card md:p-8">
         <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row">
-          <div className="min-w-0">
+          {/* self-stretch bounds this wrapper to the card width in the mobile
+              column layout (items-start would otherwise size it to the file
+              name's max-content and let a long unbroken name overflow the card);
+              the h1 truncate then produces a clean ellipsis. On desktop the row
+              layout already shrinks via min-w-0, and self-stretch only affects
+              cross-axis height there, so it does not regress. */}
+          <div className="min-w-0 self-stretch">
             <h1 className="mb-2 truncate text-title-lg font-semibold tracking-tight text-ink" dir="auto">
               <bdi>{doc.originalFileName || `${s.errorTitle} ${doc.id}`}</bdi>
             </h1>
@@ -290,9 +296,11 @@ export const DocumentDetailScreen = () => {
           {doc.entities && doc.entities.length > 0 ? (
             <div className="flex flex-wrap gap-2.5">
               {doc.entities.map((ent: any, i: number) => (
-                <div key={i} className="inline-flex items-center gap-2 rounded-pill border border-line bg-surface px-4 py-2 text-start transition-colors hover:border-line-strong">
-                  <span className="text-label font-medium text-ink-muted">{ent.role}</span>
-                  <span className="text-sm font-medium text-ink"><bdi dir="auto">{ent.name}</bdi></span>
+                <div key={i} className="inline-flex max-w-full items-center gap-2 rounded-pill border border-line bg-surface px-4 py-2 text-start transition-colors hover:border-line-strong">
+                  <span className="flex-shrink-0 text-label font-medium text-ink-muted">{ent.role}</span>
+                  {/* Cap + truncate so a long vendor name ellipsizes instead of
+                      pushing the layout; bidi isolation is preserved. */}
+                  <span className="min-w-0 max-w-[12rem] truncate text-sm font-medium text-ink"><bdi dir="auto">{ent.name}</bdi></span>
                 </div>
               ))}
             </div>

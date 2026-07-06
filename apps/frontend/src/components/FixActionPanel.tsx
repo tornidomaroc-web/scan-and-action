@@ -62,19 +62,25 @@ export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, 
         <div className="flex flex-col gap-3">
           <p className="text-sm leading-relaxed text-ink-secondary">{s.reviewActionDesc}</p>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative flex-1">
+            {/* Input-group, not an overlay: the input and the unit are flex
+                siblings, so the MAD label can never sit on top of the typed
+                digits (any locale / font size / zoom). The whole group is LTR so
+                the number and its trailing unit read left-to-right; the border
+                and focus ring live on the wrapper via focus-within. It stays a
+                neutral data field, never a price or checkout affordance. */}
+            <div
+              dir="ltr"
+              className="flex flex-1 items-center rounded-btn border border-line bg-surface pe-4 transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20"
+            >
               <input
                 type="number"
                 inputMode="decimal"
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                dir="ltr"
-                className="w-full rounded-btn border border-line bg-surface py-3 ps-4 pe-16 text-ink outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20"
+                className="min-w-0 flex-1 bg-transparent py-3 ps-4 pe-2 text-ink outline-none placeholder:text-ink-faint"
               />
-              <span className="pointer-events-none absolute end-4 top-1/2 -translate-y-1/2 text-xs font-medium text-ink-faint">
-                {s.madUnit}
-              </span>
+              <span className="flex-shrink-0 text-xs font-medium text-ink-faint">{s.madUnit}</span>
             </div>
             <button
               onClick={() => handleAction('amount_corrected')}

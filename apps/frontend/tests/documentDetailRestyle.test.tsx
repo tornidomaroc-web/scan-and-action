@@ -43,6 +43,7 @@ import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { ToastProvider } from '../src/contexts/ToastContext';
 import { DocumentDetailScreen } from '../src/screens/DocumentDetailScreen';
 import { ReviewQueueScreen } from '../src/screens/ReviewQueueScreen';
+import { FixActionPanel } from '../src/components/FixActionPanel';
 
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
@@ -161,6 +162,44 @@ describe('Detail restyle — Review Queue still renders with the token component
   });
 });
 
+// ── FIX 1 (PR-D3 follow-up): the MAD unit is a flex-sibling addon inside an
+//    LTR input-group, NOT an absolute overlay that can sit on top of the digits.
+describe('Detail restyle — MAD correction input is a non-overlapping input-group', () => {
+  function mountPanel() {
+    localStorage.setItem('lang', 'ar'); // exercise the RTL locale where the overlap bit
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    flushSync(() => {
+      root.render(
+        <LanguageProvider>
+          <FixActionPanel documentId="doc-1" decision="NEEDS_REVIEW" reason="missing amount" onSuccess={() => {}} />
+        </LanguageProvider>
+      );
+    });
+  }
+  afterEach(() => { root.unmount(); container.remove(); });
+
+  it('renders the unit as an LTR sibling addon of the input, not an absolute overlay', () => {
+    mountPanel();
+    const input = container.querySelector('input[type="number"]') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    const group = input.parentElement as HTMLElement;
+    // The group is forced LTR so digits + unit read left-to-right in Arabic too.
+    expect(group.getAttribute('dir')).toBe('ltr');
+    // Border + focus ring moved onto the wrapper.
+    expect(group.className).toContain('focus-within:');
+    // The unit is a following sibling carrying the MAD label, and it is NOT an
+    // absolutely-positioned overlay (which is what let it hide behind the value).
+    const unit = group.querySelector('span') as HTMLElement;
+    expect(unit.textContent).toContain(strings.ar.madUnit);
+    expect(unit.className).not.toContain('absolute');
+    // The old overlay reserved space with pe-16 on the input; that is gone.
+    expect(input.className).not.toContain('pe-16');
+    expect(input.className).not.toContain('border');
+  });
+});
+
 // ── Source-level guards: no raw palette / legacy classes / emoji remain, and
 //    bidi isolation is present in the detail source. ────────────────────────
 describe('Detail restyle — touched source is on tokens, bidi-isolated (source scan)', () => {
@@ -202,5 +241,20 @@ describe('Detail restyle — touched source is on tokens, bidi-isolated (source 
     expect(files.screen).toContain('<bdi');
     // The back-arrow icon flips in RTL (logical, not a literal arrow char).
     expect(files.screen).toContain('rtl:-scale-x-100');
+  });
+
+  // FIX 2: the title wrapper is bounded in the mobile column layout so the
+  // existing truncate can ellipsize a long file name inside the card.
+  it('title wrapper is width-bounded on mobile (self-stretch) with truncate kept', () => {
+    expect(files.screen).toContain('min-w-0 self-stretch');
+    expect(files.screen).toContain('truncate text-title-lg');
+    // The main card was NOT given overflow-hidden as a shortcut.
+    expect(files.screen).toContain('rounded-card border border-line bg-surface-raised p-5 shadow-card md:p-8');
+  });
+
+  // FIX 3: entity chip names are capped + truncated so a long vendor name
+  // ellipsizes instead of pushing the layout (bidi kept).
+  it('entity chip name is capped and truncated', () => {
+    expect(files.screen).toContain('max-w-[12rem] truncate');
   });
 });
