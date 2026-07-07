@@ -46,10 +46,12 @@ const formatDate = (value: string, locale: string): string => formatDateValue(va
 const summarizeObject = (obj: Record<string, any>, locale: string): string | null => {
   if (!obj) return null;
 
-  // documentEntities row: { role, entity: { canonicalName | name } }.
+  // documentEntities row: { role, entity: { aliases | displayName | canonicalName | name } }.
+  // Prefer the human-readable name (aliases[0] / displayName) over the normalized
+  // canonicalName matching key, so the search table matches the card/chip/queue.
   const entity = obj.entity;
   if (entity && typeof entity === 'object') {
-    const name = entity.canonicalName ?? entity.name ?? entity.displayName;
+    const name = entity.aliases?.[0] ?? entity.displayName ?? entity.canonicalName ?? entity.name;
     if (name != null && name !== '') {
       return obj.role ? `${String(name)} (${humanizeKey(String(obj.role))})` : String(name);
     }

@@ -22,17 +22,29 @@ export const mapDocumentToDto = (doc: any) => ({
     confidence: f.confidence
   })) || [],
   entities: doc.documentEntities?.map((de: any) => ({
-    name: de.entity?.canonicalName,
+    // Display-only (fix A): render the human-readable name, not the normalized
+    // matching KEY. `canonicalName` is uppercased + ASCII-folded (accents/
+    // punctuation stripped) at write time for dedup/matching; the original
+    // spelling (casing + accents) is preserved in `aliases[0]`. Prefer that,
+    // falling back to `canonicalName` when there is no alias. The canonicalName
+    // VALUE is never changed here; only what the display layer reads.
+    name: de.entity?.aliases?.[0] ?? de.entity?.canonicalName,
     role: de.role,
     aliases: de.entity?.aliases || []
   })) || [],
   // Additive: the raw-shaped relation the shared getVendor() helper reads
-  // (canonicalName nested under `entity`). Surfacing it here lets Search, Queue
-  // and Detail share ONE vendor/amount extraction path. The flattened `entities`
-  // field above is left exactly as-is, so File Detail output is unchanged.
+  // (nested under `entity`). Surfacing it here lets Search, Queue and Detail
+  // share ONE vendor/amount extraction path. `canonicalName` is kept intact
+  // (matching/dedup and the rule engine still rely on it); `displayName` is an
+  // additive human-readable field derived from aliases[0] (canonicalName
+  // fallback) so getVendor can prefer a real name over the matching key.
   documentEntities: doc.documentEntities?.map((de: any) => ({
     role: de.role,
-    entity: { canonicalName: de.entity?.canonicalName, name: de.entity?.name }
+    entity: {
+      canonicalName: de.entity?.canonicalName,
+      name: de.entity?.name,
+      displayName: de.entity?.aliases?.[0] ?? de.entity?.canonicalName
+    }
   })) || []
 });
 

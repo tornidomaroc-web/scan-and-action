@@ -50,6 +50,18 @@ describe('formatCellValue — objects and arrays never render as [object Object]
     expect(out).toContain('Aurora Studios');
   });
 
+  // Fix A: the search table prefers the human-readable name (aliases[0] /
+  // displayName) over the normalized canonicalName matching key.
+  it('prefers the human-readable alias/display name over the normalized canonicalName', () => {
+    const out = formatCellValue(
+      { role: 'VENDOR', entity: { canonicalName: 'SOCIT RGIONALE', aliases: ['Societe Regionale'] } },
+      'documentEntities',
+      'en'
+    )!;
+    expect(out).toContain('Societe Regionale');
+    expect(out).not.toContain('SOCIT RGIONALE');
+  });
+
   it('joins an array of entity objects into readable names', () => {
     const out = formatCellValue(
       [

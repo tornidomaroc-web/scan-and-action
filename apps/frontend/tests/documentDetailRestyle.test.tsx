@@ -219,6 +219,47 @@ describe('Detail follow-ups: localized fact date, filtered decision, translated 
   });
 });
 
+// Fix A: the entity chip renders the human-readable name (aliases[0]), not the
+// normalized canonicalName matching key, with a calm fallback to ent.name.
+const ALIASED_ENTITY_DOC = {
+  id: 'doc-ent',
+  originalFileName: 'facture-electricite.pdf',
+  status: 'COMPLETED',
+  overallConfidence: 0.95,
+  uploadedAt: '2026-06-01T10:00:00Z',
+  documentType: 'INVOICE',
+  detectedLanguage: 'ar',
+  facts: [],
+  entities: [
+    // name is the normalized key; aliases[0] is the human-readable original.
+    { role: 'VENDOR', name: 'SOCIT RGIONALE MULTISERVICES MARRAKECHSAFI SA', aliases: ['Société Régionale Multiservices Marrakech-Safi SA'] },
+    // No alias -> the chip falls back to ent.name (still a real value).
+    { role: 'ISSUER', name: 'Contoso', aliases: [] },
+  ],
+};
+
+describe('Detail follow-ups: entity chip shows the human name, not the canonicalName key (FIX A)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    (documentService.getDocumentDetail as any).mockResolvedValue({ ...ALIASED_ENTITY_DOC });
+  });
+  afterEach(() => { root.unmount(); container.remove(); });
+
+  it('renders the accented alias, never the accent-stripped canonicalName key', async () => {
+    mount('/documents/doc-ent', 'ar');
+    await vi.waitFor(() => expect(text()).toContain('facture-electricite.pdf'));
+    expect(text()).toContain('Société Régionale Multiservices Marrakech-Safi SA');
+    expect(text()).not.toContain('SOCIT RGIONALE');
+  });
+
+  it('falls back to ent.name when the entity has no alias', async () => {
+    mount('/documents/doc-ent', 'ar');
+    await vi.waitFor(() => expect(text()).toContain('facture-electricite.pdf'));
+    expect(text()).toContain('Contoso');
+  });
+});
+
 describe('Detail follow-ups: decision reason translation helper (FIX 2c, unit)', () => {
   it('translates a single known reason and drops the raw English in Arabic', () => {
     expect(translateDecisionReasons('Missing amount', strings.ar as any, 'ar')).toBe(strings.ar.reasonMissingAmount);
