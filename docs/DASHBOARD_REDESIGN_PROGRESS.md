@@ -224,6 +224,42 @@ surfaces via the shared `getVendor` path, not just File Detail.
       to an English `'Unnamed document'`. Both are untranslated; fold into a small
       i18n cleanup PR.
 
+## Section-heading consistency (app-wide rollout)
+
+We are introducing a single reusable `SectionHeading` primitive (consistent
+tag / size / weight / color / icon treatment / spacing) and applying it on the
+**File Detail page first** (the current heading redesign). The audit found that
+section headings are written ad hoc across the app with divergent treatments
+(different icon styles and sizes, some with icons some without, one heading at
+label size, a broken heading order), and there is no shared heading component
+today. AFTER the File Detail heading redesign lands, roll the SAME
+`SectionHeading` component out to the other screens that still write headings
+inline, for app-wide consistency:
+
+- [ ] **Dashboard card titles** (`DashboardScreen.tsx` ~L314, ~L322, ~L407,
+      currently `h2 text-section font-semibold text-ink`) and the one-off
+      **"Quick actions"** heading (~L352, currently `h2 text-[13px]
+      font-semibold text-ink-tertiary`, a different size + color than the other
+      card titles).
+- [ ] **ChartPlaceholder heading** (`SharedComponents.tsx` ~L70, currently
+      `h3 text-section font-semibold text-ink`).
+- [ ] **Search page title** (`SearchScreen.tsx` ~L106) uses a raw
+      `text-3xl` / `lg:text-4xl` scale instead of the `text-title-lg` token the
+      rest of the app uses for page/section titles. Standardize it onto the
+      token during the rollout.
+- [ ] **Dead `--sa-text-h2` token** (`tokens.css:78`, `18px`, commented
+      "section title lg") maps to NO Tailwind class (the type scale jumps
+      `text-title-lg` 24px -> `text-section` 15px, skipping 18px). Reconcile it
+      when the heading system is formalized: either wire a class to it or remove
+      it.
+
+Notes for the rollout: also fold in the File Detail heading fixes the audit
+surfaced (AI-synthesis heading is an `h4` at 12px `text-accent-text` while its
+peers are `h3` at 15px `text-ink`; the graph-relationships heading is the only
+one with a bare muted icon and a top divider; heading levels are non-monotonic
+with no `h2` on the page). The `SectionHeading` primitive should settle one icon
+convention so these converge.
+
 ## Remaining (post-redesign, separate work)
 
 - [ ] Per-period breakdown / pending / confidence (PR-C1 only provides
@@ -236,6 +272,12 @@ surfaces via the shared `getVendor` path, not just File Detail.
       **not** user-facing (optional cleanup, own PR if desired):
       `PaywallModal.tsx:112` (console.error), `paddle.ts:8` (thrown Error),
       `apiConfig.ts:12` (console.error).
+- [ ] **Em-dash cleanup in non-guarded copy.** The PR #51 em-dash guard scans
+      only i18n `strings` values, so em dashes still remain in pre-existing D1 to
+      D3 test `describe()` titles and in older prose in this tracker. Purge them
+      in a dedicated sweep PR so the no-em-dash rule holds literally across the
+      codebase, not just in i18n copy. (New additions since PR #60 are already
+      em-dash-free; this is only the pre-existing backlog.)
 
 ## Design decisions locked
 
