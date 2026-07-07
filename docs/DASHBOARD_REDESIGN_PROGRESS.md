@@ -135,49 +135,94 @@ bridge), after which each remaining PR is a focused per-screen restyle.
 - [ ] **PR-D9** — Legal screens (Terms / Privacy / Delete-account info) restyle.
 - [ ] **Landing** — tracked separately from the app shell (marketing surface).
 
-## File Detail follow-ups (deferred from the D4 review — own PR off `main`)
+## File Detail follow-ups (deferred from the D4 review): DONE in PR #60
 
-Found while reviewing real documents during D4. These are on the **File Detail**
-page / shared facts rendering (already merged in D3), so they are intentionally
-**out of scope for the Queue PR** and must land as a separate PR off `main`.
-Diagnosis-only so far; nothing applied.
+Found while reviewing real documents during D4. These were on the **File Detail**
+page / shared facts rendering (merged in D3), so they were intentionally kept
+**out of scope for the Queue PR** and landed as their own PR off `main`.
+**Completed in PR #60** (squash `06a35f6`, merged 2026-07-07): all items below
+applied, each with a new behavioral or source guard, full suite green, em-dash
+guard green, native anti-steering guard untouched.
 
-- [ ] **(2a) Localize the raw ISO date** in the Extracted Facts table.
+- [x] **(2a) Localize the raw ISO date** in the Extracted Facts table.
       `DocumentDetailScreen.tsx` `factValue` (~L111-114) renders a date fact as
       `String(fact.valueDate)` → raw `2026-02-08T00:00:00.000Z`. Reuse the shared
       `formatCellValue` / `formatDate` (ISO detection + `Intl.DateTimeFormat`) so
       Detail and Search share one localized date path; handle a non-string
       `valueDate` (Date/number) defensively.
-- [ ] **(2b) Translate/filter the raw `NEEDS_REVIEW` decision fact.** The facts
+- [x] **(2b) Translate/filter the raw `NEEDS_REVIEW` decision fact.** The facts
       loop (~L240/L266) renders every fact including the rule-engine `decision`
       fact, whose value comes through raw. Preferred fix: **filter `decision` +
       `decision_reason` out of the facts table** (they are rule outputs already
       surfaced by the `DecisionBanner`), removing the raw enum and the
       duplication.
-- [ ] **(2c) Translate the raw decision reason** ("Missing amount") in
+- [x] **(2c) Translate the raw decision reason** ("Missing amount") in
       `DecisionBanner.tsx` (~L53, rendered raw English). The reasons are a finite
       known set from `ruleEngineService` (`Amount exceeds threshold`, `High food
       expense`, `Missing amount`, `Possible duplicate expense`), persisted as
       `reasons.join(', ')`. Map each to en/fr/ar (split on `', '`, map, rejoin;
       raw fallback for anything unknown, never fabricated).
-- [ ] **(3) Fix the entity-chip truncation edge under RTL.**
+- [x] **(3) Fix the entity-chip truncation edge under RTL.**
       `DocumentDetailScreen.tsx` (~L303): `dir="auto"` is on the inner `<bdi>`,
       but the truncating `<span>` inherits `rtl` from the page, so
       `text-overflow: ellipsis` clips the **leading** side of a Latin name
       (`...ICES MARRAKECH SAFI SA`). Move `dir="auto"` onto the **truncating
       element** (matching the h1/meta pattern already in the file) so the ellipsis
       sits at the content's natural trailing edge.
-- [ ] **Adopt the shared `getDocTypeLabel`** (added in D4) in the Detail
+- [x] **Adopt the shared `getDocTypeLabel`** (added in D4) in the Detail
       meta-grid (`DocumentDetailScreen.tsx` ~L174) and the Dashboard recent
       activity (`DashboardScreen.tsx` ~L456), both of which still render
       `documentType` raw uppercase — same bug class as the Queue, one shared
       helper now available.
-- [ ] **Translate the raw `ent.role` enum** (`DocumentDetailScreen.tsx` ~L300):
+- [x] **Translate the raw `ent.role` enum** (`DocumentDetailScreen.tsx` ~L300):
       `VENDOR` / `ISSUER` render raw uppercase in the graph-relationships chips.
-- [ ] **`factValue` latent bugs** (same helper touched for 2a): `valueString ||
+      (Done via the shared `getEntityRoleLabel`.)
+- [x] **`factValue` latent bugs** (same helper touched for 2a): `valueString ||
       valueNumber` drops a legitimate numeric **0** (falsy), and currency amounts
       are concatenated raw (`${raw} ${currency}`) instead of `Intl`-formatted like
       the shared `getAmount` — so Detail amounts are not localized/grouped.
+
+## Entity / vendor display-name follow-ups (discovered during PR #60)
+
+Read-only diagnosis done while reviewing PR #60 in Arabic. An entity chip showed
+"SOCIT RGIONALE MULTIS..." for an org that reads correctly ("Societe Regionale
+Multiservices Marrakech-Safi SA", with accents) in the AI-synthesis banner on the
+same page. Root cause: the chip renders `Entity.canonicalName`, a normalized
+MATCHING KEY, not a display name. `canonicalName` is produced at WRITE time in
+`entityResolution.ts:38` as `searchName.toUpperCase().replace(/[^A-Z0-9\s]/g, '')`,
+which deletes (does not fold) any non-ASCII letter, so accents vanish and casing
+is lost. The human-readable original survives only in `Entity.aliases[0]` (and in
+`summary`, a separate LLM field that never passes through this transform). The
+`Entity` model has NO display-name column. The mangled value is shown on three
+surfaces via the shared `getVendor` path, not just File Detail.
+
+- [ ] **(A) Display-only fix (own PR, no migration).** Stop rendering the
+      normalized `canonicalName` key as a name. Expose a display name from
+      `aliases[0]` (fallback `canonicalName`) in the DTO
+      (`documentDto.ts`), have `getVendor` prefer it, and render it on all THREE
+      surfaces that currently show the mangled key: the File Detail entity chip
+      (`DocumentDetailScreen.tsx` ~L303, `ent.name`), the Search card vendor, and
+      the Review Queue vendor (`ReviewQueueScreen.tsx` L168 / L256, via
+      `getVendor` in `searchResultCard.ts:69`). Uses data already stored, so no
+      backfill. Recommended NOT folded into PR #60 (backend DTO + shared vendor
+      path, broader than File Detail).
+- [ ] **(B) Proper data-model fix (later follow-up, has a data dimension).** Add
+      `Entity.displayName`, populate it at write time from the original name
+      (preserving casing/accents), backfill existing rows from `aliases[0]`,
+      expose it in the DTO, and render it everywhere. Removes `aliases`
+      double-duty; requires a Prisma migration + backfill.
+- [ ] **(C) `isFoodMerchant` accent bug (separate rule-engine fix).** The food
+      rule lowercases the accent-stripped `canonicalName` and does
+      `includes('cafe')` (`ruleEngineService.ts:143-149`), so a "Cafe" merchant
+      whose real name carries an accent (canonical "CAF...") never matches the
+      keyword. Silent rule miss; track independently of the display fix.
+- [ ] **(D) Out-of-scope locale gaps noticed during PR #60.** (i) The Detail
+      meta-grid upload date (`DocumentDetailScreen.tsx`) uses
+      `new Date(...).toLocaleDateString()` with no locale arg, so it follows the
+      runtime locale, not the app locale. (ii) `DashboardScreen`'s local
+      `formatDate` hardcodes `'en-US'`, and its recent-activity title falls back
+      to an English `'Unnamed document'`. Both are untranslated; fold into a small
+      i18n cleanup PR.
 
 ## Remaining (post-redesign, separate work)
 
