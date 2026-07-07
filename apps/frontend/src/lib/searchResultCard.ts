@@ -66,7 +66,13 @@ const formatCurrency = (value: number, currency: unknown, language: string): str
 export const getVendor = (row: any): string | null => {
   const entities = Array.isArray(row?.documentEntities) ? row.documentEntities : [];
   const match = entities.find((e: any) => e && VENDOR_ROLES.has(String(e.role || '').toUpperCase()));
-  const name = match?.entity?.canonicalName ?? match?.entity?.name;
+  // Prefer the human-readable name over the normalized canonicalName matching
+  // key. `displayName` is set by the DTO (Queue path); `aliases[0]` covers the
+  // raw search-executor rows that are not DTO-mapped; canonicalName / name
+  // remain as a last-resort fallback so a missing display name still shows
+  // something real, never nothing. The canonicalName value itself is unchanged.
+  const e = match?.entity;
+  const name = e?.displayName ?? e?.aliases?.[0] ?? e?.canonicalName ?? e?.name;
   return name != null && name !== '' ? String(name) : null;
 };
 

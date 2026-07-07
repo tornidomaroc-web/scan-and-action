@@ -310,8 +310,10 @@ export const DocumentDetailScreen = () => {
                   {/* Cap + truncate so a long vendor name ellipsizes instead of
                       pushing the layout. dir="auto" sits on the TRUNCATING span
                       (matching the h1/meta pattern) so the ellipsis lands at each
-                      name's natural trailing edge under RTL, not the leading side. */}
-                  <span className="min-w-0 max-w-[12rem] truncate text-sm font-medium text-ink" dir="auto"><bdi>{ent.name}</bdi></span>
+                      name's natural trailing edge under RTL, not the leading side.
+                      Render the human-readable name (aliases[0]) rather than the
+                      normalized canonicalName key; fall back to ent.name. */}
+                  <span className="min-w-0 max-w-[12rem] truncate text-sm font-medium text-ink" dir="auto"><bdi>{ent.aliases?.[0] || ent.name}</bdi></span>
                 </div>
               ))}
             </div>

@@ -31,6 +31,25 @@ describe('getVendor', () => {
     expect(getVendor({ documentEntities: [{ role: 'CLIENT', entity: { canonicalName: 'X' } }] })).toBeNull();
     expect(getVendor({})).toBeNull();
   });
+  // Fix A: render the human-readable name, not the normalized canonicalName key.
+  it('prefers the DTO displayName over the normalized canonicalName (Queue path)', () => {
+    const out = getVendor({
+      documentEntities: [{ role: 'VENDOR', entity: { displayName: 'Societe Regionale', canonicalName: 'SOCIT RGIONALE' } }],
+    });
+    expect(out).toBe('Societe Regionale');
+    expect(out).not.toBe('SOCIT RGIONALE');
+  });
+  it('prefers aliases[0] when there is no displayName (raw search-executor rows)', () => {
+    const out = getVendor({
+      documentEntities: [{ role: 'ISSUER', entity: { aliases: ['Societe Regionale'], canonicalName: 'SOCIT RGIONALE' } }],
+    });
+    expect(out).toBe('Societe Regionale');
+  });
+  it('falls back to canonicalName when neither displayName nor aliases are present', () => {
+    expect(
+      getVendor({ documentEntities: [{ role: 'VENDOR', entity: { canonicalName: 'TARGET', aliases: [] } }] })
+    ).toBe('TARGET');
+  });
 });
 
 describe('getAmount', () => {
