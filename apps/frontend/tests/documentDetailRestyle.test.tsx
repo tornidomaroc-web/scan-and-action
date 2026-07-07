@@ -164,7 +164,7 @@ describe('Detail restyle — status reconciled with the Search card (no raw enum
 });
 
 // ── D4-review follow-ups: live data-correctness + RTL guards ───────────────
-describe('Detail follow-ups — localized fact date, filtered decision, translated type/role', () => {
+describe('Detail follow-ups: localized fact date, filtered decision, translated type/role', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
@@ -219,7 +219,7 @@ describe('Detail follow-ups — localized fact date, filtered decision, translat
   });
 });
 
-describe('Detail follow-ups — decision reason translation helper (FIX 2c, unit)', () => {
+describe('Detail follow-ups: decision reason translation helper (FIX 2c, unit)', () => {
   it('translates a single known reason and drops the raw English in Arabic', () => {
     expect(translateDecisionReasons('Missing amount', strings.ar as any, 'ar')).toBe(strings.ar.reasonMissingAmount);
     expect(translateDecisionReasons('Missing amount', strings.ar as any, 'ar')).not.toBe('Missing amount');
@@ -361,7 +361,7 @@ describe('Detail restyle — touched source is on tokens, bidi-isolated (source 
   // natural trailing edge under RTL instead of clipping the leading side.
   it('entity chip truncation dir sits on the truncating span, not the inner bdi', () => {
     expect(files.screen).toContain('max-w-[12rem] truncate text-sm font-medium text-ink" dir="auto"');
-    // The old (buggy) pattern — dir on the inner bdi of the chip — is gone.
+    // The old (buggy) pattern (dir on the inner bdi of the chip) is gone.
     expect(files.screen).not.toContain('<bdi dir="auto">{ent.name}</bdi>');
   });
 
@@ -376,7 +376,7 @@ describe('Detail restyle — touched source is on tokens, bidi-isolated (source 
 
 // The Dashboard recent-activity type adopts the SAME shared translated helper as
 // Queue + Detail, so an Arabic user never sees a raw uppercase type there either.
-describe('Detail follow-ups — Dashboard recent activity uses the shared type label (source scan)', () => {
+describe('Detail follow-ups: Dashboard recent activity uses the shared type label (source scan)', () => {
   const dashboard = read('../src/screens/DashboardScreen.tsx');
   it('imports and applies getDocTypeLabel, and drops the raw documentType render', () => {
     expect(dashboard).toContain("import { getDocTypeLabel } from '../lib/searchResultCard'");
