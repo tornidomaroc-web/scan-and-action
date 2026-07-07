@@ -11,7 +11,7 @@
 // as null and simply omitted from the card. Status is mapped to a TRANSLATED
 // label (never the raw backend enum).
 
-import { formatCellValue } from './formatCellValue';
+import { formatCellValue, formatDateValue } from './formatCellValue';
 
 export interface CardStatus {
   key: string;
@@ -110,6 +110,47 @@ export const getDocTypeLabel = (rawType: unknown, s: Strings): string | null => 
   const key = DOC_TYPE_LABEL_KEY[raw.toUpperCase()];
   // Known enum -> translated label; unknown/free-form -> humanized real value.
   return (key && s[key]) || humanizeEnum(raw);
+};
+
+// Graph-relationship entity roles (VENDOR / ISSUER / ...) -> translated,
+// sentence-case label. Same contract as getStatus / getDocTypeLabel: a known
+// enum maps to its i18n label, anything unknown is humanized from the real
+// value (never a guess, never the raw uppercase enum). Returns '' only for a
+// genuinely absent role so the caller renders nothing rather than a placeholder.
+const ENTITY_ROLE_LABEL_KEY: Record<string, string> = {
+  VENDOR: 'entityRoleVendor',
+  ISSUER: 'entityRoleIssuer',
+};
+
+export const getEntityRoleLabel = (rawRole: unknown, s: Strings): string => {
+  const raw = typeof rawRole === 'string' && rawRole.trim() ? rawRole.trim() : '';
+  if (!raw) return '';
+  const key = ENTITY_ROLE_LABEL_KEY[raw.toUpperCase()];
+  return (key && s[key]) || humanizeEnum(raw);
+};
+
+// Localize a single extracted fact's value for the Detail facts table. It reads
+// the fact's own value columns in a deliberate order and NEVER fabricates:
+//   - a real string value is shown verbatim,
+//   - a numeric value is Intl-formatted (grouped, and currency-formatted when a
+//     currency code is present) exactly like the shared getAmount, so a
+//     legitimate 0 is preserved (the old `valueString || valueNumber` dropped it
+//     because 0 is falsy) and amounts read localized instead of "4280 MAD",
+//   - a date value is localized via the shared date path (handles ISO string,
+//     epoch number, or Date), never a raw "2026-02-08T00:00:00.000Z",
+//   - a genuinely empty / invalid value becomes a calm placeholder.
+// The amount stays plain document data here; it is never styled as a price.
+export const formatFactValue = (fact: any, s: Strings, language: string): string => {
+  if (fact?.valueString != null && String(fact.valueString) !== '') {
+    return String(fact.valueString);
+  }
+  if (fact?.valueNumber != null) {
+    return formatCurrency(Number(fact.valueNumber), fact.currency, language);
+  }
+  if (fact?.valueDate != null) {
+    return formatDateValue(fact.valueDate, language) ?? s.notAvailable;
+  }
+  return s.notAvailable;
 };
 
 const firstReadable = (row: any, language: string): string | null => {

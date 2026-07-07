@@ -23,11 +23,23 @@ const humanizeKey = (k: string): string =>
     .trim()
     .toLowerCase();
 
-const formatDate = (value: string, locale: string): string => {
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return value; // not a real date -> leave as-is
+// Localize a date value into a readable "short" date, or `null` when the value
+// is genuinely empty / not a real date. Accepts an ISO string, an epoch number,
+// or a Date (defensive: a fact's `valueDate` can arrive as any of these), so
+// callers get one localized date path instead of stringifying a raw ISO. It
+// NEVER fabricates: an unparseable value returns null so the caller can show a
+// calm placeholder rather than a raw ISO string or an invented date.
+export const formatDateValue = (value: unknown, locale: string): string | null => {
+  if (value == null || value === '') return null;
+  const d = value instanceof Date ? value : new Date(value as string | number);
+  if (isNaN(d.getTime())) return null;
   return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric' }).format(d);
 };
+
+// Table-cell date path: same localization, but an unparseable ISO-shaped string
+// falls back to the raw value (the passthrough table would rather show the
+// original text than a placeholder).
+const formatDate = (value: string, locale: string): string => formatDateValue(value, locale) ?? value;
 
 // Pull the most human-meaningful label out of a single object (an entity row, a
 // fact row, or an arbitrary record). Guarantees it never returns "[object Object]".

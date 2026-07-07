@@ -8,7 +8,8 @@ import { DecisionBanner } from '../components/DecisionBanner';
 import { FixActionPanel } from '../components/FixActionPanel';
 import { useToast } from '../contexts/ToastContext';
 import { useStrings } from '../i18n/useStrings';
-import { getStatus } from '../lib/searchResultCard';
+import { useLanguage } from '../i18n/LanguageContext';
+import { getStatus, getDocTypeLabel, getEntityRoleLabel, formatFactValue } from '../lib/searchResultCard';
 
 // Document detail, restyled onto the --sa-* token system (PR-D3).
 //  - Calm flat surfaces (rounded-card, quiet shadow) instead of the old
@@ -22,6 +23,7 @@ import { getStatus } from '../lib/searchResultCard';
 //  - All copy is i18n (three locales); no hardcoded English remains.
 export const DocumentDetailScreen = () => {
   const s = useStrings();
+  const { language } = useLanguage();
   const fieldLabel = (key: string): string => {
     const map: Record<string, string> = {
       TRANSACTION_DATE: s.transactionDate,
@@ -108,10 +110,17 @@ export const DocumentDetailScreen = () => {
   // user tapped to arrive here (Processed / Needs review / Rejected, translated).
   const status = getStatus(doc, s as any);
 
-  const factValue = (fact: any): string => {
-    const raw = fact.valueString || fact.valueNumber || (fact.valueDate != null ? String(fact.valueDate) : '');
-    return `${raw}${fact.currency ? ` ${fact.currency}` : ''}`.trim();
-  };
+  // Localized, honest fact value (shared with Search): preserves a numeric 0,
+  // Intl-formats amounts, and renders dates human-readable instead of raw ISO.
+  const factValue = (fact: any): string => formatFactValue(fact, s as any, language);
+
+  // The rule-engine decision + decision_reason are NOT extracted facts: they are
+  // rule outputs already surfaced by the DecisionBanner above. Filter them out of
+  // the Extracted Facts table so an Arabic user never sees a raw "NEEDS_REVIEW"
+  // enum or an untranslated English reason duplicated here.
+  const visibleFacts: any[] = (doc.facts || []).filter(
+    (f: any) => f.key !== 'decision' && f.key !== 'decision_reason'
+  );
 
   return (
     <div className="mx-auto max-w-[1000px] animate-in fade-in slide-in-from-bottom-4 pb-20 duration-500">
@@ -171,7 +180,7 @@ export const DocumentDetailScreen = () => {
             )}
           </div>
           {[
-            { label: s.type, value: doc.documentType || s.notAvailable },
+            { label: s.type, value: getDocTypeLabel(doc.documentType, s as any) || s.notAvailable },
             { label: s.date, value: doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : s.notAvailable },
             { label: s.docLanguage, value: doc.detectedLanguage?.toUpperCase() || 'EN' },
           ].map((item, i) => (
@@ -233,11 +242,11 @@ export const DocumentDetailScreen = () => {
             {s.extractedFacts}
           </h3>
 
-          {doc.facts && doc.facts.length > 0 ? (
+          {visibleFacts.length > 0 ? (
             <>
               {/* Mobile: stacked label/value rows (the 3-column table clips at phone widths). */}
               <div className="divide-y divide-divider overflow-hidden rounded-card border border-line bg-surface-raised md:hidden">
-                {doc.facts.map((fact: any, i: number) => (
+                {visibleFacts.map((fact: any, i: number) => (
                   <div key={i} className="p-4">
                     <div className="mb-1.5 flex items-center justify-between gap-3">
                       <span className="text-label font-medium text-ink-tertiary">{fieldLabel(fact.key)}</span>
@@ -263,7 +272,7 @@ export const DocumentDetailScreen = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-divider">
-                    {doc.facts.map((fact: any, i: number) => (
+                    {visibleFacts.map((fact: any, i: number) => (
                       <tr key={i} className="transition-colors hover:bg-surface-alt">
                         <td className="px-6 py-3.5 text-sm font-medium text-ink">{fieldLabel(fact.key)}</td>
                         <td className="px-6 py-3.5 text-sm text-ink-secondary" dir="auto"><bdi>{factValue(fact)}</bdi></td>
@@ -297,10 +306,12 @@ export const DocumentDetailScreen = () => {
             <div className="flex flex-wrap gap-2.5">
               {doc.entities.map((ent: any, i: number) => (
                 <div key={i} className="inline-flex max-w-full items-center gap-2 rounded-pill border border-line bg-surface px-4 py-2 text-start transition-colors hover:border-line-strong">
-                  <span className="flex-shrink-0 text-label font-medium text-ink-muted">{ent.role}</span>
+                  <span className="flex-shrink-0 text-label font-medium text-ink-muted">{getEntityRoleLabel(ent.role, s as any)}</span>
                   {/* Cap + truncate so a long vendor name ellipsizes instead of
-                      pushing the layout; bidi isolation is preserved. */}
-                  <span className="min-w-0 max-w-[12rem] truncate text-sm font-medium text-ink"><bdi dir="auto">{ent.name}</bdi></span>
+                      pushing the layout. dir="auto" sits on the TRUNCATING span
+                      (matching the h1/meta pattern) so the ellipsis lands at each
+                      name's natural trailing edge under RTL, not the leading side. */}
+                  <span className="min-w-0 max-w-[12rem] truncate text-sm font-medium text-ink" dir="auto"><bdi>{ent.name}</bdi></span>
                 </div>
               ))}
             </div>

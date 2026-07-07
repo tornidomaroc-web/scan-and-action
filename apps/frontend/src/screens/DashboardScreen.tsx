@@ -32,6 +32,7 @@ import {
   type Periods,
   type BreakdownKey,
 } from '../lib/dashboardAnalytics';
+import { getDocTypeLabel } from '../lib/searchResultCard';
 
 const formatDate = (dateString: string) => {
   if (!dateString) return 'Recently';
@@ -435,6 +436,9 @@ export const DashboardScreen = () => {
           ) : (
             visibleActivity.map((item) => {
               const meta = statusMeta(item.status, s);
+              // Shared translated, sentence-case type label (same source as Queue
+              // + Detail); null when absent so the "type ·" prefix is simply omitted.
+              const typeLabel = getDocTypeLabel(item.documentType, s as any);
               const conf =
                 typeof item.overallConfidence === 'number'
                   ? `${Math.round(item.overallConfidence * 100)}%`
@@ -453,7 +457,7 @@ export const DashboardScreen = () => {
                       {item.originalFileName || 'Unnamed document'}
                     </div>
                     <div className="mt-0.5 truncate text-xs text-ink-muted">
-                      {item.documentType ? `${item.documentType} · ` : ''}
+                      {typeLabel ? `${typeLabel} · ` : ''}
                       {formatDate(item.uploadedAt)}
                     </div>
                   </div>
