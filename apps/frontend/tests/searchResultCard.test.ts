@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { getVendor, getAmount, getStatus, getPrimaryFields, getDocTypeLabel } from '../src/lib/searchResultCard';
+import {
+  getVendor,
+  getAmount,
+  getStatus,
+  getPrimaryFields,
+  getDocTypeLabel,
+  getEntityRoleLabel,
+  formatFactValue,
+} from '../src/lib/searchResultCard';
 import { strings } from '../src/i18n/strings';
 
 // ============================================================================
@@ -85,6 +93,61 @@ describe('getDocTypeLabel', () => {
     expect(getDocTypeLabel(null, strings.en as any)).toBeNull();
     expect(getDocTypeLabel('', strings.en as any)).toBeNull();
     expect(getDocTypeLabel(undefined, strings.en as any)).toBeNull();
+  });
+});
+
+describe('getEntityRoleLabel', () => {
+  it('maps known roles to a TRANSLATED, sentence-case label in each locale (never the raw enum)', () => {
+    expect(getEntityRoleLabel('VENDOR', strings.en as any)).toBe(strings.en.entityRoleVendor);
+    expect(getEntityRoleLabel('ISSUER', strings.en as any)).toBe(strings.en.entityRoleIssuer);
+    // Case-insensitive on the raw enum.
+    expect(getEntityRoleLabel('vendor', strings.en as any)).toBe(strings.en.entityRoleVendor);
+    // Arabic parity: an Arabic user reads the Arabic label, not English "Vendor".
+    expect(getEntityRoleLabel('VENDOR', strings.ar as any)).toBe(strings.ar.entityRoleVendor);
+    expect(getEntityRoleLabel('VENDOR', strings.ar as any)).not.toBe('VENDOR');
+    expect(getEntityRoleLabel('ISSUER', strings.fr as any)).toBe(strings.fr.entityRoleIssuer);
+  });
+  it('humanizes an unknown role (never raw uppercase) and returns "" when absent', () => {
+    expect(getEntityRoleLabel('CUSTOMER', strings.en as any)).toBe('Customer');
+    expect(getEntityRoleLabel('CUSTOMER', strings.en as any)).not.toBe('CUSTOMER');
+    expect(getEntityRoleLabel('CUSTOMER', strings.en as any)).not.toContain('_');
+    expect(getEntityRoleLabel('', strings.en as any)).toBe('');
+    expect(getEntityRoleLabel(null, strings.en as any)).toBe('');
+    expect(getEntityRoleLabel(undefined, strings.en as any)).toBe('');
+  });
+});
+
+describe('formatFactValue', () => {
+  it('preserves a legitimate numeric 0 (the old `valueString || valueNumber` dropped it)', () => {
+    // No currency: grouped plain number, still "0" and NOT the empty/placeholder.
+    expect(formatFactValue({ valueString: null, valueNumber: 0 }, strings.en as any, 'en')).toBe('0');
+    // With a currency: still shows the zero, never blank.
+    const withCur = formatFactValue({ valueNumber: 0, currency: 'MAD' }, strings.en as any, 'en');
+    expect(withCur).toContain('0');
+    expect(withCur).not.toBe(strings.en.notAvailable);
+  });
+  it('Intl-formats amounts (grouped + currency), like the shared getAmount, not "4280 MAD"', () => {
+    const out = formatFactValue({ valueNumber: 4280, currency: 'MAD' }, strings.en as any, 'en');
+    expect(out).toContain('4,280');
+    expect(out).toContain('MAD');
+    expect(out).not.toBe('4280 MAD');
+  });
+  it('shows a real string value verbatim', () => {
+    expect(formatFactValue({ valueString: 'Travel' }, strings.en as any, 'en')).toBe('Travel');
+  });
+  it('localizes a date value (ISO string / Date), never the raw ISO', () => {
+    const fromIso = formatFactValue({ valueDate: '2026-02-08T00:00:00.000Z' }, strings.en as any, 'en');
+    expect(fromIso).toContain('2026');
+    expect(fromIso).not.toContain('T00:00:00');
+    expect(fromIso).not.toContain('2026-02-08T00:00:00.000Z');
+    // A non-string valueDate (Date) is handled defensively too.
+    const fromDate = formatFactValue({ valueDate: new Date('2026-02-08T00:00:00.000Z') }, strings.en as any, 'en');
+    expect(fromDate).toContain('2026');
+  });
+  it('falls back to a calm placeholder for an empty / invalid value (never a raw ISO or fabricated date)', () => {
+    expect(formatFactValue({}, strings.en as any, 'en')).toBe(strings.en.notAvailable);
+    expect(formatFactValue({ valueString: '' }, strings.en as any, 'en')).toBe(strings.en.notAvailable);
+    expect(formatFactValue({ valueDate: 'not-a-date' }, strings.en as any, 'en')).toBe(strings.en.notAvailable);
   });
 });
 
