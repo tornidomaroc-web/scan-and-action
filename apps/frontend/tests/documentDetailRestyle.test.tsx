@@ -260,6 +260,82 @@ describe('Detail follow-ups: entity chip shows the human name, not the canonical
   });
 });
 
+// ── TASK 3: data-relationships shows the FULL entity name (no truncation) ─────
+// A long vendor name previously clipped at 192px (max-w-[12rem] truncate) so the
+// user never saw the whole name — an honesty defect. It must now render in full,
+// wrapping onto as many lines as it needs, with role + name both present.
+const LONG_NAME = 'Société Générale de Surveillance et Contrôle Technique International SA Marrakech Safi';
+
+const FEW_ENTITIES_DOC = {
+  id: 'doc-few',
+  originalFileName: 'facture-longue.pdf',
+  status: 'COMPLETED',
+  overallConfidence: 0.95,
+  uploadedAt: '2026-06-01T10:00:00Z',
+  documentType: 'INVOICE',
+  detectedLanguage: 'ar',
+  facts: [],
+  entities: [
+    { role: 'VENDOR', name: LONG_NAME, aliases: [LONG_NAME] },
+    { role: 'ISSUER', name: 'Contoso SARL', aliases: [] },
+  ],
+};
+
+// Six entities -> the "many" layout (stacked list). Every full name must show.
+const MANY_ENTITIES_DOC = {
+  id: 'doc-many',
+  originalFileName: 'facture-multi.pdf',
+  status: 'COMPLETED',
+  overallConfidence: 0.95,
+  uploadedAt: '2026-06-01T10:00:00Z',
+  documentType: 'INVOICE',
+  detectedLanguage: 'ar',
+  facts: [],
+  entities: [
+    { role: 'VENDOR', name: LONG_NAME, aliases: [LONG_NAME] },
+    { role: 'ISSUER', name: 'Contoso SARL', aliases: [] },
+    { role: 'VENDOR', name: 'Aurora Studios International', aliases: [] },
+    { role: 'ISSUER', name: 'Globex Corporation Limited', aliases: [] },
+    { role: 'VENDOR', name: 'Initech Systems', aliases: [] },
+    { role: 'ISSUER', name: 'Umbrella Holdings', aliases: [] },
+  ],
+};
+
+describe('Detail — data relationships show the full entity name (TASK 3, no truncation)', () => {
+  afterEach(() => { root.unmount(); container.remove(); });
+
+  it('few entities: renders the full long name in a wrapping card, role translated (RTL)', async () => {
+    vi.clearAllMocks(); localStorage.clear();
+    (documentService.getDocumentDetail as any).mockResolvedValue({ ...FEW_ENTITIES_DOC });
+    mount('/documents/doc-few', 'ar');
+    await vi.waitFor(() => expect(text()).toContain('facture-longue.pdf'));
+    // The entire name is present — not clipped to a 192px prefix.
+    expect(text()).toContain(LONG_NAME);
+    expect(text()).toContain(strings.ar.entityRoleVendor);
+    // The name span wraps (break-words) and is NEVER truncated.
+    const nameEl = [...container.querySelectorAll('bdi')].find((b) => b.textContent === LONG_NAME);
+    expect(nameEl).toBeTruthy();
+    const wrapper = nameEl!.parentElement as HTMLElement;
+    expect(wrapper.className).toContain('break-words');
+    expect(wrapper.className).not.toContain('truncate');
+    expect(wrapper.getAttribute('dir')).toBe('auto'); // bidi isolation preserved
+  });
+
+  it('many entities: renders a stacked list with every full name present', async () => {
+    vi.clearAllMocks(); localStorage.clear();
+    (documentService.getDocumentDetail as any).mockResolvedValue({ ...MANY_ENTITIES_DOC });
+    mount('/documents/doc-many', 'en');
+    await vi.waitFor(() => expect(text()).toContain('facture-multi.pdf'));
+    for (const name of [LONG_NAME, 'Aurora Studios International', 'Globex Corporation Limited', 'Umbrella Holdings']) {
+      expect(text()).toContain(name);
+    }
+    // No entity name is truncated in the stacked list either.
+    const names = [...container.querySelectorAll('bdi')].filter((b) => b.textContent === LONG_NAME);
+    expect(names.length).toBeGreaterThan(0);
+    expect((names[0].parentElement as HTMLElement).className).not.toContain('truncate');
+  });
+});
+
 describe('Detail follow-ups: decision reason translation helper (FIX 2c, unit)', () => {
   it('translates a single known reason and drops the raw English in Arabic', () => {
     expect(translateDecisionReasons('Missing amount', strings.ar as any, 'ar')).toBe(strings.ar.reasonMissingAmount);
@@ -391,18 +467,24 @@ describe('Detail restyle — touched source is on tokens, bidi-isolated (source 
     expect(files.screen).toContain('rounded-card border border-line bg-surface-raised p-5 shadow-card md:p-8');
   });
 
-  // FIX 3: entity chip names are capped + truncated so a long vendor name
-  // ellipsizes instead of pushing the layout (bidi kept).
-  it('entity chip name is capped and truncated', () => {
-    expect(files.screen).toContain('max-w-[12rem] truncate');
+  // TASK 3 (section-heading redesign): the entity name is now shown IN FULL — the
+  // old max-w cap + truncate clipped long vendor names at 192px so the user never
+  // saw the whole name (an honesty defect). The name wraps via break-words instead;
+  // the cap and the ellipsis are gone from every entity render site.
+  it('entity name is shown in full (wraps, never truncated)', () => {
+    // The entity value now wraps (break-words) instead of clipping at a cap.
+    expect(files.screen).toContain('break-words text-sm font-medium text-ink" dir="auto"><bdi>');
+    // The old 192px cap + ellipsis on the entity name are gone entirely.
+    expect(files.screen).not.toContain('max-w-[12rem] truncate');
+    expect(files.screen).not.toContain('max-w-[12rem]');
   });
 
-  // FIX 3 (RTL truncation edge): dir="auto" must live on the TRUNCATING element
-  // (the capped span), not the inner <bdi>, so the ellipsis lands at each name's
-  // natural trailing edge under RTL instead of clipping the leading side.
-  it('entity chip truncation dir sits on the truncating span, not the inner bdi', () => {
-    expect(files.screen).toContain('max-w-[12rem] truncate text-sm font-medium text-ink" dir="auto"');
-    // The old (buggy) pattern (dir on the inner bdi of the chip) is gone.
+  // Bidi isolation is preserved on the wrapping value: dir="auto" sits on the
+  // wrapping span with an inner <bdi>, so numerals/Latin in a name do not scramble
+  // under Arabic RTL even though the value now wraps freely.
+  it('entity name keeps bidi isolation (dir="auto" + bdi) while wrapping', () => {
+    expect(files.screen).toContain('break-words text-sm font-medium text-ink" dir="auto"><bdi>');
+    // The old (buggy) pattern (dir on the inner bdi of the chip) is still absent.
     expect(files.screen).not.toContain('<bdi dir="auto">{ent.name}</bdi>');
   });
 
