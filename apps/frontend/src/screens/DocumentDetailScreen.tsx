@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, CheckCircle, XCircle, FileText, Network } from 'lucide-react';
+import { ChevronLeft, CheckCircle, XCircle, FileText, Network, Sparkles, ListChecks } from 'lucide-react';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
+import { SectionHeading } from '../components/SectionHeading';
 import { ReviewBadge } from '../components/SharedComponents';
 import { DecisionBanner } from '../components/DecisionBanner';
 import { FixActionPanel } from '../components/FixActionPanel';
@@ -122,6 +123,11 @@ export const DocumentDetailScreen = () => {
     (f: any) => f.key !== 'decision' && f.key !== 'decision_reason'
   );
 
+  // Data-relationships layout: a few entities read best as wrapping cards; past a
+  // handful they read better as a stacked list (one row each). Either way the full
+  // name wraps and is never truncated.
+  const manyEntities: boolean = (doc.entities?.length || 0) > 4;
+
   return (
     <div className="mx-auto max-w-[1000px] animate-in fade-in slide-in-from-bottom-4 pb-20 duration-500">
       <button
@@ -193,7 +199,7 @@ export const DocumentDetailScreen = () => {
 
         {doc.signedFileUrl && (
           <div className="mb-10">
-            <h3 className="mb-4 text-section font-semibold text-ink">{s.sourceVisualization}</h3>
+            <SectionHeading icon={FileText}>{s.sourceVisualization}</SectionHeading>
             <div className="overflow-hidden rounded-card border border-line bg-surface">
               {isImageFile ? (
                 <img
@@ -227,20 +233,20 @@ export const DocumentDetailScreen = () => {
           </div>
         )}
 
+        {/* AI analysis: the heading is promoted to the shared section-heading level
+            (was a ~12px h4 — the inverted hierarchy). The synthesis text keeps its
+            calm accent-tinted body so it still reads as AI-generated content. */}
         {doc.summary && (
-          <div className="mb-10 rounded-card border border-accent-border bg-accent-tint p-5 text-start">
-            <h4 className="mb-2 text-label font-semibold text-accent-text">{s.aiSynthesis}</h4>
-            <p className="text-sm leading-relaxed text-ink-secondary"><bdi dir="auto">{doc.summary}</bdi></p>
+          <div className="mb-10">
+            <SectionHeading icon={Sparkles}>{s.aiSynthesis}</SectionHeading>
+            <div className="rounded-card border border-accent-border bg-accent-tint p-5 text-start">
+              <p className="text-sm leading-relaxed text-ink-secondary"><bdi dir="auto">{doc.summary}</bdi></p>
+            </div>
           </div>
         )}
 
-        <div>
-          <h3 className="mb-5 flex items-center gap-2.5 text-section font-semibold text-ink">
-            <span className="flex h-7 w-7 items-center justify-center rounded-btn bg-success-tint text-success-text">
-              <CheckCircle size={16} />
-            </span>
-            {s.extractedFacts}
-          </h3>
+        <div className="mb-10">
+          <SectionHeading icon={ListChecks}>{s.extractedFacts}</SectionHeading>
 
           {visibleFacts.length > 0 ? (
             <>
@@ -297,26 +303,40 @@ export const DocumentDetailScreen = () => {
           )}
         </div>
 
-        <div className="mt-12 border-t border-divider pt-8">
-          <h3 className="mb-4 flex items-center gap-2 text-section font-semibold text-ink">
-            <Network size={16} className="text-ink-faint" />
-            {s.graphRelationships}
-          </h3>
+        {/* No top divider/separator line (locked spec): the 40px section rhythm
+            (mb-10 on the sections above) carries the separation instead. */}
+        <div>
+          <SectionHeading icon={Network}>{s.graphRelationships}</SectionHeading>
           {doc.entities && doc.entities.length > 0 ? (
-            <div className="flex flex-wrap gap-2.5">
-              {doc.entities.map((ent: any, i: number) => (
-                <div key={i} className="inline-flex max-w-full items-center gap-2 rounded-pill border border-line bg-surface px-4 py-2 text-start transition-colors hover:border-line-strong">
-                  <span className="flex-shrink-0 text-label font-medium text-ink-muted">{getEntityRoleLabel(ent.role, s as any)}</span>
-                  {/* Cap + truncate so a long vendor name ellipsizes instead of
-                      pushing the layout. dir="auto" sits on the TRUNCATING span
-                      (matching the h1/meta pattern) so the ellipsis lands at each
-                      name's natural trailing edge under RTL, not the leading side.
-                      Render the human-readable name (aliases[0]) rather than the
-                      normalized canonicalName key; fall back to ent.name. */}
-                  <span className="min-w-0 max-w-[12rem] truncate text-sm font-medium text-ink" dir="auto"><bdi>{ent.aliases?.[0] || ent.name}</bdi></span>
-                </div>
-              ))}
-            </div>
+            manyEntities ? (
+              /* Many entities: a stacked list (role + full wrapped name). A grid of
+                 wrapping cards would get ragged at scale, so each entity is one row
+                 whose name wraps freely — never truncated. */
+              <div className="divide-y divide-divider overflow-hidden rounded-card border border-line bg-surface-raised">
+                {doc.entities.map((ent: any, i: number) => (
+                  <div key={i} className="flex flex-col gap-1 p-4 sm:flex-row sm:items-baseline sm:gap-3">
+                    <span className="flex-shrink-0 text-label font-medium text-ink-muted sm:w-28">{getEntityRoleLabel(ent.role, s as any)}</span>
+                    {/* Full name, no truncation: break-words wraps a long value onto
+                        as many lines as it needs. dir="auto" on the wrapping span +
+                        <bdi> isolates each value's direction so numerals/Latin do not
+                        scramble under Arabic RTL. */}
+                    <span className="min-w-0 break-words text-sm font-medium text-ink" dir="auto"><bdi>{ent.aliases?.[0] || ent.name}</bdi></span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* Few entities: cards that wrap to two (or more) lines. max-w-md bounds
+                 the card so a long name wraps within it instead of stretching the row;
+                 break-words + no truncate means the whole name is always visible. */
+              <div className="flex flex-wrap gap-2.5">
+                {doc.entities.map((ent: any, i: number) => (
+                  <div key={i} className="flex max-w-full items-baseline gap-2 rounded-card border border-line bg-surface px-4 py-2.5 text-start transition-colors hover:border-line-strong sm:max-w-md">
+                    <span className="flex-shrink-0 text-label font-medium text-ink-muted">{getEntityRoleLabel(ent.role, s as any)}</span>
+                    <span className="min-w-0 break-words text-sm font-medium text-ink" dir="auto"><bdi>{ent.aliases?.[0] || ent.name}</bdi></span>
+                  </div>
+                ))}
+              </div>
+            )
           ) : (
             <p className="text-sm font-medium text-ink-muted">{s.noEntities}</p>
           )}
