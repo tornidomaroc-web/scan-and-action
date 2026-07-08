@@ -19,6 +19,7 @@ import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
+import { SectionHeading } from '../components/SectionHeading';
 import { AreaChart } from '../components/AreaChart';
 import { useIsDesktop } from '../hooks/useMediaQuery';
 import {
@@ -311,17 +312,17 @@ export const DashboardScreen = () => {
           renders real data when the payload has it, else the calm placeholder. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="flex flex-col rounded-card border border-line bg-surface-raised p-5 shadow-card">
-          <h2 className="text-section font-semibold text-ink">{s.documentsProcessed}</h2>
-          <div className="mt-4">
+          <SectionHeading as="h2">{s.documentsProcessed}</SectionHeading>
+          <div>
             {/* Undefined series → AreaChart keeps its calm placeholder. */}
             <AreaChart series={chartSeries} placeholder={s.dataComingSoon} ariaLabel={s.documentsProcessed} rtl={isRtl} />
           </div>
         </div>
 
         <div className="flex flex-col rounded-card border border-line bg-surface-raised p-5 shadow-card">
-          <h2 className="text-section font-semibold text-ink">{s.documentsByStatus}</h2>
+          <SectionHeading as="h2">{s.documentsByStatus}</SectionHeading>
           {breakdownHasData ? (
-            <div className="mt-4 flex flex-col gap-3">
+            <div className="flex flex-col gap-3">
               {bdRows.map((row) => {
                 const meta = bdMeta[row.key];
                 return (
@@ -335,7 +336,7 @@ export const DashboardScreen = () => {
               })}
             </div>
           ) : (
-            <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-3 rounded-nav border border-dashed border-line bg-surface/40 py-10">
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-nav border border-dashed border-line bg-surface/40 py-10">
               <div className="flex gap-1.5">
                 <span className="h-2 w-2 rounded-pill bg-success/50" />
                 <span className="h-2 w-2 rounded-pill bg-warning/50" />
@@ -349,7 +350,7 @@ export const DashboardScreen = () => {
 
       {/* Quick actions */}
       <section>
-        <h2 className="mb-3 text-[13px] font-semibold text-ink-tertiary">{s.quickActions}</h2>
+        <SectionHeading as="h2">{s.quickActions}</SectionHeading>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {/* Primary: New scan */}
           <button
