@@ -38,6 +38,7 @@ vi.mock('../src/services/documentService', () => ({
 }));
 
 import { strings } from '../src/i18n/strings';
+import { formatDateValue } from '../src/lib/formatCellValue';
 import { documentService } from '../src/services/documentService';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { ToastProvider } from '../src/contexts/ToastContext';
@@ -160,6 +161,31 @@ describe('Detail restyle — status reconciled with the Search card (no raw enum
     for (const emoji of ['✅', '⚠️', '🚩']) {
       expect(text()).not.toContain(emoji);
     }
+  });
+});
+
+// ── Item D (SITE a): the meta-grid upload date is localized to the APP language
+//    via the shared formatDateValue helper, not the browser default. ──────────
+describe('Detail — meta-grid upload date is localized to the app language', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    (documentService.getDocumentDetail as any).mockResolvedValue({ ...COMPLETED_DOC });
+  });
+  afterEach(() => { root.unmount(); container.remove(); });
+
+  it('EN: renders the date via formatDateValue (localized short date, not raw ISO)', async () => {
+    mount('/documents/doc-9', 'en');
+    await vi.waitFor(() => expect(text()).toContain('facture-2026.pdf'));
+    expect(text()).toContain(formatDateValue(COMPLETED_DOC.uploadedAt, 'en')!);
+    expect(text()).not.toContain(COMPLETED_DOC.uploadedAt); // never the raw ISO
+  });
+
+  it('AR: renders the Arabic-localized date, not the English one (proves it follows the app language)', async () => {
+    mount('/documents/doc-9', 'ar');
+    await vi.waitFor(() => expect(text()).toContain('facture-2026.pdf'));
+    expect(text()).toContain(formatDateValue(COMPLETED_DOC.uploadedAt, 'ar')!);
+    expect(text()).not.toContain(formatDateValue(COMPLETED_DOC.uploadedAt, 'en')!);
   });
 });
 

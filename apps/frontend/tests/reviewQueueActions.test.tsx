@@ -25,6 +25,7 @@ vi.mock('../src/services/documentService', () => ({
 }));
 
 import { strings } from '../src/i18n/strings';
+import { formatDateValue } from '../src/lib/formatCellValue';
 import { documentService } from '../src/services/documentService';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { ToastProvider } from '../src/contexts/ToastContext';
@@ -205,7 +206,10 @@ describe('Review queue — data correctness (D4 bug fixes)', () => {
     ]);
     mount('/queue');
     await vi.waitFor(() => expect(container.textContent).toContain('scan.pdf'));
-    expect(container.textContent).toContain(new Date(uploadedAt).toLocaleDateString());
+    // The date is now localized to the active app language via the shared
+    // formatDateValue helper ("Jun 1, 2026"), not the browser-default numeric
+    // toLocaleDateString(). Mount is 'en', so assert the en-localized form.
+    expect(container.textContent).toContain(formatDateValue(uploadedAt, 'en')!);
   });
 
   it('DATE: a legacy doc.date (no uploadedAt) is NOT used and never fabricated', async () => {
@@ -216,8 +220,9 @@ describe('Review queue — data correctness (D4 bug fixes)', () => {
     ]);
     mount('/queue');
     await vi.waitFor(() => expect(container.textContent).toContain('scan.pdf'));
-    // The dead doc.date path must not resurface as a real date...
-    expect(container.textContent).not.toContain(new Date(legacy).toLocaleDateString());
+    // The dead doc.date path must not resurface as a real date (in the new
+    // localized format either)...
+    expect(container.textContent).not.toContain(formatDateValue(legacy, 'en')!);
     // ...and a genuinely absent date shows the calm placeholder instead.
     expect(container.textContent).toContain(strings.en.notAvailable);
   });
