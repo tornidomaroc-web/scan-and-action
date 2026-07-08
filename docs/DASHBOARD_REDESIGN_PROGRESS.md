@@ -250,28 +250,39 @@ shared heading component before this.
       (Source Visualization → Source view / Vue de la source / عرض المصدر; Graph
       Relationships → Relationships / Relations / علاقات البيانات).
 
-### Still open — roll the SAME `SectionHeading` out to the remaining screens
+### Done — app-wide rollout (PR #66, merged)
 
-Now that File Detail has landed the primitive, apply the identical component to
-the other screens that still write headings inline, for app-wide consistency.
-**This rollout is still pending — none of the items below are done:**
+- [x] **SectionHeading rollout to Dashboard + ChartPlaceholder (PR #66, merged
+      2026-07-08).** Generalized the primitive without breaking existing callers:
+      the icon is now **optional** (the title renders alone, with no dangling gap),
+      and a new **`as` prop** (`'h2' | 'h3'`, default `'h3'`) sets the semantic tag
+      while the visual style stays identical. Applied it to the **Dashboard section
+      headings** via `as="h2"` — `documentsProcessed`, `documentsByStatus`, and the
+      one-off **"Quick actions"** heading, whose divergent 13px `text-ink-tertiary`
+      style was removed and brought to the unified 16px ink style — and to
+      **ChartPlaceholder** (its accent-colored icon changed to the neutral 18px
+      `text-ink-faint` system icon). Dropped the redundant Dashboard `mt-4` on the
+      content following each heading so the primitive's `mb-4` is not doubled. The
+      dead **`--sa-text-h2`** token was **removed** after confirming it was
+      unreferenced and asserted by no token guard. A follow-up **sentence-case fix**
+      corrected the heading copy to the locked visual identity: "Quick actions" (en)
+      and "Actions rapides" (fr). The page h1 was left untouched.
 
-- [ ] **Dashboard card titles** (`DashboardScreen.tsx` ~L314, ~L322, ~L407,
-      currently `h2 text-section font-semibold text-ink`) and the one-off
-      **"Quick actions"** heading (~L352, currently `h2 text-[13px]
-      font-semibold text-ink-tertiary`, a different size + color than the other
-      card titles).
-- [ ] **ChartPlaceholder heading** (`SharedComponents.tsx` ~L70, currently
-      `h3 text-section font-semibold text-ink`).
-- [ ] **Search page title** (`SearchScreen.tsx` ~L106) uses a raw
-      `text-3xl` / `lg:text-4xl` scale instead of the `text-title-lg` token the
-      rest of the app uses for page/section titles. Standardize it onto the
-      token during the rollout.
-- [ ] **Dead `--sa-text-h2` token** (`tokens.css:78`, `18px`, commented
-      "section title lg") maps to NO Tailwind class (the type scale jumps
-      `text-title-lg` 24px -> `text-section` 15px, skipping 18px). Reconcile it
-      when the heading system is formalized: either wire a class to it or remove
-      it.
+### Still open — deferred OUT of the E rollout (tracked so they are not lost)
+
+Two heading items were deliberately kept out of PR #66 because each needs work
+beyond dropping in `SectionHeading`:
+
+- [ ] **Inline-toolbar headings** — the Dashboard **recent-activity** heading
+      (`DashboardScreen.tsx` ~L407) and the Search **results** heading
+      (`SearchScreen.tsx` ~L228). Both are "heading + action on one row" layouts;
+      `SectionHeading`'s block `<h2>`/`<h3>` + `mb-4` does not fit them without a
+      row refactor. Adopt the shared style once the toolbar row is restructured.
+- [ ] **Search page title standardization** (`SearchScreen.tsx` ~L106) — the raw
+      `text-3xl` / `lg:text-4xl` hero title should adopt the **`text-title-lg`**
+      page-title token used elsewhere. This is a **separate** change from
+      `SectionHeading` and must **NOT** be wrapped in it (that would shrink the hero
+      to 16px). It is a page-title standardization, not a section-heading job.
 
 Notes for the rollout: the File Detail heading defects the audit surfaced (the
 AI-synthesis heading was an `h4` at 12px `text-accent-text` while its peers were
