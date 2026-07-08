@@ -216,13 +216,29 @@ surfaces via the shared `getVendor` path, not just File Detail.
       `includes('cafe')` (`ruleEngineService.ts:143-149`), so a "Cafe" merchant
       whose real name carries an accent (canonical "CAF...") never matches the
       keyword. Silent rule miss; track independently of the display fix.
-- [ ] **(D) Out-of-scope locale gaps noticed during PR #60.** (i) The Detail
-      meta-grid upload date (`DocumentDetailScreen.tsx`) uses
-      `new Date(...).toLocaleDateString()` with no locale arg, so it follows the
-      runtime locale, not the app locale. (ii) `DashboardScreen`'s local
-      `formatDate` hardcodes `'en-US'`, and its recent-activity title falls back
-      to an English `'Unnamed document'`. Both are untranslated; fold into a small
-      i18n cleanup PR.
+- [x] **(D) Date/text localization defects. DONE in PR #68** (merged 2026-07-08).
+      Five sites fixed across three files, reusing the existing
+      `formatDateValue(value, language)` helper and `useLanguage()` (the locale is
+      the bare subtag `'en'` / `'fr'` / `'ar'`, passed straight to `Intl` with no
+      region qualifier): (a) the **File Detail meta-grid date** and (e) the
+      **Review Queue row dates** now route through `formatDateValue(..., language)`
+      — the visible format shifted from numeric to short-month ("Jun 1, 2026"),
+      matching the fact-date path already on the page; (b) the **Dashboard
+      recent-activity** `formatDate` now takes a `locale` param from the call site
+      instead of a hardcoded `'en-US'`, keeping the time fields; (c) the Dashboard
+      **"Recently"** fallback now uses the existing `s.recently` key; and (d) a new
+      **`unnamedDocument`** i18n key was added in en/fr/ar (sentence-case,
+      dash-free) replacing the hardcoded `'Unnamed document'`. The two coupled
+      Review Queue test assertions were updated to assert the new localized format
+      (strengthened, not weakened). The count-separator gap below was deliberately
+      excluded — see the follow-up entry.
+- [ ] **(D-follow-up) Count separators follow the browser locale, not the app
+      language.** `DashboardScreen.tsx` uses `Number.toLocaleString()` with no
+      locale argument for the KPI / breakdown counts (~L194, ~L201, ~L337), so
+      thousands separators render in the runtime locale rather than the active app
+      language — the same bug class as (D) but lower priority (digit grouping only,
+      no text). Deliberately excluded from the PR #68 D fix; fold into a small
+      number-format cleanup PR.
 
 ## Section-heading consistency (app-wide rollout)
 
