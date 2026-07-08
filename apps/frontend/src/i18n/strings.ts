@@ -248,6 +248,7 @@ export const strings = {
     decisionField: 'Decision',
     decisionReason: 'Decision Reason',
     recently: 'Recently',
+    unnamedDocument: 'Unnamed document',
     // AuthScreen (login / signup)
     authKicker: 'Intellectual Automation',
     authHeadlinePre: 'Turn Documents Into ',
@@ -564,6 +565,7 @@ export const strings = {
     decisionField: 'Décision',
     decisionReason: 'Raison de la Décision',
     recently: 'Récemment',
+    unnamedDocument: 'Document sans nom',
     // AuthScreen (connexion / inscription)
     authKicker: 'Automatisation Intelligente',
     authHeadlinePre: 'Transformez vos documents en intelligence ',
@@ -880,6 +882,7 @@ export const strings = {
     decisionField: 'القرار',
     decisionReason: 'سبب القرار',
     recently: 'مؤخراً',
+    unnamedDocument: 'مستند بدون اسم',
     // AuthScreen (تسجيل الدخول / إنشاء حساب)
     authKicker: 'الأتمتة الذكية',
     authHeadlinePre: 'حوّل مستنداتك إلى ذكاء ',

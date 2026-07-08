@@ -35,10 +35,15 @@ import {
 } from '../lib/dashboardAnalytics';
 import { getDocTypeLabel } from '../lib/searchResultCard';
 
-const formatDate = (dateString: string) => {
-  if (!dateString) return 'Recently';
+// Localized short date + time for the recent-activity row. `locale` is the active
+// app language (bare subtag: 'en' | 'fr' | 'ar'), passed straight to Intl like
+// monthLabel/formatDateValue. Returns null on an empty/unparseable value so the
+// caller can route a translated fallback through strings (never a fabricated date).
+const formatDate = (dateString: string, locale: string): string | null => {
+  if (!dateString) return null;
   const date = new Date(dateString);
-  return new Intl.DateTimeFormat('en-US', {
+  if (isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(locale, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -455,11 +460,11 @@ export const DashboardScreen = () => {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold text-ink">
-                      {item.originalFileName || 'Unnamed document'}
+                      {item.originalFileName || s.unnamedDocument}
                     </div>
                     <div className="mt-0.5 truncate text-xs text-ink-muted">
                       {typeLabel ? `${typeLabel} · ` : ''}
-                      {formatDate(item.uploadedAt)}
+                      {formatDate(item.uploadedAt, language) ?? s.recently}
                     </div>
                   </div>
                   {conf && (

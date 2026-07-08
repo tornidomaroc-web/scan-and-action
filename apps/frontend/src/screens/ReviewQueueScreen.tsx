@@ -8,6 +8,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getVendor, getAmount, getStatus, getDocTypeLabel } from '../lib/searchResultCard';
+import { formatDateValue } from '../lib/formatCellValue';
 
 // Review Queue, restyled onto the --sa-* token system (PR-D4).
 //  - Calm flat surfaces (rounded-card, quiet shadow), token colors only (no raw
@@ -115,8 +116,9 @@ export const ReviewQueueScreen = () => {
     }
   };
 
-  const formatDate = (value: unknown): string | null =>
-    value ? new Date(value as string).toLocaleDateString() : null;
+  // Localize the row date to the active app language (null on empty/unparseable,
+  // so the caller shows a calm placeholder — never a fabricated date).
+  const formatDate = (value: unknown): string | null => formatDateValue(value, language);
 
   // The header (H1 + subtitle) renders in every state so the page title is stable
   // across loading / error / empty / list.

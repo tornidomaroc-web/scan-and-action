@@ -11,6 +11,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getStatus, getDocTypeLabel, getEntityRoleLabel, formatFactValue } from '../lib/searchResultCard';
+import { formatDateValue } from '../lib/formatCellValue';
 
 // Document detail, restyled onto the --sa-* token system (PR-D3).
 //  - Calm flat surfaces (rounded-card, quiet shadow) instead of the old
@@ -187,7 +188,7 @@ export const DocumentDetailScreen = () => {
           </div>
           {[
             { label: s.type, value: getDocTypeLabel(doc.documentType, s as any) || s.notAvailable },
-            { label: s.date, value: doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : s.notAvailable },
+            { label: s.date, value: formatDateValue(doc.uploadedAt, language) ?? s.notAvailable },
             { label: s.docLanguage, value: doc.detectedLanguage?.toUpperCase() || 'EN' },
           ].map((item, i) => (
             <div key={i} className="rounded-card border border-line bg-surface p-4">
