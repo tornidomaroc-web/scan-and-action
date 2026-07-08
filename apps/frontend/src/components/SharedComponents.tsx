@@ -1,6 +1,7 @@
 import React from 'react';
 import { Sparkles, BarChart3 } from 'lucide-react';
 import { useStrings } from '../i18n/useStrings';
+import { SectionHeading } from './SectionHeading';
 
 // Insights-gallery card, restyled onto the --sa-* tokens (calm card, accent
 // icon tile, subtle hover). Aligns by logical `start` so it mirrors in RTL. It
@@ -65,10 +66,7 @@ export const ChartPlaceholder = ({ data }: { data: any[] }) => {
 
   return (
     <div>
-      <div className="mb-5 flex items-center gap-2">
-        <BarChart3 size={16} className="text-accent" />
-        <h3 className="text-section font-semibold text-ink">{s.dataVisualization}</h3>
-      </div>
+      <SectionHeading icon={BarChart3}>{s.dataVisualization}</SectionHeading>
       <div className="flex flex-col gap-3">
         {data.map((d, i) => {
           const pct = Math.max(6, (Number(d.sum) / max) * 100);
