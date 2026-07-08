@@ -196,16 +196,16 @@ is lost. The human-readable original survives only in `Entity.aliases[0]` (and i
 `Entity` model has NO display-name column. The mangled value is shown on three
 surfaces via the shared `getVendor` path, not just File Detail.
 
-- [ ] **(A) Display-only fix (own PR, no migration).** Stop rendering the
-      normalized `canonicalName` key as a name. Expose a display name from
-      `aliases[0]` (fallback `canonicalName`) in the DTO
-      (`documentDto.ts`), have `getVendor` prefer it, and render it on all THREE
-      surfaces that currently show the mangled key: the File Detail entity chip
-      (`DocumentDetailScreen.tsx` ~L303, `ent.name`), the Search card vendor, and
-      the Review Queue vendor (`ReviewQueueScreen.tsx` L168 / L256, via
-      `getVendor` in `searchResultCard.ts:69`). Uses data already stored, so no
-      backfill. Recommended NOT folded into PR #60 (backend DTO + shared vendor
-      path, broader than File Detail).
+- [x] **(A) Display-only fix (own PR, no migration). DONE in PR #62** (merged
+      2026-07-07). Stopped rendering the normalized `canonicalName` key as a name:
+      exposed a display name from `aliases[0]` (fallback `canonicalName`) in the DTO
+      (`documentDto.ts`), had `getVendor` prefer it, and rendered it on all THREE
+      surfaces that showed the mangled key: the File Detail entity chip
+      (`DocumentDetailScreen.tsx`, `ent.name`), the Search card vendor, and
+      the Review Queue vendor (`ReviewQueueScreen.tsx`, via
+      `getVendor` in `searchResultCard.ts`). Uses data already stored, so no
+      backfill. Kept out of PR #60 (backend DTO + shared vendor path, broader than
+      File Detail).
 - [ ] **(B) Proper data-model fix (later follow-up, has a data dimension).** Add
       `Entity.displayName`, populate it at write time from the original name
       (preserving casing/accents), backfill existing rows from `aliases[0]`,
@@ -226,15 +226,35 @@ surfaces via the shared `getVendor` path, not just File Detail.
 
 ## Section-heading consistency (app-wide rollout)
 
-We are introducing a single reusable `SectionHeading` primitive (consistent
-tag / size / weight / color / icon treatment / spacing) and applying it on the
-**File Detail page first** (the current heading redesign). The audit found that
-section headings are written ad hoc across the app with divergent treatments
-(different icon styles and sizes, some with icons some without, one heading at
-label size, a broken heading order), and there is no shared heading component
-today. AFTER the File Detail heading redesign lands, roll the SAME
-`SectionHeading` component out to the other screens that still write headings
-inline, for app-wide consistency:
+A single reusable `SectionHeading` primitive (consistent tag / size / weight /
+color / icon treatment / spacing) was introduced and applied on the **File Detail
+page first**. The audit found that section headings were written ad hoc across the
+app with divergent treatments (different icon styles and sizes, some with icons
+some without, one heading at label size, a broken heading order), and there was no
+shared heading component before this.
+
+### Done — File Detail section headings (PR #64, merged)
+
+- [x] **File Detail heading redesign (PR #64, merged 2026-07-08).** The unified
+      `SectionHeading` component — one **18px monochrome-neutral Lucide icon**, a
+      **16px semibold ink** title, a **10px** icon/text gap, **40px** inter-section
+      rhythm, **no divider lines**, sentence case — now applies to **all four**
+      File Detail sections (source view, AI synthesis, extracted facts,
+      relationships). The **AI-analysis heading was promoted** from the smallest
+      ~12px `h4` to the shared section level, fixing the inverted hierarchy (the
+      page `h1` stays one step larger, untouched). **Entity-name truncation was
+      removed** in favor of full-name wrapping (`break-words`, no `max-w` cap) —
+      wrapping cards for a few entities, a stacked role+name list past a handful —
+      with correct `dir="auto"`/`<bdi>` **bidi isolation** on every value for
+      Arabic RTL. The two section labels were **renamed dash-free** in en/fr/ar
+      (Source Visualization → Source view / Vue de la source / عرض المصدر; Graph
+      Relationships → Relationships / Relations / علاقات البيانات).
+
+### Still open — roll the SAME `SectionHeading` out to the remaining screens
+
+Now that File Detail has landed the primitive, apply the identical component to
+the other screens that still write headings inline, for app-wide consistency.
+**This rollout is still pending — none of the items below are done:**
 
 - [ ] **Dashboard card titles** (`DashboardScreen.tsx` ~L314, ~L322, ~L407,
       currently `h2 text-section font-semibold text-ink`) and the one-off
@@ -253,12 +273,12 @@ inline, for app-wide consistency:
       when the heading system is formalized: either wire a class to it or remove
       it.
 
-Notes for the rollout: also fold in the File Detail heading fixes the audit
-surfaced (AI-synthesis heading is an `h4` at 12px `text-accent-text` while its
-peers are `h3` at 15px `text-ink`; the graph-relationships heading is the only
-one with a bare muted icon and a top divider; heading levels are non-monotonic
-with no `h2` on the page). The `SectionHeading` primitive should settle one icon
-convention so these converge.
+Notes for the rollout: the File Detail heading defects the audit surfaced (the
+AI-synthesis heading was an `h4` at 12px `text-accent-text` while its peers were
+`h3` at 15px `text-ink`; the graph-relationships heading was the only one with a
+bare muted icon and a top divider; heading levels were non-monotonic) were
+**resolved on that page in PR #64** — the `SectionHeading` primitive settled one
+icon convention. Carry the same conventions to the rollout screens above.
 
 ## Remaining (post-redesign, separate work)
 
