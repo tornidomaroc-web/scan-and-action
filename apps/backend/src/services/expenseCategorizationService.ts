@@ -1,6 +1,8 @@
+import { matchesAnyKeyword } from '../utils/textMatch';
+
 /**
  * ExpenseCategorizationService
- * 
+ *
  * Isolated service for heuristic-based categorization of financial documents.
  * Designed to be conservative and easily extensible.
  */
@@ -42,17 +44,16 @@ export class ExpenseCategorizationService {
     facts: any[] 
   }): { category: string; confidence: number } {
     const factsText = facts
-      .map(f => (f.valueString || f.key || '').toLowerCase())
+      .map(f => f.valueString || f.key || '')
       .join(' ');
-      
-    const normalizedText = (
-      (rawText || '') + ' ' + 
-      (merchantName || '') + ' ' + 
-      factsText
-    ).toLowerCase();
+
+    // Compose the searchable text; matchesAnyKeyword folds accents + lowercases
+    // and matches whole words, so "Café" matches 'cafe' while 'bar' does not
+    // match "Barber" (deferred item C). No pre-lowercasing needed here.
+    const searchText = `${rawText || ''} ${merchantName || ''} ${factsText}`;
 
     for (const [category, keywords] of Object.entries(this.CATEGORY_KEYWORDS)) {
-      if (keywords.some(keyword => normalizedText.includes(keyword))) {
+      if (matchesAnyKeyword(searchText, keywords)) {
         const confidence = 0.9;
         if (confidence < 0.6) {
           return { category: 'Other', confidence };

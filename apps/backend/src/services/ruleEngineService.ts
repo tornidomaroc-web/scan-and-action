@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { matchesAnyKeyword } from '../utils/textMatch';
 
 export interface RuleResult {
   decision: 'APPROVED' | 'NEEDS_REVIEW' | 'FLAGGED';
@@ -140,13 +141,14 @@ export class RuleEngineService {
    */
   private isFoodMerchant(name: string | null): boolean {
     if (!name) return false;
-    const normalized = name.toLowerCase();
     const foodKeywords = [
-      'starbucks', 'mcdonalds', 'restaurant', 'cafe', 'uber eats', 'grubhub', 
-      'deli', 'bakery', 'fast food', 'pizza', 'burger', 'taco', 'sushi', 
+      'starbucks', 'mcdonalds', 'restaurant', 'cafe', 'uber eats', 'grubhub',
+      'deli', 'bakery', 'fast food', 'pizza', 'burger', 'taco', 'sushi',
       'grill', 'pub', 'bar', 'bistro', 'steakhouse', 'ramen', 'cafeteria'
     ];
-    return foodKeywords.some(keyword => normalized.includes(keyword));
+    // Accent- and word-boundary-aware: "Café" matches 'cafe', but 'bar' does NOT
+    // match "Barber". See utils/textMatch (deferred item C).
+    return matchesAnyKeyword(name, foodKeywords);
   }
 
   /**
@@ -154,8 +156,6 @@ export class RuleEngineService {
    */
   private isFoodSummary(summary: string | null): boolean {
     if (!summary) return false;
-
-    const normalized = summary.toLowerCase();
 
     const foodKeywords = [
       'restaurant',
@@ -177,6 +177,8 @@ export class RuleEngineService {
       'kitchen'
     ];
 
-    return foodKeywords.some(keyword => normalized.includes(keyword));
+    // Raw LLM summary text preserves accents; fold both sides and match whole
+    // words (see utils/textMatch, deferred item C).
+    return matchesAnyKeyword(summary, foodKeywords);
   }
 }
