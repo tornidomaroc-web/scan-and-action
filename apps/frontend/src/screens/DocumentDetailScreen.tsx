@@ -321,7 +321,7 @@ export const DocumentDetailScreen = () => {
                         as many lines as it needs. dir="auto" on the wrapping span +
                         <bdi> isolates each value's direction so numerals/Latin do not
                         scramble under Arabic RTL. */}
-                    <span className="min-w-0 break-words text-sm font-medium text-ink" dir="auto"><bdi>{ent.aliases?.[0] || ent.name}</bdi></span>
+                    <span className="min-w-0 break-words text-sm font-medium text-ink" dir="auto"><bdi>{ent.displayName ?? ent.aliases?.[0] ?? ent.name}</bdi></span>
                   </div>
                 ))}
               </div>
@@ -333,7 +333,7 @@ export const DocumentDetailScreen = () => {
                 {doc.entities.map((ent: any, i: number) => (
                   <div key={i} className="flex max-w-full items-baseline gap-2 rounded-card border border-line bg-surface px-4 py-2.5 text-start transition-colors hover:border-line-strong sm:max-w-md">
                     <span className="flex-shrink-0 text-label font-medium text-ink-muted">{getEntityRoleLabel(ent.role, s as any)}</span>
-                    <span className="min-w-0 break-words text-sm font-medium text-ink" dir="auto"><bdi>{ent.aliases?.[0] || ent.name}</bdi></span>
+                    <span className="min-w-0 break-words text-sm font-medium text-ink" dir="auto"><bdi>{ent.displayName ?? ent.aliases?.[0] ?? ent.name}</bdi></span>
                   </div>
                 ))}
               </div>

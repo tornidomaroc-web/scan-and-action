@@ -22,13 +22,15 @@ export const mapDocumentToDto = (doc: any) => ({
     confidence: f.confidence
   })) || [],
   entities: doc.documentEntities?.map((de: any) => ({
-    // Display-only (fix A): render the human-readable name, not the normalized
-    // matching KEY. `canonicalName` is uppercased + ASCII-folded (accents/
-    // punctuation stripped) at write time for dedup/matching; the original
-    // spelling (casing + accents) is preserved in `aliases[0]`. Prefer that,
-    // falling back to `canonicalName` when there is no alias. The canonicalName
-    // VALUE is never changed here; only what the display layer reads.
-    name: de.entity?.aliases?.[0] ?? de.entity?.canonicalName,
+    // Render the human-readable name, not the normalized matching KEY.
+    // `displayName` is the real column (item B, casing + accents preserved);
+    // fall back to `aliases[0]` (older rows) then `canonicalName` so the value
+    // is always a real name, never fabricated. The canonicalName VALUE is never
+    // changed here; only what the display layer reads.
+    name: de.entity?.displayName ?? de.entity?.aliases?.[0] ?? de.entity?.canonicalName,
+    // Raw displayName column (may be NULL) so the client can apply the same
+    // displayName ?? aliases[0] ?? name chain at the render site.
+    displayName: de.entity?.displayName ?? null,
     role: de.role,
     aliases: de.entity?.aliases || []
   })) || [],
@@ -42,8 +44,10 @@ export const mapDocumentToDto = (doc: any) => ({
     role: de.role,
     entity: {
       canonicalName: de.entity?.canonicalName,
-      name: de.entity?.name,
-      displayName: de.entity?.aliases?.[0] ?? de.entity?.canonicalName
+      // Resolved human-readable name for the shared getVendor() chain: real
+      // displayName column first (item B), then aliases[0], then the
+      // canonicalName key as a last resort. Never fabricated.
+      displayName: de.entity?.displayName ?? de.entity?.aliases?.[0] ?? de.entity?.canonicalName
     }
   })) || []
 });

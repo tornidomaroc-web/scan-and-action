@@ -41,4 +41,24 @@ describe('mapDocumentToDto - entity display name', () => {
     expect(dto.entities[0].role).toBe('VENDOR');
     expect(dto.entities[0].aliases).toEqual(['Cafe de Paris']);
   });
+
+  // item B (Phase 3): the real displayName column is now the source of truth,
+  // preferred over aliases[0] and canonicalName on BOTH name-shapes.
+  it('prefers the real displayName column over aliases[0] and canonicalName', () => {
+    const dto = mapDocumentToDto(
+      docWith({ displayName: 'Société Régionale', canonicalName: 'SOCIT RGIONALE', aliases: ['stale alias'] })
+    );
+    expect(dto.entities[0].name).toBe('Société Régionale');
+    expect(dto.entities[0].displayName).toBe('Société Régionale');
+    expect(dto.documentEntities[0].entity.displayName).toBe('Société Régionale');
+    // canonicalName value is still untouched (matching/dedup + rule engine).
+    expect(dto.documentEntities[0].entity.canonicalName).toBe('SOCIT RGIONALE');
+  });
+
+  it('exposes displayName: null on the flattened row when the column is null (older rows)', () => {
+    const dto = mapDocumentToDto(docWith({ displayName: null, canonicalName: 'TARGET', aliases: ['Target'] }));
+    expect(dto.entities[0].displayName).toBeNull();
+    // name still resolves to a real value via the aliases[0] fallback.
+    expect(dto.entities[0].name).toBe('Target');
+  });
 });
