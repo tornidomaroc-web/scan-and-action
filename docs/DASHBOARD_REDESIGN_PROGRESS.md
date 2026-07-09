@@ -206,20 +206,52 @@ surfaces via the shared `getVendor` path, not just File Detail.
       `getVendor` in `searchResultCard.ts`). Uses data already stored, so no
       backfill. Kept out of PR #60 (backend DTO + shared vendor path, broader than
       File Detail).
-- [ ] **(B) Proper data-model fix (later follow-up, has a data dimension).** Add
-      `Entity.displayName`, populate it at write time from the original name
-      (preserving casing/accents), backfill existing rows from `aliases[0]`,
-      expose it in the DTO, and render it everywhere. Removes `aliases`
-      double-duty; requires a Prisma migration + backfill.
-      **Second defect (same root cause, discovered during the item C diagnosis):**
-      the two `evaluate` call sites pass **different merchant representations** —
-      `documentController.ts` passes `entity.canonicalName` (the accent-stripped
-      key) while `ingestion/persistence.ts` passes the **raw extracted vendor
-      name** — so `checkDuplicate` in `ruleEngineService.ts` compares a
-      `canonicalName` against a raw name and **cannot match on the ingestion path**.
-      This is the same raw-name-vs-normalized-key root cause as the display bug, so
-      it belongs to item B; it was **deliberately excluded from PR #70** (which was
-      scoped to the lexical keyword-matching fix only).
+- [x] **(B) Proper data-model fix. DONE across three PRs (#72 → #73 → #74, all
+      merged 2026-07-09).** Shipped in **three deliberately separated phases**
+      because CI does not apply migrations and `prisma migrate deploy` is run
+      **manually out-of-band** against Supabase — so the schema had to be **live in
+      production before any code depended on it** (see the operational note below).
+    - **Phase 1 — schema (PR #72).** Additive **nullable** `Entity.displayName`
+      column. The migration SQL was authored **offline** via `prisma migrate diff`
+      (schema-to-schema, **no DB connection**), committed, then **applied manually**
+      to production Supabase (`prisma migrate deploy`). Purely additive
+      `ALTER TABLE ... ADD COLUMN` — metadata-only, no row rewrite.
+    - **Phase 2 — backfill + verify (PR #73).** An **idempotent** backfill script
+      plus a **read-only verify gate**, mirroring the `backfillSubscriptions`
+      precedent (read-first preflight, single `$transaction`, stop-on-reconcile).
+      Run against production, it populated **all 86 Entity rows from `aliases[0]`**
+      with **0 unrecoverable rows**, and the verify gate **passed with 0
+      mismatches**. The **honesty rule was absolute**: `canonicalName` was never
+      laundered into `displayName`, and unrecoverable rows (NULL/empty/whitespace
+      `aliases[0]`) would have been left NULL, never fabricated.
+    - **Phase 3 — code wiring (PR #74).** (1) `entityResolution.ts` now **writes
+      `displayName` on create** (the trimmed raw name; **NULL, never an empty
+      string**, for whitespace-only names). (2) A **single shared canonical
+      transform** (`utils/canonicalName.ts`) is now used on **BOTH the lookup and
+      the write**, closing the **latent duplicate-Entity bug** where a second
+      sighting of an accented/punctuated name never matched via the `canonicalName`
+      branch (lookup used `toUpperCase()` without the strip) and could create a
+      duplicate row. (3) `checkDuplicate` now **normalizes the incoming merchant to
+      the canonical key before querying**, so the ingestion path and the
+      `documentController` re-evaluation path behave **identically** — duplicates
+      are **no longer silently missed for accented/punctuated vendors** (the second
+      defect below). (4) The **display layer now reads
+      `displayName ?? aliases[0] ?? canonicalName`** across the DTO name-shapes, the
+      File Detail entity chip, Search vendor, and Review Queue vendor — replacing
+      the earlier **cosmetic `aliases[0]` fix (A)**. New test suites were added for
+      `entityResolution` and the canonical transform (**including a proof that a
+      re-sighting no longer creates a duplicate**), a **real `checkDuplicate`
+      normalization test** (it was effectively untested), and `documentDetailRestyle`
+      was **migrated in lockstep** to the new fallback chain. The **stored
+      `canonicalName` format was not changed**, so the existing **86 rows remain
+      valid**.
+    - **Second defect — RESOLVED in Phase 3.** The two `evaluate` call sites passed
+      **different merchant representations** (`documentController.ts` →
+      `entity.canonicalName`; `ingestion/persistence.ts` → the **raw extracted
+      vendor name**), so `checkDuplicate` compared a `canonicalName` against a raw
+      name and **could not match on the ingestion path**. Phase 3's shared
+      canonical normalization inside `checkDuplicate` fixed this: both paths now
+      compare like-vs-like against the stored key.
 - [x] **(C) `isFoodMerchant` accent bug (separate rule-engine fix). DONE in
       PR #70** (merged 2026-07-09). Root cause: **no accent-folding helper existed
       anywhere in the backend**, so every keyword match failed against
@@ -265,6 +297,22 @@ surfaces via the shared `getVendor` path, not just File Detail.
       language — the same bug class as (D) but lower priority (digit grouping only,
       no text). Deliberately excluded from the PR #68 D fix; fold into a small
       number-format cleanup PR.
+
+### Operational note — CI does NOT apply migrations (the DB can silently lag `main`)
+
+Standing project lesson, recorded so it is not lost. **CI does not run
+`prisma migrate deploy`** (it only typechecks/tests/builds); migrations reach the
+production Supabase DB **only when someone runs `prisma migrate deploy` manually,
+out-of-band**. This means a merged migration can **silently lag production**.
+Discovered during item B: the **PR-C1 `Document` analytics-index migration
+(`20260702120000`, from 2026-07-02)** had **never been deployed** and was still
+pending a week later — found via `prisma migrate status` before the Phase 1
+deploy, and applied **alongside** the Phase 1 `displayName` migration.
+
+**Going forward:** run **`prisma migrate status` before any production deploy** to
+see the *full* pending set (never assume only your latest migration is pending),
+and ensure **any migration is deployed BEFORE code that reads the new column
+ships** — which is exactly why item B was split into schema → backfill → wiring.
 
 ## Section-heading consistency (app-wide rollout)
 
