@@ -162,6 +162,12 @@ model Entity {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   entityType     String
   canonicalName  String
+  // Item B (Phase 1, additive): human-readable display name preserving original
+  // casing/accents. Nullable, no default, no backfill in this migration — the
+  // column lands and is deployed BEFORE any code reads or writes it. Existing
+  // rows read as NULL; the display layer keeps falling back to aliases[0] /
+  // canonicalName until a later phase populates and consumes this column.
+  displayName    String?
   aliases        String[]
   metadataJson   Json
   createdAt      DateTime     @default(now())
