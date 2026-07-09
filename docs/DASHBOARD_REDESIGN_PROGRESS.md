@@ -211,11 +211,37 @@ surfaces via the shared `getVendor` path, not just File Detail.
       (preserving casing/accents), backfill existing rows from `aliases[0]`,
       expose it in the DTO, and render it everywhere. Removes `aliases`
       double-duty; requires a Prisma migration + backfill.
-- [ ] **(C) `isFoodMerchant` accent bug (separate rule-engine fix).** The food
-      rule lowercases the accent-stripped `canonicalName` and does
-      `includes('cafe')` (`ruleEngineService.ts:143-149`), so a "Cafe" merchant
-      whose real name carries an accent (canonical "CAF...") never matches the
-      keyword. Silent rule miss; track independently of the display fix.
+      **Second defect (same root cause, discovered during the item C diagnosis):**
+      the two `evaluate` call sites pass **different merchant representations** —
+      `documentController.ts` passes `entity.canonicalName` (the accent-stripped
+      key) while `ingestion/persistence.ts` passes the **raw extracted vendor
+      name** — so `checkDuplicate` in `ruleEngineService.ts` compares a
+      `canonicalName` against a raw name and **cannot match on the ingestion path**.
+      This is the same raw-name-vs-normalized-key root cause as the display bug, so
+      it belongs to item B; it was **deliberately excluded from PR #70** (which was
+      scoped to the lexical keyword-matching fix only).
+- [x] **(C) `isFoodMerchant` accent bug (separate rule-engine fix). DONE in
+      PR #70** (merged 2026-07-09). Root cause: **no accent-folding helper existed
+      anywhere in the backend**, so every keyword match failed against
+      Latin-accented names. A single **shared helper** was created
+      (`src/utils/textMatch.ts` — `foldForMatch`: NFD diacritic fold + lowercase +
+      trim, null-safe; and `matchesAnyKeyword`: whole-word / whole-phrase matching
+      with both sides folded, multi-word keywords handled) and applied to **all
+      three affected predicates**: `isFoodMerchant`, `isFoodSummary` (both in
+      `ruleEngineService.ts`), and `categorize` across all five categories
+      (`expenseCategorizationService.ts`). "Café" now matches `cafe`. The same
+      change **also fixed unbounded-substring false positives**: `bar` no longer
+      matches "Barber", `pub` no longer matches "Publix" (a grocery), `deli` no
+      longer matches "Delivery". **Three new backend test suites** were added
+      (none existed for these services before, so there was no buggy behavior
+      locked in by tests). Two documented items: **(i) scope boundary** — NFD folds
+      Latin diacritics only and does not transliterate Arabic, so Arabic-script
+      merchant names will not match the English keyword lists (noted in a code
+      comment near the helper); **(ii) accepted trade-off** — whole-word matching no
+      longer catches a keyword fused into a single OCR token (e.g. "PIZZAHUT"),
+      which naive `includes()` used to catch. No lexical rule can accept "pizzahut"
+      while rejecting "barber", so whole-word matching was the only consistent
+      choice.
 - [x] **(D) Date/text localization defects. DONE in PR #68** (merged 2026-07-08).
       Five sites fixed across three files, reusing the existing
       `formatDateValue(value, language)` helper and `useLanguage()` (the locale is
