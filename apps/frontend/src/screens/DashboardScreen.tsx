@@ -34,6 +34,7 @@ import {
   type BreakdownKey,
 } from '../lib/dashboardAnalytics';
 import { getDocTypeLabel } from '../lib/searchResultCard';
+import { formatCount } from '../lib/formatNumber';
 
 // Localized short date + time for the recent-activity row. `locale` is the active
 // app language (bare subtag: 'en' | 'fr' | 'ar'), passed straight to Intl like
@@ -191,21 +192,28 @@ export const DashboardScreen = () => {
     {
       key: 'processed' as const,
       label: s.processedDocs,
-      value: processedValue.toLocaleString(),
+      value: formatCount(processedValue, language),
       icon: <FileText size={16} />,
       tile: 'bg-accent-tint text-accent',
     },
     {
       key: 'pending' as const,
       label: s.pendingReview,
-      value: stats.pendingCount.toLocaleString(),
+      value: formatCount(stats.pendingCount, language),
       icon: <Clock size={16} />,
       tile: 'bg-surface-muted text-ink-tertiary',
     },
     {
       key: 'confidence' as const,
       label: s.avgConfidence,
-      value: `${(stats.averageConfidence * 100).toFixed(1)}%`,
+      // Percent-style Intl so the decimal separator AND the locale's percent-sign
+      // spacing localize (fr renders "96,4 %"); takes the ratio directly. Bare
+      // subtag per item-D convention -> Latin digits, English output unchanged.
+      value: new Intl.NumberFormat(language || 'en', {
+        style: 'percent',
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      }).format(stats.averageConfidence),
       icon: <Gauge size={16} />,
       tile: 'bg-success-tint text-success',
     },
@@ -334,7 +342,7 @@ export const DashboardScreen = () => {
                   <div key={row.key} className="flex items-center gap-3">
                     <span className={`h-2 w-2 flex-shrink-0 rounded-pill ${meta.dot}`} />
                     <span className="flex-1 truncate text-sm text-ink-secondary">{meta.label}</span>
-                    <span className="text-sm font-semibold text-ink">{row.count.toLocaleString()}</span>
+                    <span className="text-sm font-semibold text-ink">{formatCount(row.count, language)}</span>
                     <span className="w-9 text-end text-xs font-medium text-ink-muted">{row.pct}%</span>
                   </div>
                 );
