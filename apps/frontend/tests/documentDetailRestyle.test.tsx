@@ -245,8 +245,9 @@ describe('Detail follow-ups: localized fact date, filtered decision, translated 
   });
 });
 
-// Fix A: the entity chip renders the human-readable name (aliases[0]), not the
-// normalized canonicalName matching key, with a calm fallback to ent.name.
+// item B (Phase 3): the entity chip renders the human-readable name via the
+// chain displayName ?? aliases[0] ?? name (canonicalName fallback), never the
+// normalized matching key.
 const ALIASED_ENTITY_DOC = {
   id: 'doc-ent',
   originalFileName: 'facture-electricite.pdf',
@@ -257,14 +258,17 @@ const ALIASED_ENTITY_DOC = {
   detectedLanguage: 'ar',
   facts: [],
   entities: [
-    // name is the normalized key; aliases[0] is the human-readable original.
-    { role: 'VENDOR', name: 'SOCIT RGIONALE MULTISERVICES MARRAKECHSAFI SA', aliases: ['Société Régionale Multiservices Marrakech-Safi SA'] },
-    // No alias -> the chip falls back to ent.name (still a real value).
-    { role: 'ISSUER', name: 'Contoso', aliases: [] },
+    // displayName (real column) is the source of truth: it wins over aliases[0]
+    // AND over the mangled `name` key.
+    { role: 'VENDOR', displayName: 'Société Régionale Multiservices Marrakech-Safi SA', name: 'SOCIT RGIONALE MULTISERVICES MARRAKECHSAFI SA', aliases: ['SRM legacy alias'] },
+    // No displayName -> falls back to aliases[0].
+    { role: 'ISSUER', name: 'CONTOSO SA', aliases: ['Contoso SARL'] },
+    // No displayName, no alias -> falls back to ent.name (still a real value).
+    { role: 'CLIENT', name: 'Fallback Co', aliases: [] },
   ],
 };
 
-describe('Detail follow-ups: entity chip shows the human name, not the canonicalName key (FIX A)', () => {
+describe('Detail follow-ups: entity chip shows the human name via the displayName chain (item B)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
@@ -272,17 +276,24 @@ describe('Detail follow-ups: entity chip shows the human name, not the canonical
   });
   afterEach(() => { root.unmount(); container.remove(); });
 
-  it('renders the accented alias, never the accent-stripped canonicalName key', async () => {
+  it('prefers displayName, never the accent-stripped canonicalName key or a stale alias', async () => {
     mount('/documents/doc-ent', 'ar');
     await vi.waitFor(() => expect(text()).toContain('facture-electricite.pdf'));
     expect(text()).toContain('Société Régionale Multiservices Marrakech-Safi SA');
     expect(text()).not.toContain('SOCIT RGIONALE');
+    expect(text()).not.toContain('SRM legacy alias');
   });
 
-  it('falls back to ent.name when the entity has no alias', async () => {
+  it('falls back to aliases[0] when there is no displayName', async () => {
     mount('/documents/doc-ent', 'ar');
     await vi.waitFor(() => expect(text()).toContain('facture-electricite.pdf'));
-    expect(text()).toContain('Contoso');
+    expect(text()).toContain('Contoso SARL');
+  });
+
+  it('falls back to ent.name when there is neither displayName nor alias', async () => {
+    mount('/documents/doc-ent', 'ar');
+    await vi.waitFor(() => expect(text()).toContain('facture-electricite.pdf'));
+    expect(text()).toContain('Fallback Co');
   });
 });
 

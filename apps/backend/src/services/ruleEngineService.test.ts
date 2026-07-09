@@ -57,3 +57,45 @@ describe('RuleEngineService — food rule is accent- and boundary-aware (item C)
     expect(result.reasons).toContain('High food expense');
   });
 });
+
+describe('RuleEngineService — checkDuplicate normalizes the merchant before comparing (item B)', () => {
+  // Capturing fake: records the exact `where` passed to document.findFirst so we
+  // can assert what canonical key the duplicate query actually compares against.
+  function makeCapturingPrisma() {
+    const calls: any[] = [];
+    return {
+      calls,
+      prisma: {
+        document: {
+          findUnique: async () => ({ summary: null }),
+          findFirst: async (args: any) => {
+            calls.push(args);
+            return null; // not a duplicate — we only care about the query shape
+          },
+        },
+      } as any,
+    };
+  }
+
+  const facts = (amount: number) => [{ key: 'TOTAL_AMOUNT', valueNumber: amount }];
+  const canonOf = (args: any) => args.where.documentEntities.some.entity.canonicalName.equals;
+
+  it('canonicalizes a raw accented/punctuated vendor name (ingestion path)', async () => {
+    const { calls, prisma } = makeCapturingPrisma();
+    await new RuleEngineService(prisma).evaluate('d1', 'org', facts(100), 'Café Central');
+    expect(calls.length).toBe(1);
+    expect(canonOf(calls[0])).toBe('CAF CENTRAL'); // NOT the raw "Café Central"
+  });
+
+  it('an already-canonical name (documentController re-eval path) yields the SAME query key', async () => {
+    const { calls, prisma } = makeCapturingPrisma();
+    await new RuleEngineService(prisma).evaluate('d2', 'org', facts(100), 'CAF CENTRAL');
+    expect(canonOf(calls[0])).toBe('CAF CENTRAL'); // identical to the ingestion path
+  });
+
+  it('does not run a duplicate query for an all-punctuation (empty-canonical) merchant', async () => {
+    const { calls, prisma } = makeCapturingPrisma();
+    await new RuleEngineService(prisma).evaluate('d3', 'org', facts(100), '***');
+    expect(calls.length).toBe(0); // short-circuits before querying
+  });
+});

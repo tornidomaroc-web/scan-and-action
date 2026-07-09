@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { matchesAnyKeyword } from '../utils/textMatch';
+import { canonicalizeEntityName } from '../utils/canonicalName';
 
 export interface RuleResult {
   decision: 'APPROVED' | 'NEEDS_REVIEW' | 'FLAGGED';
@@ -107,6 +108,19 @@ export class RuleEngineService {
     merchantName: string,
     amount: number
   ): Promise<boolean> {
+    // Compare like-vs-like: the stored Entity.canonicalName is the normalized
+    // matching key, so the incoming merchant name must be run through the SAME
+    // canonical transform before comparing. Without this, the ingestion path
+    // (which passes the raw vendor name) never matched an accented/punctuated
+    // vendor against the stripped key, silently missing duplicates; only the
+    // documentController re-eval path (which passed canonicalName) worked. Both
+    // call sites now behave identically (canonicalize is idempotent on an
+    // already-canonical value). (item B)
+    const canonicalMerchant = canonicalizeEntityName(merchantName);
+    // An empty canonical key (e.g. an all-punctuation name) is not a meaningful
+    // vendor to dedup on — never flag on it.
+    if (!canonicalMerchant) return false;
+
     // Find documents in the same organization with the same vendor name and amount
     const duplicate = await this.prisma.document.findFirst({
       where: {
@@ -117,7 +131,7 @@ export class RuleEngineService {
             role: 'VENDOR',
             entity: {
               canonicalName: {
-                equals: merchantName,
+                equals: canonicalMerchant,
                 mode: 'insensitive'
               }
             }
