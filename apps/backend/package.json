@@ -12,7 +12,9 @@
     "postinstall": "prisma generate",
     "test": "vitest run",
     "backfill:subscriptions": "tsx scripts/backfillSubscriptions.ts",
-    "verify:entitlement": "tsx scripts/verifyEntitlement.ts"
+    "verify:entitlement": "tsx scripts/verifyEntitlement.ts",
+    "backfill:entity-display-name": "tsx scripts/backfillEntityDisplayName.ts",
+    "verify:entity-display-name": "tsx scripts/verifyEntityDisplayName.ts"
   },
   "keywords": [],
   "author": "",
