@@ -8,6 +8,7 @@ import { ProcessingTray } from './ProcessingTray';
 import { ProWelcome } from './ProWelcome';
 import { ProcessingProvider } from '../contexts/ProcessingContext';
 import { useIsDesktop } from '../hooks/useMediaQuery';
+import { useStrings } from '../i18n/useStrings';
 import { documentService } from '../services/documentService';
 import { Camera, Menu } from 'lucide-react';
 
@@ -21,6 +22,7 @@ export const Layout: React.FC = () => {
   const location = useLocation();
   const captureRef = useRef<CaptureSheetHandle>(null);
   const isDesktop = useIsDesktop();
+  const s = useStrings();
 
   // Re-fetched on navigation too, so the Queue tab badge reflects
   // approvals/rejections made in the queue as soon as the user leaves it.
@@ -88,7 +90,7 @@ export const Layout: React.FC = () => {
           className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-btn text-sm font-bold shadow-card transition-all active:scale-95 flex items-center gap-2"
         >
           <Camera size={16} />
-          Scan Receipt
+          {s.scanReceipt}
         </button>
       </header>
 

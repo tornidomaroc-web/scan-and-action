@@ -34,7 +34,7 @@ import {
   type BreakdownKey,
 } from '../lib/dashboardAnalytics';
 import { getDocTypeLabel } from '../lib/searchResultCard';
-import { formatCount } from '../lib/formatNumber';
+import { formatCount, formatPercent } from '../lib/formatNumber';
 
 // Localized short date + time for the recent-activity row. `locale` is the active
 // app language (bare subtag: 'en' | 'fr' | 'ar'), passed straight to Intl like
@@ -209,11 +209,7 @@ export const DashboardScreen = () => {
       // Percent-style Intl so the decimal separator AND the locale's percent-sign
       // spacing localize (fr renders "96,4 %"); takes the ratio directly. Bare
       // subtag per item-D convention -> Latin digits, English output unchanged.
-      value: new Intl.NumberFormat(language || 'en', {
-        style: 'percent',
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1,
-      }).format(stats.averageConfidence),
+      value: formatPercent(stats.averageConfidence, language, { fractionDigits: 1 }),
       icon: <Gauge size={16} />,
       tile: 'bg-success-tint text-success',
     },
@@ -311,8 +307,10 @@ export const DashboardScreen = () => {
                     }`}
                   >
                     {trend.direction === 'down' ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
-                    {trend.pct > 0 ? '+' : ''}
-                    {trend.pct}% {s.vsLastMonth}
+                    {/* `pct` is an integer percentage (25), so divide to the ratio
+                        Intl's percent style expects. signDisplay emits the leading
+                        "+" itself, so the sign localizes with the number. */}
+                    {formatPercent(trend.pct / 100, language, { signDisplay: 'exceptZero' })} {s.vsLastMonth}
                   </span>
                 )}
               </div>
@@ -343,7 +341,10 @@ export const DashboardScreen = () => {
                     <span className={`h-2 w-2 flex-shrink-0 rounded-pill ${meta.dot}`} />
                     <span className="flex-1 truncate text-sm text-ink-secondary">{meta.label}</span>
                     <span className="text-sm font-semibold text-ink">{formatCount(row.count, language)}</span>
-                    <span className="w-9 text-end text-xs font-medium text-ink-muted">{row.pct}%</span>
+                    {/* `pct` is an integer percentage -> ratio for Intl. */}
+                    <span className="w-9 text-end text-xs font-medium text-ink-muted">
+                      {formatPercent(row.pct / 100, language)}
+                    </span>
                   </div>
                 );
               })}
@@ -453,10 +454,13 @@ export const DashboardScreen = () => {
               // Shared translated, sentence-case type label (same source as Queue
               // + Detail); null when absent so the "type ·" prefix is simply omitted.
               const typeLabel = getDocTypeLabel(item.documentType, s as any);
+              // Already a ratio (0.98) -> Intl percent style rounds to whole
+              // percent. A non-finite confidence yields '' (falsy), so the chip
+              // is omitted rather than rendering "NaN%".
               const conf =
                 typeof item.overallConfidence === 'number'
-                  ? `${Math.round(item.overallConfidence * 100)}%`
-                  : null;
+                  ? formatPercent(item.overallConfidence, language)
+                  : '';
               return (
                 <div
                   key={item.id}

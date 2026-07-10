@@ -94,6 +94,15 @@ describe('getDocTypeLabel', () => {
     expect(getDocTypeLabel('RECEIPT', strings.en as any)).toBe(strings.en.docTypeReceipt);
     expect(getDocTypeLabel('BUSINESS_CARD', strings.en as any)).toBe(strings.en.docTypeBusinessCard);
     expect(getDocTypeLabel('UNKNOWN', strings.en as any)).toBe(strings.en.docTypeUnknown);
+    // The backend has TWO unknown spellings: uploadController writes 'UNKNOWN',
+    // normalizationService emits 'UNKNOWN_DOCUMENT_TYPE'. Both must translate,
+    // or the second falls through to humanizeEnum -> "Unknown document type".
+    expect(getDocTypeLabel('UNKNOWN_DOCUMENT_TYPE', strings.en as any)).toBe(strings.en.docTypeUnknown);
+    expect(getDocTypeLabel('UNKNOWN_DOCUMENT_TYPE', strings.en as any)).not.toBe('Unknown document type');
+    expect(getDocTypeLabel('UNKNOWN_DOCUMENT_TYPE', strings.fr as any)).toBe(strings.fr.docTypeUnknown);
+    expect(getDocTypeLabel('UNKNOWN_DOCUMENT_TYPE', strings.ar as any)).toBe(strings.ar.docTypeUnknown);
+    // Case-insensitive on the long spelling too.
+    expect(getDocTypeLabel('unknown_document_type', strings.en as any)).toBe(strings.en.docTypeUnknown);
     // Case-insensitive on the raw enum.
     expect(getDocTypeLabel('invoice', strings.en as any)).toBe(strings.en.docTypeInvoice);
     // Arabic parity: an Arabic user reads the Arabic label, not English "Invoice".

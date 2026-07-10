@@ -103,11 +103,18 @@ export const getStatus = (row: any, s: Strings): CardStatus | null => {
 // for anything unmapped (e.g. the free-form "Other" / "UNKNOWN" the extractor
 // emits). It NEVER fabricates: an unknown type shows its own humanized value, not
 // a guess. Shared so Queue / Detail / Dashboard can render types identically.
+// BOTH unknown spellings are real and reach the client:
+//   'UNKNOWN'                -> written directly by uploadController on create
+//   'UNKNOWN_DOCUMENT_TYPE'  -> emitted by normalizationService when the extracted
+//                               type matches no entry in DOCUMENT_TYPE_MAP
+// Mapping both is a correctness fix, not a convenience: renaming the key would
+// leave every existing 'UNKNOWN' row falling through to humanizeEnum.
 const DOC_TYPE_LABEL_KEY: Record<string, string> = {
   INVOICE: 'docTypeInvoice',
   RECEIPT: 'docTypeReceipt',
   BUSINESS_CARD: 'docTypeBusinessCard',
   UNKNOWN: 'docTypeUnknown',
+  UNKNOWN_DOCUMENT_TYPE: 'docTypeUnknown',
 };
 
 export const getDocTypeLabel = (rawType: unknown, s: Strings): string | null => {
