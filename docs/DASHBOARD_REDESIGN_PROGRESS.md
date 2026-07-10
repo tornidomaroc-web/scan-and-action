@@ -290,13 +290,20 @@ surfaces via the shared `getVendor` path, not just File Detail.
       Review Queue test assertions were updated to assert the new localized format
       (strengthened, not weakened). The count-separator gap below was deliberately
       excluded — see the follow-up entry.
-- [ ] **(D-follow-up) Count separators follow the browser locale, not the app
-      language.** `DashboardScreen.tsx` uses `Number.toLocaleString()` with no
-      locale argument for the KPI / breakdown counts (~L194, ~L201, ~L337), so
-      thousands separators render in the runtime locale rather than the active app
-      language — the same bug class as (D) but lower priority (digit grouping only,
-      no text). Deliberately excluded from the PR #68 D fix; fold into a small
-      number-format cleanup PR.
+- [x] **(D-follow-up) Count separators follow the browser locale, not the app
+      language. DONE in PR #76** (merged 2026-07-09). `DashboardScreen.tsx` used
+      `Number.toLocaleString()` with no locale argument for the KPI / breakdown
+      counts (~L194, ~L201, ~L337), so thousands separators rendered in the runtime
+      locale rather than the active app language — the same bug class as (D) but
+      lower priority (digit grouping only, no text). Fixed by a shared exported
+      **`formatCount(value, language)`** helper in `lib/formatNumber.ts` that
+      replaced all three no-arg `toLocaleString()` sites, plus the **`avgConfidence`
+      percent** moved to a locale-aware `Intl` **percent style** (`style: 'percent'`),
+      preserving one decimal place and **byte-identical English output**. Scope note
+      from the diagnosis: the app passes the **bare `'ar'` subtag** to `Intl`, so
+      Arabic renders **Latin digits** — this changed the **group separator only**,
+      never the digits. Four `{n}` interpolation call sites were **missed** and still
+      bypass `formatCount`; see the open i18n item below.
 
 ### Operational note — CI does NOT apply migrations (the DB can silently lag `main`)
 
@@ -380,6 +387,142 @@ AI-synthesis heading was an `h4` at 12px `text-accent-text` while its peers were
 bare muted icon and a top divider; heading levels were non-monotonic) were
 **resolved on that page in PR #64** — the `SectionHeading` primitive settled one
 icon convention. Carry the same conventions to the rollout screens above.
+
+## i18n copy quality — shipped (PRs #76 → #78)
+
+Three i18n PRs landed in sequence off the number-format follow-up above. Each was
+kept single-purpose.
+
+- [x] **PR #76 (merged 2026-07-09) — locale-aware counts.** See the `(D-follow-up)`
+      entry above for the full record: shared `formatCount(value, language)`,
+      three `toLocaleString()` sites replaced, `avgConfidence` moved to `Intl`
+      percent style, separators only (not digits) under the bare `'ar'` subtag.
+- [x] **PR #77 (merged 2026-07-10) — locale-wide sentence-case sweep.** Converted
+      **151 values** in `src/i18n/strings.ts` (**89 en, 62 fr**) to the locked
+      sentence-case convention. The audit's finding was that **Title Case was
+      systemic across both locales**, not confined to the Dashboard, so the sweep
+      was locale-wide rather than screen-scoped. **Arabic was untouched** (the
+      script has no letter case). **Acronyms, brand names, and proper nouns were
+      preserved.**
+- [x] **PR #78 (merged 2026-07-10) — plural-free reword of two broken count
+      strings.** `finishBatch` and `intelligencePulsePending` interpolated a count
+      into a sentence that required **grammatical number agreement**, so **every
+      locale was wrong at n = 1** ("You have 1 documents waiting for review.").
+      Arabic was additionally wrong at n = 2 and across the few/many splits.
+
+    - **Why reworded, not pluralized (locked decision).** The i18n layer is a
+      **hand-rolled flat dictionary** with **no pluralization support anywhere** —
+      no `Intl.PluralRules`, no ICU. Correct Arabic support would require
+      **per-form variant keys for six CLDR plural categories** on every pluralized
+      message. Both strings were instead rewritten into a **label-and-count
+      construction**, so the count never has to agree with a noun. The reworded
+      strings are correct at **n = 0, 1, 2, and 11** — at any n, because no value
+      changes shape with n.
+    - **Arabic: the count is placed last, deliberately.** A period sitting between
+      a **Latin numeral** and Arabic text is a **bidi-neutral character** that
+      resolves to the **paragraph direction** and renders on the **wrong side of
+      the number**. Both Arabic values therefore end at `{n}` with **no trailing
+      punctuation**. This matters precisely because `formatCount` emits **Latin
+      digits** on the bare `'ar'` subtag (see PR #76).
+    - **French colon spacing** uses a real **U+00A0 non-breaking space**, verified
+      **by codepoint on the merged blob** (a literal NBSP is invisible in review
+      and was silently normalized to `U+0020` once during authoring — verify by
+      codepoint, never by eye).
+    - The `{n}` token and both `String.replace('{n}', …)` call sites were
+      **unchanged**; no `.tsx` was touched.
+
+## Branch protection — `main` is protected by a RULESET, not legacy protection
+
+Recorded because the legacy API misleads. `main` is protected by **ruleset
+`14939565`** (`enforcement: active`). The **legacy branch-protection endpoint
+returns `404 Branch not protected`** even so — rulesets never appear there, and
+`GET /branches/main` reports `"protected": true`. Do **not** create legacy branch
+protection alongside the ruleset: both would be evaluated and the **most
+restrictive wins**, which makes a blocked merge painful to debug. Edit the ruleset.
+
+- **Required status checks (added 2026-07-10).** Exactly two, both GitHub
+  check-runs from the `github-actions` app (id `15368`):
+  **`Backend — typecheck & build`** and **`Frontend — typecheck & build`**.
+  The dash in both names is **U+2014 EM DASH** (bytes `e2 80 94`), **not a
+  hyphen-minus**, and the ampersand is literal. A hyphen would register a check
+  that never reports and would block every future PR permanently. **Copy the names
+  byte-for-byte from the check-runs API; never retype them.**
+- **Before this rule existed, the checks were decorative.** The `pull_request`
+  rule was enforced, but **a red check would not have blocked a merge** — PR #77
+  merged green only because the checks were verified by hand.
+- **`required_approving_review_count` stays `0`.** There is a **sole
+  collaborator**, and **GitHub does not permit approving your own PR**. Any value
+  above `0` would make **every** PR unmergeable. This is a lockout hazard, not a
+  preference.
+- **`bypass_actors` is empty**, so the required checks apply to the admin too.
+- **`Vercel` and `Vercel Preview Comments` remain advisory, by choice.** `Vercel`
+  is an **external commit status** (registers by `context`, not as a check-run)
+  that can **silently stop reporting** if the integration lapses; a required
+  context that never arrives blocks the merge with no way to clear it.
+  `Vercel Preview Comments` is a **commenting bot that gates nothing**. Requiring
+  either buys no safety and adds a failure mode.
+
+## Open i18n / correctness items (recorded so they are not lost)
+
+Discovered across the #76 → #78 work. None is fixed; each is listed with the
+handling it actually needs.
+
+- [x] **(Correction) The i18n em-dash guard DOES exist — an earlier claim that it
+      does not was wrong.** The guard lives at
+      **`apps/frontend/tests/dashboardRestyle.test.tsx`** (`describe('i18n copy —
+      no em/en dashes anywhere (hard rule)')`). It **iterates every key across all
+      three locales** (`en`, `fr`, `ar`) and bans **both em (`—`) and en (`–`)
+      dashes in string values**. A **second `describe` block re-asserts the D2 keys
+      by name**, so a future refactor that narrows the guard to a subset **fails
+      loudly**. A **separate** backend guard at
+      **`apps/backend/src/services/email/welcomeEmail.test.ts`** covers the
+      **welcome email only** — it is not the i18n guard, and finding only it does
+      not mean the i18n guard is absent (a `.ts`-only search misses the `.tsx`
+      guard). The **three em dashes remaining in `strings.ts` are in code
+      comments**; comments are **correctly out of the guard's scope**, since the
+      guard iterates **values**. That residue is already tracked by the existing
+      **"Em-dash cleanup in non-guarded copy"** entry below — see it rather than
+      re-filing it. **Note:** the merged description of **PR #78 contains the false
+      claim that no such guard exists**. The record is corrected here.
+- [ ] **`intelligencePulseDesc` renders an achievement message in an empty state.**
+      Its ternary (`DashboardScreen.tsx` ~L503) makes it reachable **only when
+      `pendingCount <= 0` AND `totalCount <= 0`**, so its `{n}` **always renders
+      `0`** and the user is told they successfully processed **0 documents**. The
+      n = 1 agreement defect in the string is therefore **unreachable**; the real
+      defect is the copy. Needs a **copy rewrite and possibly a branch change**,
+      **not** a reword.
+- [ ] **The four `{n}` interpolation call sites bypass `formatCount`.** They use
+      `.toString()`, so a pending count of `1234` renders **unseparated** in the
+      banner while the KPI tiles render it **separated**. `DashboardScreen.tsx`
+      already imports `formatCount`. **PR #76 missed these call sites**
+      (`DashboardScreen.tsx` ~L276, ~L503, ~L506; `ProcessingTray.tsx` ~L35).
+- [ ] **French colon spacing is internally inconsistent in `strings.ts`.**
+      `deleteAccountSubscriptionWarning` (~L486) and `powerTipText` (~L494) use a
+      plain **`U+0020`** before their colons rather than the **`U+00A0`** required
+      by French typography (which PR #78 used). Verify by codepoint.
+- [ ] **Three raw percent renders remain on the Dashboard** — a literal `%` with
+      no `Intl`: the **by-status row percent** (~L346), the **recent-activity
+      confidence percent** (~L458), and the **trend chip** (~L315), which
+      additionally needs **`signDisplay: 'exceptZero'`** to preserve its `+` sign.
+      (`avgConfidence` was already moved to `Intl` percent style in PR #76.)
+- [ ] **`"Scan Receipt"` is a hardcoded English literal** in
+      `src/components/Layout.tsx` (~L91) with **no i18n key**, so it renders
+      English in **every** locale.
+- [ ] **`"Unknown document type"` renders untranslated — an enum-key mismatch.**
+      The backend stores **`UNKNOWN_DOCUMENT_TYPE`**
+      (`normalizationService.ts` ~L43) while the client's **`DOC_TYPE_LABEL_KEY`**
+      map (`lib/searchResultCard.ts` ~L106) keys on **`UNKNOWN`**, so the lookup
+      **misses** and falls through to `humanizeEnum`. The translated value
+      **`docTypeUnknown` exists in all three locales but never fires**. This is a
+      **code fix, not a string edit**.
+- [ ] **`ActivityScreen` renders a count with no grouping in any language.** It
+      awaits its own **D5 restyle** (see PR-D5 above); fold the fix in there.
+- [ ] **A stale gitignored `dist/` directory poisons local backend test runs.**
+      `vitest` collects the **compiled** test files under `apps/backend/dist/`,
+      reporting **phantom failures** (failed test *files*, zero failed *tests*).
+      **CI does a fresh checkout and never sees it**, so the Backend check stays
+      green. Do not chase these locally — run `npx vitest run src`, or clear
+      `dist/`.
 
 ## Remaining (post-redesign, separate work)
 
