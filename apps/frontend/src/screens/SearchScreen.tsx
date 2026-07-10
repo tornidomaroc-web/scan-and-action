@@ -103,7 +103,10 @@ export const SearchScreen = () => {
           {/* Render the translated headline cleanly. (The old split('data')
               highlight trick appended a literal English "data", corrupting the
               FR/AR strings.) */}
-          <h1 className="text-3xl font-semibold tracking-tight text-ink lg:text-4xl">{s.askAnything}</h1>
+          {/* Page title uses the shared `text-title-lg` (24px) token, matching the
+              Dashboard / Queue / Detail h1s. NOT a SectionHeading: that primitive
+              renders 16px section-level headings and would shrink this title. */}
+          <h1 className="text-title-lg font-semibold tracking-tight text-ink">{s.askAnything}</h1>
         </div>
 
         <form onSubmit={handleSearchSubmit} className="relative mx-auto max-w-3xl">
@@ -280,7 +283,12 @@ export const SearchScreen = () => {
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-card border border-line bg-surface-raised text-accent shadow-card">
               <Sparkles size={28} />
             </div>
-            <h3 className="text-title-lg font-semibold tracking-tight text-ink">{s.askDocs}</h3>
+            {/* Empty-state hero heading. Steps down to text-section (15px) so it
+                sits UNDER the 24px page h1 above it — otherwise the two near-
+                duplicate headings render at the same size. Matches the shared
+                EmptyState component's `text-section font-semibold text-ink`
+                (no tracking-tight, which the section token never pairs with). */}
+            <h3 className="text-section font-semibold text-ink">{s.askDocs}</h3>
             <p className="mx-auto mt-2 max-w-sm text-sm text-ink-muted">{s.workspaceIndexed}</p>
 
             <div className="mx-auto mt-10 max-w-4xl">
