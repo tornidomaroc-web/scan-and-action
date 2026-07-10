@@ -103,7 +103,10 @@ export const SearchScreen = () => {
           {/* Render the translated headline cleanly. (The old split('data')
               highlight trick appended a literal English "data", corrupting the
               FR/AR strings.) */}
-          <h1 className="text-3xl font-semibold tracking-tight text-ink lg:text-4xl">{s.askAnything}</h1>
+          {/* Page title uses the shared `text-title-lg` (24px) token, matching the
+              Dashboard / Queue / Detail h1s. NOT a SectionHeading: that primitive
+              renders 16px section-level headings and would shrink this title. */}
+          <h1 className="text-title-lg font-semibold tracking-tight text-ink">{s.askAnything}</h1>
         </div>
 
         <form onSubmit={handleSearchSubmit} className="relative mx-auto max-w-3xl">

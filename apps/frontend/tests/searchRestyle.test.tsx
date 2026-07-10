@@ -311,3 +311,54 @@ describe('Search restyle — RTL uses logical properties (source scan)', () => {
     expect(answerSrc).not.toContain('mr-1.5');
   });
 });
+
+// ============================================================================
+// Page-title standardization: all four page h1s share ONE token.
+// ============================================================================
+// The Search hero title was the lone screen bypassing the type scale (raw
+// text-3xl with an lg:text-4xl jump). It now uses `text-title-lg` (24px), the
+// same token as Dashboard / Queue / Detail.
+//
+// This is a PAGE TITLE, not a section heading. SectionHeading renders a 16px
+// (text-base) heading; wrapping this h1 in it would SHRINK the title from 24px
+// to 16px. The guard below pins that distinction so the trap cannot be walked
+// into by a future "consistency" refactor.
+describe('Search page title — standardized onto the shared page-title token', () => {
+  const searchSrc = read('../src/screens/SearchScreen.tsx');
+  const dashSrc = read('../src/screens/DashboardScreen.tsx');
+  const queueSrc = read('../src/screens/ReviewQueueScreen.tsx');
+  const detailSrc = read('../src/screens/DocumentDetailScreen.tsx');
+  const sectionHeadingSrc = read('../src/components/SectionHeading.tsx');
+
+  const PAGE_TITLE = 'text-title-lg font-semibold tracking-tight text-ink';
+
+  it('the Search h1 uses the shared page-title token', () => {
+    expect(searchSrc).toContain(`<h1 className="${PAGE_TITLE}">{s.askAnything}</h1>`);
+  });
+
+  it('the Search h1 no longer uses a raw size or a responsive size jump', () => {
+    expect(searchSrc).not.toContain('text-3xl');
+    expect(searchSrc).not.toContain('lg:text-4xl');
+  });
+
+  it('all four page h1s share the same token composition', () => {
+    for (const src of [searchSrc, dashSrc, queueSrc, detailSrc]) {
+      expect(src).toContain(PAGE_TITLE);
+    }
+  });
+
+  it('no page h1 reintroduces a responsive size jump', () => {
+    for (const src of [searchSrc, dashSrc, queueSrc, detailSrc]) {
+      expect(src).not.toMatch(/<h1[^>]*\b(sm|md|lg|xl):text-/);
+    }
+  });
+
+  it('the page title is NOT wrapped in SectionHeading (that would shrink 24px -> 16px)', () => {
+    expect(searchSrc).not.toMatch(/<SectionHeading[^>]*>\s*\{s\.askAnything\}/);
+    expect(sectionHeadingSrc).toContain('text-base'); // the primitive really is 16px
+  });
+
+  it('the empty-state hero (h3) keeps the token it already had, untouched', () => {
+    expect(searchSrc).toContain(`<h3 className="${PAGE_TITLE}">{s.askDocs}</h3>`);
+  });
+});
