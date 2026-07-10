@@ -329,6 +329,7 @@ describe('Search page title — standardized onto the shared page-title token', 
   const queueSrc = read('../src/screens/ReviewQueueScreen.tsx');
   const detailSrc = read('../src/screens/DocumentDetailScreen.tsx');
   const sectionHeadingSrc = read('../src/components/SectionHeading.tsx');
+  const emptyStateSrc = read('../src/components/EmptyState.tsx');
 
   const PAGE_TITLE = 'text-title-lg font-semibold tracking-tight text-ink';
 
@@ -358,7 +359,17 @@ describe('Search page title — standardized onto the shared page-title token', 
     expect(sectionHeadingSrc).toContain('text-base'); // the primitive really is 16px
   });
 
-  it('the empty-state hero (h3) keeps the token it already had, untouched', () => {
-    expect(searchSrc).toContain(`<h3 className="${PAGE_TITLE}">{s.askDocs}</h3>`);
+  it('the empty-state hero (h3) steps DOWN to text-section, distinct from the page h1', () => {
+    // The hero must NOT share the 24px page-title token, or it collapses back to
+    // the same size as the h1 directly above it (near-duplicate copy, no
+    // hierarchy). It uses the shared EmptyState convention instead.
+    const HERO = 'text-section font-semibold text-ink';
+    expect(searchSrc).toContain(`<h3 className="${HERO}">{s.askDocs}</h3>`);
+    expect(HERO).not.toContain('text-title-lg'); // the two tokens are different sizes
+    // The hero heading line itself must not carry the page-title token.
+    const heroLine = searchSrc.split('\n').find((l) => l.includes('{s.askDocs}')) ?? '';
+    expect(heroLine).not.toContain('text-title-lg');
+    // And it matches the shared EmptyState component's heading composition.
+    expect(emptyStateSrc).toContain(`text-section font-semibold text-ink`);
   });
 });
