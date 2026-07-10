@@ -365,21 +365,32 @@ shared heading component before this.
       corrected the heading copy to the locked visual identity: "Quick actions" (en)
       and "Actions rapides" (fr). The page h1 was left untouched.
 
+### Done — Search page title standardization (PR #81, merged)
+
+- [x] **Search page title standardized onto `text-title-lg` (PR #81, merged
+      2026-07-10).** The raw `text-3xl` / `lg:text-4xl` Search hero title now adopts
+      the shared **`text-title-lg`** page-title token, so **all four page `h1`s now
+      share one token**, locked by a **cross-screen guard**. As the paired hierarchy
+      fix, the Search **empty-state hero was stepped down** from `text-title-lg` to
+      **`text-section`** to restore hierarchy, matching the shared `EmptyState`
+      component's composition (**`tracking-tight` dropped**, as no `text-section`
+      heading carries it). This was the page-title standardization tracked below —
+      deliberately **not** wrapped in `SectionHeading` (which would have shrunk the
+      hero to 16px).
+
 ### Still open — deferred OUT of the E rollout (tracked so they are not lost)
 
-Two heading items were deliberately kept out of PR #66 because each needs work
-beyond dropping in `SectionHeading`:
+One heading item remains open (the Search page-title standardization shipped in
+PR #81 above); it still needs work beyond dropping in `SectionHeading`:
 
 - [ ] **Inline-toolbar headings** — the Dashboard **recent-activity** heading
-      (`DashboardScreen.tsx` ~L407) and the Search **results** heading
+      (`DashboardScreen.tsx` ~L407) and the Search **results caption**
       (`SearchScreen.tsx` ~L228). Both are "heading + action on one row" layouts;
-      `SectionHeading`'s block `<h2>`/`<h3>` + `mb-4` does not fit them without a
-      row refactor. Adopt the shared style once the toolbar row is restructured.
-- [ ] **Search page title standardization** (`SearchScreen.tsx` ~L106) — the raw
-      `text-3xl` / `lg:text-4xl` hero title should adopt the **`text-title-lg`**
-      page-title token used elsewhere. This is a **separate** change from
-      `SectionHeading` and must **NOT** be wrapped in it (that would shrink the hero
-      to 16px). It is a page-title standardization, not a section-heading job.
+      `SectionHeading`'s block `<h3>` + `mb-4` does not fit them without a row
+      refactor. **Also open on the Search screen: an `h1` → `h3` outline skip** (the
+      hero and the results caption are both `h3`, with no `h2` between them) — best
+      fixed **together with the results-caption refactor**. Adopt the shared style
+      once the toolbar row is restructured.
 
 Notes for the rollout: the File Detail heading defects the audit surfaced (the
 AI-synthesis heading was an `h4` at 12px `text-accent-text` while its peers were
@@ -515,6 +526,16 @@ handling it actually needs.
       **misses** and falls through to `humanizeEnum`. The translated value
       **`docTypeUnknown` exists in all three locales but never fires**. This is a
       **code fix, not a string edit**.
+- [ ] **Two more enum-key label defects in the same class as the fixed
+      `UNKNOWN_DOCUMENT_TYPE` mismatch above.**
+    - **(a) `APPOINTMENT` renders untranslated.** The backend's `DOCUMENT_TYPE_MAP`
+      emits **`APPOINTMENT`**, but **`DOC_TYPE_LABEL_KEY` has no entry** for it, so it
+      falls through to `humanizeEnum` and renders **"Appointment" untranslated** in
+      French and Arabic. Needs a new **`docTypeAppointment`** key in **three locales**.
+    - **(b) `RECEIPT` is a dead `DOC_TYPE_LABEL_KEY` entry** the backend **never
+      emits** (the backend produces only `INVOICE`, `BUSINESS_CARD`, `APPOINTMENT`,
+      and the two unknowns). **Confirm whether receipts are meant to be a distinct
+      document type** — if so, the gap is in the **backend map**, not the label.
 - [ ] **`ActivityScreen` renders a count with no grouping in any language.** It
       awaits its own **D5 restyle** (see PR-D5 above); fold the fix in there.
 - [ ] **A stale gitignored `dist/` directory poisons local backend test runs.**
@@ -542,6 +563,48 @@ handling it actually needs.
       in a dedicated sweep PR so the no-em-dash rule holds literally across the
       codebase, not just in i18n copy. (New additions since PR #60 are already
       em-dash-free; this is only the pre-existing backlog.)
+
+## Android / Google Play production launch
+
+### Done — production launch submitted
+
+- [x] **Production access granted (2026-07-08); signed AAB built, uploaded, and
+      submitted for review (2026-07-10).** Google Play **production access was granted
+      on 2026-07-08**. `versionCode` was bumped **1 → 2 (PR #82)** because **1 was
+      consumed by closed testing**, and **release signing was wired into Gradle
+      reading `key.properties`** so the CLI produces a **signed AAB** (the signing
+      secrets remain **gitignored and untracked**). A signed AAB (**versionCode 2,
+      versionName 1.0, ~5.24 MiB**) was built and **uploaded to the Production
+      track**, targeting **all 177 countries/regions**, with **English / French /
+      Arabic release notes** that honor the **silent-Android constraint** (no price,
+      no payment, no steering). **Submitted for Google review on 2026-07-10**;
+      **managed publishing is off**, so it **auto-publishes on approval**.
+
+### Post-launch — deferred (do NOT act before the stated gate)
+
+- [ ] **Reset the review account to FREE — GATED on Google's production review
+      completing; do NOT do it before then.** The review account
+      **`unicornapps.support@gmail.com`** holds **PRO via
+      `Organization.planOverride = PRO`** (a manual entitlement floor) with **zero
+      `Subscription` rows**, deliberately, so Google's reviewer sees PRO features.
+      **CRITICAL correction to the existing `LAUNCH_TODO` phrasing — this is NOT a
+      single-column update.** `Organization.plan` is a **stored cache recomputed only
+      on a billing event**, and this account has **no subscriptions**, so **nulling
+      `planOverride` alone leaves `plan = PRO` frozen forever**. The reset must set
+      **BOTH `planOverride = null` AND `plan = FREE`** (= `derivePlan(null, [])` for
+      this zero-subscription org) **in one transaction**, via a **new idempotent
+      script mirroring the `backfillSubscriptions` precedent** (resolve the org by
+      `REVIEW_ACCOUNT_EMAIL` or `REVIEW_ACCOUNT_ORG_ID`, **STOP on 0 or >1 matches**),
+      followed by **`npm run verify:entitlement`** which must report **0 mismatches**.
+      **Not urgent, low risk** (no billing, no cost); the only concern is **hygiene** —
+      a permanent elevated-privilege grant on an externally-shared support email.
+      **Also add a test** mirroring the backfill's, asserting the script **drives both
+      columns** and **STOPs on org-resolution ambiguity**.
+- [ ] **Ship a deobfuscation / mapping file with a future release (non-blocking).**
+      Google flagged a **non-blocking warning** on the production release: **no
+      deobfuscation/mapping file is associated with the app bundle**. If R8/ProGuard
+      obfuscation is used, **uploading a mapping file makes crash/ANR reports
+      readable**. Optional; ship a mapping file with a future release.
 
 ## Design decisions locked
 
