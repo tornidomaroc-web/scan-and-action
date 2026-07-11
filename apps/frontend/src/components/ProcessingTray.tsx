@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, CheckCircle, AlertCircle, FileText, X, ChevronRight } from 'lucide-react';
 import { useProcessing, ProcessingJob } from '../contexts/ProcessingContext';
 import { useStrings } from '../i18n/useStrings';
+import { useLanguage } from '../i18n/LanguageContext';
+import { formatCount } from '../lib/formatNumber';
 import { useBackDismiss } from '../native/useBackDismiss';
 
 const statusIcon = (job: ProcessingJob) => {
@@ -22,6 +24,7 @@ const statusIcon = (job: ProcessingJob) => {
 // Status chip above the mobile tab bar + the tray sheet it opens.
 export const ProcessingTray: React.FC = () => {
   const s = useStrings();
+  const { language } = useLanguage();
   const navigate = useNavigate();
   const { jobs, processingCount, clearSettled } = useProcessing();
   const [open, setOpen] = useState(false);
@@ -32,7 +35,7 @@ export const ProcessingTray: React.FC = () => {
   if (jobs.length === 0) return null;
 
   const chipLabel =
-    processingCount > 0 ? s.processingChip.replace('{n}', processingCount.toString()) : s.processingDone;
+    processingCount > 0 ? s.processingChip.replace('{n}', formatCount(processingCount, language)) : s.processingDone;
 
   return (
     <>

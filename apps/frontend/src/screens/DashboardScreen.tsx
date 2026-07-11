@@ -269,7 +269,7 @@ export const DashboardScreen = () => {
         <div className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-surface-raised px-4 py-3 shadow-card">
           <span className="h-2 w-2 flex-shrink-0 rounded-pill bg-warning" />
           <span className="text-sm text-ink-secondary">
-            {s.finishBatch.replace('{n}', stats.pendingCount.toString())}
+            {s.finishBatch.replace('{n}', formatCount(stats.pendingCount, language))}
           </span>
           <button
             onClick={() => navigate('/queue')}
@@ -504,7 +504,7 @@ export const DashboardScreen = () => {
             </div>
             <p className="mt-3 text-[13px] leading-relaxed text-ink-secondary">
               {stats.pendingCount > 0
-                ? s.intelligencePulsePending.replace('{n}', stats.pendingCount.toString())
+                ? s.intelligencePulsePending.replace('{n}', formatCount(stats.pendingCount, language))
                 : stats.totalCount > 0
                 ? s.allSystemsVerified
                 : s.intelligencePulseDesc}

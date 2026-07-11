@@ -81,6 +81,16 @@ describe('Dashboard restyle — populated', () => {
     expect(text()).toContain('96.4%'); // averageConfidence
   });
 
+  // item 5: the pending-count banner + insight both interpolate via formatCount,
+  // so a 1000+ pending count groups like the KPI tiles ("1,234"), never raw "1234".
+  it('localizes a 1000+ pending count in the finish-batch banner and insight', async () => {
+    h.getStats.mockResolvedValue({ totalCount: 2000, pendingCount: 1234, averageConfidence: 0.9 });
+    mount();
+    await vi.waitFor(() => expect(text()).toContain(strings.en.finishBatch.replace('{n}', '1,234')));
+    expect(text()).toContain(strings.en.intelligencePulsePending.replace('{n}', '1,234'));
+    expect(text()).not.toContain('1234'); // the raw .toString() path is gone
+  });
+
   it('renders chart + by-status as placeholders — NO fabricated numbers', async () => {
     mount();
     await vi.waitFor(() => expect(text()).toContain(strings.en.documentsProcessed));
