@@ -383,7 +383,7 @@ shared heading component before this.
 One heading item remains open (the Search page-title standardization shipped in
 PR #81 above); it still needs work beyond dropping in `SectionHeading`:
 
-- [ ] **Search-page heading outline — level-only fix (PR pending; close on merge).**
+- [x] **Search-page heading outline — level-only fix (PR #85, merged 2026-07-11).**
       On `SearchScreen.tsx` the outline jumped **`h1` → `h3`**: under the page
       `h1` (`askAnything`, L109), the **results caption** (`resultsTitle`, L231)
       and the **empty-state hero** (`askDocs`, L291) were both `h3`, in
@@ -394,19 +394,25 @@ PR #81 above); it still needs work beyond dropping in `SectionHeading`:
       The inline-toolbar *style adoption* is deliberately **not** bundled here
       (the caption stays a bespoke `justify-between` row; wrapping it in the
       block `SectionHeading` would enlarge it and drop the trailing count pill).
-- [ ] **A1 — Dashboard recent-activity heading style adoption (Dashboard file,
-      separate PR).** `DashboardScreen.tsx` **L422**: the recent-activity heading
-      is **already `h2` with the correct level** (no accessibility/level defect),
-      but it **diverges in STYLE** from its sibling section headings — it renders
-      at **15px `text-section` with a `border-b` divider**, while
-      `documentsProcessed` / `documentsByStatus` / `quickActions` render at **16px
-      via `SectionHeading`** (PR #66), and `SectionHeading` **never draws a
-      divider**. This is a **cosmetic style-adoption only, NOT a level/a11y fix**.
-      **Open question to resolve when tackled:** is the `border-b` divider
-      intentional (it reads as a card header — keep) or should it be removed for
-      consistency with the divider-free `SectionHeading` convention? Because it is
-      a `justify-between` "heading + View all" toolbar row, `SectionHeading`'s
-      block layout does not fit it without a row-refactor / trailing-action slot.
+- [ ] **A1 — Dashboard recent-activity heading size alignment (PR pending; close
+      on merge).** `DashboardScreen.tsx` **L422**: the recent-activity heading is
+      **already `h2` with the correct level** (no accessibility/level defect), but
+      it **diverged in STYLE** from its sibling section headings — it rendered at
+      **15px `text-section`**, while `documentsProcessed` / `documentsByStatus` /
+      `quickActions` render at **16px via `SectionHeading`** (`text-base`, PR #66).
+      **Resolution:** the `<h2>` was aligned to **`text-base` (16px)**, matching the
+      `SectionHeading` visual, and **nothing else changed**. **The `border-b`
+      divider was deliberately KEPT** — the open "is the divider intentional?"
+      question is now **resolved: it is structurally justified.** This is a
+      **divided-list card**: the card has no padding, its rows go edge-to-edge each
+      carrying `border-b border-divider` (`last:border-b-0`), and the header divider
+      **matches those row dividers**. (The sibling `documentsProcessed`/`byStatus`
+      headings sit in **padded-content** cards — `p-5`, no dividers — so the
+      divergence is a card-*pattern* difference, not an oversight.) `SectionHeading`
+      was **NOT adopted**: this is a `justify-between` "heading + conditional View
+      all button + divider + padding" card-header toolbar the block primitive can't
+      model without a row-refactor/trailing-action slot. **Typography-only, no copy
+      change; this is a VISUAL change (15px → 16px) warranting on-phone review.**
 
 Notes for the rollout: the File Detail heading defects the audit surfaced (the
 AI-synthesis heading was an `h4` at 12px `text-accent-text` while its peers were

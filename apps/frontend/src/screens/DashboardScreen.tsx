@@ -419,7 +419,7 @@ export const DashboardScreen = () => {
         {/* Recent activity */}
         <div className="overflow-hidden rounded-card border border-line bg-surface-raised shadow-card">
           <div className="flex items-center justify-between border-b border-divider px-5 py-4">
-            <h2 className="text-section font-semibold text-ink">{s.recentActivity}</h2>
+            <h2 className="text-base font-semibold text-ink">{s.recentActivity}</h2>
             {recentActivity.length > 5 && !(isExpanded && !isDesktop) && (
               <button
                 onClick={handleViewAll}
