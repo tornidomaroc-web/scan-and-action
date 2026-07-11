@@ -359,17 +359,50 @@ describe('Search page title — standardized onto the shared page-title token', 
     expect(sectionHeadingSrc).toContain('text-base'); // the primitive really is 16px
   });
 
-  it('the empty-state hero (h3) steps DOWN to text-section, distinct from the page h1', () => {
+  it('the empty-state hero (h2) steps DOWN to text-section, distinct from the page h1', () => {
     // The hero must NOT share the 24px page-title token, or it collapses back to
     // the same size as the h1 directly above it (near-duplicate copy, no
-    // hierarchy). It uses the shared EmptyState convention instead.
+    // hierarchy). It uses the shared EmptyState convention instead. It is an h2
+    // (a correct h1 -> h2 outline), but the TYPOGRAPHY stays text-section: the
+    // level and the visual size are independent here.
     const HERO = 'text-section font-semibold text-ink';
-    expect(searchSrc).toContain(`<h3 className="${HERO}">{s.askDocs}</h3>`);
+    expect(searchSrc).toContain(`<h2 className="${HERO}">{s.askDocs}</h2>`);
     expect(HERO).not.toContain('text-title-lg'); // the two tokens are different sizes
     // The hero heading line itself must not carry the page-title token.
     const heroLine = searchSrc.split('\n').find((l) => l.includes('{s.askDocs}')) ?? '';
     expect(heroLine).not.toContain('text-title-lg');
     // And it matches the shared EmptyState component's heading composition.
     expect(emptyStateSrc).toContain(`text-section font-semibold text-ink`);
+  });
+});
+
+// The page outline must read h1 -> h2, never h1 -> h3. The page h1 is
+// askAnything; the two section headings directly beneath it — the empty-state
+// hero (askDocs) and the results caption (resultsTitle), which live in
+// mutually-exclusive branches — must both be h2. This asserts the RENDERED
+// accessibility level (tagName), not just the source, so the skip cannot regress.
+describe('Search page heading outline — h1 -> h2 (no skipped h2)', () => {
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
+  afterEach(() => { root.unmount(); container.remove(); });
+
+  const headingFor = (label: string) =>
+    [...container.querySelectorAll('h1,h2,h3,h4,h5,h6')].find((el) => el.textContent?.includes(label));
+
+  it('the empty-state hero (askDocs) renders at heading level 2, under the page h1', () => {
+    mount('en');
+    expect(container.querySelector('h1')?.textContent).toContain(strings.en.askAnything);
+    expect(headingFor(strings.en.askDocs)?.tagName).toBe('H2'); // was H3 (h1 -> h3 skip)
+  });
+
+  it('the results caption (resultsTitle) renders at heading level 2 when results show', async () => {
+    h.executeQuery.mockResolvedValue({
+      intent: 'list', outputFormat: 'table', requiresClarification: false,
+      data: [{ id: 'doc-1', vendor: 'Aurora', amount: '120' }],
+      resultCount: 1, executionTimeMs: 88, sourceLanguage: 'en',
+    });
+    mount('en');
+    runQuery('recent invoices');
+    await vi.waitFor(() => expect(text()).toContain(strings.en.resultsTitle));
+    expect(headingFor(strings.en.resultsTitle)?.tagName).toBe('H2'); // was H3
   });
 });
