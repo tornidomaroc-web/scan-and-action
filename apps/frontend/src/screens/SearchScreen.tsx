@@ -228,7 +228,10 @@ export const SearchScreen = () => {
                     <div className="flex items-center justify-between gap-2 px-1">
                       <div className="flex items-center gap-2">
                         <span className="h-1.5 w-1.5 flex-shrink-0 rounded-pill bg-accent" />
-                        <h3 className="text-[13px] font-semibold text-ink-tertiary">{s.resultsTitle}</h3>
+                        {/* h2 (not h3): sits directly under the page h1, so a
+                            correct outline is h1 -> h2. Tag-only change; the
+                            classes keep the exact 13px muted-caption visual. */}
+                        <h2 className="text-[13px] font-semibold text-ink-tertiary">{s.resultsTitle}</h2>
                       </div>
                       <span className="rounded-pill bg-surface-muted px-2.5 py-1 text-xs font-medium text-ink-muted">
                         {result.resultCount} {s.findingsLabel} &middot; {result.executionTimeMs} {s.msUnit}
@@ -283,12 +286,14 @@ export const SearchScreen = () => {
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-card border border-line bg-surface-raised text-accent shadow-card">
               <Sparkles size={28} />
             </div>
-            {/* Empty-state hero heading. Steps down to text-section (15px) so it
-                sits UNDER the 24px page h1 above it — otherwise the two near-
-                duplicate headings render at the same size. Matches the shared
-                EmptyState component's `text-section font-semibold text-ink`
-                (no tracking-tight, which the section token never pairs with). */}
-            <h3 className="text-section font-semibold text-ink">{s.askDocs}</h3>
+            {/* Empty-state hero heading. h2 (not h3): it sits directly under the
+                page h1, so a correct outline is h1 -> h2. The level is a tag-only
+                change — it still steps down to text-section (15px) so it sits
+                UNDER the 24px page h1 above it (otherwise the two near-duplicate
+                headings render at the same size), matching the shared EmptyState
+                component's `text-section font-semibold text-ink` (no
+                tracking-tight, which the section token never pairs with). */}
+            <h2 className="text-section font-semibold text-ink">{s.askDocs}</h2>
             <p className="mx-auto mt-2 max-w-sm text-sm text-ink-muted">{s.workspaceIndexed}</p>
 
             <div className="mx-auto mt-10 max-w-4xl">

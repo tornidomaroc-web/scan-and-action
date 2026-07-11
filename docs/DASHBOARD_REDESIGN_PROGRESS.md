@@ -383,14 +383,30 @@ shared heading component before this.
 One heading item remains open (the Search page-title standardization shipped in
 PR #81 above); it still needs work beyond dropping in `SectionHeading`:
 
-- [ ] **Inline-toolbar headings** — the Dashboard **recent-activity** heading
-      (`DashboardScreen.tsx` ~L407) and the Search **results caption**
-      (`SearchScreen.tsx` ~L228). Both are "heading + action on one row" layouts;
-      `SectionHeading`'s block `<h3>` + `mb-4` does not fit them without a row
-      refactor. **Also open on the Search screen: an `h1` → `h3` outline skip** (the
-      hero and the results caption are both `h3`, with no `h2` between them) — best
-      fixed **together with the results-caption refactor**. Adopt the shared style
-      once the toolbar row is restructured.
+- [ ] **Search-page heading outline — level-only fix (PR pending; close on merge).**
+      On `SearchScreen.tsx` the outline jumped **`h1` → `h3`**: under the page
+      `h1` (`askAnything`, L109), the **results caption** (`resultsTitle`, L231)
+      and the **empty-state hero** (`askDocs`, L291) were both `h3`, in
+      mutually-exclusive branches, with **no `h2`** in either path. This PR
+      promotes both to **semantic `h2`** (tag change, utility classes untouched)
+      so the outline is `h1` → `h2` with **no visual/copy change** — the 13px
+      muted caption and the 15px `text-section` step-down (PR #81) are preserved.
+      The inline-toolbar *style adoption* is deliberately **not** bundled here
+      (the caption stays a bespoke `justify-between` row; wrapping it in the
+      block `SectionHeading` would enlarge it and drop the trailing count pill).
+- [ ] **A1 — Dashboard recent-activity heading style adoption (Dashboard file,
+      separate PR).** `DashboardScreen.tsx` **L422**: the recent-activity heading
+      is **already `h2` with the correct level** (no accessibility/level defect),
+      but it **diverges in STYLE** from its sibling section headings — it renders
+      at **15px `text-section` with a `border-b` divider**, while
+      `documentsProcessed` / `documentsByStatus` / `quickActions` render at **16px
+      via `SectionHeading`** (PR #66), and `SectionHeading` **never draws a
+      divider**. This is a **cosmetic style-adoption only, NOT a level/a11y fix**.
+      **Open question to resolve when tackled:** is the `border-b` divider
+      intentional (it reads as a card header — keep) or should it be removed for
+      consistency with the divider-free `SectionHeading` convention? Because it is
+      a `justify-between` "heading + View all" toolbar row, `SectionHeading`'s
+      block layout does not fit it without a row-refactor / trailing-action slot.
 
 Notes for the rollout: the File Detail heading defects the audit surfaced (the
 AI-synthesis heading was an `h4` at 12px `text-accent-text` while its peers were
@@ -519,19 +535,22 @@ handling it actually needs.
 - [ ] **`"Scan Receipt"` is a hardcoded English literal** in
       `src/components/Layout.tsx` (~L91) with **no i18n key**, so it renders
       English in **every** locale.
-- [ ] **`"Unknown document type"` renders untranslated — an enum-key mismatch.**
-      The backend stores **`UNKNOWN_DOCUMENT_TYPE`**
+- [x] **`"Unknown document type"` renders untranslated — an enum-key mismatch.
+      Fixed in PR #80.** The backend stores **`UNKNOWN_DOCUMENT_TYPE`**
       (`normalizationService.ts` ~L43) while the client's **`DOC_TYPE_LABEL_KEY`**
-      map (`lib/searchResultCard.ts` ~L106) keys on **`UNKNOWN`**, so the lookup
-      **misses** and falls through to `humanizeEnum`. The translated value
-      **`docTypeUnknown` exists in all three locales but never fires**. This is a
-      **code fix, not a string edit**.
+      map (`lib/searchResultCard.ts` ~L106) keyed only on **`UNKNOWN`**, so the
+      lookup **missed** and fell through to `humanizeEnum`. The translated value
+      **`docTypeUnknown` exists in all three locales but never fired**. PR #80
+      added a `UNKNOWN_DOCUMENT_TYPE` row (mapping to `docTypeUnknown`) so both
+      spellings now translate. This was a **code fix, not a string edit**.
 - [ ] **Two more enum-key label defects in the same class as the fixed
-      `UNKNOWN_DOCUMENT_TYPE` mismatch above.**
-    - **(a) `APPOINTMENT` renders untranslated.** The backend's `DOCUMENT_TYPE_MAP`
-      emits **`APPOINTMENT`**, but **`DOC_TYPE_LABEL_KEY` has no entry** for it, so it
-      falls through to `humanizeEnum` and renders **"Appointment" untranslated** in
-      French and Arabic. Needs a new **`docTypeAppointment`** key in **three locales**.
+      `UNKNOWN_DOCUMENT_TYPE` mismatch above.** Sub-item (a) is now fixed (PR #84);
+      this box stays open only for the still-unresolved (b) RECEIPT question.
+    - **(a) `APPOINTMENT` renders untranslated — FIXED (PR #84).** The backend's
+      `DOCUMENT_TYPE_MAP` emitted **`APPOINTMENT`**, but **`DOC_TYPE_LABEL_KEY` had
+      no entry** for it, so it fell through to `humanizeEnum` and rendered
+      **"Appointment" untranslated** in French and Arabic. PR #84 added the
+      **`docTypeAppointment`** key in **all three locales** plus the map row.
     - **(b) `RECEIPT` is a dead `DOC_TYPE_LABEL_KEY` entry** the backend **never
       emits** (the backend produces only `INVOICE`, `BUSINESS_CARD`, `APPOINTMENT`,
       and the two unknowns). **Confirm whether receipts are meant to be a distinct
