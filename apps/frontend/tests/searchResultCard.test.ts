@@ -93,6 +93,13 @@ describe('getDocTypeLabel', () => {
     expect(getDocTypeLabel('INVOICE', strings.en as any)).toBe(strings.en.docTypeInvoice);
     expect(getDocTypeLabel('RECEIPT', strings.en as any)).toBe(strings.en.docTypeReceipt);
     expect(getDocTypeLabel('BUSINESS_CARD', strings.en as any)).toBe(strings.en.docTypeBusinessCard);
+    // APPOINTMENT is a real backend enum: without a map row it leaked as the raw
+    // "Appointment" humanization in every locale (deferred item 4a).
+    expect(getDocTypeLabel('APPOINTMENT', strings.en as any)).toBe(strings.en.docTypeAppointment);
+    expect(getDocTypeLabel('APPOINTMENT', strings.fr as any)).toBe(strings.fr.docTypeAppointment);
+    expect(getDocTypeLabel('APPOINTMENT', strings.fr as any)).not.toBe('Appointment');
+    expect(getDocTypeLabel('APPOINTMENT', strings.ar as any)).toBe(strings.ar.docTypeAppointment);
+    expect(getDocTypeLabel('APPOINTMENT', strings.ar as any)).not.toBe('Appointment');
     expect(getDocTypeLabel('UNKNOWN', strings.en as any)).toBe(strings.en.docTypeUnknown);
     // The backend has TWO unknown spellings: uploadController writes 'UNKNOWN',
     // normalizationService emits 'UNKNOWN_DOCUMENT_TYPE'. Both must translate,
