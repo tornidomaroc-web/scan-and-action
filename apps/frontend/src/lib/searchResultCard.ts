@@ -113,6 +113,7 @@ const DOC_TYPE_LABEL_KEY: Record<string, string> = {
   INVOICE: 'docTypeInvoice',
   RECEIPT: 'docTypeReceipt',
   BUSINESS_CARD: 'docTypeBusinessCard',
+  APPOINTMENT: 'docTypeAppointment',
   UNKNOWN: 'docTypeUnknown',
   UNKNOWN_DOCUMENT_TYPE: 'docTypeUnknown',
 };
