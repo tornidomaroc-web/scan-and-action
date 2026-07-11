@@ -145,6 +145,25 @@ describe('i18n copy — no em/en dashes anywhere (hard rule)', () => {
   }
 });
 
+// French high punctuation (: ; ! ?) must be preceded by a NO-BREAK space
+// (U+00A0), never a plain space (U+0020) — a French typographic rule this
+// codebase follows (the fix for item 7). This guard iterates EVERY fr value and
+// fails if a plain space sits immediately before one of those marks, so the
+// defect class can never silently regress. A NON-punctuation colon (a time
+// "14:30", a ratio, a version tag "v1:") has NO space before it, so it never
+// trips this — no allow-list is needed.
+describe('i18n copy — French uses a no-break space before : ; ! ? (hard rule)', () => {
+  const fr = (strings as Record<string, Record<string, unknown>>).fr;
+  const PLAIN_SPACE_BEFORE_MARK = / [:;!?]/; // U+0020 (plain space), NOT U+00A0
+  for (const key of Object.keys(fr)) {
+    const value = fr[key];
+    if (typeof value !== 'string') continue; // all values are flat strings today
+    it(`strings.fr.${key} has no plain space before : ; ! ?`, () => {
+      expect(value).not.toMatch(PLAIN_SPACE_BEFORE_MARK);
+    });
+  }
+});
+
 // The guard above iterates EVERY key, so the Search-redesign (D2) keys are
 // already covered. This block names them explicitly so the coverage is provable
 // (and a future refactor that narrows the guard to a subset would fail here).
