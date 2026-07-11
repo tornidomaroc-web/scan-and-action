@@ -127,7 +127,22 @@ bridge), after which each remaining PR is a focused per-screen restyle.
       resolve on queue rows; nothing removed, **File Detail output unchanged**.
       All copy em-dash-free. **No anti-steering / pricing / `isNativePlatform`
       change** (`nativeAntiSteering` stays green). **No fabricated data.**
-- [ ] **PR-D5** — Activity restyle. **← next.**
+- [ ] **PR-D5** — Activity restyle (PR pending; close on merge). **First
+      full-screen restyle of the session — establishes the pattern D7/D8a reuse.**
+      Migrated `ActivityScreen.tsx` off raw palette onto `--sa` tokens, dropped the
+      brutalist type treatment (font-black/uppercase/italic/tracking-*), and adopted
+      the shared primitives (`EmptyState`, `getStatus`, `formatDateValue`). Folded in
+      the deferred **count-grouping fix** (`formatCount(activity.length, language)`).
+      **Also fixed three defects the D5 notes had missed:** (1) the local `formatDate`
+      was hardcoded to `en-US` → dates leaked English in fr/ar (now
+      `formatDateValue(…, language)`); (2) **four hardcoded English literals**
+      (`'Recently'`, `'Unnamed Document'`, `title="Intelligence Error"`, the empty-body
+      string) rendered in every locale → swapped to `s.recently` / `s.unnamedDocument`
+      / ErrorState's translated default / a new `activityEmptyBody` key (3 locales);
+      (3) the inline status ternary mislabeled **`PROCESSING`/`FAILED` items as
+      "Rejected"** → `getStatus` now maps them correctly. New behavioral guards added
+      (count-grouping ≥1000, no-raw-palette source scan, no-hardcoded-English, status
+      mapping). **VISUAL change → on-phone + Arabic RTL review required before merge.**
 - [ ] **PR-D6** — Settings + Paywall restyle. ⚠️ **Sensitive:** touches paywall
       surfaces — must not alter anti-steering / `isNativePlatform` gating (PR #47).
 - [ ] **PR-D7** — Auth screen restyle.
