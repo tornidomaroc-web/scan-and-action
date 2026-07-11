@@ -529,11 +529,17 @@ handling it actually needs.
       itself was already correct (it identifies the empty state), so no branch
       restructure was needed. The other two branches (`pulsePending`,
       `allSystemsVerified`) are untouched.
-- [ ] **The four `{n}` interpolation call sites bypass `formatCount`.** They use
-      `.toString()`, so a pending count of `1234` renders **unseparated** in the
-      banner while the KPI tiles render it **separated**. `DashboardScreen.tsx`
-      already imports `formatCount`. **PR #76 missed these call sites**
-      (`DashboardScreen.tsx` ~L276, ~L503, ~L506; `ProcessingTray.tsx` ~L35).
+- [ ] **The `{n}` interpolation call sites bypassed `formatCount` (PR pending;
+      close on merge).** They used `.toString()`, so a pending count of `1234`
+      rendered **unseparated** in the banner while the KPI tiles rendered it
+      **separated**. **Fix:** routed **three** genuine count sites through
+      `formatCount(count, language)` — `finishBatch` and `intelligencePulsePending`
+      in `DashboardScreen.tsx`, and `processingChip` in `ProcessingTray.tsx` (which
+      now pulls `language` from `useLanguage()`, the same context hook the Dashboard
+      uses). The **fourth** site the doc originally listed (`intelligencePulseDesc`)
+      was **already de-scoped by item 6** — its always-`0` `{n}` was dropped in
+      PR #87, so nothing there to localize. A **≥1000 regression assertion** was
+      added for the chip (en + fr) and the Dashboard banner/insight (en).
 - [ ] **French colon spacing is internally inconsistent in `strings.ts`.**
       `deleteAccountSubscriptionWarning` (~L486) and `powerTipText` (~L494) use a
       plain **`U+0020`** before their colons rather than the **`U+00A0`** required
