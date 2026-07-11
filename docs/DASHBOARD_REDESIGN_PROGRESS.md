@@ -394,8 +394,8 @@ PR #81 above); it still needs work beyond dropping in `SectionHeading`:
       The inline-toolbar *style adoption* is deliberately **not** bundled here
       (the caption stays a bespoke `justify-between` row; wrapping it in the
       block `SectionHeading` would enlarge it and drop the trailing count pill).
-- [ ] **A1 — Dashboard recent-activity heading size alignment (PR pending; close
-      on merge).** `DashboardScreen.tsx` **L422**: the recent-activity heading is
+- [x] **A1 — Dashboard recent-activity heading size alignment (PR #86, merged
+      2026-07-11).** `DashboardScreen.tsx` **L422**: the recent-activity heading is
       **already `h2` with the correct level** (no accessibility/level defect), but
       it **diverged in STYLE** from its sibling section headings — it rendered at
       **15px `text-section`**, while `documentsProcessed` / `documentsByStatus` /
@@ -517,13 +517,18 @@ handling it actually needs.
       **"Em-dash cleanup in non-guarded copy"** entry below — see it rather than
       re-filing it. **Note:** the merged description of **PR #78 contains the false
       claim that no such guard exists**. The record is corrected here.
-- [ ] **`intelligencePulseDesc` renders an achievement message in an empty state.**
-      Its ternary (`DashboardScreen.tsx` ~L503) makes it reachable **only when
-      `pendingCount <= 0` AND `totalCount <= 0`**, so its `{n}` **always renders
-      `0`** and the user is told they successfully processed **0 documents**. The
-      n = 1 agreement defect in the string is therefore **unreachable**; the real
-      defect is the copy. Needs a **copy rewrite and possibly a branch change**,
-      **not** a reword.
+- [ ] **`intelligencePulseDesc` rendered an achievement message in an empty state
+      (PR pending; close on merge).** Its ternary (`DashboardScreen.tsx` L510) made
+      it reachable **only when `pendingCount <= 0` AND `totalCount <= 0`**, so its
+      `{n}` **always rendered `0`** and the user was told they successfully processed
+      **0 documents**. The `n = 1` agreement defect was therefore **unreachable**;
+      the real defect was the copy. **Fix:** rewrote `intelligencePulseDesc` in all
+      three locales to an inviting empty-state invitation ("Scan your first document
+      to see insights here.") and **dropped the always-`0` `{n}`** — both the string
+      and the `.replace('{n}', …)` at the render site are gone. The branch condition
+      itself was already correct (it identifies the empty state), so no branch
+      restructure was needed. The other two branches (`pulsePending`,
+      `allSystemsVerified`) are untouched.
 - [ ] **The four `{n}` interpolation call sites bypass `formatCount`.** They use
       `.toString()`, so a pending count of `1234` renders **unseparated** in the
       banner while the KPI tiles render it **separated**. `DashboardScreen.tsx`
@@ -533,14 +538,16 @@ handling it actually needs.
       `deleteAccountSubscriptionWarning` (~L486) and `powerTipText` (~L494) use a
       plain **`U+0020`** before their colons rather than the **`U+00A0`** required
       by French typography (which PR #78 used). Verify by codepoint.
-- [ ] **Three raw percent renders remain on the Dashboard** — a literal `%` with
-      no `Intl`: the **by-status row percent** (~L346), the **recent-activity
-      confidence percent** (~L458), and the **trend chip** (~L315), which
-      additionally needs **`signDisplay: 'exceptZero'`** to preserve its `+` sign.
-      (`avgConfidence` was already moved to `Intl` percent style in PR #76.)
-- [ ] **`"Scan Receipt"` is a hardcoded English literal** in
-      `src/components/Layout.tsx` (~L91) with **no i18n key**, so it renders
-      English in **every** locale.
+- [x] **Three raw percent renders on the Dashboard — verified fixed in current
+      code (reconciled 2026-07-11).** All three now use `formatPercent`/`Intl`: the
+      **by-status row percent** (`DashboardScreen.tsx:346`), the **recent-activity
+      confidence percent** (`:461`), and the **trend chip** (`:313`), which carries
+      the required **`signDisplay: 'exceptZero'`**. No literal `%` value renders
+      remain. (`avgConfidence` was moved to `Intl` percent style in PR #76.)
+- [x] **`"Scan Receipt"` hardcoded English literal — verified fixed in current code
+      (reconciled 2026-07-11).** `Layout.tsx:93` now renders **`{s.scanReceipt}`**;
+      the key exists (sentence-cased) in all three locales (en/fr/ar), so it no
+      longer renders English in every locale.
 - [x] **`"Unknown document type"` renders untranslated — an enum-key mismatch.
       Fixed in PR #80.** The backend stores **`UNKNOWN_DOCUMENT_TYPE`**
       (`normalizationService.ts` ~L43) while the client's **`DOC_TYPE_LABEL_KEY`**

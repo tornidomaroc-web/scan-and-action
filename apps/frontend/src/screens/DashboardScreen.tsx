@@ -507,7 +507,7 @@ export const DashboardScreen = () => {
                 ? s.intelligencePulsePending.replace('{n}', stats.pendingCount.toString())
                 : stats.totalCount > 0
                 ? s.allSystemsVerified
-                : s.intelligencePulseDesc.replace('{n}', stats.totalCount.toString())}
+                : s.intelligencePulseDesc}
             </p>
           </div>
           <div className="rounded-card border border-line bg-surface-raised p-5 shadow-card">
