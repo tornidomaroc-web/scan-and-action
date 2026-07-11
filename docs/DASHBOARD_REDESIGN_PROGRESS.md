@@ -540,10 +540,21 @@ handling it actually needs.
       was **already de-scoped by item 6** — its always-`0` `{n}` was dropped in
       PR #87, so nothing there to localize. A **≥1000 regression assertion** was
       added for the chip (en + fr) and the Dashboard banner/insight (en).
-- [ ] **French colon spacing is internally inconsistent in `strings.ts`.**
-      `deleteAccountSubscriptionWarning` (~L486) and `powerTipText` (~L494) use a
-      plain **`U+0020`** before their colons rather than the **`U+00A0`** required
-      by French typography (which PR #78 used). Verify by codepoint.
+- [ ] **French high-punctuation spacing was inconsistent in `strings.ts`
+      (PR pending; close on merge).** French requires a **`U+00A0`** no-break space
+      before **`: ; ! ?`**; several `fr` values used a plain **`U+0020`**. An
+      authoritative codepoint scan of the whole `fr` block found **14 occurrences
+      across 13 keys** — far more than the two the tracker originally named
+      (`deleteAccountSubscriptionWarning`, `powerTipText`): also `proWelcomeTitle`,
+      `uploadSuccess`, `uploadError`, `ex4`, `allCaughtUp`, `deleteAccountWarningTitle`,
+      `totalSpendQuery`, `authForgotPassword`, `authNoAccount`, `authHaveAccount`,
+      `authConfirmEmailToast` (mostly `!`/`?`, not just `:`). All 14 were converted
+      to `U+00A0`, codepoint-verified, **`fr` only** (en/ar untouched). The
+      non-punctuation colon in `auditDesc` (`v1:`, no space before it) was correctly
+      left alone. **A `fr`-NBSP guard was added** (`dashboardRestyle.test.tsx`),
+      mirroring the em-dash guard: it iterates every `fr` value and fails on any
+      plain `U+0020` immediately before `: ; ! ?`, so this defect class is now caught
+      automatically.
 - [x] **Three raw percent renders on the Dashboard — verified fixed in current
       code (reconciled 2026-07-11).** All three now use `formatPercent`/`Intl`: the
       **by-status row percent** (`DashboardScreen.tsx:346`), the **recent-activity
