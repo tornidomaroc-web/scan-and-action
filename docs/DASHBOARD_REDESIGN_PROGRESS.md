@@ -619,6 +619,40 @@ handling it actually needs.
       **CI does a fresh checkout and never sees it**, so the Backend check stays
       green. Do not chase these locally — run `npx vitest run src`, or clear
       `dist/`.
+- [x] **Native anti-steering coverage was thinner than the tracker implied — now
+      locked (PR pending; close on merge).** Several D-series entries above promise
+      "`nativeAntiSteering` stays green", which reads as though the whole
+      anti-steering surface is covered. **It was not:** that suite only mounted
+      **PaywallModal** and **SettingsScreen**. Three `isNativePlatform()` guards had
+      **no test at all**:
+    - **`App.tsx:36` — the CRITICAL one.** On native, `/` must redirect to
+      `/dashboard` (or `/login`) instead of rendering the marketing `LandingScreen`,
+      **which contains a literal `$9/mo` price block**. A regression here puts a
+      **pricing page in front of a Play user** — a direct policy breach with **no
+      second layer behind it**. Now locked: redirect asserted for signed-in AND
+      signed-out, plus no price / no CTA / no landing copy.
+    - **`UploadModal.tsx:61` and `:157`, `CaptureSheet.tsx:94`** — the limit guards
+      (neutral status instead of an upsell). A second layer: `PaywallModal.tsx:49`
+      already backstops the price, so a failure here would not leak a price *today*
+      — **but D8/D8b owns these modals**, and a restyle that swaps `PaywallModal` for
+      an inline upgrade CTA would make these guards the only defense. Locked BEFORE
+      that restyle, deliberately.
+      **Load-bearing assertion:** each test asserts the paywall **never opens at
+      all** (absence of `proComingSoonTitle`), not merely "no price" — the latter
+      would pass even with a broken guard, since PaywallModal neutralizes it
+      downstream. Web negative controls prove the gate is not stuck on.
+- [ ] **The raw `LIMIT_REACHED` API code renders in the UploadModal file-error card,
+      untranslated, in every locale (found by the anti-steering coverage work).**
+      `UploadModal.tsx` (~L152) calls `setFileErrors({ [file]: errorMessage })`
+      **before** the `isNativePlatform()` branch, so while the toast is correctly
+      neutral, the per-file card still prints the raw enum **`LIMIT_REACHED`** to the
+      user — English, in fr/ar too. **This is NOT a Play-policy breach** (no price,
+      no payment link, no steering), so it is not part of the silence invariant — it
+      is a **UX/i18n defect** of the same class as the ones fixed in PRs #80/#84.
+      **Fix belongs to D8/D8b** (it owns these modals) and needs a translated
+      limit/error string instead of the raw code. A test for the corrected behavior
+      **already exists and is skipped** in `nativeAntiSteering.test.tsx`
+      (`KNOWN GAP (tracked, fix in D8/D8b)`) — **un-skip it as part of the fix.**
 - [ ] **Short Latin filenames in the Arabic UI align LEFT, floating away from their
       row icon (cosmetic, low priority).** Observed on the **Review Queue** and
       **Document Detail** during the **PR #91** browser review: a short Latin name
