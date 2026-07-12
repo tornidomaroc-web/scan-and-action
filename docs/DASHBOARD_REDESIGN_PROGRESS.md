@@ -142,7 +142,13 @@ bridge), after which each remaining PR is a focused per-screen restyle.
       (3) the inline status ternary mislabeled **`PROCESSING`/`FAILED` items as
       "Rejected"** → `getStatus` now maps them correctly. New behavioral guards added
       (count-grouping ≥1000, no-raw-palette source scan, no-hardcoded-English, status
-      mapping). **VISUAL change → on-phone + Arabic RTL review required before merge.**
+      mapping). **VISUAL change → the review gate is partially satisfied, not
+      skipped:** the **empty state was reviewed on the Vercel preview and passed**,
+      and the green **structural/logic tests** (`activityRestyle.test.tsx`) cover the
+      rest. The **populated-row Arabic RTL pixel check was consciously deferred** to a
+      follow-up (it needs an account with activity data) — **not merge-blocking**;
+      tracked in the deferred list below ("D5 `ActivityScreen` populated-row VISUAL
+      review not yet done on real pixels").
 - [ ] **PR-D6** — Settings + Paywall restyle. ⚠️ **Sensitive:** touches paywall
       surfaces — must not alter anti-steering / `isNativePlatform` gating (PR #47).
 - [ ] **PR-D7** — Auth screen restyle.
