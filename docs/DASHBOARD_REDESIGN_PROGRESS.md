@@ -142,13 +142,18 @@ bridge), after which each remaining PR is a focused per-screen restyle.
       (3) the inline status ternary mislabeled **`PROCESSING`/`FAILED` items as
       "Rejected"** → `getStatus` now maps them correctly. New behavioral guards added
       (count-grouping ≥1000, no-raw-palette source scan, no-hardcoded-English, status
-      mapping). **VISUAL change → the review gate is partially satisfied, not
-      skipped:** the **empty state was reviewed on the Vercel preview and passed**,
-      and the green **structural/logic tests** (`activityRestyle.test.tsx`) cover the
-      rest. The **populated-row Arabic RTL pixel check was consciously deferred** to a
-      follow-up (it needs an account with activity data) — **not merge-blocking**;
-      tracked in the deferred list below ("D5 `ActivityScreen` populated-row VISUAL
-      review not yet done on real pixels").
+      mapping). **VISUAL change → the review gate is now SATISFIED:** the empty state
+      was reviewed on the Vercel preview, and the **populated row was reviewed on real
+      pixels in Arabic (RTL)** by running the app locally. That review **found a real
+      RTL defect and it is fixed in this PR** — the truncating filename/date sat in
+      `<p class="truncate" dir="auto"><bdi>…</bdi></p>`, where the **`<bdi>` isolate
+      swallowed `dir="auto"`**, forcing the box LTR so it clipped the **leading**
+      (identifying) end of Arabic filenames. Dropped the redundant isolate so
+      `dir="auto"` applies to the truncating element; re-verified in the browser and
+      guarded in `activityRestyle.test.tsx`. **The corrected idiom is the one D7/D8a
+      must copy.** See the deferred list below for the full record — including the
+      **8 identical sites still live in the merged `ReviewQueueScreen` /
+      `DocumentDetailScreen`**, which are NOT fixed here.
 - [ ] **PR-D6** — Settings + Paywall restyle. ⚠️ **Sensitive:** touches paywall
       surfaces — must not alter anti-steering / `isNativePlatform` gating (PR #47).
 - [ ] **PR-D7** — Auth screen restyle.
@@ -614,16 +619,51 @@ handling it actually needs.
       **CI does a fresh checkout and never sees it**, so the Backend check stays
       green. Do not chase these locally — run `npx vitest run src`, or clear
       `dist/`.
-- [ ] **D5 `ActivityScreen` populated-row VISUAL review not yet done on real
-      pixels.** The founder reviewed the **empty state** on the Vercel preview and
-      relied on the green **structural/logic tests** (`activityRestyle.test.tsx`)
-      for the rest, because the **populated state needs an account with activity
-      data**. Still to verify visually when the app runs against a working backend
-      (local or prod): the populated row's **Arabic RTL layout** specifically —
-      **row flip** (icon/text to the right, status dot + label to the left),
-      **status-dot end-edge placement via `ms-auto`**, and **`<bdi dir="auto">`
-      rendering of the mixed Arabic/Latin filename + date**. **Not merge-blocking;
-      a follow-up visual check.**
+- [x] **D5 `ActivityScreen` populated-row VISUAL review — DONE, and it found a real
+      RTL defect (fixed in PR #90).** Reviewed on real pixels: the app was run
+      locally in Arabic (`dir="rtl"`) with the populated row on screen. Results:
+      **row flip CORRECT** (icon chip + filename/date at the right/start edge,
+      status dot + label at the left/end edge — placed by **`justify-between`**, not
+      `ms-auto`; **`ms-auto` is only on the count badge** in the card header, which
+      also lands correctly at the end edge — an earlier note in this tracker
+      misattributed the mechanism and is corrected here). **Bidi rendering of the
+      mixed Arabic/Latin filename + date CORRECT** while the value fits.
+      **DEFECT FOUND on truncation:** the filename/date sat in
+      `<p class="truncate" dir="auto"><bdi>{value}</bdi></p>`. **`<bdi>` is a bidi
+      isolate, so `dir="auto"` cannot see the strong characters inside it** and fell
+      back to **LTR** — the truncating box then clipped the **LEADING (identifying)
+      end** of an Arabic filename. Measured in Chrome: it kept
+      `…مغربية_مارس_2026_نسخة_نهائية.pdf` and **threw away
+      `فاتورة_شركة_الاتصالات_ال`**. **Fix:** dropped the redundant `<bdi>` (the value
+      is the sole content of the block, so the block already isolates it) leaving
+      `dir="auto"` **on the truncating element**, where it actually applies —
+      re-measured: direction resolves **`rtl`** for Arabic / **`ltr`** for Latin, and
+      the ellipsis now clips the **trailing** end. **Guarded** by three assertions in
+      `activityRestyle.test.tsx`. **This is the canonical idiom D7/D8a must copy:**
+      `dir="auto"` on the truncating box, **no isolate child stealing it** (`<bdi>`
+      remains correct for values rendered INLINE beside other text). Only visible on
+      a populated row at a narrow/overflowing width — which is exactly why the empty
+      state, the Vercel preview and jsdom all missed it.
+- [ ] **The SAME `truncate` + `dir="auto"` + `<bdi>` defect is LIVE in two ALREADY
+      MERGED screens — 8 more sites, not fixed in PR #90.** D5 did not invent this
+      idiom; it **copied** it. Arabic filenames are being clipped at the wrong end
+      **in production today** on: **`ReviewQueueScreen.tsx`** (L188, L193, L196, L274,
+      L276, L279 — name / type / vendor, both the desktop rows and the mobile cards)
+      and **`DocumentDetailScreen.tsx`** (L153 the `h1` filename, L196 a truncating
+      value). Note the D4 entity-chip fix recorded above resolved **its** case by
+      switching to `break-words` (no truncation), so it never reached these
+      `truncate` sites and the defect class survived. **Fix them with the same
+      one-token change** (drop the isolate, keep `dir="auto"` on the truncating box)
+      in their own PR, then **promote the guard to an app-wide source scan** — it
+      cannot go app-wide while these 8 sites still carry the anti-pattern, so the
+      `activityRestyle.test.tsx` guard currently protects **ActivityScreen only** and
+      does NOT stop D7/D8a from reintroducing the idiom in their own files.
+- [ ] **Two hardcoded English strings leak into the AR/FR sidebar** (seen during the
+      D5 Arabic review; **out of scope for PR #90** — the sidebar restyle is its own
+      deferred item). **`Sidebar.tsx:107`** renders a bare **`New Scan`** and
+      **`Sidebar.tsx:213`** falls back to a bare **`'Checking Plan...'`** while the
+      plan resolves. Both render English in every locale. Fold into the sidebar
+      restyle, or fix as a small i18n PR.
 
 ## Remaining (post-redesign, separate work)
 

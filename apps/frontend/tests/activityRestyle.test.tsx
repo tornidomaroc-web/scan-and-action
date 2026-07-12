@@ -119,3 +119,70 @@ describe('ActivityScreen restyle (D5)', () => {
     expect(src).not.toMatch(/\b(slate|blue|emerald|amber|gray)-[0-9]/);
   });
 });
+
+// ============================================================================
+// RTL truncation edge (found by a live Arabic browser review of the POPULATED
+// row; the empty state and jsdom both hide it).
+//
+// <bdi> is a bidi ISOLATE. dir="auto" picks its direction from the first strong
+// character of the element's own text, and it does NOT look inside an isolate —
+// so `<p class="truncate" dir="auto"><bdi>{name}</bdi></p>` finds no strong
+// character, falls back to LTR, and the truncating box clips the LEADING
+// (identifying) end of an Arabic filename instead of the trailing end. Verified
+// in Chrome: as-shipped kept "…مغربية_مارس_2026_نسخة_نهائية.pdf" and threw away
+// "فاتورة_شركة_الاتصالات_ال"; with the isolate removed it keeps the head.
+//
+// The canonical idiom for a truncating box holding ONE mixed-direction user
+// string is therefore dir="auto" ON the truncating element with NO isolate child
+// stealing it. (<bdi> stays correct for values rendered INLINE beside other
+// text, e.g. the count badge — there the isolate is what stops the neighbours
+// from scrambling.)
+//
+// Honest limit of this guard: jsdom implements no layout and does not resolve
+// dir="auto", so it cannot assert effective direction or which end truncates.
+// These are structural assertions that pin the corrected idiom; the behavioral
+// proof is the browser check recorded in DASHBOARD_REDESIGN_PROGRESS.md.
+// ============================================================================
+describe('ActivityScreen RTL truncation idiom (D5)', () => {
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
+  afterEach(() => { root.unmount(); container.remove(); });
+
+  it('no truncating element wraps its value in a <bdi> (the isolate would swallow dir="auto")', async () => {
+    h.getAllActivity.mockResolvedValue([
+      {
+        id: 'ar',
+        originalFileName: 'فاتورة_شركة_الاتصالات_المغربية_مارس_2026_نسخة_نهائية.pdf',
+        uploadedAt: '2026-07-01T10:00:00Z',
+        status: 'COMPLETED',
+      },
+    ]);
+    mount('ar');
+    await vi.waitFor(() => expect(text()).toContain('فاتورة_شركة_الاتصالات_المغربية_مارس_2026_نسخة_نهائية.pdf'));
+
+    const truncating = [...container.querySelectorAll('.truncate')];
+    expect(truncating.length).toBeGreaterThan(0);
+    for (const el of truncating) {
+      expect(el.querySelector('bdi')).toBeNull();
+    }
+  });
+
+  it('the filename and date keep dir="auto" ON the truncating element itself', async () => {
+    h.getAllActivity.mockResolvedValue([
+      { id: 'ar', originalFileName: 'فاتورة.pdf', uploadedAt: '2026-07-01T10:00:00Z', status: 'COMPLETED' },
+    ]);
+    mount('ar');
+    await vi.waitFor(() => expect(text()).toContain('فاتورة.pdf'));
+
+    const valueEls = [...container.querySelectorAll('p.truncate')];
+    expect(valueEls.length).toBe(2); // filename + date
+    for (const el of valueEls) {
+      expect(el.getAttribute('dir')).toBe('auto');
+    }
+  });
+
+  it('source never reintroduces the truncate + dir="auto" + <bdi> anti-pattern', () => {
+    const src = read('../src/screens/ActivityScreen.tsx');
+    // A truncating element whose very next child is an isolate.
+    expect(src).not.toMatch(/className="[^"]*\btruncate\b[^"]*"\s+dir="auto"\s*>\s*<bdi/);
+  });
+});

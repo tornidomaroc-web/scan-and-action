@@ -105,11 +105,17 @@ export const ActivityScreen = () => {
                       <FileText className="h-[18px] w-[18px] md:h-5 md:w-5" />
                     </span>
                     <div className="min-w-0">
+                      {/* No <bdi> here: it is a bidi isolate, so dir="auto" on the
+                          truncating element would scan past it, find no strong
+                          character, and fall back to LTR. The box would then clip the
+                          leading (identifying) end of an Arabic filename instead of the
+                          trailing end. The value is the sole content of the block, so
+                          the block already isolates it and dir="auto" applies. */}
                       <p className="truncate text-sm font-semibold text-ink md:text-base" dir="auto">
-                        <bdi>{item.originalFileName || s.unnamedDocument}</bdi>
+                        {item.originalFileName || s.unnamedDocument}
                       </p>
                       <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">
-                        <bdi>{dateStr}</bdi>
+                        {dateStr}
                       </p>
                     </div>
                   </div>
