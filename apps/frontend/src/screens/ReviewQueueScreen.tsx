@@ -185,15 +185,19 @@ export const ReviewQueueScreen = () => {
                     <FileText size={16} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-ink" dir="auto"><bdi>{name}</bdi></p>
+                    {/* No <bdi> on a TRUNCATING box: the isolate hides the text from
+                        dir="auto", which then falls back to LTR and clips the leading
+                        (identifying) end of an Arabic name. The value is the sole
+                        content of the block, so the block already isolates it. */}
+                    <p className="truncate text-sm font-semibold text-ink" dir="auto">{name}</p>
                     {/* Type line: the real documentType mapped to a translated,
                         sentence-case label (shared getDocTypeLabel). Hidden entirely
                         when null (no placeholder, no guessed type). */}
                     {typeLabel && (
-                      <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto"><bdi>{typeLabel}</bdi></p>
+                      <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">{typeLabel}</p>
                     )}
                     {vendor && (
-                      <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto"><bdi>{vendor}</bdi></p>
+                      <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">{vendor}</p>
                     )}
                   </div>
                   {amount && (
@@ -271,12 +275,14 @@ export const ReviewQueueScreen = () => {
                           <FileText size={18} />
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-ink" dir="auto"><bdi>{name}</bdi></p>
+                          {/* dir="auto" must sit on the truncating element with no
+                              <bdi> isolate inside it — see the mobile card above. */}
+                          <p className="truncate text-sm font-semibold text-ink" dir="auto">{name}</p>
                           {typeLabel && (
-                            <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto"><bdi>{typeLabel}</bdi></p>
+                            <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">{typeLabel}</p>
                           )}
                           {vendor && (
-                            <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto"><bdi>{vendor}</bdi></p>
+                            <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">{vendor}</p>
                           )}
                         </div>
                       </div>

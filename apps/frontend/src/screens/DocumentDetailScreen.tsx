@@ -150,8 +150,12 @@ export const DocumentDetailScreen = () => {
               layout already shrinks via min-w-0, and self-stretch only affects
               cross-axis height there, so it does not regress. */}
           <div className="min-w-0 self-stretch">
+            {/* No <bdi> on a TRUNCATING box: the isolate hides the text from
+                dir="auto", which then falls back to LTR and clips the leading
+                (identifying) end of an Arabic filename. The value is the sole
+                content of the heading, so the block already isolates it. */}
             <h1 className="mb-2 truncate text-title-lg font-semibold tracking-tight text-ink" dir="auto">
-              <bdi>{doc.originalFileName || `${s.errorTitle} ${doc.id}`}</bdi>
+              {doc.originalFileName || `${s.errorTitle} ${doc.id}`}
             </h1>
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 items-center justify-center rounded-btn bg-accent-tint text-accent">
@@ -193,7 +197,7 @@ export const DocumentDetailScreen = () => {
           ].map((item, i) => (
             <div key={i} className="rounded-card border border-line bg-surface p-4">
               <span className="mb-1.5 block text-label font-medium text-ink-tertiary">{item.label}</span>
-              <span className="block truncate text-sm font-medium text-ink" dir="auto"><bdi>{item.value}</bdi></span>
+              <span className="block truncate text-sm font-medium text-ink" dir="auto">{item.value}</span>
             </div>
           ))}
         </div>
