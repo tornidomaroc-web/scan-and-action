@@ -619,6 +619,36 @@ handling it actually needs.
       **CI does a fresh checkout and never sees it**, so the Backend check stays
       green. Do not chase these locally — run `npx vitest run src`, or clear
       `dist/`.
+- [ ] **Short Latin filenames in the Arabic UI align LEFT, floating away from their
+      row icon (cosmetic, low priority).** Observed on the **Review Queue** and
+      **Document Detail** during the **PR #91** browser review: a short Latin name
+      (e.g. `receipt.pdf`) hugs the **left** edge of its box — about **176px** from
+      the file icon sitting on the right — so it reads as detached from its own row.
+      **This is PRE-EXISTING and NOT caused by PR #91:** the old and new markup were
+      measured side by side in the same RTL context and align **identically** (old
+      forced *everything* LTR, so Arabic names detached the same way; the fix pulled
+      **Arabic** names to the container start and left Latin exactly where it was).
+      It is also arguably **defensible** — `dir="auto"` aligns per content, and a
+      Latin value legitimately reads left-to-right. **If** we want Latin values to sit
+      at the container start like their Arabic siblings: keep `dir="auto"` (it is
+      required for correct bidi + truncation) and pin **alignment** to the *page*
+      direction instead of the element's own — e.g. an `rtl:text-right` variant, since
+      `text-align: start` resolves against the element's resolved direction, not the
+      page's. **Cosmetic follow-up, not merge-blocking.**
+- [x] **`NaN%` in the Extracted Facts confidence column — investigated, NON-ISSUE
+      (closed, do not re-open).** Seen during the **PR #91** browser review and
+      flagged as possibly real. **It was an artifact of the reviewer's stub data**,
+      not the backend: the injected `CURRENCY` fact carried no `confidence`, and
+      `DocumentDetailScreen` (L268/295) renders `Math.round(fact.confidence * 100)`,
+      which yields `NaN` for `undefined`. **The backend cannot produce this.** Verified
+      read-only: Prisma models the column as **`confidence Float`** —
+      **non-nullable** (`schema.prisma` L152) — and `mapDocumentToDto` passes it
+      straight through (`documentDto.ts` L22), so every fact reaching the client
+      carries a real confidence. **No user can see `NaN%` today; no fix needed.**
+      **Latent fragility worth knowing** (not a bug now): the *only* thing preventing
+      it is the DB schema. The render site has **no defensive fallback**, so a future
+      migration that made `confidence` optional would surface `NaN%` to users with no
+      test catching it. If that migration is ever proposed, add the guard first.
 - [x] **D5 `ActivityScreen` populated-row VISUAL review — DONE, and it found a real
       RTL defect (fixed in PR #90).** Reviewed on real pixels: the app was run
       locally in Arabic (`dir="rtl"`) with the populated row on screen. Results:
