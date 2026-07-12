@@ -25,6 +25,7 @@ import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { ToastProvider } from '../src/contexts/ToastContext';
 import { ProcessingProvider } from '../src/contexts/ProcessingContext';
 import { UploadModal } from '../src/components/UploadModal';
+import { CaptureSheet } from '../src/components/CaptureSheet';
 
 const PAYWALL_MARKER = 'Unlock the full power of Scan & Action';
 
@@ -154,5 +155,76 @@ describe('UploadModal — money path (gating + paywall trigger)', () => {
     expect(backdrop).toBeTruthy();
     click(backdrop);
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+// ============================================================================
+// NEGATIVE CONTROL for the native CaptureSheet silence test.
+//
+// nativeAntiSteering.test.tsx forces isNativePlatform() -> TRUE file-wide and
+// asserts CaptureSheet shows a neutral limit status and NEVER opens the paywall.
+// That test would also pass if the gate were mis-wired to "always native" — so
+// this is its mirror image: THIS file does not mock native/shell, so the gate is
+// genuinely FALSE (web), and here the paywall MUST open on the very same trigger.
+// If this test ever fails while the native one still passes, the gate is stuck
+// on and the web sell surface has been lost.
+//
+// (The UploadModal guards already have their web controls above — GATE 1 and
+// GATE 2 — and the web LandingRoute is covered by checkoutSuccess.test.tsx.
+// CaptureSheet was the only guard without one.)
+// ============================================================================
+describe('WEB control — CaptureSheet DOES open the paywall on LIMIT_REACHED', () => {
+  const mountSheet = (plan?: 'FREE' | 'PRO') => {
+    localStorage.setItem('lang', 'en');
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    flushSync(() => {
+      root.render(
+        <LanguageProvider>
+          <ToastProvider>
+            <MemoryRouter>
+              <ProcessingProvider>
+                <CaptureSheet plan={plan} />
+              </ProcessingProvider>
+            </MemoryRouter>
+          </ToastProvider>
+        </LanguageProvider>
+      );
+    });
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    root.unmount();
+    container.remove();
+    document.body.innerHTML = '';
+  });
+
+  it('a FREE user hitting the limit on the WEB sees the paywall (proving the native gate is not stuck on)', async () => {
+    (uploadDocument as any).mockRejectedValue(new Error('LIMIT_REACHED'));
+    mountSheet('FREE');
+
+    const input = document.body.querySelector('input[type="file"]') as HTMLInputElement;
+    Object.defineProperty(input, 'files', { value: [photo('scan.jpg')], configurable: true });
+    flushSync(() => input.dispatchEvent(new Event('change', { bubbles: true })));
+
+    await vi.waitFor(() => {
+      const btn = [...document.body.querySelectorAll('button')].find((b) =>
+        b.textContent?.trim().toLowerCase().includes('extract')
+      );
+      expect(btn).toBeTruthy();
+    });
+    click(
+      [...document.body.querySelectorAll('button')].find((b) =>
+        b.textContent?.trim().toLowerCase().includes('extract')
+      )!
+    );
+
+    await vi.waitFor(() => expect(document.body.textContent).toContain(PAYWALL_MARKER));
   });
 });
