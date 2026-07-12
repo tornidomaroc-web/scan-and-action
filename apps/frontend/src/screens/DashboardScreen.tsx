@@ -471,10 +471,13 @@ export const DashboardScreen = () => {
                     <FileText size={17} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-ink">
+                    {/* dir="auto" on the truncating box: without it the box inherits
+                        the page direction, so in Arabic a Latin filename truncates
+                        from its leading (identifying) end. */}
+                    <div className="truncate text-sm font-semibold text-ink" dir="auto">
                       {item.originalFileName || s.unnamedDocument}
                     </div>
-                    <div className="mt-0.5 truncate text-xs text-ink-muted">
+                    <div className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">
                       {typeLabel ? `${typeLabel} · ` : ''}
                       {formatDate(item.uploadedAt, language) ?? s.recently}
                     </div>

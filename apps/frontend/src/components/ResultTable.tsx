@@ -118,8 +118,11 @@ export const ResultTable = ({ data, emptyStateComponent, onRowClick }: ResultTab
                   <FileText size={16} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold text-ink">{title}</div>
-                  {vendor && <div className="mt-0.5 truncate text-xs text-ink-muted">{vendor}</div>}
+                  {/* dir="auto" on the truncating box: without it the box inherits
+                      the page direction, so in Arabic a Latin filename/vendor
+                      truncates from its leading (identifying) end. */}
+                  <div className="truncate text-sm font-semibold text-ink" dir="auto">{title}</div>
+                  {vendor && <div className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">{vendor}</div>}
                 </div>
                 {amount && (
                   <span className="flex-shrink-0 text-sm font-semibold text-ink" dir="ltr">

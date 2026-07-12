@@ -644,20 +644,43 @@ handling it actually needs.
       remains correct for values rendered INLINE beside other text). Only visible on
       a populated row at a narrow/overflowing width — which is exactly why the empty
       state, the Vercel preview and jsdom all missed it.
-- [ ] **The SAME `truncate` + `dir="auto"` + `<bdi>` defect is LIVE in two ALREADY
-      MERGED screens — 8 more sites, not fixed in PR #90.** D5 did not invent this
-      idiom; it **copied** it. Arabic filenames are being clipped at the wrong end
-      **in production today** on: **`ReviewQueueScreen.tsx`** (L188, L193, L196, L274,
-      L276, L279 — name / type / vendor, both the desktop rows and the mobile cards)
-      and **`DocumentDetailScreen.tsx`** (L153 the `h1` filename, L196 a truncating
-      value). Note the D4 entity-chip fix recorded above resolved **its** case by
-      switching to `break-words` (no truncation), so it never reached these
-      `truncate` sites and the defect class survived. **Fix them with the same
-      one-token change** (drop the isolate, keep `dir="auto"` on the truncating box)
-      in their own PR, then **promote the guard to an app-wide source scan** — it
-      cannot go app-wide while these 8 sites still carry the anti-pattern, so the
-      `activityRestyle.test.tsx` guard currently protects **ActivityScreen only** and
-      does NOT stop D7/D8a from reintroducing the idiom in their own files.
+- [ ] **RTL truncation sweep — the same defect in the ALREADY MERGED screens
+      (PR pending; close on merge).** D5 did not invent the idiom; it **copied** it,
+      and the original was **live in production**, clipping the identifying head of
+      filenames in Arabic. Swept in the pending PR:
+    - **Class A — the `<bdi>` isolate swallows `dir="auto"` on a truncating box
+      (8 sites).** `ReviewQueueScreen.tsx` (name / type / vendor, in **both** the
+      mobile card and the desktop table) and `DocumentDetailScreen.tsx` (the `h1`
+      filename + a truncating value). **Fix:** drop the redundant `<bdi>`, keep
+      `dir="auto"` on the truncating element (the canonical PR #90 idiom).
+    - **Class B — a truncating box holding user text with NO `dir` at all (4 merged
+      sites).** It inherits the page direction, so in Arabic a **Latin** filename is
+      clipped from its leading end — the same user-visible defect, opposite trigger.
+      Verified in Chrome: a Latin name in an inherited-RTL box kept
+      `_March_2026_Final_Copy_v2.pdf` and **threw away `Uber_Receipt_Statement`**.
+      **Fix:** add `dir="auto"` to the truncating box. Sites: `DashboardScreen.tsx`
+      (recent-activity filename + meta line) and `ResultTable.tsx` (title + vendor).
+    - **App-wide guard added** (`tests/rtlTruncation.test.ts`): a whitespace/newline
+      tolerant source scan over all of `apps/frontend/src` rejecting a `<bdi>` inside
+      a truncating `dir="auto"` box, with a positive control. **It covers Class A
+      ONLY** — source cannot tell a filename box from an i18n-label box (the
+      `status.label` spans truncate too and *correctly* inherit locale direction), so
+      **Class B cannot be guarded app-wide** and is pinned per-screen instead.
+    - **NOT touched (correct isolates — do not strip in any future sweep):**
+      ReviewQueue amount + date, DocumentDetail summary / fact values / table cell /
+      entity chips (`break-words`, never truncated), and `DecisionBanner`. `<bdi>`
+      stays right for a value rendered **inline beside other text**.
+- [ ] **Class-B RTL truncation in the UN-RESTYLED screens — DEFERRED to their own
+      restyle PRs (recorded so they are not lost).** Same defect (a truncating box
+      holding user text with no `dir`, so it inherits the page direction and clips a
+      Latin filename from its leading end in Arabic). These files still carry the raw
+      `slate-*` palette and are awaiting D6/D8, so the `dir="auto"` fix should ride
+      that restyle rather than a token-only sweep: **`ProcessingTray.tsx:97`**
+      (`job.fileName`), **`CaptureSheet.tsx:221`** (`file.name`),
+      **`UploadModal.tsx:310`** (file name), **`SettingsScreen.tsx:68`** (user email),
+      **`SharedComponents.tsx:77`** (grouped query label). The app-wide guard does
+      **not** catch these (it is Class-A only), so they will not fail CI — they must
+      be fixed by hand when their screen is restyled.
 - [ ] **Two hardcoded English strings leak into the AR/FR sidebar** (seen during the
       D5 Arabic review; **out of scope for PR #90** — the sidebar restyle is its own
       deferred item). **`Sidebar.tsx:107`** renders a bare **`New Scan`** and
