@@ -1,28 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  FileText, 
-  ArrowLeft,
-  Activity,
-  Loader2
-} from 'lucide-react';
+import { FileText, ArrowLeft, Activity, Loader2 } from 'lucide-react';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
+import { EmptyState } from '../components/EmptyState';
 import { useStrings } from '../i18n/useStrings';
-
-const formatDate = (dateString: string) => {
-  if (!dateString) return 'Recently';
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('en-US', { 
-    month: 'short', 
-    day: 'numeric', 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  }).format(date);
-};
+import { useLanguage } from '../i18n/LanguageContext';
+import { getStatus } from '../lib/searchResultCard';
+import { formatDateValue } from '../lib/formatCellValue';
+import { formatCount } from '../lib/formatNumber';
 
 export const ActivityScreen = () => {
   const s = useStrings();
+  const { language } = useLanguage();
   const navigate = useNavigate();
   const [activity, setActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,94 +39,97 @@ export const ActivityScreen = () => {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="animate-spin text-blue-500 mb-4" size={40} />
-        <p className="text-slate-500 font-bold">{s.loadingActivity}</p>
+        <Loader2 className="mb-4 animate-spin text-accent" size={40} />
+        <p className="text-sm font-medium text-ink-muted">{s.loadingActivity}</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-[1200px] mx-auto py-12">
-        <ErrorState 
-          title="Intelligence Error"
-          message={error}
-          onRetry={fetchActivity}
-        />
+      <div className="mx-auto max-w-[1200px] py-12">
+        {/* No title prop: ErrorState renders its translated default (s.somethingWrong). */}
+        <ErrorState message={error} onRetry={fetchActivity} />
       </div>
     );
   }
 
   return (
-    <div className="max-w-[1200px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <header className="mb-10 flex items-center justify-between">
-        <div>
-          <button 
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-slate-500 hover:text-blue-500 font-bold mb-4 transition-colors group"
-          >
-            <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-            {s.backToCenter}
-          </button>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-2">
-            {s.activityHistory}
-          </h1>
-          <p className="text-lg font-bold text-slate-500 dark:text-slate-400">
-            {s.auditDesc}
-          </p>
-        </div>
+    <div className="mx-auto max-w-[1200px] animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <header className="mb-10">
+        <button
+          onClick={() => navigate('/')}
+          className="group mb-4 flex items-center gap-2 text-sm font-medium text-ink-muted transition-colors hover:text-ink"
+        >
+          <ArrowLeft
+            size={18}
+            className="transition-transform group-hover:-translate-x-0.5 rtl:-scale-x-100"
+          />
+          {s.backToCenter}
+        </button>
+        <h1 className="mb-1 text-title-lg font-semibold tracking-tight text-ink">{s.activityHistory}</h1>
+        <p className="text-sm text-ink-muted">{s.auditDesc}</p>
       </header>
 
-      <div className="bg-white dark:bg-slate-800 rounded-[32px] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-700">
-        <div className="flex items-center gap-3 mb-8 pb-6 border-b border-slate-50 dark:border-slate-700/30">
-          <Activity size={22} className="text-blue-500" strokeWidth={2.5} /> 
-          <h2 className="text-xl font-black text-slate-900 dark:text-white">
-            {s.historicalIntel}
-          </h2>
-          <span className="ml-auto px-3 py-1 bg-slate-100 dark:bg-slate-700 rounded-full text-[10px] font-black uppercase text-slate-500 tracking-wider">
-            {activity.length} {s.records}
+      <div className="rounded-card border border-line bg-surface-raised p-6 shadow-card md:p-8">
+        {/* Bespoke card-header toolbar row (icon + heading + count badge). Kept bespoke
+            because SectionHeading's block layout has no trailing-action slot; the h2
+            carries the SectionHeading visual (text-base font-semibold text-ink). */}
+        <div className="mb-6 flex items-center gap-2.5 border-b border-divider pb-5">
+          <Activity size={18} className="flex-shrink-0 text-ink-faint" aria-hidden="true" />
+          <h2 className="text-base font-semibold text-ink">{s.historicalIntel}</h2>
+          <span className="ms-auto flex-shrink-0 rounded-pill bg-surface-muted px-2.5 py-1 text-xs font-medium text-ink-muted">
+            {formatCount(activity.length, language)} {s.records}
           </span>
         </div>
-        
-        <div className="space-y-1">
-          {activity.length === 0 ? (
-            <div className="py-20 flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-slate-50 dark:bg-slate-900/50 text-slate-300 rounded-full flex items-center justify-center mb-4">
-                <FileText size={32} />
-              </div>
-              <p className="font-black text-slate-900 dark:text-white text-lg">{s.noActivity}</p>
-              <p className="text-slate-500 font-bold">Your processed documents will appear here.</p>
-            </div>
-          ) : (
-            activity.map((item, i) => (
-              <div key={item.id} 
-                onClick={() => navigate(`/documents/${item.id}`)}
-                className={`group flex items-center justify-between gap-3 py-4 px-3 md:px-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all cursor-pointer ${i !== activity.length - 1 ? 'border-b border-slate-50 dark:border-slate-700/30' : ''}`}
-              >
-                <div className="flex items-center gap-3 md:gap-5 min-w-0">
-                  <div className="w-10 h-10 md:w-12 md:h-12 flex-shrink-0 bg-slate-50 dark:bg-slate-900 text-slate-400 group-hover:bg-white dark:group-hover:bg-slate-800 rounded-xl flex items-center justify-center border border-slate-100 dark:border-slate-800 group-hover:scale-110 transition-all duration-300">
-                    <FileText strokeWidth={2.5} className="w-[18px] h-[18px] md:w-5 md:h-5" />
+
+        {activity.length === 0 ? (
+          <EmptyState
+            message={s.noActivity}
+            description={s.activityEmptyBody}
+            icon={<FileText size={26} />}
+          />
+        ) : (
+          <div>
+            {activity.map((item) => {
+              const status = getStatus(item, s as any);
+              const dateStr = formatDateValue(item.uploadedAt, language) ?? s.recently;
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => navigate(`/documents/${item.id}`)}
+                  className="flex cursor-pointer items-center justify-between gap-3 border-b border-divider px-3 py-4 transition-colors last:border-b-0 hover:bg-surface-alt md:px-4"
+                >
+                  <div className="flex min-w-0 items-center gap-3 md:gap-4">
+                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-btn border border-line bg-surface text-ink-faint md:h-12 md:w-12">
+                      <FileText className="h-[18px] w-[18px] md:h-5 md:w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      {/* No <bdi> here: it is a bidi isolate, so dir="auto" on the
+                          truncating element would scan past it, find no strong
+                          character, and fall back to LTR. The box would then clip the
+                          leading (identifying) end of an Arabic filename instead of the
+                          trailing end. The value is the sole content of the block, so
+                          the block already isolates it and dir="auto" applies. */}
+                      <p className="truncate text-sm font-semibold text-ink md:text-base" dir="auto">
+                        {item.originalFileName || s.unnamedDocument}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">
+                        {dateStr}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-black text-slate-900 dark:text-slate-100 text-sm md:text-base mb-0.5 group-hover:text-blue-600 transition-colors uppercase tracking-tight truncate">{item.originalFileName || 'Unnamed Document'}</p>
-                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest italic leading-none">
-                      {formatDate(item.uploadedAt)}
-                    </p>
-                  </div>
+                  {status && (
+                    <span className="inline-flex min-w-0 flex-shrink-0 items-center gap-2">
+                      <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-pill ${status.dot}`} />
+                      <span className={`truncate text-xs font-medium ${status.text}`}>{status.label}</span>
+                    </span>
+                  )}
                 </div>
-                <div className={`flex-shrink-0 whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase border ${
-                  item.status === 'COMPLETED' 
-                    ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800' 
-                    : item.status === 'NEEDS_REVIEW' 
-                    ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/30 border-amber-100 dark:border-amber-800' 
-                    : 'text-slate-400 bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800'
-                }`}>
-                  {item.status === 'COMPLETED' ? s.completed : item.status === 'NEEDS_REVIEW' ? s.needsReview : s.rejected}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
