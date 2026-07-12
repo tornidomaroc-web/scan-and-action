@@ -608,6 +608,16 @@ handling it actually needs.
       **CI does a fresh checkout and never sees it**, so the Backend check stays
       green. Do not chase these locally — run `npx vitest run src`, or clear
       `dist/`.
+- [ ] **D5 `ActivityScreen` populated-row VISUAL review not yet done on real
+      pixels.** The founder reviewed the **empty state** on the Vercel preview and
+      relied on the green **structural/logic tests** (`activityRestyle.test.tsx`)
+      for the rest, because the **populated state needs an account with activity
+      data**. Still to verify visually when the app runs against a working backend
+      (local or prod): the populated row's **Arabic RTL layout** specifically —
+      **row flip** (icon/text to the right, status dot + label to the left),
+      **status-dot end-edge placement via `ms-auto`**, and **`<bdi dir="auto">`
+      rendering of the mixed Arabic/Latin filename + date**. **Not merge-blocking;
+      a follow-up visual check.**
 
 ## Remaining (post-redesign, separate work)
 
