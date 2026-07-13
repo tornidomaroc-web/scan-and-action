@@ -162,6 +162,13 @@ export const strings = {
     // Native-only neutral status copy (no pricing, no links, no upsell — anti-steering).
     freePlanLimitReached: 'You’ve reached the free limit of 10 scans.',
     freePlanSingleDoc: 'Free plan supports one document at a time.',
+    // Daily safety cap (PRO, 200/day). Deliberately carries NO upsell: a PRO user
+    // has nothing to upgrade to, and this copy also renders inside the native app.
+    dailyLimitReached: 'Daily upload limit reached. Processing resumes in 24 hours.',
+    // Translated catch-all for any upload error we do not have a specific key for.
+    // Never show the raw API code, and never the backend message field (it contains
+    // upsell copy: see lib/uploadErrors.ts).
+    uploadFailedGeneric: 'Upload failed. Please try again.',
     proAutoUnlock: 'If your workspace has Pro, features unlock here automatically.',
     dangerZone: 'Danger zone',
     deleteAccount: 'Delete account',
@@ -482,6 +489,8 @@ export const strings = {
     // Native-only neutral status copy (no pricing, no links, no upsell — anti-steering).
     freePlanLimitReached: 'Vous avez atteint la limite gratuite de 10 analyses.',
     freePlanSingleDoc: 'Le plan gratuit prend en charge un document à la fois.',
+    dailyLimitReached: 'Limite quotidienne d’envoi atteinte. Le traitement reprend dans 24 heures.',
+    uploadFailedGeneric: 'Échec de l’envoi. Veuillez réessayer.',
     proAutoUnlock: 'Si votre espace de travail dispose de Pro, les fonctionnalités se débloquent ici automatiquement.',
     dangerZone: 'Zone sensible',
     deleteAccount: 'Supprimer le compte',
@@ -802,6 +811,8 @@ export const strings = {
     // Native-only neutral status copy (no pricing, no links, no upsell — anti-steering).
     freePlanLimitReached: 'لقد وصلت إلى الحد المجاني وهو 10 عمليات مسح.',
     freePlanSingleDoc: 'الخطة المجانية تدعم مستندًا واحدًا في كل مرة.',
+    dailyLimitReached: 'تم الوصول إلى الحد اليومي للرفع. تستأنف المعالجة خلال 24 ساعة.',
+    uploadFailedGeneric: 'فشل الرفع. يرجى المحاولة مرة أخرى.',
     proAutoUnlock: 'إذا كانت مساحة عملك تتضمّن Pro، فستُفعّل الميزات هنا تلقائيًا.',
     dangerZone: 'منطقة حسّاسة',
     deleteAccount: 'حذف الحساب',

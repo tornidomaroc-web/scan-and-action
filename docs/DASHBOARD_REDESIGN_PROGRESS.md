@@ -672,18 +672,64 @@ handling it actually needs.
       display**. A cheap first step, if wanted, is a build-time assertion that the
       hardcoded figures match a single source of truth, but that only helps if the
       Paddle amount is mirrored into config; it cannot read Paddle.
-- [ ] **The raw `LIMIT_REACHED` API code renders in the UploadModal file-error card,
-      untranslated, in every locale (found by the anti-steering coverage work).**
-      `UploadModal.tsx` (~L152) calls `setFileErrors({ [file]: errorMessage })`
-      **before** the `isNativePlatform()` branch, so while the toast is correctly
-      neutral, the per-file card still prints the raw enum **`LIMIT_REACHED`** to the
-      user — English, in fr/ar too. **This is NOT a Play-policy breach** (no price,
-      no payment link, no steering), so it is not part of the silence invariant — it
-      is a **UX/i18n defect** of the same class as the ones fixed in PRs #80/#84.
-      **Fix belongs to D8/D8b** (it owns these modals) and needs a translated
-      limit/error string instead of the raw code. A test for the corrected behavior
-      **already exists and is skipped** in `nativeAntiSteering.test.tsx`
-      (`KNOWN GAP (tracked, fix in D8/D8b)`) — **un-skip it as part of the fix.**
+- [x] **Raw upload-error enums leaked to users, untranslated — FIXED as a class
+      (PR pending; close on merge).** Found by the PR #93 anti-steering coverage,
+      then widened by a read-only scan: the leak was bigger than the one instance,
+      and **decoupled from D8/D8b deliberately** (it is a correctness/i18n fix, not
+      a restyle, and it was hitting **paying customers** — waiting for a restyle that
+      had not started would have shipped the leak for weeks).
+    - **`LIMIT_REACHED` in the file-error card.** `UploadModal.tsx` stored
+      `err.message` (the raw enum) and the card printed it verbatim, in every
+      locale, on both platforms. The toast was already neutral; the card was not.
+    - **`DAILY_LIMIT_REACHED` was not handled AT ALL — the highest-value part.**
+      The backend returns it (`uploadController.ts:54`, HTTP 429) when a **PRO** org
+      passes the rolling 200/day cap. `plan === 'PRO'` skips the FREE gating
+      entirely, so a **paying customer** saw the bare token `DAILY_LIMIT_REACHED` in
+      the card **and** the toast, on web and native. Now routed through a new
+      **`dailyLimitReached`** key (en/fr/ar) with **no upsell** — a PRO user has
+      nothing to upgrade to.
+    - **Hardcoded English fallbacks removed** (`'Processing failed'`, `'AI extraction
+      failed. Please try again.'`) in favour of a translated **`uploadFailedGeneric`**.
+    - **Shape of the fix:** components keep the **raw code in state** (the gating
+      logic keys off it) and translate **only at the render site**, through one
+      funnel — **`lib/uploadErrors.ts` → `translateUploadError(code, s)`**. Unknown
+      or future codes get translated generic copy; the raw token can no longer reach
+      a user by any path. Applied to the card and to the non-guard toasts in
+      `UploadModal` and `CaptureSheet`. **The `isNativePlatform()` guard branches
+      were NOT touched** — the native toast stays neutral and the PR #93
+      anti-steering tests stay green.
+    - **The skipped `KNOWN GAP` test is un-skipped and passing**, plus new coverage:
+      `tests/uploadErrorI18n.test.tsx` (fr/ar cards, the PRO daily-cap case, unknown
+      codes, and unit tests for the helper).
+- [ ] **⚠️ CONSTRAINT for anyone touching the upload error path: NEVER render the
+      backend `message` field.** The API's `LIMIT_REACHED` response
+      (`uploadController.ts:36-38`) carries
+      `message: 'Free plan limit reached (10 scans). Please upgrade to PRO.'`. The
+      client never sees it **only because `data.error` takes precedence** in
+      `uploadService.ts:23` — **that precedence is load-bearing.** Rendering the
+      backend `message` would put **"Please upgrade to PRO"** in front of a **native**
+      user: **steering, and a Play-policy breach** — and the anti-steering tests would
+      **NOT** catch it, since it contains neither a price nor a known CTA string. The
+      obvious-looking "improvement" (show the friendly server message instead of the
+      ugly code) is therefore a **trap**. It is now locked behaviorally: a test in
+      `nativeAntiSteering.test.tsx` simulates the precedence flipping and asserts the
+      upsell still never reaches the DOM (`translateUploadError` maps it to generic
+      copy). **The backend `message` field itself is ugly but harmless while unread —
+      no API change was made.** If the API is ever cleaned up, drop the upsell
+      sentence from that field rather than relying on the client to ignore it.
+- [ ] **Dead branch: the `isMultiDoc` comparison in `UploadModal` / `CaptureSheet`.**
+      Both compare the error against the literal
+      `'Please upload a single document per image'`, **which the backend never
+      emits.** Multi-document detection runs **asynchronously in the background**
+      (`ingestionService.ts:37-45`) and marks the document **`NEEDS_REVIEW`** — it
+      never fails the upload request. So the comparison (and its `s.freePlanSingleDoc`
+      arm in the API-error path) is **unreachable from the API**. Same class as the
+      dead `RECEIPT` enum tracked above. **Deliberately NOT removed in the fix PR** —
+      deleting it is a behavior change and needs a decision: either the backend should
+      reject multi-doc uploads **synchronously**, or the dead comparison should go.
+      **Note the identical string IS still used, legitimately, by the client-side
+      multi-file guard** (`UploadModal.tsx:61`, more than one file per batch) — that
+      path is live and must not be broken by any cleanup here.
 - [ ] **Short Latin filenames in the Arabic UI align LEFT, floating away from their
       row icon (cosmetic, low priority).** Observed on the **Review Queue** and
       **Document Detail** during the **PR #91** browser review: a short Latin name

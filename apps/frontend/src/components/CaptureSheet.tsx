@@ -10,6 +10,7 @@ import { useStrings } from '../i18n/useStrings';
 import { ensureCameraPermission } from '../native/camera';
 import { useBackDismiss } from '../native/useBackDismiss';
 import { isNativePlatform } from '../native/shell';
+import { translateUploadError } from '../lib/uploadErrors';
 
 export interface CaptureSheetHandle {
   open: () => void;
@@ -86,9 +87,11 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
       showToast('Uploaded. Processing in background...', 'success');
       close();
     } catch (err: any) {
-      const errorMessage = err.message || 'Processing failed';
-      const isLimit = errorMessage === 'LIMIT_REACHED';
-      const isMultiDoc = errorMessage === 'Please upload a single document per image';
+      // Raw API code; it becomes words only via translateUploadError (which never
+      // renders the backend `message` field — see that module's header).
+      const errorCode = err.message || '';
+      const isLimit = errorCode === 'LIMIT_REACHED';
+      const isMultiDoc = errorCode === 'Please upload a single document per image';
 
       if ((isLimit || isMultiDoc) && plan !== 'PRO') {
         if (isNativePlatform()) {
@@ -97,11 +100,12 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
           showToast(isLimit ? s.freePlanLimitReached : s.freePlanSingleDoc, 'info');
         } else {
           // Web: legitimate sell surface — surface the error and open the paywall.
-          showToast(`${file.name}: ${errorMessage}`, 'error');
+          showToast(`${file.name}: ${translateUploadError(errorCode, s)}`, 'error');
           setShowPaywall(true);
         }
       } else {
-        showToast(`${file.name}: ${errorMessage}`, 'error');
+        // Includes DAILY_LIMIT_REACHED, which PRO users hit.
+        showToast(`${file.name}: ${translateUploadError(errorCode, s)}`, 'error');
       }
     } finally {
       setUploading(false);
