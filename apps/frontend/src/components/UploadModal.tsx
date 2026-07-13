@@ -8,6 +8,7 @@ import { preprocessImage } from '../lib/imagePreprocess';
 import { PaywallModal } from './PaywallModal';
 import { useStrings } from '../i18n/useStrings';
 import { isNativePlatform } from '../native/shell';
+import { translateUploadError } from '../lib/uploadErrors';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -148,22 +149,26 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
           }
         } catch (err: any) {
           console.error(`Failed to upload ${currentFile.name}:`, err);
-          const errorMessage = err.message || 'Processing failed';
-          setFileErrors(prev => ({ ...prev, [currentFile.name]: errorMessage }));
+          // The RAW API code stays in state — the gating below keys off it. It
+          // becomes words only at the render site, via translateUploadError.
+          const errorCode = err.message || '';
+          setFileErrors(prev => ({ ...prev, [currentFile.name]: errorCode }));
 
-          const isLimit = errorMessage === 'LIMIT_REACHED';
-          const isMultiDoc = errorMessage === 'Please upload a single document per image';
+          const isLimit = errorCode === 'LIMIT_REACHED';
+          const isMultiDoc = errorCode === 'Please upload a single document per image';
           if ((isLimit || isMultiDoc) && plan !== 'PRO') {
             if (isNativePlatform()) {
               // Native: pure status, NO upsell/paywall (anti-steering).
               showToast(isLimit ? s.freePlanLimitReached : s.freePlanSingleDoc, 'info');
             } else {
               // Web: legitimate sell surface — surface the error and open the paywall.
-              showToast(`${currentFile.name}: ${errorMessage}`, 'error');
+              showToast(`${currentFile.name}: ${translateUploadError(errorCode, s)}`, 'error');
               setShowPaywall(true);
             }
           } else {
-            showToast(`${currentFile.name}: ${errorMessage}`, 'error');
+            // Every other failure (incl. DAILY_LIMIT_REACHED, which PRO users hit)
+            // is translated too — the raw enum must never reach the user.
+            showToast(`${currentFile.name}: ${translateUploadError(errorCode, s)}`, 'error');
           }
         }
         setProgress(Math.round(((i + 1) / totalCount) * 100));
@@ -327,7 +332,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                     </div>
                     {hasError && (
                       <p className="text-[11px] font-bold text-red-600 dark:text-red-400 bg-red-100/50 dark:bg-red-900/20 px-2 py-1 rounded">
-                        {fileErrors[f.name] || 'AI extraction failed. Please try again.'}
+                        {translateUploadError(fileErrors[f.name], s)}
                       </p>
                     )}
                   </div>

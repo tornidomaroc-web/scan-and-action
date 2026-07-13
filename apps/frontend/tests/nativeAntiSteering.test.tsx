@@ -365,18 +365,11 @@ describe('NATIVE anti-steering invariant — UploadModal limit guards', () => {
     expectSilentNative(strings.en.freePlanLimitReached);
   });
 
-  // KNOWN GAP — found by this test, NOT fixed here (this PR is test-only).
-  //
-  // The anti-steering guard is intact: the toast is neutral, the paywall never
-  // opens, no price renders. But `setFileErrors` (UploadModal.tsx ~L152) runs
-  // BEFORE the platform branch, so the per-file error card still prints the RAW
-  // API code "LIMIT_REACHED" — untranslated English, in every locale, on native.
-  //
-  // This is NOT a Play-policy breach (no price, no payment link, no steering), so
-  // it does not belong in the silence invariant above. It IS a real UX/i18n
-  // defect. Tracked in DASHBOARD_REDESIGN_PROGRESS.md; the fix belongs to D8/D8b,
-  // which owns these modals. UN-SKIP THIS TEST as part of that fix.
-  it.skip('KNOWN GAP (tracked, fix in D8/D8b): the raw LIMIT_REACHED code must not render in the file-error card', async () => {
+  // FIXED (was the KNOWN GAP skipped in PR #93): the file-error card used to print
+  // the RAW API code, because setFileErrors runs before the platform branch. The
+  // card now renders translated copy via translateUploadError(); the raw enum must
+  // never reach a user, in any locale, on either platform.
+  it('the raw LIMIT_REACHED code must not render in the file-error card', async () => {
     (uploadDocument as any).mockRejectedValue(new Error('LIMIT_REACHED'));
     await mountModal('FREE');
     addFilesToInput([photo('a.jpg')]);
@@ -391,6 +384,43 @@ describe('NATIVE anti-steering invariant — UploadModal limit guards', () => {
       expect(document.body.textContent).toContain(strings.en.freePlanLimitReached)
     );
     expect(document.body.textContent).not.toContain('LIMIT_REACHED');
+  });
+
+  // THE POLICY TRAP, locked behaviorally.
+  //
+  // The API's LIMIT_REACHED response also carries a `message` field reading
+  // "Free plan limit reached (10 scans). Please upgrade to PRO." Today the client
+  // never sees it (uploadService prefers `data.error`), but that precedence is one
+  // careless edit away from flipping — and "Please upgrade to PRO" rendered inside
+  // the native app is STEERING: a Play-policy breach that the price/CTA assertions
+  // elsewhere in this file would NOT catch, because it contains neither a price
+  // nor a known CTA string.
+  //
+  // This test simulates that flip: the upload rejects with the backend's upsell
+  // SENTENCE as the error message. translateUploadError() does not recognise it as
+  // a code, so it must fall back to translated generic copy — the upsell must not
+  // reach the DOM by any path.
+  it('NEVER renders the backend upsell message on native, even if the error precedence flips', async () => {
+    const BACKEND_UPSELL = 'Free plan limit reached (10 scans). Please upgrade to PRO.';
+    (uploadDocument as any).mockRejectedValue(new Error(BACKEND_UPSELL));
+    await mountModal('FREE');
+    addFilesToInput([photo('a.jpg')]);
+
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Start Extraction (1)'));
+    const start = [...document.body.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Start Extraction')
+    )!;
+    flushSync(() => start.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain(strings.en.uploadFailedGeneric)
+    );
+    const text = document.body.textContent ?? '';
+    expect(text).not.toContain('Please upgrade to PRO');
+    expect(text).not.toContain('upgrade');
+    expect(text).not.toContain(BACKEND_UPSELL);
+    expect(text).not.toMatch(PRICE_REGEX);
+    expect(h.getPaddle).not.toHaveBeenCalled();
   });
 });
 
