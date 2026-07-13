@@ -641,6 +641,37 @@ handling it actually needs.
       all** (absence of `proComingSoonTitle`), not merely "no price" — the latter
       would pass even with a broken guard, since PaywallModal neutralizes it
       downstream. Web negative controls prove the gate is not stuck on.
+- [ ] **Displayed price vs charged price — potential silent drift (surfaced during
+      PR #93; revenue-path relevant, WEB-only exposure).**
+    - **Facet 1 — display/charge mismatch risk.** The advertised price **`$9/mo`**
+      (and **`$59/yr`**) is **HARDCODED in frontend JSX** — `LandingScreen.tsx:183`
+      (pricing card; `$0` free tier at `:169`) and `PaywallModal.tsx:194` / `:211` /
+      `:248` (the CTA label interpolates `'$9/mo'` / `'$59/yr'`). It is **not fetched
+      from Paddle**. The **actually-charged** amount comes from Paddle **price IDs**
+      (`PaywallModal.tsx:20-22`, `VITE_PADDLE_PRICE_ID_MONTHLY` /
+      `_YEARLY`), passed to checkout as `items: [{ priceId, quantity: 1 }]`
+      (`PaywallModal.tsx:121`). **If the price is changed in the Paddle dashboard, the
+      marketing page and paywall keep advertising `$9`/`$59` and NOTHING in CI
+      catches the drift** — a display-vs-charge mismatch with consumer-protection
+      edges. **The real charged amount is NOT knowable from this repo** (it lives in
+      Paddle), so no test can currently assert the two agree.
+    - **Facet 2 — the price is unlocalized.** The figures are **not i18n strings**
+      (no price key exists in `strings.ts`), so a French or Arabic user sees a bare
+      **USD** figure with no currency or locale formatting — the same i18n class as
+      the defects fixed in PRs #76-#88. Note this compounds Facet 1: Paddle may
+      present a **localized currency at checkout**, so the hardcoded USD figure can
+      disagree with what the user is actually asked to pay, not just by amount but by
+      currency.
+    - **Scope of exposure — WEB ONLY.** A native (Play) user never sees either
+      surface: `App.tsx:36` redirects `/` away from the marketing landing page and
+      `PaywallModal.tsx:49` renders the neutral "coming soon" panel instead of the
+      priced upsell. **Both guards are now locked by tests (PR #93)**, so this is not
+      a Play-policy issue — it is a **web accuracy / consumer-protection** issue.
+    - **No fix proposed yet; recorded so it is not lost.** Any change here touches the
+      **revenue path** — treat with care and **confirm intent before changing pricing
+      display**. A cheap first step, if wanted, is a build-time assertion that the
+      hardcoded figures match a single source of truth, but that only helps if the
+      Paddle amount is mirrored into config; it cannot read Paddle.
 - [ ] **The raw `LIMIT_REACHED` API code renders in the UploadModal file-error card,
       untranslated, in every locale (found by the anti-steering coverage work).**
       `UploadModal.tsx` (~L152) calls `setFileErrors({ [file]: errorMessage })`
