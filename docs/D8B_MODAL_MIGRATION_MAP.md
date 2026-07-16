@@ -372,3 +372,73 @@ PR #96 added ~5 lines to `DeleteAccountModal.tsx` (141 → 146). **Everything be
 ### C5. §6.1's `ingestionService.ts` path
 
 The file is at **`apps/backend/src/services/ingestion/ingestionService.ts`** (not `services/`). The cited line range `:37–45` is **exact**, and commit `82e2697` ("Moved single-document validation from synchronous upload to async background processing", 2026-03-28) is confirmed.
+
+---
+
+## APPENDIX 2 — corrections appended 2026-07-16 (after D8b PR 2 shipped the restyle)
+
+*Appended, not edited into the body. Verified against `main` @ `a88d9030`.*
+
+### C6. ⚠️ §2.3's "the red header maps to `danger`" is WRONG and would have shipped a WCAG failure
+
+§2.3 states:
+
+> *"The destructive red header (`DeleteAccountModal.tsx:62`) maps to `danger`; the amber subscription notice (`:88`) to `warning`."*
+
+**Taken literally — `bg-red-600 text-white` → `bg-danger text-white` — that is an accessibility REGRESSION, not a migration.** `--sa-danger` is a *semantic text/icon/dot* token, and it flips to a **light** red in dark mode (`tokens.css:133` → `#F87171`) precisely because it is designed to sit **on** dark surfaces, not behind white text. Computed:
+
+| Fill behind `text-white` | Contrast | AA normal (4.5) | AA large (3.0) |
+|---|---|---|---|
+| **Previous** `bg-red-600` `#DC2626` | **4.83:1** | PASS | PASS |
+| `bg-danger` light `#D9584A` | 3.86:1 | **FAIL** | PASS |
+| `bg-danger` **dark** `#F87171` | **2.77:1** | **FAIL** | **FAIL** |
+
+The map's own §10 makes DeleteAccountModal the **first** modal precisely so the vocabulary is invented here — so this mapping would have been **inherited three times** (CaptureSheet and UploadModal both have saturated `bg-blue-600` headers).
+
+**What shipped instead:** the system's real danger idiom — quiet, per `ErrorState.tsx:17–21`: `bg-danger-tint` + `border-danger/30` + `bg-danger/15 text-danger` icon tile + `text-danger-text` heading. **5.17:1 light / 6.97:1 dark.** Locked by `d8bModalRestyle.test.tsx` ("the danger fill trap stays closed"), which fails if anyone pairs a `bg-danger` fill with `text-white`.
+
+**The same trap bites the `warning` half of the sentence.** `text-warning-text` on `bg-warning-tint` measures **3.61:1** — a regression from the notice's previous `amber-700`-on-`amber-50` (**4.84:1**). What shipped follows `ClarificationCard.tsx:16`: the tint carries the box, but the **body copy is `text-ink-secondary`** (**5.22:1 / 7.80:1**).
+
+**The general rule this establishes for PR 3 / PR 4:** `--sa-danger`, `--sa-warning` and `--sa-success` are **not fills behind light text**. `--sa-accent` is the only safe solid fill (`#635BFF` in *both* modes = **4.70:1**), which is why it is the codebase's only established `bg-* + text-white` idiom.
+
+> **Two PRE-EXISTING instances of this exact bug, found while computing the above. Not fixed here (out of D8b PR 2's scope) — recorded so they are not lost:**
+> - `FixActionPanel.tsx:108` — `bg-success text-white` → **3.38:1 light / 1.74:1 dark**
+> - `BottomTabBar.tsx:44` — `bg-warning text-white` (18px badge) → **2.22:1 light / 1.63:1 dark**
+>
+> Both fail AA in both modes. Neither is a D8b file. Worth their own small a11y PR.
+
+### C7. §4's "zero Class-B exposure" is true, and was read too broadly
+
+The map is right that `DeleteAccountModal` has **no `truncate`** and therefore no Class-B truncation defect. But "no truncate" is not "RTL-safe": it carried **two physical-direction defects** the map never checked, because truncation was the only RTL class it looked for.
+
+- the close button pinned `right-2` → wrong corner in Arabic
+- the disclosure box `border-l-4 … rounded-r-2xl` → the accent bar landed on the **trailing** edge in Arabic, **on the required compliance notice**
+
+Both fixed in PR 2 with the idiom that already existed at **`SearchScreen.tsx:204`** (`rounded-e-card border-s-4 border-accent`). Guarded by `d8bModalRestyle.test.tsx` (source scan + Arabic DOM assertions). **CaptureSheet and UploadModal must be swept for the same class in PR 3 / PR 4 — `truncate` is not the only thing that mirrors.**
+
+### C8. §8.3's shell recommendation — deferred, with the evidence that changed the call
+
+§8.3 calls `ModalShell`/`SheetShell` *"the single highest-leverage structural output of D8b"*. **Agreed as a destination; rejected as the first step**, and PR 2 restyled in place instead. The measured reason:
+
+*"`DeleteAccountModal.tsx:52` and `PaywallModal.tsx:52`/`:141` carry byte-identical overlay class strings"* is true — **for 3 of 7 portal sites. There are FOUR distinct scrims:**
+
+| Variant | Sites | Scrim |
+|---|---|---|
+| 1 | DeleteAccountModal, PaywallModal ×2 | `bg-slate-900/60 backdrop-blur-md`, `z-11000` |
+| 2 | CaptureSheet ×2 | `bg-slate-900/70 backdrop-blur-sm`, `z-10000` |
+| 3 | UploadModal | `bg-gray-900/80 dark:bg-black/60 backdrop-blur-sm`, `z-10000` |
+| 4 | ProWelcome | `bg-slate-900/70 backdrop-blur-md`, `z-12000` |
+
+Opacity varies 60/70/80, blur md/sm, and **UploadModal uses a different base palette entirely and is the only scrim with a `dark:` variant**. A shell designed from DeleteAccountModal (single-portal, centered-only, `isOpen`-prop, guard-free) would encode variant 1 and then meet CaptureSheet's **two portals + imperative `open()` via `useImperativeHandle`** and UploadModal's **nested child portal**. Rewriting it at PR 3 would mean re-touching DeleteAccountModal — the restyle landing twice.
+
+Extraction also only pays if it absorbs **PaywallModal** (the panel string's other two consumers) — and PaywallModal holds the `isNativePlatform()` guard (`:49`) and the hardcoded prices, **and is not in D8b's scope at all** (this map's title names three modals; Paywall is not one).
+
+**What PR 2 shipped instead** — the durable half, as *values* rather than an API: `--sa-overlay` (defined to **exactly** the previous `slate-900/60`, so zero pixels moved) and a **named z-scale** in `tailwind.config.cjs` documenting the ladder. Extraction waits for PR 3, when CaptureSheet supplies a second, genuinely different consumer.
+
+### C9. `UploadModal` has NO `useBackDismiss` at all — a trap for the shell
+
+Registrations: `CaptureSheet.tsx:44`, `:45`, `DeleteAccountModal.tsx:27`, `PaywallModal.tsx:39`, `ProcessingTray.tsx:33`, `ProWelcome.tsx:16`. **`UploadModal` is absent** — on Android, hardware-back does not close it.
+
+A shared shell that owns `useBackDismiss` would **silently change UploadModal's native behaviour** when adopted in PR 4. Probably a fix — but a **behavioural change riding inside a restyle**, exactly what splitting out the `isMultiDoc` cleanup exists to prevent. Land it deliberately, with a test, or not at all.
+
+Note also that `DeleteAccountModal.tsx:27` passes **`isOpen && !isDeleting`** while `PaywallModal.tsx:39` passes a bare `isOpen`. **The `&& !isDeleting` is load-bearing** — it is one of four guards making an irreversible action non-dismissable mid-flight. A shell with a naive `useBackDismiss(isOpen, onClose)` would destroy it. All four are now locked by `deleteAccountModalSafety.test.tsx`.

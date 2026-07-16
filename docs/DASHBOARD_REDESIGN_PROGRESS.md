@@ -805,20 +805,104 @@ handling it actually needs.
       protective*: it makes it structurally impossible for backend upsell prose to reach
       the native DOM on this path — the same protection `uploadErrors.ts:16-25` gives
       the upload path.
-- [ ] **`deleteAccountSubscriptionWarning` renders inside the native shell and is
-      covered by NO anti-steering test — deferred to the D8b restyle PR for a
-      decision.** Flagged by the D8b mapping pass; **deliberately NOT touched in PR #96**
-      (that PR was bug-fix only). `strings.ts:178` names **"the App Store or Google
-      Play, and web subscriptions via the billing portal"** and renders at
-      `DeleteAccountModal.tsx:90` (`:93` post-#96 — the amber notice), i.e. **inside the
-      native app**. **This is not a known defect:** it is **required cancellation
-      disclosure**, it contains **no price and no purchase CTA**, and naming the billing
-      portal as one of several cancellation routes is not steering to a payment flow.
-      **The gap is coverage, not conduct** — `nativeAntiSteering.test.tsx` does not cover
-      `DeleteAccountModal` **at all**, so nothing would catch it if this copy later
-      drifted toward a CTA. **Decide during the restyle:** either accept it and add a
-      guard pinning the absence of price/CTA, or reword. **Do not silently drop the
-      disclosure** — deletion genuinely does not cancel billing, and users must be told.
+- [x] **`deleteAccountSubscriptionWarning` — DECIDED and CLOSED in D8b PR 2: the copy
+      is compliant and UNCHANGED; the coverage gap is closed.** Audited against the
+      anti-steering suite's own detectors (`nativeAntiSteering.test.tsx:88` `PRICE_REGEX`,
+      `:90` `FORBIDDEN_CTA`) in **all three locales**: **no price, no purchase CTA, no
+      link**, and the modal renders **no `<a href>` at all**. Its only imperative is
+      *cancel*. **Arabic verified by Unicode code point, not by regex on a transliterated
+      substring** — that distinction was load-bearing: a probe like `/اشتر/` matches
+      **اشتراك** ("subscription", a noun) as well as **اشترِ** ("buy", an imperative) and
+      reports a purchase CTA that is not there. Re-probed precisely: **zero** buy
+      imperatives, **zero** upgrade verbs, one **ألغِ** (= *cancel*), and the only Latin is
+      `AppStoreGooglePlay` (brand names, correctly untransliterated).
+      **Verdict: required cancellation disclosure, not steering.** Naming the billing
+      portal is a *cancellation* route, and it is load-bearing — a native user can hold a
+      **web** subscription (subscribed on web, then installed the app), and a Play
+      subscription can only be cancelled through Play. Omitting either route would leave
+      users unable to stop charges.
+      **PR 2 added the modal's first anti-steering coverage, in BOTH directions** — and
+      the second direction is the one that earns its keep: it asserts the disclosure is
+      **still PRESENT** in en/fr/ar. The realistic failure was never someone adding an
+      upsell; it was someone deleting an "ugly amber box" during the restyle, and nothing
+      would have caught it. **Mutation-verified:** deleting the box fails 4 tests.
+- [ ] **⚠️ PRE-EXISTING a11y defects found while computing the D8b colour decisions —
+      NOT fixed (out of D8b's scope), recorded so they are not lost.** Same class as the
+      trap D8b PR 2 avoided: a semantic token used as a **fill behind `text-white`**.
+      `--sa-success`/`--sa-warning` flip to **light** values in dark mode (they are
+      designed to sit *on* dark surfaces), so:
+    - **`FixActionPanel.tsx:108`** — `bg-success text-white` → **3.38:1 light / 1.74:1 dark**
+    - **`BottomTabBar.tsx:44`** — `bg-warning text-white` (18px badge) → **2.22:1 light / 1.63:1 dark**
+      Both fail WCAG AA in **both** modes. Neither is a D8b file, so neither was touched.
+      **The rule, now established:** `danger`/`warning`/`success` are **not** fills behind
+      light text; **`--sa-accent` is the only safe solid fill** (`#635BFF` in both modes =
+      **4.70:1**), which is why it is the codebase's only `bg-* + text-white` idiom. Worth
+      a small dedicated a11y PR.
+- [x] **D8b PR 2 — DeleteAccountModal restyle DONE (the FIRST modal restyle in the
+      D-series; the modal vocabulary now exists).** Full decision record:
+      `docs/D8B_PR2_DELETE_ACCOUNT_RESTYLE.md`.
+    - **Shipped:** 14 lines / 39 raw literals → tokens · `font-black` ×3 and
+      `rounded-[32px]` gone · `uppercase italic` dropped · two **additive values** for
+      PR 3/PR 4 to reuse (`--sa-overlay`, the named **z-scale**) · **two RTL fixes** ·
+      the modal's **first anti-steering coverage** · and the first tests for a safety
+      contract that had **zero**.
+    - **⚠️ SHELL EXTRACTION DEFERRED TO PR 3 — deliberate, not an oversight.** The map's
+      §8.3 calls `ModalShell`/`SheetShell` *"the single highest-leverage structural output
+      of D8b"*; that is the right **destination** and the wrong **first step**. Measured:
+      the *"byte-identical overlay"* premise holds for only **3 of 7 portal sites — there
+      are FOUR distinct scrims** (opacity 60/70/80, blur md/sm, and `UploadModal` uses a
+      different base palette entirely and is the only one with a `dark:` variant). An API
+      designed from `DeleteAccountModal` — the *only* single-portal, centered-only,
+      `isOpen`-prop, guard-free one — would meet CaptureSheet's **two portals +
+      imperative `open()`** and UploadModal's **nested child portal**, and be rewritten at
+      PR 3, meaning **the restyle lands twice**. Extraction also only pays if it absorbs
+      **PaywallModal** (the panel string's other two consumers) — which holds the
+      `isNativePlatform()` guard (`:49`) and the hardcoded prices, and **is not in D8b's
+      scope at all**. So PR 2 shipped the durable half as **values, not an API**, and
+      **did not touch PaywallModal**. **PR 3 extracts it, with n=2 and a known API.**
+    - **⚠️ The header did NOT migrate to `bg-danger`** — that mapping (map §2.3) is a
+      **WCAG regression**; see the colour entry below and map Appendix 2 §C6. It uses the
+      quiet `ErrorState.tsx:17-21` idiom (**5.17:1 / 6.97:1**).
+    - **Verification.** All new tests **mutation-verified**, not merely green: reverting
+      each guard fails its test (4/4 dismissal guards, the disclosure-presence guard, the
+      danger-fill trap, and each RTL fix). **jsdom has no layout engine** — the RTL tests
+      assert **class names**, which catches a reintroduced physical property but is **not
+      proof of the pixels**. Per the D5 lesson (a live RTL defect that green CI, the
+      Vercel preview and jsdom **all** missed), the Arabic modal still needs a real
+      browser. **Green CI proves nothing about RTL.**
+- [ ] **⚠️ The restyle contract has HOLES — a green contract does NOT prove a file is
+      migrated. Tightened for D8b (PR 2); the older per-screen contracts still carry the
+      holes.** `RAW_PALETTE` (`documentDetailRestyle.test.tsx:465-470`) bans `text-*` and
+      `bg-*` on the raw palette but **not `border-*` or `shadow-*`** — so
+      `border-slate-200`, `focus:border-red-500` and `shadow-red-500/20` all survive a
+      "green" run. DeleteAccountModal carried exactly those four.
+      **`d8bModalRestyle.test.tsx` bans the wider list** (`border-slate-`, `border-blue-`,
+      `border-red-`, `border-amber-`, `border-emerald-`, `border-rose-`, `border-gray-`,
+      `shadow-blue-`, `shadow-red-`, `shadow-emerald-`, `shadow-amber-`, `text-gray-`,
+      `bg-gray-`). **Verified free:** all **eight** already-restyled files
+      (DocumentDetail, DecisionBanner, FixActionPanel, SharedComponents, Activity,
+      Dashboard, Search, ReviewQueue) already satisfy the stricter list, so **nothing else
+      needed touching**. Each restyle PR writes its own contract file, so this is local.
+      **Open:** back-porting the stricter list to the four older contracts is free by the
+      same measurement — a tidy follow-up, not done here.
+      **Note the D8b contract also STRIPS COMMENTS before scanning.** The older contracts
+      scan the raw file, which works only because their files never *name* a banned
+      literal in prose. D8b's files document their own traps in-file ("do not use
+      `bg-danger` behind `text-white`"), and a naive substring scan fails on the very
+      comments that prevent the bug. The contract is about **classes, not prose**.
+- [x] **The "locked while deleting" safety contract — now TESTED (D8b PR 2). It had
+      ZERO coverage before.** Account deletion is **irreversible**, and dismissing the
+      modal mid-flight does **not** cancel the server-side delete — it just hides it. That
+      property is expressed in **four independent places**, each looking like removable
+      noise: `DeleteAccountModal.tsx:27` (back button unregistered), `:58` (scrim click
+      disabled), `:76` (X button unmounted), `:127` (confirm disabled). **None had a
+      test.** PR #96's suite is the only other one touching this modal and it drives the
+      **failure** path exclusively — by the time it asserts, `:51` has already set
+      `isDeleting` back to `false`, so it can **never** observe this contract.
+      `deleteAccountModalSafety.test.tsx` holds the modal in-flight (a promise that never
+      settles) and locks all four, **with positive controls** proving each path still
+      works while idle (otherwise the guards would pass on an inert modal).
+      **This is the contract most at risk from the PR 3 shell** (see the order entry).
 - [ ] **D8b colour finding: the three modals are literally the WRONG HUE — the
       strongest single justification for D8b.** `tailwind.config.cjs:15` states the
       `--sa` token colours are **ADDITIVE** and deliberately **do not shadow** Tailwind's
@@ -834,15 +918,31 @@ handling it actually needs.
       utilities today. **Corollary:** because the tokens are additive by design, a
       token-only sweep can never fix this implicitly — each literal must be migrated by
       hand, and **CI will not fail on any of them**.
-- [ ] **D8b implementation order — CONFIRMED: `DeleteAccountModal` (restyle) →
+    - **DeleteAccountModal's third of this is DONE (PR 2).** 14 lines / 39 literals →
+      tokens. `CaptureSheet` and `UploadModal` remain (PR 3 / PR 4).
+    - **⚠️ The obvious mapping is a TRAP — read this before PR 3.** A saturated header
+      does **not** migrate to its semantic token. `bg-red-600 text-white` →
+      `bg-danger text-white` computes to **3.86:1 light / 2.77:1 dark** (vs **4.83:1**
+      before) — a **WCAG regression**, because `danger`/`warning`/`success` flip to
+      **light** values in dark mode (`tokens.css:133`), being designed to sit *on* dark
+      surfaces. **`--sa-accent` is the ONLY safe solid fill** (`#635BFF` in both modes =
+      **4.70:1**). `CaptureSheet.tsx:169`/`:244` and `UploadModal.tsx:245` are
+      `bg-blue-600 text-white` → **`bg-accent text-white` is the correct migration there**
+      and is safe. Anything else saturated should use the quiet idiom
+      (`ErrorState.tsx:17-21`) or come with computed contrast.
+    - **Two additive values landed in PR 2, for PR 3/PR 4 to reuse:** `--sa-overlay`
+      (`tokens.css:48`, defined to **exactly** the previous `slate-900/60` so **zero
+      pixels moved**) and a **named z-scale** (`tailwind.config.cjs`) documenting the
+      whole ladder found across 8 `createPortal` sites.
+- [ ] **D8b implementation order — PR 2 DONE. `DeleteAccountModal` (restyle) →
       `CaptureSheet` → `isMultiDoc` cleanup (its own commit) → `UploadModal`.**
       Reasoning, in one line: **the modal vocabulary does not exist yet and must be
       invented on the smallest, guard-free modal, while silent-regression risk is
       concentrated in `UploadModal`, so it goes last.** Expanded:
-    - **`DeleteAccountModal` first** — the D-series has restyled five *screens* and
-      **zero modals**, so the vocabulary (overlay, sheet vs. centered panel, header,
-      footer button pair, the undocumented z-index ladder) has to be invented
-      somewhere; invent it where there is least to lose. 146 lines, three state vars,
+    - **`DeleteAccountModal` first — DONE (D8b PR 2).** The D-series has restyled five
+      *screens* and **zero modals**, so the vocabulary (overlay, sheet vs. centered panel,
+      header, footer button pair, the undocumented z-index ladder) had to be invented
+      somewhere; it was invented where there was least to lose. 146 lines, three state vars,
       **no `plan` prop, no upload, no paywall, zero anti-steering guards, zero Class-B
       truncation exposure**. Blast radius if botched is contained ("a user cannot delete
       their account") with **no Play-policy exposure**. Its bug-fix half already shipped
@@ -865,6 +965,19 @@ handling it actually needs.
       (`nativeAntiSteering.test.tsx:356`, `uploadGating.test.tsx:110` locate the submit
       button by the literal `'Start Extraction (1)'` — switch them to `data-testid`
       **before** touching that copy).
+    - **⚠️ `UploadModal` has NO `useBackDismiss` AT ALL — and that makes the shell a
+      behavioural change, not a refactor.** Registrations are `CaptureSheet.tsx:44`/`:45`,
+      `DeleteAccountModal.tsx:27`, `PaywallModal.tsx:39`, `ProcessingTray.tsx:33`,
+      `ProWelcome.tsx:16`. **`UploadModal` is absent**, so on Android the hardware back
+      button does **not** close it today. A shared shell that owns `useBackDismiss` would
+      **silently change UploadModal's native behaviour** the moment PR 4 adopts it.
+      Probably a fix — but a behavioural change **riding inside a restyle diff**, which is
+      exactly what splitting the `isMultiDoc` cleanup into its own commit exists to
+      prevent. **Land it deliberately, with a test, or not at all.**
+      Related: `DeleteAccountModal.tsx:27` passes **`isOpen && !isDeleting`** where
+      `PaywallModal.tsx:39` passes a bare `isOpen`. **The `&& !isDeleting` is
+      load-bearing** (see the safety entry below) — a shell with a naive
+      `useBackDismiss(isOpen, onClose)` would destroy it.
     - **The counter-argument, rejected:** *"do the hardest first while context is
       freshest"* is the usual instinct and it is wrong here. The binding constraint is
       **not effort — it is the risk of a silent anti-steering regression, and that risk

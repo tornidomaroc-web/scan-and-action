@@ -36,6 +36,17 @@
   --sa-line-sidebar: #EAECF1;    /* sidebar edge                             */
   --sa-divider: #F0F2F6;         /* in-card row dividers                      */
 
+  /* ── Overlay / scrim (added D8b PR-2) ──────────────────────────────── */
+  /* Codifies the value EVERY modal scrim already ships: slate-900/60, i.e.
+     rgb(15,23,42) at 60%. Deliberately ONE value for light and dark — no scrim
+     in the app has ever carried a `dark:` variant, so a single value is the
+     faithful transcription and adopting this token changes ZERO pixels.
+     This is not a new brand colour: per the header above, these values come
+     from the approved design file. Inventing a hue (e.g. a saturated
+     --sa-danger-solid for a filled destructive header) would be a design
+     decision, not a restyle — see docs/D8B_PR2_DELETE_ACCOUNT_RESTYLE.md §2.2. */
+  --sa-overlay: rgba(15, 23, 42, 0.6);
+
   /* ── Text ramp ─────────────────────────────────────────────────────── */
   --sa-ink: #1A1F36;             /* primary text, headings                    */
   --sa-ink-secondary: #5A6273;   /* body                                      */

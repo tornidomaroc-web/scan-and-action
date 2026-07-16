@@ -36,6 +36,8 @@ module.exports = {
           sidebar: 'var(--sa-line-sidebar)',
         },
         divider: 'var(--sa-divider)',
+        // Modal/sheet scrim. Same value in both modes (see tokens.css).
+        overlay: 'var(--sa-overlay)',
         ink: {
           DEFAULT: 'var(--sa-ink)',
           secondary: 'var(--sa-ink-secondary)',
@@ -74,6 +76,36 @@ module.exports = {
         card: 'var(--sa-shadow-card)',
         raised: 'var(--sa-shadow-raised)',
         lg: 'var(--sa-shadow-lg)',
+      },
+      // ── The overlay ladder (documented in D8b PR-2) ───────────────────
+      // Until now these were hand-picked magic numbers spread across 8
+      // createPortal sites in 6 components, with no written rule — "undocumented
+      // folklore". Every value below is EXACTLY what already ships, so naming
+      // them changes no paint order. Additive: components adopt a name as they
+      // are restyled (D8b PR-2 adopts `modal-top` in DeleteAccountModal).
+      //
+      // The gap between `modal` and `modal-top` is LOAD-BEARING, not arbitrary:
+      // UploadModal (modal) and CaptureSheet (modal) each render <PaywallModal>
+      // (modal-top) INSIDE their own portal, and the gap is what makes the
+      // paywall paint above its opener.
+      //
+      // ⚠️ Known collision, documented not "fixed": DeleteAccountModal and
+      // PaywallModal are BOTH `modal-top` and are mounted as siblings from the
+      // same parent (SettingsScreen.tsx:263 and :268) with independent state. If
+      // both were ever open, paint order would fall back to DOM order. No path
+      // opens both today, so this is undefined-by-design rather than a live bug —
+      // a speculative reshuffle here would buy nothing and risk real regressions.
+      //
+      // A SECOND, INDEPENDENT ordering exists: native/overlayStack.ts is a
+      // MOUNT-ORDER LIFO driving the Android back button. Nothing keeps it in
+      // sync with this visual ladder. A future shared shell should own both.
+      zIndex: {
+        chrome: '60',           // Layout header, BottomTabBar
+        tray: '70',             // ProcessingTray collapsed chip
+        'tray-panel': '9000',   // ProcessingTray expanded panel
+        modal: '10000',         // UploadModal, CaptureSheet — modals that OPEN others
+        'modal-top': '11000',   // PaywallModal, DeleteAccountModal — paint above a modal
+        celebration: '12000',   // ProWelcome
       },
       fontFamily: {
         // Real loaded stack. Consistent with the body font-family in index.css.
