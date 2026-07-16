@@ -521,6 +521,36 @@ restrictive wins**, which makes a blocked merge painful to debug. Edit the rules
   `Vercel Preview Comments` is a **commenting bot that gates nothing**. Requiring
   either buys no safety and adds a failure mode.
 
+### Merge protocol — ADOPTED 2026-07-16: pin every squash-merge to the head SHA
+
+**Always merge with `--match-head-commit`:**
+
+```
+gh pr merge <N> --squash --delete-branch --match-head-commit <head-sha>
+```
+
+**Why.** Verifying "checks are green on SHA X" and then merging are two separate
+operations, and anything pushed between them merges **unverified**. `--match-head-commit`
+closes that window **server-side**: GitHub rejects the merge if the head has moved,
+so the guarantee does not depend on how fast the human acts or on re-reading state.
+
+Alongside it, when verifying:
+
+- **Read check status from the check-runs API pinned to the exact head SHA** —
+  `gh api repos/<owner>/<repo>/commits/<sha>/check-runs` — and confirm the returned
+  `head_sha` matches. **Do not accept a status on an ancestor commit**: a green
+  parent proves nothing about the head.
+- **Confirm `mergeStateStatus` is `CLEAN`** and that `origin/main` has not advanced
+  past the base the branch was cut from.
+- **Merge via the CLI, never the web UI** — the UI offers no head-SHA pin.
+
+**Note the residual gap this does NOT close:** the required checks run on the branch
+head, not on the merge result. When `main` has not advanced past the branch's base
+(the squash is fast-forward-equivalent), there is no semantic-conflict window — but
+that is a property of *`main` having stayed still*, not something the green checks
+prove. If `main` **has** advanced, green-on-head is **not** green-on-merge-result;
+rebase and re-verify rather than trusting the badge.
+
 ## Open i18n / correctness items (recorded so they are not lost)
 
 Discovered across the #76 → #78 work. None is fixed; each is listed with the
@@ -717,6 +747,130 @@ handling it actually needs.
       copy). **The backend `message` field itself is ugly but harmless while unread —
       no API change was made.** If the API is ever cleaned up, drop the upsell
       sentence from that field rather than relying on the client to ignore it.
+- [x] **The account-delete path had NO translation layer at all — FIXED (PR #96,
+      merged `7a2cfe3f`).** Found during the D8b modal mapping pass. Same class as the
+      upload-enum leak above, on the *other* service — and the constraint above now
+      applies to **both** paths.
+    - **The bug, stated correctly.** It is **not** *"a rare 409 shows English to Arabic
+      users"* — that was the framing, and it is the *least* likely case.
+      `accountService.ts:19` threw `data.message || data.error` (**prose FIRST**, the
+      inverse of `uploadService.ts:23`), and `DeleteAccountModal.tsx:45` stored that
+      **display text** in state and rendered it verbatim. So **every** failure of
+      `DELETE /api/account` rendered raw English in every locale.
+    - **Seven failure shapes reach the render site, not two.** `CONFIRMATION_REQUIRED`
+      (400, `accountController.ts:38-41`), `SHARED_WORKSPACE` (409, `:69-73`),
+      `RATE_LIMITED` (429, `rateLimits.ts:8-11`, `:63-70`) — and then **four with no
+      machine code at all**: `authMiddleware.ts:114` / `:130`, `errorHandler.ts:16` /
+      `:48`, plus a **non-HTTP** `TypeError('Failed to fetch')` from the unguarded
+      `fetch`. On mobile, a dropped connection beats every other row.
+    - **⚠️ The whitelist is load-bearing; the precedence flip alone was INSUFFICIENT.**
+      The original recommendation (`docs/D8B_MODAL_MIGRATION_MAP.md` §7.2) was to flip
+      to `data.error || data.message`. **That is wrong** — it assumes `data.error` is
+      always a machine code. **It is not:** `errorHandler.ts:48` puts
+      `'Internal Server Error'` and `authMiddleware.ts:130` puts
+      `'Unauthorized: Invalid or expired token'` **into `data.error`, with no `message`
+      field to prefer instead**. A flip alone fixes the rarest failure (the 409) and
+      leaks on every 500, every expired token and every dropped connection. The fix is
+      **`lib/accountErrors.ts` → `translateAccountError(code, s)`**: a **whitelist with
+      a translated fallback**, mirroring `uploadErrors.ts`. Anything unrecognised —
+      prose, future enums, network faults, empty bodies — falls through to the existing
+      `deleteAccountError`. **It never returns its input.** The flip still shipped, but
+      to avoid *losing* information (so `SHARED_WORKSPACE` reaches the map as a code),
+      not to make the fix safe. `data.message` was dropped from the chain **entirely**:
+      `data.error || 'DELETE_FAILED'`.
+    - **⚠️ The `fetch` try/catch boundary is deliberate — do not widen it.** It wraps
+      **only the `fetch` call**, not the method body. Wrapping the body would swallow
+      the `!res.ok` throw beneath it and **collapse every HTTP error into
+      `NETWORK_ERROR`**, destroying the very code mapping the PR exists to build —
+      `SHARED_WORKSPACE` would silently become generic copy. A comment at
+      `accountService.ts` records this; it is a real trap for a future "tidy-up".
+    - **Shape:** raw code in state, translated at the render site — the same idiom as
+      `UploadModal.tsx:155` → `:335`. 3 new keys × en/fr/ar
+      (`deleteAccountSharedWorkspace`, `deleteAccountRateLimited`,
+      `deleteAccountConfirmRequired`); the fallback reuses the **existing**
+      `deleteAccountError`. Codes #4-#7 get **no key by design** — a 500 has nothing
+      useful or non-alarming to say, and `errorHandler.ts:44-49` already returns an
+      `errorId` for support to trace.
+    - **Coverage: this path had ZERO tests before #96** — no test, frontend or backend,
+      exercised account deletion at all. The three suites mounting `SettingsScreen`
+      mount the modal **closed** (`DeleteAccountModal.tsx:26` returns `null` when
+      `!isOpen`). `tests/accountErrorI18n.test.tsx` is the first. Its centrepiece is the
+      **negative control** (the `uploadErrorI18n.test.tsx:110-114` precedent): each
+      backend English string, handed to the helper **verbatim**, must come back as
+      translated generic copy — **which holds even if someone later flips the precedence
+      back**. **Mutation-verified:** reverting the render site to `{error}` fails 7 of
+      the DOM tests.
+    - **No anti-steering guard touched.** `DeleteAccountModal` has no `plan` prop, no
+      paywall, no upload, no `isNativePlatform()` branch. The whitelist is *strictly
+      protective*: it makes it structurally impossible for backend upsell prose to reach
+      the native DOM on this path — the same protection `uploadErrors.ts:16-25` gives
+      the upload path.
+- [ ] **`deleteAccountSubscriptionWarning` renders inside the native shell and is
+      covered by NO anti-steering test — deferred to the D8b restyle PR for a
+      decision.** Flagged by the D8b mapping pass; **deliberately NOT touched in PR #96**
+      (that PR was bug-fix only). `strings.ts:178` names **"the App Store or Google
+      Play, and web subscriptions via the billing portal"** and renders at
+      `DeleteAccountModal.tsx:90` (`:93` post-#96 — the amber notice), i.e. **inside the
+      native app**. **This is not a known defect:** it is **required cancellation
+      disclosure**, it contains **no price and no purchase CTA**, and naming the billing
+      portal as one of several cancellation routes is not steering to a payment flow.
+      **The gap is coverage, not conduct** — `nativeAntiSteering.test.tsx` does not cover
+      `DeleteAccountModal` **at all**, so nothing would catch it if this copy later
+      drifted toward a CTA. **Decide during the restyle:** either accept it and add a
+      guard pinning the absence of price/CTA, or reword. **Do not silently drop the
+      disclosure** — deletion genuinely does not cancel billing, and users must be told.
+- [ ] **D8b colour finding: the three modals are literally the WRONG HUE — the
+      strongest single justification for D8b.** `tailwind.config.cjs:15` states the
+      `--sa` token colours are **ADDITIVE** and deliberately **do not shadow** Tailwind's
+      built-in palette, and **`designTokens.test.ts:52-58` LOCKS that in**, asserting
+      `blue`/`slate`/`gray`/`amber`/`emerald`/`rose`/`red` are all `undefined` in the
+      theme extension. **Therefore `bg-blue-600` in these modals renders literal
+      Tailwind blue `#2563EB`, while the app's actual accent is indigo
+      `--sa-accent: #635BFF`** (`tokens.css:22`, locked by `designTokens.test.ts:27`).
+      The primary CTAs — `UploadModal.tsx:245` (Scan with Camera),
+      `CaptureSheet.tsx:169` (Take Photo) and `:244` (Extract) — are **visibly a
+      different colour from every restyled screen in the app**. This is a **live visual
+      bug**, not a cleanliness issue. All three modals use **zero** `--sa` token
+      utilities today. **Corollary:** because the tokens are additive by design, a
+      token-only sweep can never fix this implicitly — each literal must be migrated by
+      hand, and **CI will not fail on any of them**.
+- [ ] **D8b implementation order — CONFIRMED: `DeleteAccountModal` (restyle) →
+      `CaptureSheet` → `isMultiDoc` cleanup (its own commit) → `UploadModal`.**
+      Reasoning, in one line: **the modal vocabulary does not exist yet and must be
+      invented on the smallest, guard-free modal, while silent-regression risk is
+      concentrated in `UploadModal`, so it goes last.** Expanded:
+    - **`DeleteAccountModal` first** — the D-series has restyled five *screens* and
+      **zero modals**, so the vocabulary (overlay, sheet vs. centered panel, header,
+      footer button pair, the undocumented z-index ladder) has to be invented
+      somewhere; invent it where there is least to lose. 146 lines, three state vars,
+      **no `plan` prop, no upload, no paywall, zero anti-steering guards, zero Class-B
+      truncation exposure**. Blast radius if botched is contained ("a user cannot delete
+      their account") with **no Play-policy exposure**. Its bug-fix half already shipped
+      separately as **PR #96**, so the restyle PR is now purely visual.
+    - **`CaptureSheet` second** — validates the new vocabulary against the *bottom-sheet*
+      variant (two portals) and the **native back-button contract** (`useBackDismiss` ×2),
+      neither of which `UploadModal` exercises. One guard (G3), one Class-B site
+      (`:225`). Its `isMultiDoc` removal is the **clean** one (see TRAP 1 above), making
+      it the right place to prove the cleanup pattern before applying it where it bites.
+    - **The cleanup as its own commit, in the middle** — it is a **behavioural** change,
+      not a restyle, and it **deletes a currently-green test**. Buried in a ~120-literal
+      restyle diff that deletion is invisible and reads like someone dropping an
+      inconvenient failure. Standalone, citing `82e2697`, it is self-evidently correct.
+      Landing it *before* the `UploadModal` restyle also means that restyle never has to
+      reason about the dead branch at all.
+    - **`UploadModal` last** — worst on every axis at once: 442 lines, 8 state vars,
+      ~120 raw literals, 9 × `font-black`, 6 legacy `btn-*`, 19 untranslated strings,
+      **two** anti-steering guards, **the** `freePlanSingleDoc` live-vs-dead trap, and
+      two test queries that break the moment its copy is translated
+      (`nativeAntiSteering.test.tsx:356`, `uploadGating.test.tsx:110` locate the submit
+      button by the literal `'Start Extraction (1)'` — switch them to `data-testid`
+      **before** touching that copy).
+    - **The counter-argument, rejected:** *"do the hardest first while context is
+      freshest"* is the usual instinct and it is wrong here. The binding constraint is
+      **not effort — it is the risk of a silent anti-steering regression, and that risk
+      lives entirely in `UploadModal`.** Front-loading it maximises exposure at exactly
+      the moment the team has the least settled idea of what a restyled modal looks
+      like, and guarantees the compliance-critical guards get rewritten twice.
 - [ ] **Dead branch: the `isMultiDoc` comparison in `UploadModal` / `CaptureSheet`.**
       Both compare the error against the literal
       `'Please upload a single document per image'`, **which the backend never
@@ -730,6 +884,40 @@ handling it actually needs.
       **Note the identical string IS still used, legitimately, by the client-side
       multi-file guard** (`UploadModal.tsx:61`, more than one file per batch) — that
       path is live and must not be broken by any cleanup here.
+    - **Strengthened by the D8b mapping pass (2026-07-16), re-verified at `7a2cfe3f`.**
+      The decision above is now made: **remove it**, as its own commit, landing
+      between the CaptureSheet and UploadModal restyles (see the D8b order below).
+      The evidence is stronger than "the backend never emits it" — **the server
+      architecturally CANNOT emit it.** `uploadController.ts:85` returns **202 and
+      sends the response**, then `:93` fires `processUploadAsync` in `setImmediate`;
+      inside it, `ingestionService.ts:37-45` (full path:
+      `apps/backend/src/services/ingestion/ingestionService.ts`) validates and, on
+      failure, calls `markAsNeedsReview` and **returns — it does not throw to the
+      client**, which has already been told the upload succeeded. It died in commit
+      **`82e2697`** *"Moved single-document validation from synchronous upload to async
+      background processing"* (2026-03-28). Repo-wide, the prose string now appears in
+      exactly **three** places, all frontend: `UploadModal.tsx:158`,
+      `CaptureSheet.tsx:94`, `uploadGating.test.tsx:117`. **Zero backend occurrences.**
+    - **TRAP 1 — the "unused" key is LIVE, and `s.freePlanSingleDoc` has two different
+      reachabilities.** `UploadModal.tsx:64` is **LIVE** (the multi-file batch guard,
+      covered by `nativeAntiSteering.test.tsx:339`); `UploadModal.tsx:162` is **DEAD**
+      (the `: s.freePlanSingleDoc` ternary arm). In `CaptureSheet.tsx:100` it is
+      **DEAD and the file's only use** — so the collapse `(isLimit || isMultiDoc)` →
+      `isLimit` is total and clean there, but in `UploadModal` **the key must survive**.
+      The obvious follow-up move — *"this string is now unused, delete the key"* —
+      **silently breaks a tested native-compliance path.** Keep the key in `strings.ts`.
+    - **TRAP 2 — a green test pins the dead code and will go red on removal.**
+      `uploadGating.test.tsx:116-125` (*"GATE 2: the multi-document validation error
+      also paywalls non-PRO users"*) mocks `uploadDocument` to reject with the dead
+      prose (`:117`) and asserts the paywall opens (`:124`). **It passes today while
+      testing a path production cannot produce** — a false-green. On removal it fails,
+      and **the failure will look like a paywall regression**. Delete it in the *same*
+      commit, citing `82e2697`. The risk of not doing so is that whoever sees it red
+      "fixes" it by restoring the branch, or worse, loosens the guard.
+    - **Also unprotected:** all three anti-steering tests drive the **`isLimit` arm
+      only** (`nativeAntiSteering.test.tsx:339`, `:351`, `:372`, `:464`). **No test
+      exercises the `isMultiDoc` arm** — so the dead branch is not merely unreachable,
+      it is untested. Another reason to delete rather than restyle around it.
 - [ ] **Short Latin filenames in the Arabic UI align LEFT, floating away from their
       row icon (cosmetic, low priority).** Observed on the **Review Queue** and
       **Document Detail** during the **PR #91** browser review: a short Latin name
@@ -817,11 +1005,33 @@ handling it actually needs.
       Latin filename from its leading end in Arabic). These files still carry the raw
       `slate-*` palette and are awaiting D6/D8, so the `dir="auto"` fix should ride
       that restyle rather than a token-only sweep: **`ProcessingTray.tsx:97`**
-      (`job.fileName`), **`CaptureSheet.tsx:221`** (`file.name`),
-      **`UploadModal.tsx:310`** (file name), **`SettingsScreen.tsx:68`** (user email),
+      (`job.fileName`), **`CaptureSheet.tsx:225`** (`file.name`),
+      **`UploadModal.tsx:315`** (file name), **`SettingsScreen.tsx:68`** (user email),
       **`SharedComponents.tsx:77`** (grouped query label). The app-wide guard does
       **not** catch these (it is Class-A only), so they will not fail CI — they must
       be fixed by hand when their screen is restyled.
+      **Line numbers corrected 2026-07-16** (D8b mapping pass, re-verified at
+      `7a2cfe3f`): `CaptureSheet` is **`:225`** not `:221`, and `UploadModal` is
+      **`:315`** not `:310`. The five sites themselves are all re-confirmed live.
+      **Within the three D8b modals, `:315` and `:225` are the ONLY two** — they are
+      the sole `truncate` occurrences in those files, and **`DeleteAccountModal` has
+      no `truncate` at all**, so it carries zero Class-B exposure (its only `dir` is
+      the correct `dir="ltr"` on the email input). The other three sites above live
+      outside D8b's scope and are **not** superseded by that count.
+- [ ] **Arabic copy for the three new PR #96 keys is verified at CODE-POINT level
+      only — needs a human eyeball in the Arabic UI during the D8b restyle PR.**
+      (Owner: **@tornidomaroc-web** — this one is a human task, not an agent task.)
+      `deleteAccountSharedWorkspace`, `deleteAccountRateLimited` and
+      `deleteAccountConfirmRequired` were checked by dumping their Unicode code points:
+      all three are **Arabic block `U+0600-06FF` only, zero Latin letters, no
+      bidi/zero-width control characters**, and each key appears exactly 3× in
+      `strings.ts` (en/fr/ar parity). **That is the limit of what was proven.** Code
+      points do **not** prove the copy **reads naturally** to a native speaker, nor that
+      it **lays out correctly RTL** in the modal. `renderScreens.test.tsx:167-171` proves
+      only that the **keys exist**. Same standing lesson as the D5 Arabic review, which
+      found a real RTL defect that green CI, the Vercel preview and jsdom **all missed**:
+      **green CI is not evidence of Arabic correctness.** The restyle PR already puts a
+      reviewer in this exact modal — check the three error strings then.
 - [ ] **Two hardcoded English strings leak into the AR/FR sidebar** (seen during the
       D5 Arabic review; **out of scope for PR #90** — the sidebar restyle is its own
       deferred item). **`Sidebar.tsx:107`** renders a bare **`New Scan`** and
