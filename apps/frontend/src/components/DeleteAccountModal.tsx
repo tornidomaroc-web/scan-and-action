@@ -4,6 +4,7 @@ import { AlertTriangle, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useStrings } from '../i18n/useStrings';
 import { accountService } from '../services/accountService';
+import { translateAccountError } from '../lib/accountErrors';
 import { useBackDismiss } from '../native/useBackDismiss';
 
 interface DeleteAccountModalProps {
@@ -18,6 +19,8 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
   const { user, signOut } = useAuth();
   const [confirmText, setConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  // Holds the RAW error code, not display text — translated at the render site
+  // below, mirroring UploadModal (:155 raw -> :335 translated).
   const [error, setError] = useState<string | null>(null);
 
   // Mirror PaywallModal: let the native hardware back button dismiss the modal.
@@ -42,7 +45,9 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
       await signOut().catch(() => {});
       onDeleted();
     } catch (err: any) {
-      setError(err?.message || s.deleteAccountError);
+      // Raw code in, raw code stored. translateAccountError absorbs anything
+      // that is not a known code, so nothing the server said can reach the DOM.
+      setError(err?.message || 'DELETE_FAILED');
       setIsDeleting(false);
     }
   };
@@ -112,7 +117,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
 
           {error && (
             <p role="alert" className="text-red-600 dark:text-red-400 font-bold text-sm">
-              {error}
+              {translateAccountError(error, s)}
             </p>
           )}
 
