@@ -91,13 +91,12 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
       // renders the backend `message` field — see that module's header).
       const errorCode = err.message || '';
       const isLimit = errorCode === 'LIMIT_REACHED';
-      const isMultiDoc = errorCode === 'Please upload a single document per image';
 
-      if ((isLimit || isMultiDoc) && plan !== 'PRO') {
+      if (isLimit && plan !== 'PRO') {
         if (isNativePlatform()) {
           // Native: pure status, NO upsell/paywall (anti-steering). Show a neutral
           // limit message instead of the raw error code or a "Go PRO" prompt.
-          showToast(isLimit ? s.freePlanLimitReached : s.freePlanSingleDoc, 'info');
+          showToast(s.freePlanLimitReached, 'info');
         } else {
           // Web: legitimate sell surface — surface the error and open the paywall.
           showToast(`${file.name}: ${translateUploadError(errorCode, s)}`, 'error');

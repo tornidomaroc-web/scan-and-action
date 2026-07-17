@@ -113,16 +113,18 @@ describe('UploadModal — money path (gating + paywall trigger)', () => {
     await vi.waitFor(() => expect(document.body.textContent).toContain(PAYWALL_MARKER));
   });
 
-  it('GATE 2: the multi-document validation error also paywalls non-PRO users', async () => {
-    (uploadDocument as any).mockRejectedValue(new Error('Please upload a single document per image'));
-    mountModal('FREE');
-    addFilesToInput([photo('a.jpg')]);
-
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Start Extraction (1)'));
-    click([...document.body.querySelectorAll('button')].find((b) => b.textContent?.includes('Start Extraction'))!);
-
-    await vi.waitFor(() => expect(document.body.textContent).toContain(PAYWALL_MARKER));
-  });
+  // NOTE (removed 2026-07-17, commit for the isMultiDoc dead-branch cleanup):
+  // A "GATE 2: the multi-document validation error also paywalls non-PRO users"
+  // test lived here. It mocked uploadDocument to reject with
+  // 'Please upload a single document per image' and asserted the paywall opened.
+  // That rejection is production-impossible: since 82e2697 ("Moved single-document
+  // validation from synchronous upload to async background processing"),
+  // uploadController.ts:85 returns 202 BEFORE the check, and
+  // ingestionService.ts:39-45 marks the doc NEEDS_REVIEW without throwing to the
+  // client — so the awaited upload never rejects with that string. The test was
+  // green while pinning dead client code; it was deleted with that code. The REAL
+  // behaviour (isSingleDocument === false -> markAsNeedsReview, no throw) is now
+  // pinned by a BACKEND test: apps/backend/tests/ingestionMultiDoc.test.ts.
 
   it('GATE 2: PRO users see the error but never the paywall', async () => {
     (uploadDocument as any).mockRejectedValue(new Error('LIMIT_REACHED'));

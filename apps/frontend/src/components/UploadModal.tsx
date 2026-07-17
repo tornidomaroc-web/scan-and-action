@@ -155,11 +155,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
           setFileErrors(prev => ({ ...prev, [currentFile.name]: errorCode }));
 
           const isLimit = errorCode === 'LIMIT_REACHED';
-          const isMultiDoc = errorCode === 'Please upload a single document per image';
-          if ((isLimit || isMultiDoc) && plan !== 'PRO') {
+          if (isLimit && plan !== 'PRO') {
             if (isNativePlatform()) {
               // Native: pure status, NO upsell/paywall (anti-steering).
-              showToast(isLimit ? s.freePlanLimitReached : s.freePlanSingleDoc, 'info');
+              showToast(s.freePlanLimitReached, 'info');
             } else {
               // Web: legitimate sell surface — surface the error and open the paywall.
               showToast(`${currentFile.name}: ${translateUploadError(errorCode, s)}`, 'error');
