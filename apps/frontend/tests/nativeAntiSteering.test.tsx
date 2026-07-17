@@ -59,6 +59,11 @@ vi.mock('../src/lib/supabase', () => ({ supabase: { auth: {} } }));
 // timer is never created — these tests need no fake timers.
 vi.mock('../src/services/uploadService', () => ({ uploadDocument: vi.fn() }));
 vi.mock('../src/lib/imagePreprocess', () => ({ preprocessImage: vi.fn(async (f: File) => f) }));
+// DeleteAccountModal's only network call. Never invoked by the anti-steering
+// tests below (they assert on the idle modal), but it must not hit real fetch.
+vi.mock('../src/services/accountService', () => ({
+  accountService: { deleteAccount: vi.fn() },
+}));
 vi.mock('../src/services/documentService', () => ({
   documentService: { getStats: vi.fn(), getDocumentDetail: vi.fn(), getRecentActivity: vi.fn(), getAllActivity: vi.fn() },
 }));
@@ -483,5 +488,109 @@ describe('NATIVE anti-steering invariant — CaptureSheet limit guard', () => {
     );
     expectSilentNative(strings.en.freePlanLimitReached);
     expect(document.body.textContent).not.toContain('LIMIT_REACHED');
+  });
+});
+
+// ============================================================================
+// THIRD LAYER: DeleteAccountModal (SettingsScreen.tsx:268) — previously covered
+// by NOTHING in this file.
+// ============================================================================
+// This modal renders inside the native shell and contains the required
+// cancellation disclosure (`deleteAccountSubscriptionWarning`, strings.ts:178),
+// which names "the App Store or Google Play, and web subscriptions via the
+// billing portal".
+//
+// Auditing it against the same contract as every other native surface: it holds
+// NO price, NO purchase CTA and NO link. Its only imperative is *cancel*. Naming
+// the billing portal as a CANCELLATION route is the opposite of steering — and
+// it is load-bearing: a native user can hold a WEB subscription (subscribed on
+// web, then installed the app), and a Play subscription can only be cancelled
+// through Play. Omitting either route would leave users unable to stop charges.
+//
+// So these tests lock BOTH directions, and the second one matters more:
+//
+//   (a) nothing here steers      — no price, no CTA, paywall never opens, Paddle
+//                                  SDK never touched.
+//   (b) the disclosure REMAINS   — the realistic failure is not someone adding an
+//                                  upsell; it is someone deleting an "ugly amber
+//                                  box" during the D8b restyle. Nothing else in
+//                                  the suite would catch that.
+//
+// (b) is why this block asserts PRESENCE, not just absence. A silent-app test
+// that only checks for absence would pass on an empty modal.
+// ============================================================================
+describe('NATIVE anti-steering invariant — DeleteAccountModal (cancellation disclosure)', () => {
+  const mountDelete = async (lang: 'en' | 'fr' | 'ar') => {
+    localStorage.setItem('lang', lang);
+    const { DeleteAccountModal } = await import('../src/components/DeleteAccountModal');
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    flushSync(() => {
+      root.render(
+        <LanguageProvider>
+          <DeleteAccountModal isOpen onClose={() => {}} onDeleted={() => {}} />
+        </LanguageProvider>
+      );
+    });
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+  afterEach(cleanup);
+
+  // ── (a) Nothing steers.
+  for (const lang of ['en', 'fr', 'ar'] as const) {
+    it(`${lang.toUpperCase()}: renders NO price, NO checkout CTA, and never touches the Paddle SDK`, async () => {
+      await mountDelete(lang);
+      const text = document.body.textContent ?? '';
+
+      expect(text).not.toMatch(PRICE_REGEX);
+      for (const cta of FORBIDDEN_CTA) expect(text).not.toContain(cta);
+      // The paywall must not be mounted from this modal at all.
+      expect(text).not.toContain(strings.en.proComingSoonTitle);
+      expect(text).not.toContain(PAYWALL_WEB_MARKER);
+      expect(h.getPaddle).not.toHaveBeenCalled();
+      expect(h.checkoutOpen).not.toHaveBeenCalled();
+      // No outbound link of any kind — the disclosure names routes, never links to them.
+      expect(container.querySelector('a[href]')).toBeNull();
+    });
+  }
+
+  // ── (b) The disclosure survives. THIS is the assertion that earns its keep.
+  for (const lang of ['en', 'fr', 'ar'] as const) {
+    it(`${lang.toUpperCase()}: the required cancellation disclosure is still PRESENT`, async () => {
+      await mountDelete(lang);
+      expect(
+        document.body.textContent,
+        'deleteAccountSubscriptionWarning must render: deleting an account does NOT cancel billing, ' +
+          'and users must be told where to cancel. Do not remove this during a restyle.'
+      ).toContain(strings[lang].deleteAccountSubscriptionWarning);
+    });
+  }
+
+  // The Arabic disclosure is verified by CODE POINT, not by regex on a
+  // transliterated substring: a probe like /اشتر/ matches اشتراك ("subscription",
+  // a noun) as well as اشترِ ("buy", an imperative), and would report a purchase
+  // CTA that is not there. Assert on the script itself and on the actual verbs.
+  it('AR: the disclosure is genuine Arabic script and carries a CANCEL imperative, not a BUY one', async () => {
+    await mountDelete('ar');
+    const copy = strings.ar.deleteAccountSubscriptionWarning;
+    expect(document.body.textContent).toContain(copy);
+
+    const points = [...copy].map((c) => c.codePointAt(0)!);
+    const arabicBlock = points.filter((p) => p >= 0x0600 && p <= 0x06ff).length;
+    expect(arabicBlock, 'must be real Arabic, not English left in place').toBeGreaterThan(80);
+    // No bidi/zero-width control characters smuggled into the copy.
+    expect(points.some((p) => (p >= 0x200b && p <= 0x200f) || (p >= 0x202a && p <= 0x202e) || p === 0xfeff)).toBe(false);
+    // The only Latin permitted is the untranslated store brand names.
+    expect([...copy].filter((c) => /[A-Za-z]/.test(c)).join('')).toBe('AppStoreGooglePlay');
+
+    // Verbs: cancel yes, buy/upgrade no.
+    expect(copy).toMatch(/ألغِ/);                 // "cancel" (imperative)
+    expect(copy).not.toMatch(/اشترِ|اشتري|ابتع/); // "buy" (imperative) — absent
+    expect(copy).not.toMatch(/ترقية|ترقّ/);        // "upgrade" — absent
   });
 });

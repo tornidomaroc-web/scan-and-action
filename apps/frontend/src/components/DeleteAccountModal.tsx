@@ -54,30 +54,38 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[11000] flex justify-center items-end sm:items-center bg-slate-900/60 backdrop-blur-md p-0 sm:p-4 animate-in fade-in duration-300"
+      className="fixed inset-0 z-modal-top flex justify-center items-end sm:items-center bg-overlay backdrop-blur-md p-0 sm:p-4 animate-in fade-in duration-300"
       onClick={isDeleting ? undefined : onClose}
     >
       <div
-        className="w-full max-w-[480px] bg-white dark:bg-slate-900 rounded-t-[32px] sm:rounded-[32px] shadow-2xl overflow-y-auto max-h-[92vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 border border-slate-200 dark:border-slate-800"
+        className="w-full max-w-[480px] bg-surface-raised rounded-t-card sm:rounded-card shadow-lg overflow-y-auto max-h-[92vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 border border-line"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={s.deleteAccountWarningTitle}
       >
-        <div className="bg-red-600 p-6 sm:p-8 text-center relative overflow-hidden">
-          <div className="relative z-10">
-            <div className="w-16 h-16 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner border border-white/30">
-              <AlertTriangle size={32} className="text-white" />
-            </div>
-            <h2 className="text-2xl font-black text-white tracking-tight uppercase italic">
-              {s.deleteAccountWarningTitle}
-            </h2>
+        {/*
+          Destructive header on the QUIET danger idiom (ErrorState.tsx:17-21):
+          danger-tint surface + danger/30 border + danger/15 icon tile +
+          danger-text heading. NOT `bg-danger` behind `text-white` — --sa-danger
+          is a semantic text/icon token that flips to a LIGHT red in dark mode
+          (tokens.css:133 -> #F87171), so a white-on-danger fill computes to
+          3.86:1 light / 2.77:1 dark, FAILING WCAG AA against the previous
+          bg-red-600 (4.83:1). This treatment measures 5.17:1 light / 6.97:1
+          dark. d8bModalRestyle.test.tsx locks the trap closed.
+        */}
+        <div className="bg-danger-tint border-b border-danger/30 p-6 sm:p-8 text-center relative">
+          <div className="w-16 h-16 bg-danger/15 text-danger rounded-btn flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle size={32} />
           </div>
+          <h2 className="text-title-lg font-semibold text-danger-text tracking-tight">
+            {s.deleteAccountWarningTitle}
+          </h2>
           {!isDeleting && (
             <button
               onClick={onClose}
               aria-label={s.deleteAccountCancel}
-              className="absolute top-2 right-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/60 hover:text-white rounded-full hover:bg-white/10 transition-all"
+              className="absolute top-2 end-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-ink-muted hover:text-ink rounded-pill hover:bg-surface-muted transition-all"
             >
               <X size={20} />
             </button>
@@ -85,19 +93,33 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
         </div>
 
         <div className="p-5 sm:p-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-8 space-y-5">
-          <p className="text-slate-600 dark:text-slate-400 font-bold leading-relaxed">
+          <p className="text-sm leading-relaxed text-ink-secondary">
             {s.deleteAccountWarningBody}
           </p>
 
-          {/* Store-subscription warning — required: deletion does not cancel billing. */}
-          <div className="bg-amber-50 dark:bg-amber-900/10 border-l-4 border-amber-400 p-4 rounded-r-2xl">
-            <p className="text-amber-700 dark:text-amber-500 font-bold text-sm leading-relaxed">
+          {/*
+            Store-subscription warning — REQUIRED: deletion does not cancel
+            billing, and users must be told where to cancel. Guarded in BOTH
+            directions by nativeAntiSteering.test.tsx (it must not steer, and it
+            must not disappear). Do not remove it in a restyle.
+
+            The accent bar is LOGICAL (border-s-4 / rounded-e-card, the
+            SearchScreen.tsx:204 idiom): as `border-l-4 ... rounded-r-2xl` it
+            pinned to the physical left and landed on the TRAILING edge in
+            Arabic — on the one element that is a compliance disclosure.
+
+            Body copy is `text-ink-secondary`, per ClarificationCard.tsx:16 —
+            NOT `text-warning-text`, which measures only 3.61:1 on the warning
+            tint and would REGRESS today's 4.84:1. This reads 5.22:1 / 7.80:1.
+          */}
+          <div className="bg-warning-tint border-s-4 border-warning p-4 rounded-e-card">
+            <p className="text-sm leading-relaxed text-ink-secondary">
               {s.deleteAccountSubscriptionWarning}
             </p>
           </div>
 
           <div>
-            <label htmlFor="delete-confirm" className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-2">
+            <label htmlFor="delete-confirm" className="block text-label font-semibold text-ink-tertiary mb-2">
               {s.deleteAccountConfirmLabel}
             </label>
             <input
@@ -111,28 +133,37 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder={email}
               disabled={isDeleting}
-              className="w-full min-h-[44px] px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-bold focus:outline-none focus:border-red-500 disabled:opacity-60"
+              className="w-full min-h-[44px] px-4 py-3 rounded-btn border border-line bg-surface text-ink font-medium focus:outline-none focus:border-danger disabled:opacity-60"
             />
           </div>
 
           {error && (
-            <p role="alert" className="text-red-600 dark:text-red-400 font-bold text-sm">
+            <p role="alert" className="text-sm font-medium text-danger-text">
               {translateAccountError(error, s)}
             </p>
           )}
 
           <div className="space-y-3">
+            {/*
+              Destructive primary. Tinted fill + danger border + danger-text
+              (5.17:1 light / 6.97:1 dark), not a saturated fill: there is no
+              on-danger token, and `bg-danger` + `text-white` measures 2.77:1 in
+              dark. A saturated destructive button would need a sourced
+              --sa-danger-solid/--sa-on-danger pair — a design decision, not a
+              restyle one. `bg-accent` (4.70:1) is the only safe solid fill, but
+              indigo would strip the danger signal from an irreversible action.
+            */}
             <button
               onClick={handleDelete}
               disabled={!canDelete || isDeleting}
-              className="w-full min-h-[44px] bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-red-500/20 active:scale-[0.98] transition-all"
+              className="w-full min-h-[44px] border border-danger bg-danger-tint text-danger-text hover:bg-danger/15 disabled:opacity-50 disabled:cursor-not-allowed py-4 rounded-btn font-semibold shadow-card active:scale-[0.98] transition-all"
             >
               {isDeleting ? s.deleteAccountDeleting : s.deleteAccountConfirmButton}
             </button>
             {!isDeleting && (
               <button
                 onClick={onClose}
-                className="w-full min-h-[44px] text-slate-500 dark:text-slate-400 py-3 rounded-2xl font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                className="w-full min-h-[44px] text-ink-tertiary py-3 rounded-btn font-medium hover:bg-surface-muted transition-all"
               >
                 {s.deleteAccountCancel}
               </button>
