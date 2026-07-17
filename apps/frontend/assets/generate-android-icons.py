@@ -33,9 +33,10 @@ Geometry decisions (see docs/ICON_MASTER_REBUILD.md for the measurements):
 
   splash:
       mark only (no gradient plate) on #0f172a -- the backgroundColor already
-      declared in capacitor.config.ts. Master side = 45% of the canvas's shorter
-      edge, centred, so the logo is the same physical size in portrait and
-      landscape at every density.
+      declared in capacitor.config.ts. The master square is scaled to a fraction of
+      the canvas's SHORTER edge and centred, so the logo is the same physical size
+      in portrait and landscape at every density.
+      See SPLASH_MASTER_SCALE for the sizing and how it maps to "% of screen width".
 """
 import io, os, re, sys
 from PIL import Image, ImageDraw
@@ -55,6 +56,17 @@ BG_ONLY = re.sub(r'<g id="mark">.*?\n  </g>', "", SRC, flags=re.S)
 
 SPLASH_NAVY = "#0f172a"          # must equal capacitor.config.ts SplashScreen.backgroundColor
 MASTER_SIZE = 512.0
+
+# Splash sizing. This is the master SQUARE's side as a fraction of the canvas's
+# shorter edge -- it is NOT the mark's apparent size, because the mark's ink only
+# spans 366 of the master's 512px. To convert:
+#     ink width as % of portrait screen width = SPLASH_MASTER_SCALE * 366/512
+# 0.5875 -> 42.0% (the approved size). The previous 0.45 gave 32.2%.
+# Purely aesthetic: no density clips at this value (the tightest, port-mdpi
+# 320x480, still leaves ~93px of horizontal margin), and generate-android-icons
+# re-verifies margins on every run.
+SPLASH_MASTER_SCALE = 0.5875
+MASTER_INK_W = 366.0             # measured ink bbox of the master (x 73..438)
 
 # density -> adaptive layer px (108dp), legacy launcher px (48dp)
 DENSITIES = {"mdpi": (108, 48), "hdpi": (162, 72), "xhdpi": (216, 96),
@@ -146,10 +158,13 @@ def main():
             with Image.open(p) as im:
                 splashes[f"{f}/splash.png"] = im.size
     for rel, (W, H) in splashes.items():
-        side = min(W, H) * 0.45
+        side = min(W, H) * SPLASH_MASTER_SCALE
         sc = side / MASTER_SIZE
         tx = (W - side) / 2.0
         ty = (H - side) / 2.0
+        ink_w = MASTER_INK_W / MASTER_SIZE * side
+        if (W - ink_w) / 2.0 <= 0:
+            raise SystemExit(f"SPLASH_MASTER_SCALE={SPLASH_MASTER_SCALE} clips the mark on {rel} ({W}x{H})")
         plate = Image.new("RGBA", (W, H), SPLASH_NAVY)
         made.append(write(Image.alpha_composite(plate, compose(MARK_ONLY, W, H, sc, tx, ty)),
                           rel, rgb=True))
