@@ -914,6 +914,52 @@ handling it actually needs.
     - **Anti-steering:** no guard touched; `isNativePlatform()` stays the outer decision,
       `setShowPaywall(true)` unreachable on native. `nativeAntiSteering.test.tsx:432-491` still
       green. **Android stays silent.**
+- [x] **D8b — the `isMultiDoc` dead-branch cleanup DONE (behavioural, its own commit — NOT a
+      restyle).** Full decision record: `docs/ISMULTIDOC_DEAD_BRANCH_CLEANUP.md`.
+    - **Product decision made (it never had been): DELETE the client comparison; do NOT make the
+      server emit it.** Two independent reasons. (1) Reviving it means a **synchronous Gemini
+      vision call** in front of every upload's 202 — `ingestionService.ts:18` delegates
+      `validateSingleDocument` to `geminiAdapter.isSingleDocument`, and commit **`82e2697`**
+      ("Moved single-document validation from synchronous upload to async background processing")
+      deliberately moved it OFF the request path. (2) The branch is **semantically wrong**: its
+      message `freePlanSingleDoc` gates on `plan !== 'PRO'` while the server's multi-doc check is
+      **plan-agnostic** (`ingestionService.ts:38-45`, no plan gate), conflating "one **file** per
+      batch" (a real FREE limit, `UploadModal.tsx:64`) with "one **document** per image"
+      (all-plans content detection). Reviving it would ship an incorrect message — a *larger*,
+      product-shaped change than deletion. If explicit multi-doc UX is ever wanted, it is a
+      **separate, correctly-messaged feature**, not a revival.
+    - **Removed:** the `isMultiDoc` declaration + ternary arm in both modals —
+      `CaptureSheet.tsx:94/:96/:100` and `UploadModal.tsx:158/:159/:162` collapse
+      `(isLimit || isMultiDoc)` → `isLimit` and the toast ternary → constant `freePlanLimitReached`.
+      Plus the false-green `uploadGating.test.tsx:116-125`, which mocked a rejection the server
+      cannot produce (a replacement note citing `82e2697` sits in its place so the deletion never
+      reads as a paywall regression).
+    - **KEPT (deleting it would break a tested native path):** the `freePlanSingleDoc` i18n key
+      (`strings.ts:164/:494/:819`) — LIVE at `UploadModal.tsx:64` (the multi-FILE batch guard,
+      asserted by `nativeAntiSteering.test.tsx:344-354`).
+    - **The honest replacement lands in THIS commit, not as a follow-up:** a backend test,
+      `apps/backend/tests/ingestionMultiDoc.test.ts`, pins the REAL behaviour — `isSingleDocument
+      === false` → `markAsNeedsReview` (`ingestionService.ts:41`), extraction aborted, and
+      **never throws to the caller** (the `setImmediate` already sent the 202). That transition
+      was previously untested anywhere; the deleted client test only faked it.
+    - **Verification.** The backend test is **mutation-verified** two ways: inverting the
+      `:39` guard (`!isSingleDoc` → `isSingleDoc`) and neutering the `markAsNeedsReview` call each
+      make it fail; source reverted clean. **Runtime behaviour is provably inert** — case analysis:
+      for `LIMIT_REACHED` the new code is identical, for any other code both old and new fall to
+      the `else`, and the only code where they differ (the prose string) is server-impossible. Empirically
+      confirmed: frontend **tsc clean, 1781 pass** (1782 − the deleted test), all anti-steering +
+      gating suites green; backend **tsc clean, new test passes** (+1 file, zero new failures — the
+      pre-existing 15 CJS-import file failures are unrelated tooling noise, identical on clean main);
+      build clean. **No native user's experience changes** (the removed arm was unreachable).
+    - **Anti-steering intact:** the `isNativePlatform()` gate, the native neutral-toast, and the
+      web-only `setShowPaywall(true)` are byte-for-byte unchanged — only the dead multi-doc term and
+      the now-constant message were removed. **Android stays silent.**
+    - **PR 4 (UploadModal) still remains** — and now inherits a clean `isLimit`-only error path.
+      It carries: the restyle onto tokens; **`formatFileMeta`** extraction (`UploadModal.tsx:319`
+      == `CaptureSheet.tsx:227`, byte-identical, both call sites at once); and the decision on
+      **UploadModal's missing `useBackDismiss`** (land it deliberately with a test, never as a
+      shell side effect). Shell extraction (`ModalShell`/`SheetShell`) is also PR 4+ (three panel
+      geometries; back-dismiss trap — see the PR 3 entry and `D8B_PR3_CAPTURESHEET_RESTYLE.md`).
 - [ ] **⚠️ The restyle contract has HOLES — a green contract does NOT prove a file is
       migrated. Tightened for D8b (PR 2); the older per-screen contracts still carry the
       holes.** `RAW_PALETTE` (`documentDetailRestyle.test.tsx:465-470`) bans `text-*` and
