@@ -949,17 +949,102 @@ handling it actually needs.
       the `else`, and the only code where they differ (the prose string) is server-impossible. Empirically
       confirmed: frontend **tsc clean, 1781 pass** (1782 − the deleted test), all anti-steering +
       gating suites green; backend **tsc clean, new test passes** (+1 file, zero new failures — the
-      pre-existing 15 CJS-import file failures are unrelated tooling noise, identical on clean main);
+      pre-existing 15 local file failures are stale `dist/` compiled test twins, unrelated to this
+      change; root cause now fully diagnosed in **"Backend suite cannot run in full locally"** below);
       build clean. **No native user's experience changes** (the removed arm was unreachable).
     - **Anti-steering intact:** the `isNativePlatform()` gate, the native neutral-toast, and the
       web-only `setShowPaywall(true)` are byte-for-byte unchanged — only the dead multi-doc term and
       the now-constant message were removed. **Android stays silent.**
     - **PR 4 (UploadModal) still remains** — and now inherits a clean `isLimit`-only error path.
-      It carries: the restyle onto tokens; **`formatFileMeta`** extraction (`UploadModal.tsx:319`
-      == `CaptureSheet.tsx:227`, byte-identical, both call sites at once); and the decision on
-      **UploadModal's missing `useBackDismiss`** (land it deliberately with a test, never as a
-      shell side effect). Shell extraction (`ModalShell`/`SheetShell`) is also PR 4+ (three panel
-      geometries; back-dismiss trap — see the PR 3 entry and `D8B_PR3_CAPTURESHEET_RESTYLE.md`).
+      Its three unsettled decisions are recorded in full just below so PR 4 does not relitigate them.
+
+- [ ] **D8b arc status — three of four modal pieces DONE; PR 4 (UploadModal) is the last.**
+    - **#98** — DeleteAccountModal restyle ✅ (the first modal restyle; minted the vocabulary).
+    - **#101** — CaptureSheet restyle ✅ (validated the vocabulary on a bottom-sheet).
+    - **#102** — the `isMultiDoc` dead-branch cleanup ✅ (behavioural; its own commit — see the
+      entry above and `docs/ISMULTIDOC_DEAD_BRANCH_CLEANUP.md`).
+    - **PR 4 — UploadModal restyle (remaining).** It now inherits a clean `isLimit`-only error
+      path (the dead branch is gone). It carries the token restyle **plus three decisions that
+      were deliberately deferred to it, with their reasoning already established:**
+
+      1. **The shared shell (`ModalShell` / `SheetShell`) — deferred TWICE, decide in PR 4.**
+         PR-2 §4.3 proposed extracting it in PR 3. **CORR-1** (appended to
+         `D8B_PR2_DELETE_ACCOUNT_RESTYLE.md`) overrode that on measured geometry: there are
+         **three panel families across four files** — DeleteAccountModal/PaywallModal
+         (`items-end sm:items-center`, centred-hybrid), CaptureSheet (`items-end` only, `w-full` —
+         pure bottom-sheet), UploadModal (`items-center` — pure-centred). A shell built from any
+         one is rewritten by the next. **PR 4 is the point where all geometries are finally in
+         view**, so it is where the abstraction can be designed once — or explicitly declined.
+         Full record: `docs/D8B_PR3_CAPTURESHEET_RESTYLE.md` §3.
+
+      2. **`formatFileMeta` — extract in PR 4, and fix a real Arabic defect, not just dedupe.**
+         The expression is **byte-identical** at `UploadModal.tsx:318` and `CaptureSheet.tsx:226`
+         (the older "~:319 / ~:227" refs are approximate): `{(size/1024/1024).toFixed(2)} MB •
+         {type.split('/')[1]?.toUpperCase() || 'FILE'}`. Deferred so both call sites collapse at
+         once. **But deduplication is not the point — this line is a live RTL/i18n defect:**
+         - **Observed on the Arabic Vercel preview (owner review): the meta line renders with its
+           segments reordered — the number is displaced to the visual end (e.g. "MB • PDF 0.00").**
+           Mechanism, confirmed in source: the `<p>` has **no `dir`** and the string mixes European
+           numbers + Latin (`MB`, `PDF`) with neutrals; in an RTL (Arabic) paragraph the Unicode
+           bidi algorithm reorders those runs. **#101 added `dir="auto"` to the filename `<p>`
+           (`CaptureSheet.tsx:224`) but NOT to the meta `<p>` (`:225-226`)** — the gap is exactly
+           this line.
+         - It is also **unlocalised**: `MB` and the `'FILE'` fallback are hardcoded English, and the
+           number is not locale-grouped (`lib/formatNumber.ts` `formatCount` exists for that).
+         - **So `formatFileMeta(file, s, lang)` must produce a localised, dir-safe string** (a
+           `dir="auto"` wrapper or an explicit LTR-isolated number), not merely a shared expression.
+           Verified dir-less + unlocalised at both `CaptureSheet.tsx:226` and `UploadModal.tsx:318`.
+
+      3. **UploadModal's missing `useBackDismiss` — decide deliberately, with a test.**
+         **UploadModal is the ONLY overlay with no `useBackDismiss` at all** (registrations exist in
+         CaptureSheet ×2, DeleteAccountModal, PaywallModal, ProcessingTray, ProWelcome). On Android,
+         hardware-back does not close it today. A shared shell that *owns* back-dismiss would
+         **silently grant UploadModal that behaviour** on adoption — a behavioural change riding a
+         restyle, the exact anti-pattern the `isMultiDoc` cleanup was split out to avoid. PR 4 must
+         land it **deliberately, with a test**, or not at all — never as a shell side effect.
+         (And any shell's `useBackDismiss` must take the enabled-condition as a prop:
+         DeleteAccountModal passes `isOpen && !isDeleting`, CaptureSheet `!!file && !uploading` — a
+         naive `useBackDismiss(isOpen, onClose)` would destroy those locks.)
+
+- [ ] **⚠️ Backend suite cannot run in full locally — stale `dist/` compiled test twins (pre-existing,
+      NOT introduced by #102). A real local-verification gap; do NOT fix here.**
+      Surfaced while verifying #102. Locally, `npm test` in `apps/backend` reports **15 failed test
+      files** — every one under **`dist/`** (`dist/dto/documentDto.test.js`,
+      `dist/services/email/mailer.test.js`, …), failing with *"Vitest cannot be imported in a
+      CommonJS module using require()."* They are **compiled twins** of the 15 co-located source
+      tests (`src/**/*.test.ts`), which themselves **pass** (e.g. `src/dto/documentDto.test.ts` → 6
+      passing). Root cause chain, each link quoted:
+    - `apps/backend/package.json:8` — `"build": "prisma generate && tsc"`.
+    - `apps/backend/tsconfig.json` — `"outDir": "./dist"` + `"include": ["src/**/*"]`, so `tsc`
+      compiles the co-located `src/**/*.test.ts` **into** `dist/**/*.test.js`.
+    - `apps/backend/package.json:22` — `"type": "commonjs"`, so `tsc` emits CommonJS: the compiled
+      tests do `const vitest_1 = require("vitest")`.
+    - `vitest@4.1.8` (`package.json:44`) with **no `vitest.config.*`** uses its default glob, which
+      matches `dist/**/*.test.js`; vitest 4 refuses to be loaded via `require()` → 15 "Failed Suites
+      (0 test)".
+    - **Why CI stays green:** the CI backend job (`.github/workflows/ci.yml`) runs `npm test`
+      **before** `npm run build`. On a fresh `npm ci` checkout `dist/` does not exist yet, so vitest
+      sees only the source tests. Locally, a prior `npm run build` populated `dist/`, so vitest picks
+      up the stale twins.
+    - **Impact:** a developer cannot run the full backend suite locally without first `rm -rf
+      apps/backend/dist` — otherwise it reports 15 phantom failures. That **blinds local backend
+      verification and pushes all backend confidence onto CI**, which is the real gap to record.
+    - **Secondary defect surfaced:** the production build currently **compiles test files into
+      `dist/`** at all — they should never be in a shipped bundle.
+    - **Fix options (do NOT apply here):** (a) add `vitest.config.ts` excluding `dist/**` (or
+      include-only `['src/**/*.test.ts','tests/**/*.test.ts']`); (b) `tsconfig` `"exclude":
+      ["**/*.test.ts"]` so `dist/` never contains tests — **this also fixes the secondary defect**;
+      (c) clean `dist/` before test. Recommend **(b) + (a)** together. One small PR; needs no product
+      decision.
+
+- [ ] **RE-NOTE (not closing) — the six "PR pending / close on merge" markers are still open.**
+      Six checklist items still carry that pending-close marker (verified count: 6 via
+      `grep -c` of the literal phrase — this re-note is deliberately worded NOT to reproduce that
+      exact phrase, so the grep count stays honest at 6). As argued previously, **closing three of
+      six is worse than closing none** (it fabricates a "half done" state with no evidence which
+      three), so they stay as written until each item's own merge is confirmed. Recorded here so they
+      are not silently forgotten; whoever confirms a merge should tick its specific marker, not a
+      batch.
 - [ ] **⚠️ The restyle contract has HOLES — a green contract does NOT prove a file is
       migrated. Tightened for D8b (PR 2); the older per-screen contracts still carry the
       holes.** `RAW_PALETTE` (`documentDetailRestyle.test.tsx:465-470`) bans `text-*` and
