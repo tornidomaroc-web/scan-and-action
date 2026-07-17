@@ -1,0 +1,99 @@
+<!--
+  Scan & Action app mark - LAYERED VECTOR MASTER
+  ================================================================
+  There is no original vector for this mark; it was produced by an image
+  generator and only ever existed as a flat raster. This file was reconstructed
+  by MEASUREMENT against that raster (ic_launcher-512.jpg / app_icon_512x512.png,
+  md5 6b46ba3b40a8f9b9ffb62816242b3223 - the two are byte-identical) and then
+  numerically fitted to it. It is the master: every launcher/splash asset derives
+  from here. Do not restyle it - the Play rejection was for the on-device mark
+  differing from the store listing, so drift IS the defect.
+
+  Fit vs the reference at 512x512 (see docs/ICON_MASTER_REBUILD.md):
+    mean abs err 1.42/255   RMSE 4.23   98.8% of px within 24/255
+  Residual is edge-localised: the reference is 4:2:0 JPEG with ~3px soft edges,
+  this is sharp vector. That is the reference being lossy, not a shape mismatch.
+
+  STRUCTURE - the two top-level groups are independently renderable:
+    #background  gradient plate (linear, -42.1deg, clamped both ends)
+    #mark        artwork on a TRANSPARENT backdrop  <- this is the whole point:
+                 it is what ic_launcher_foreground cutouts and the splash
+                 overlay on #0f172a are cut from. The flat raster could not
+                 do this (cyan check/beam are unkeyable off the teal gradient).
+
+  MEASURED PARAMETERS (512 master space):
+    gradient axis   -42.10deg, 17 stops sampled from the reference profile
+    doc outline     x 133.06..378.86  y 100.38..411.35
+                    stroke 16.5  corner r 16.56
+    right edge gap  y 227.6..295.9 (butt caps) - the outline is
+                    deliberately BROKEN where the checkmark crosses it
+    fold            apex x 311.62, y 167.88, inner corner r 15.06
+                    45deg diagonal; flap+diagonal enclose a background triangle
+    checkmark       ((361.85, 249.662), (379.11, 267.05), (417.275, 228.231))  stroke 11.53
+    sparkles        large c=(341.39,228.41) R=22.34
+                    small c=(321.112,254.48) R=12.00
+    beam            x 73.5..438.5 y 288.6..296.20000000000005
+                    bloom = vertical-only gaussian, stdDeviation 0 8.0
+                    (the bloom is DESIGN, not an artifact - reproduce it)
+    white #FFFFFF   cyan #8CFCF9  (check and beam share one cyan)
+
+  ADAPTIVE ICON: map this whole 512 canvas onto the central 72dp (288px) of the
+  432x432 foreground -> scale 0.5625, translate 72,72. All ink then sits at
+  max radius 113.4px, inside the 66dp safe circle (r=132). See docs for why the
+  naive 1:1 map (scale 0.84375) clips the document corners.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>Scan &amp; Action app mark</title>
+  <desc>Layered vector master, reconstructed by measurement from the flat 512x512 store icon
+  (md5 6b46ba3b40a8f9b9ffb62816242b3223). No vector original ever existed; this file is it.
+  Groups are separable: #background is the gradient plate, #mark is the artwork on a
+  transparent backdrop and is what the adaptive-icon foreground / splash overlay are cut from.</desc>
+  <defs>
+    <linearGradient id="bgGrad" gradientUnits="userSpaceOnUse"
+                    x1="-254.19" y1="229.68" x2="281.32" y2="-254.19">
+      <stop offset="0" stop-color="#00296C"/>
+      <stop offset="0.062" stop-color="#00296B"/>
+      <stop offset="0.125" stop-color="#00286D"/>
+      <stop offset="0.188" stop-color="#00286C"/>
+      <stop offset="0.25" stop-color="#012B6F"/>
+      <stop offset="0.312" stop-color="#003772"/>
+      <stop offset="0.375" stop-color="#004578"/>
+      <stop offset="0.438" stop-color="#00557D"/>
+      <stop offset="0.5" stop-color="#006784"/>
+      <stop offset="0.562" stop-color="#007A8B"/>
+      <stop offset="0.625" stop-color="#008E90"/>
+      <stop offset="0.688" stop-color="#009F96"/>
+      <stop offset="0.75" stop-color="#00AF9A"/>
+      <stop offset="0.812" stop-color="#00BA9E"/>
+      <stop offset="0.875" stop-color="#00BB9F"/>
+      <stop offset="0.938" stop-color="#00BB9F"/>
+      <stop offset="1" stop-color="#01BCA0"/>
+    </linearGradient>
+    <filter id="beamBloom" x="-5%" y="-1200%" width="110%" height="2500%"
+            color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="0 8.0"/>
+    </filter>
+  </defs>
+  <g id="background">
+    <rect x="0" y="0" width="512" height="512" fill="url(#bgGrad)"/>
+  </g>
+  <g id="mark">
+    <g id="doc" fill="none" stroke="#FFFFFF" stroke-width="16.5"
+       stroke-linecap="butt" stroke-linejoin="round">
+      <path id="doc-outline" d="M 378.855,227.6 V 167.875 L 311.62,100.38 H 149.617 A 16.562,16.562 0 0 0 133.055,116.942 V 394.788 A 16.562,16.562 0 0 0 149.617,411.35 H 362.293 A 16.562,16.562 0 0 0 378.855,394.788 V 295.9"/>
+      <path id="doc-fold" d="M 311.62,100.38 V 152.813 A 15.062,15.062 0 0 0 326.682,167.875 H 378.855"/>
+    </g>
+    <g id="sparkles" fill="#FFFFFF">
+      <path id="sparkle-lg" d="M 341.39,206.073 C 343.39,222.66 347.14,226.41 363.727,228.41 C 347.14,230.41 343.39,234.16 341.39,250.747 C 339.39,234.16 335.64,230.41 319.053,228.41 C 335.64,226.41 339.39,222.66 341.39,206.073 Z"/>
+      <path id="sparkle-sm" d="M 321.112,242.48 C 321.812,250.83 324.762,253.78 333.112,254.48 C 324.762,255.18 321.812,258.13 321.112,266.48 C 320.412,258.13 317.462,255.18 309.112,254.48 C 317.462,253.78 320.412,250.83 321.112,242.48 Z"/>
+    </g>
+    <path id="check" d="M 361.85,249.662 L 379.11,267.05 L 417.275,228.231" fill="none" stroke="#8CFCF9" stroke-width="11.526"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <g id="beam">
+      <rect id="beam-glow" x="73.5" y="288.6" width="365.0" height="7.6"
+            fill="#8CFCF9" filter="url(#beamBloom)"/>
+      <rect id="beam-core" x="73.5" y="288.6" width="365.0" height="7.6"
+            fill="#8CFCF9"/>
+    </g>
+  </g>
+</svg>

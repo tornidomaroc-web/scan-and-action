@@ -1100,6 +1100,86 @@ handling it actually needs.
       obfuscation is used, **uploading a mapping file makes crash/ANR reports
       readable**. Optional; ship a mapping file with a future release.
 
+## Play rejection — launcher icon mismatch (2026-07-17)
+
+- [x] **Rejection.** Google rejected the production release on **2026-07-17** —
+      **Misleading Claims / store listing mismatch**. The store's hi-res icon is the
+      Scan & Action mark (white document + checkmark on a teal→navy gradient); the
+      **on-device launcher icon was the Capacitor logo** (a light-blue X), the
+      un-replaced `cap add android` scaffold from **`1b328ee`** (2026-06-14). It had
+      **one commit, ever** — never anything but the default. Nothing was published to
+      users. Assets-only: no billing, no steering, no content issue. The rejected
+      `versionCode 2` AAB demonstrably carried the Capacitor logo (verified by
+      unzipping `app/build/outputs/bundle/release/app-release.aab`).
+- [x] **Not a pipeline defect.** There is **no** `@capacitor/assets` / `cordova-res` /
+      `assets` config anywhere; `cap sync` does not write `res/mipmap-*`. The icons were
+      scaffolded once and hand-carried. So the fix is a one-time asset swap that stays
+      fixed — nothing regenerates them on build.
+- [x] **The splash was the same bug.** All 11 `drawable*/splash.png` were *also* the
+      Capacitor logo, wired live via `capacitor.config.ts` (`androidSplashResourceName:
+      'splash'`, 1500 ms on every cold start). A launcher-only fix would have shown the
+      Capacitor mark full-screen on first launch and risked a **second** Misleading
+      Claims strike. Fixed in the same PR.
+- [x] **No vector source existed, so one was built.** The mark was produced by an image
+      generator and only ever existed as a flat raster; the two files at the repo root
+      were **byte-identical** (md5 `6b46ba3b40a8f9b9ffb62816242b3223`, and the `.png` was
+      actually a JPEG). A flat composite could not produce **16 of the 26** assets — the
+      adaptive foreground needs a transparent cutout, and the cyan check / beam bloom are
+      unkeyable off the teal gradient. The mark was therefore **reconstructed as a layered
+      parametric SVG by measurement** and numerically fitted: **mean abs 1.42/255, RMSE
+      4.23, 98.8 % of pixels within 24/255**; residual is edge-only (reference is soft
+      4:2:0 JPEG, master is sharp vector).
+- [x] **Master (source of truth):** **`apps/frontend/assets/scan-action-mark.svg`**.
+      Generator: `apps/frontend/assets/generate-android-icons.py` (`python
+      apps/frontend/assets/generate-android-icons.py`, needs `resvg-py` + `pillow`).
+      Every shipped asset derives from the master; **nothing** derives from the flat JPEG.
+      Reference copy of record: `docs/icon-rebuild/store-listing-icon-512-REFERENCE.jpg`;
+      the two root duplicates are now **gitignored** so nothing derives from an ambiguous
+      source. Full write-ups: `docs/ICON_MASTER_REBUILD.md`,
+      `docs/ANDROID_LAUNCHER_ICON_MISMATCH_MAP.md`.
+- [x] **31 assets regenerated** (not 26 — see next item): 5 `ic_launcher`, 5
+      `ic_launcher_round`, 5 `ic_launcher_foreground`, **5 new `ic_launcher_background`**,
+      11 `splash`. Verified by decode: **0 Capacitor logos remain** across all 35 tracked
+      PNGs under `android/` (content sweep, not filename trust).
+- [x] **The adaptive background had to change — keeping `#FFFFFF` was not viable.** The
+      brief said keep `values/ic_launcher_background.xml` (`#FFFFFF`) as declared. That is
+      wrong and the evidence is unambiguous: **the mark's document outline is white**, so
+      on a white background the icon renders as a blank white circle with only the cyan
+      check and beam floating — **contrast 0/255**. The background is now the master's
+      gradient as 5 `mipmap-*/ic_launcher_background.png`, bleed-extended (clamped ends)
+      so it is 100 % opaque to the canvas corners; `mipmap-anydpi-v26/*.xml` point at
+      `@mipmap/ic_launcher_background`. The now-unreferenced `values/ic_launcher_background.xml`
+      was deleted. PNG (not VectorDrawable) for deterministic rasterisation.
+- [x] **Adaptive mapping:** the whole 512 master maps onto the central **72dp (288px)** of
+      the 432px foreground (`scale 0.5625`, `translate 72,72`). All ink then sits at **max
+      radius 113.4px**, inside the 66dp safe circle (r=132); **0.000 %** of foreground ink
+      is destroyed by a 72dp circular mask. The naive 1:1 map (`scale 0.84375`) puts the
+      document's corners at r=196.9 and **clips them**. The **scan-line was not shortened**
+      — it is 71.3 % of the viewport, exactly its proportion in the store icon, with its
+      ends at r=104.6. Shortening it would be a redesign, and a redesign is the violation.
+      Shipped composite's 72dp viewport vs the store icon: **mean abs 1.47, RMSE 4.12**.
+- [x] **Dead scaffold removed:** `drawable/ic_launcher_background.xml` (the `#26A69A`
+      teal grid) and `drawable-v24/ic_launcher_foreground.xml` (the bugdroid) were stock
+      Android Studio defaults, **unreferenced** by the adaptive icon (which resolves
+      `@mipmap/`, not `@drawable/`) yet compiled into the AAB as dead weight. The
+      `#26A69A` is a coincidence, **not** the brand teal — it trapped an earlier pass.
+- [x] **versionCode 2 → 3** at `apps/frontend/android/app/build.gradle:23`. Play retires a
+      versionCode on **upload**, not approval — the rejected build consumed 2.
+      `versionName` stays `"1.0"` (nothing ever shipped under it).
+- [ ] **DEFERRED — three-mark brand divergence.** Store + launcher + splash are now the
+      teal document mark, but the **web/PWA is still a blue arrow on `#0f172a`**
+      (`apps/frontend/public/icons/*`, the inline favicon at `index.html:5`,
+      `manifest.webmanifest`). Store and web **already disagreed before** the Capacitor
+      bug — the launcher defect was masking a pre-existing split. Explicitly **out of
+      scope** and untouched. Decision + recommendation: **`docs/BRAND_MARK_DIVERGENCE.md`**.
+- [ ] **Follow-up: install a real asset pipeline (non-blocking).** Icons remain
+      hand-generated via the script above, so they can drift again. `@capacitor/assets`
+      would prevent recurrence. **Deliberately deferred** — adding a code generator to the
+      PR that unblocks a rejected release means a generator bug costs another review cycle.
+- [ ] **Back up the upload keystore.** `D:\keys\scan-action-upload.jks` exists on one
+      machine only. Losing it means never shipping an update to `com.scanaction.app`
+      again without a Play-support key reset. Orthogonal to this rejection; still real.
+
 ## Design decisions locked
 
 - **Accent:** indigo `#635BFF` via the `--sa-*` tokens.
@@ -1115,3 +1195,12 @@ handling it actually needs.
   gating (PR #47) stays untouched and green.
 - **Honesty rule:** never render fabricated numbers — show the placeholder when
   data is genuinely empty.
+- **App mark:** `apps/frontend/assets/scan-action-mark.svg` is the **only** source of
+  truth for every Android icon/splash asset. Nothing derives from the flat store JPEG —
+  it is a flattened composite with no alpha and cannot produce a cutout. Regenerate with
+  `python apps/frontend/assets/generate-android-icons.py`, never by hand.
+- **Match, do not improve, the app mark.** The Play rejection was for the on-device mark
+  differing from the store listing, so restyling it — including "tidying" the scan-line
+  that overruns a naive safe-zone read — **is** the violation.
+- **Adaptive icon background is the gradient**, not a flat colour. The mark's document
+  outline is white; on the old `#FFFFFF` background it is invisible (contrast 0/255).

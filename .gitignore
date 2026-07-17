@@ -54,3 +54,12 @@ leads/
 Thumbs.db
 .idea/
 .vscode/
+
+# Flat store-listing icon exports dropped at the repo root while rebuilding the
+# app mark (2026-07-17). Both are byte-identical (md5 6b46ba3b40a8f9b9ffb62816242b3223)
+# and app_icon_512x512.png is actually a JPEG despite its extension. The single
+# tracked copy of record lives at docs/icon-rebuild/store-listing-icon-512-REFERENCE.jpg;
+# these root duplicates are ignored so nothing derives from an ambiguous source.
+# Safe to delete locally. See docs/ICON_MASTER_REBUILD.md.
+/ic_launcher-512.jpg
+/app_icon_512x512.png
