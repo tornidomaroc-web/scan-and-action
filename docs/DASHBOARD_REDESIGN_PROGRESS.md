@@ -1166,6 +1166,30 @@ handling it actually needs.
 - [x] **versionCode 2 → 3** at `apps/frontend/android/app/build.gradle:23`. Play retires a
       versionCode on **upload**, not approval — the rejected build consumed 2.
       `versionName` stays `"1.0"` (nothing ever shipped under it).
+- [x] **Splash mark size 32% → 42% (owner's aesthetic call, PR #100).** Follow-up to #99.
+      **This was a taste decision by the repo owner, not a correction and not a
+      measurement** — 32% was an arbitrary default I picked when replacing the Capacitor
+      splash (there was no baseline worth preserving; what shipped was the wrong logo).
+      Owner reviewed both sizes as rendered images and chose 42%. Only the **11
+      `drawable*/splash.png`** changed; the **20 launcher/background PNGs regenerated
+      byte-identical**, so the launcher icons, the adaptive background, and
+      `scan-action-mark.svg` are **provably untouched** by that PR (the generator rewrites
+      all 31 every run — `git status` showing only the 11 is the proof, not an assurance).
+      - **The constant is not the percentage.** `SPLASH_MASTER_SCALE` in
+        `generate-android-icons.py` sizes the **master square**; the mark's ink is only
+        366 of the master's 512px. So ink-width-as-%-of-portrait-width =
+        `SPLASH_MASTER_SCALE × 366/512`. **0.5875 → 42.0%** (0.45 was 32.2%). Anyone
+        editing this must convert, not guess. Measured result: 41.9–42.1% across every
+        portrait density.
+      - **Landscape stays 24–28%, deliberately.** Sizing is relative to the canvas's
+        **shorter edge**, so the logo keeps the same **physical** size when the device
+        rotates. Sizing to width instead would blow the mark up absurdly in landscape.
+        Adopted by the owner as the locked behaviour.
+      - **New guard.** The generator now **hard-fails** (`SystemExit`) if a future
+        `SPLASH_MASTER_SCALE` would push the mark's ink past any canvas edge, at any
+        density. At 42% the tightest density (`drawable-port-mdpi`, 320×480) still leaves
+        **93px** of horizontal margin. Verified: border deviation from `#0f172a` is **0
+        across all 11** (no seam), no halo, nothing clipped, centring within 0.5px.
 - [ ] **DEFERRED — three-mark brand divergence.** Store + launcher + splash are now the
       teal document mark, but the **web/PWA is still a blue arrow on `#0f172a`**
       (`apps/frontend/public/icons/*`, the inline favicon at `index.html:5`,
@@ -1204,3 +1228,8 @@ handling it actually needs.
   that overruns a naive safe-zone read — **is** the violation.
 - **Adaptive icon background is the gradient**, not a flat colour. The mark's document
   outline is white; on the old `#FFFFFF` background it is invisible (contrast 0/255).
+- **Splash logo: 42% of portrait width** (`SPLASH_MASTER_SCALE = 0.5875`), sized to the
+  canvas's **shorter edge** so it stays the same physical size on rotation (landscape
+  therefore reads 24–28% of width — that is correct, not a bug). Owner's aesthetic call.
+  Unlike the app mark itself, the splash has **no match-the-store constraint** — it is not
+  a store-listing surface — so this one is free to change on taste.
