@@ -381,3 +381,64 @@ None of that is fragile *by accident* — but a restyle that renames the id or w
 ---
 
 **Explored from `main` @ `a88d9030a3a516ec3dce06f68904246fd9e71bb6`.** No code, DB, or migration touched. Every `file:line` re-derived from current source; contrast ratios computed, not estimated; Arabic verified by Unicode code point.
+
+---
+
+## APPENDIX — correction appended 2026-07-17 (after D8b PR 3 explored + implemented CaptureSheet)
+
+*Appended, not edited into the body above. §4.3's "extract the shell in PR 3" recommendation is
+**superseded**. Verified against `main` @ `a0e7a09db01e613cc684135f2177b51a7517c22f`.*
+
+### CORR-1. §4.3 / §10 "extract the shell in PR 3 (CaptureSheet), with n=2" — SUPERSEDED
+
+§4.3 concluded the shared shell should be extracted in PR 3, "with n=2", treating CaptureSheet as a
+second instance to generalise DeleteAccountModal's shell from. **That call was made before anyone
+measured CaptureSheet's panel geometry against DeleteAccountModal's. Measured, the premise does not hold,
+and PR 3 shipped an in-place restyle with NO shell — shared or local.**
+
+The evidence (re-derived at `a0e7a09`): there are **three** panel geometries across the four modals, not
+two instances of one.
+
+| Component | Alignment | Width | Radius | Family |
+|---|---|---|---|---|
+| DeleteAccountModal `:57`/`:61` | `items-end sm:items-center` | `max-w-[480px]` | `rounded-t-card sm:rounded-card` | centred-hybrid |
+| PaywallModal (oos) | `items-end sm:items-center` | `max-w-[480px]` | same | centred-hybrid |
+| **CaptureSheet** `:137`/`:139` | **`items-end` only** | **`w-full`, no max** | **`rounded-t-3xl` (top only)** | **pure bottom-sheet** |
+| UploadModal `:211` | `items-center` | (centred) | (centred) | pure-centred |
+
+"n=2" conflated DeleteAccountModal (centred-hybrid) with CaptureSheet (pure bottom-sheet) — **different
+families**. A single shell serving both needs a `variant` prop plus per-variant width/radius/safe-area/
+scrim, i.e. four inlined components behind a `switch`. That is not an abstraction; it is the thing the
+abstraction was meant to remove.
+
+CaptureSheet's *genuine* duplication is its **own two portals** (`:137`/`:139` == `:192`/`:194`,
+byte-identical) — but that is one file, written together, identical by construction. It justifies a
+**local** helper at most, and even that is marginal (the wrapper is ~2 lines; the two portals' bodies are
+entirely different; their two `useBackDismiss` conditions differ — `chooserOpen` vs
+`!!file && !uploading`). PR 3 chose **not** to introduce even the local helper, keeping the PR a pure
+restyle + vocabulary-validation.
+
+Two independent reasons reinforce the deferral, both already latent in this doc:
+- **§4.4's back-dismiss trap is now load-bearing for the shell's timing.** `UploadModal` has **no**
+  `useBackDismiss`. A shared shell that owns back-dismiss silently grants UploadModal hardware-back
+  dismissal when adopted in PR 4 — a behavioural change riding a restyle. Designing that API correctly
+  needs the UploadModal case *in hand*, which is PR 4, not PR 3.
+- **The durable half already shipped in PR 2** as `--sa-overlay` + the named z-scale. CaptureSheet
+  *consumes* both in PR 3 (`bg-overlay`, `z-modal`). Nothing compounding is lost by waiting for the
+  component.
+
+**Revised recommendation:** extract the shared shell in **PR 4 (UploadModal), or a dedicated shell PR**,
+once all four geometries and the UploadModal back-dismiss decision are in view. Same principle this doc
+already argued ("buy certainty about the vocabulary before abstracting") — new geometry evidence, one PR
+later than §4.3 guessed.
+
+### CORR-2. PR 3's one deliberate pixel move — the scrim `/70 → /60`
+
+PR 2 could define `--sa-overlay` = **exactly** DeleteAccountModal's shipped `slate-900/60`, so "zero
+pixels moved" (§4.5). **CaptureSheet did not have that luxury.** Its scrim was `bg-slate-900/**70**`
+(variant 2, `:137`/`:192`); the only tokenised scrim is `bg-overlay` = `/**60**`, and the contract bans
+`bg-slate-`. So adopting `bg-overlay` **lightens CaptureSheet's scrim 70 → 60 — a real, intentional pixel
+change**, called out explicitly in the PR 3 body as convergence onto the one scrim value (not smuggled in
+as a token rename). `backdrop-blur-sm` was kept.
+
+Full PR 3 mapping/decision record: `docs/D8B_PR3_CAPTURESHEET_RESTYLE.md`.

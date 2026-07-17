@@ -870,6 +870,50 @@ handling it actually needs.
       proof of the pixels**. Per the D5 lesson (a live RTL defect that green CI, the
       Vercel preview and jsdom **all** missed), the Arabic modal still needs a real
       browser. **Green CI proves nothing about RTL.**
+- [x] **D8b PR 3 — CaptureSheet restyle DONE (the SECOND modal restyle; validates the
+      vocabulary on a bottom-sheet).** Full record: `docs/D8B_PR3_CAPTURESHEET_RESTYLE.md`.
+    - **Shipped:** ~50 raw literals across 19 lines → `--sa-*` tokens · `font-black` ×7 →
+      `font-semibold` + `text-section`/`text-label` · `uppercase tracking-wider` shouting
+      dropped · `bg-blue-600` primary CTAs → **`bg-accent text-white`** (computed **4.69:1**,
+      the only WCAG-safe solid fill; `#635BFF` does not flip across modes, `tokens.css:22`
+      == `:103`) · scrim → `bg-overlay`, `z-[10000]` → `z-modal` · the one Class-B
+      truncation at `:225` → **`dir="auto"`** · `captureSheet` added to
+      `d8bModalRestyle.test.tsx` FILES (inherits the strict palette + `PHYSICAL_DIRECTION`
+      absence blocks).
+    - **⚠️ One deliberate pixel move — the scrim `/70 → /60`.** Unlike PR 2 (where
+      `--sa-overlay` equalled the shipped value, zero drift), CaptureSheet's scrim was
+      `slate-900/**70**`; the only tokenised scrim is `bg-overlay` = `/**60**` and the
+      contract bans `bg-slate-`. Adopting the token **lightens the scrim** — intentional
+      convergence onto the one scrim value, called out explicitly in the PR body, not
+      smuggled in. `backdrop-blur-sm` kept.
+    - **⚠️ SHELL EXTRACTION DEFERRED AGAIN — to PR 4+, overriding PR 2's stated "PR 3" plan.**
+      New evidence: there are **three** panel geometries across the four modals
+      (DeleteAccountModal/PaywallModal `items-end sm:items-center`; **CaptureSheet
+      `items-end` only, `w-full`** — pure bottom-sheet; UploadModal `items-center`), not two
+      instances of one. A single shell serving them needs a `variant` switch. CaptureSheet's
+      real duplication is its **own two portals** (within-file, identical by construction) —
+      a *local* helper at most, and PR 3 shipped none. The **back-dismiss trap** (UploadModal
+      has no `useBackDismiss`; a shell owning it would silently change UploadModal's native
+      behaviour) means the API must be designed with the PR 4 case in hand. The durable half
+      (`--sa-overlay` + z-scale) already shipped in PR 2 and CaptureSheet consumes it now.
+      Dated correction appended to `D8B_PR2_DELETE_ACCOUNT_RESTYLE.md` (CORR-1).
+    - **Left byte-for-byte (deferred, not touched):** the dead `isMultiDoc` branch
+      (`:94`/`:96`) and the whole anti-steering guard (`:96–:100`) — the cleanup +
+      `uploadGating.test.tsx:116-125` deletion is its own later commit. **`formatFileMeta`**
+      (`UploadModal.tsx:319` == `CaptureSheet.tsx:227`, byte-identical) → **PR 4**, both call
+      sites at once. **UploadModal's missing `useBackDismiss`** → PR 4, deliberately, with a
+      test — never as a shell side effect.
+    - **Verification.** The four "locked while uploading" paths (`:45`, `:192`, `:205`,
+      `:236`/`:243`) — untested before PR 3 — were written FIRST and **mutation-verified**:
+      reverting each of the four makes its test fail (confirmed). The source-scan and
+      `dir="auto"` tests were red before the restyle and green after (inherent mutation
+      proof). Full suite: **tsc clean, 1782 tests pass, build clean.** Arabic asserted by the
+      `dir` attribute and verified by Unicode code point (U+0641…), never terminal rendering.
+      **jsdom has no layout engine — the Arabic sheet still needs a real browser
+      (filename box at `:225`). Green proves nothing about RTL.**
+    - **Anti-steering:** no guard touched; `isNativePlatform()` stays the outer decision,
+      `setShowPaywall(true)` unreachable on native. `nativeAntiSteering.test.tsx:432-491` still
+      green. **Android stays silent.**
 - [ ] **⚠️ The restyle contract has HOLES — a green contract does NOT prove a file is
       migrated. Tightened for D8b (PR 2); the older per-screen contracts still carry the
       holes.** `RAW_PALETTE` (`documentDetailRestyle.test.tsx:465-470`) bans `text-*` and

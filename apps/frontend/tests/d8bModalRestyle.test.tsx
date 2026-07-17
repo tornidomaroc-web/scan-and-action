@@ -39,7 +39,15 @@ import path from 'path';
 // still be opened in a real browser. Green here proves nobody reintroduced a
 // physical property; it does not prove the pixels.
 //
-// CaptureSheet and UploadModal join FILES in PR 3 and PR 4.
+// CaptureSheet joins FILES in PR 3 (below); UploadModal in PR 4.
+//
+// PR 3 note — CaptureSheet gets the SHARED blocks only (palette, legacy, emoji,
+// font-black, type scale, PHYSICAL_DIRECTION absence). It deliberately does NOT
+// get the DeleteAccountModal-specific "uses the logical direction idiom" block
+// (border-s-/rounded-e-/end-): CaptureSheet has no absolute-positioned or
+// accent-bar element, so its close buttons are already RTL-safe via in-flow
+// justify-between. Requiring a logical property where there is no physical one
+// to replace would be cargo-cult. Absence of physical props is the real guard.
 // ============================================================================
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
@@ -58,6 +66,7 @@ const read = (p: string) => stripComments(readFileSync(path.resolve(dir, p), 'ut
 
 const FILES = {
   deleteAccountModal: read('../src/components/DeleteAccountModal.tsx'),
+  captureSheet: read('../src/components/CaptureSheet.tsx'),
 };
 
 // The documentDetailRestyle list…
