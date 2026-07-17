@@ -134,18 +134,18 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
 
       {chooserOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[10000] bg-slate-900/70 backdrop-blur-sm flex items-end" onClick={() => setChooserOpen(false)}>
+          <div className="fixed inset-0 z-modal bg-overlay backdrop-blur-sm flex items-end" onClick={() => setChooserOpen(false)}>
             <div
-              className="w-full bg-white dark:bg-slate-900 rounded-t-3xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-300 border-t border-slate-200 dark:border-slate-700"
+              className="w-full bg-surface-raised rounded-t-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-300 border-t border-line"
               onClick={(e) => e.stopPropagation()}
               data-testid="source-chooser"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">{s.addDocument}</h3>
+                <h3 className="text-section font-semibold text-ink">{s.addDocument}</h3>
                 <button
                   onClick={() => setChooserOpen(false)}
                   aria-label="Close"
-                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-xl transition-colors"
+                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-ink-muted hover:text-ink rounded-pill transition-colors"
                 >
                   <X size={20} />
                 </button>
@@ -166,7 +166,7 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
                     setChooserOpen(false);
                     cameraInputRef.current?.click();
                   }}
-                  className="w-full min-h-[56px] flex items-center gap-4 p-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm uppercase tracking-wider shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98]"
+                  className="w-full min-h-[56px] flex items-center gap-4 p-4 rounded-btn bg-accent hover:bg-accent-hover text-white font-semibold text-section shadow-card transition-all active:scale-[0.98]"
                 >
                   <Camera size={22} strokeWidth={2.5} />
                   {s.takePhoto}
@@ -176,7 +176,7 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
                     setChooserOpen(false);
                     fileInputRef.current?.click();
                   }}
-                  className="w-full min-h-[56px] flex items-center gap-4 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-black text-sm uppercase tracking-wider hover:border-blue-500 transition-colors active:scale-[0.98]"
+                  className="w-full min-h-[56px] flex items-center gap-4 p-4 rounded-btn border-2 border-line text-ink-secondary font-semibold text-section hover:border-accent transition-colors active:scale-[0.98]"
                 >
                   <FolderOpen size={22} strokeWidth={2.5} />
                   {s.chooseFile}
@@ -189,22 +189,22 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
 
       {file &&
         createPortal(
-          <div className="fixed inset-0 z-[10000] bg-slate-900/70 backdrop-blur-sm flex items-end" onClick={uploading ? undefined : close}>
+          <div className="fixed inset-0 z-modal bg-overlay backdrop-blur-sm flex items-end" onClick={uploading ? undefined : close}>
             <div
-              className="w-full bg-white dark:bg-slate-900 rounded-t-3xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-300 border-t border-slate-200 dark:border-slate-700"
+              className="w-full bg-surface-raised rounded-t-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-300 border-t border-line"
               onClick={(e) => e.stopPropagation()}
               data-testid="capture-sheet"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  <Camera size={20} className="text-blue-500" />
+                <h3 className="text-section font-semibold text-ink flex items-center gap-2">
+                  <Camera size={20} className="text-accent" />
                   {s.scanWithCamera}
                 </h3>
                 <button
                   onClick={close}
                   disabled={uploading}
                   aria-label="Close"
-                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-xl transition-colors disabled:opacity-40"
+                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-ink-muted hover:text-ink rounded-pill transition-colors disabled:opacity-40"
                 >
                   <X size={20} />
                 </button>
@@ -214,16 +214,16 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
                 <img
                   src={previewUrl}
                   alt={file.name}
-                  className="w-full max-h-[50vh] object-contain rounded-2xl bg-slate-100 dark:bg-slate-800 mb-5"
+                  className="w-full max-h-[50vh] object-contain rounded-card bg-surface-muted mb-5"
                 />
               ) : (
-                <div className="flex items-center gap-4 p-5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 mb-5">
-                  <div className="w-12 h-12 flex-shrink-0 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
-                    <FileText size={22} className="text-blue-500" />
+                <div className="flex items-center gap-4 p-5 rounded-card bg-surface-alt border border-line mb-5">
+                  <div className="w-12 h-12 flex-shrink-0 rounded-btn bg-surface-raised border border-line flex items-center justify-center">
+                    <FileText size={22} className="text-accent" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-slate-900 dark:text-white truncate">{file.name}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                    <p dir="auto" className="text-sm font-semibold text-ink truncate">{file.name}</p>
+                    <p className="text-label font-semibold text-ink-muted mt-0.5">
                       {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type.split('/')[1]?.toUpperCase() || 'FILE'}
                     </p>
                   </div>
@@ -234,14 +234,14 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
                 <button
                   onClick={handleRetake}
                   disabled={uploading}
-                  className="flex-1 min-h-[48px] rounded-2xl border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-black text-sm uppercase tracking-wider transition-colors hover:border-slate-400 disabled:opacity-40"
+                  className="flex-1 min-h-[48px] rounded-btn border-2 border-line text-ink-secondary font-semibold text-section transition-colors hover:border-line-strong disabled:opacity-40"
                 >
                   {s.retake}
                 </button>
                 <button
                   onClick={handleExtract}
                   disabled={uploading}
-                  className="flex-1 min-h-[48px] rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm uppercase tracking-wider shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="flex-1 min-h-[48px] rounded-btn bg-accent hover:bg-accent-hover text-white font-semibold text-section shadow-card transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {uploading ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
                   {uploading ? s.uploading : s.extract}
