@@ -153,7 +153,8 @@ describe('UploadModal — money path (gating + paywall trigger)', () => {
 
     // doc is mid-processing; the backdrop click the old handleSafeClose
     // blocked for up to 90s must now close immediately
-    const backdrop = document.body.querySelector('div[class*="z-[10000]"]')!;
+    // Scrim adopted the z-modal token in PR 4c (was z-[10000]); still the backdrop.
+    const backdrop = document.body.querySelector('div.z-modal')!;
     expect(backdrop).toBeTruthy();
     click(backdrop);
     expect(onClose).toHaveBeenCalled();

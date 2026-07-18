@@ -220,21 +220,21 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10000] flex justify-center items-center bg-gray-900/80 dark:bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-modal flex justify-center items-center bg-overlay backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[560px] bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 border dark:border-slate-800"
+        className="w-full max-w-[560px] bg-surface-raised rounded-card shadow-lg overflow-hidden animate-in zoom-in-95 duration-200 border border-line"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-8 py-6 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
+        <div className="px-8 py-6 border-b border-line flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+            <h2 className="text-title-lg font-semibold text-ink tracking-tight">
               {status === 'idle' ? s.upload :
                status === 'success' ? s.uploadSuccess :
                status === 'partial' ? 'Partial Success' : s.uploadError}
             </h2>
-            <p className="text-sm font-medium text-gray-500 dark:text-slate-400 mt-1">
+            <p className="text-sm font-medium text-ink-secondary mt-1">
               {status === 'idle' ? 'Select one or more files for AI extraction.' :
                status === 'success' ? 'Uploaded. Extraction continues in the background. You can close this.' :
                'Please review the status of your items below.'}
@@ -242,7 +242,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg transition-colors text-gray-400 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800"
+            className="p-2 rounded-pill transition-colors text-ink-muted hover:text-ink hover:bg-surface-muted"
           >
             <X size={24} />
           </button>
@@ -254,7 +254,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
             <div className="mb-6">
               <button
                 onClick={() => cameraInputRef.current?.click()}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-black shadow-lg shadow-blue-500/25 flex items-center justify-center gap-3 transition-all active:scale-[0.98] border-2 border-blue-500/50"
+                className="w-full bg-accent hover:bg-accent-hover text-white py-4 rounded-btn font-semibold shadow-card flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
               >
                 <Camera size={24} />
                 {s.scanWithCamera}
@@ -271,10 +271,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
           )}
 
           <div
-            className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all mb-6 ${
+            className={`relative border-2 border-dashed rounded-card p-8 text-center transition-all mb-6 ${
               isDragging
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-[1.02]'
-                : 'border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 hover:border-gray-400 dark:hover:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-800'
+                ? 'border-accent bg-accent-tint scale-[1.02]'
+                : 'border-line bg-surface-muted hover:border-line-strong'
             }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -289,13 +289,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
             />
 
             <div className="relative z-0 pointer-events-none flex flex-col items-center">
-              <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center mb-4 shadow-sm border border-gray-200 dark:border-slate-700">
-                <Upload size={24} className="text-blue-600 dark:text-blue-400" />
+              <div className="w-12 h-12 bg-surface-raised rounded-btn flex items-center justify-center mb-4 shadow-card border border-line">
+                <Upload size={24} className="text-accent" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                {s.dropFiles} <span className="text-blue-600 dark:text-blue-400 underline pointer-events-auto">{s.browse}</span>
+              <h3 className="text-section font-semibold text-ink mb-1">
+                {s.dropFiles} <span className="text-accent underline pointer-events-auto">{s.browse}</span>
               </h3>
-              <p className="text-xs font-medium text-gray-500 dark:text-slate-400">
+              <p className="text-label font-medium text-ink-tertiary">
                 {s.supportedFormats}
               </p>
             </div>
@@ -303,31 +303,31 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
 
           {files.length > 0 && (
             <div className="space-y-4">
-              <div className="max-h-[240px] overflow-y-auto pr-2 space-y-2">
+              <div className="max-h-[240px] overflow-y-auto pe-2 space-y-2">
                 {files.map((f, idx) => {
                   const hasError = !!fileErrors[f.name];
                   return (
-                  <div key={`${f.name}-${idx}`} className={`p-3 rounded-lg border flex flex-col gap-2 shadow-sm transition-colors ${
-                    hasError ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50'
-                    : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'
+                  <div key={`${f.name}-${idx}`} className={`p-3 rounded-card border flex flex-col gap-2 shadow-card transition-colors ${
+                    hasError ? 'bg-danger-tint border-danger/30'
+                    : 'bg-surface-alt border-line'
                   }`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-sm border flex-shrink-0 ${
-                          hasError ? 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800/40'
-                          : 'bg-white dark:bg-slate-700 border-gray-100 dark:border-slate-600'
+                        <div className={`w-10 h-10 rounded-btn flex items-center justify-center shadow-card border flex-shrink-0 ${
+                          hasError ? 'bg-danger/15 border-danger/30'
+                          : 'bg-surface-raised border-line'
                         }`}>
                           {hasError ? (
-                            <AlertCircle size={20} className="text-red-600 dark:text-red-400" />
+                            <AlertCircle size={20} className="text-danger" />
                           ) : (
-                            <FileIcon size={20} className="text-blue-600 dark:text-blue-400" />
+                            <FileIcon size={20} className="text-accent" />
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className={`text-sm font-bold truncate ${
-                            hasError ? 'text-red-900 dark:text-red-200' : 'text-gray-900 dark:text-slate-100'
+                          <p dir="auto" className={`text-sm font-semibold truncate ${
+                            hasError ? 'text-danger-text' : 'text-ink'
                           }`}>{f.name}</p>
-                          <p dir="auto" className="text-[10px] font-semibold text-gray-500 dark:text-slate-400 mt-0.5 tracking-wider">
+                          <p dir="auto" className="text-label font-semibold text-ink-muted mt-0.5">
                             {formatFileMeta(f, s, language)}
                           </p>
                         </div>
@@ -335,7 +335,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                       {!uploading && (
                         <button
                           onClick={() => removeFile(idx)}
-                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                          className="p-1.5 text-ink-muted hover:text-danger hover:bg-surface-muted rounded-btn transition-colors"
                           aria-label="Remove file"
                         >
                           <X size={16} />
@@ -343,7 +343,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                       )}
                     </div>
                     {hasError && (
-                      <p className="text-[11px] font-bold text-red-600 dark:text-red-400 bg-red-100/50 dark:bg-red-900/20 px-2 py-1 rounded">
+                      <p className="text-label font-semibold text-danger-text bg-danger-tint px-2 py-1 rounded-btn">
                         {translateUploadError(fileErrors[f.name], s)}
                       </p>
                     )}
@@ -353,26 +353,26 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
               </div>
 
               {uploading || status !== 'idle' ? (
-                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-slate-800">
-                  <div className="flex justify-between text-sm font-bold text-gray-900 dark:text-white mb-2">
+                <div className="space-y-4 pt-4 border-t border-line">
+                  <div className="flex justify-between text-sm font-semibold text-ink mb-2">
                     <span className="flex items-center gap-2">
                        {status === 'success' ? (
-                        <><CheckCircle size={18} className="text-emerald-600"/> {s.uploadSuccess}</>
+                        <><CheckCircle size={18} className="text-success"/> {s.uploadSuccess}</>
                       ) : status === 'partial' ? (
-                        <><AlertCircle size={18} className="text-amber-600"/> Partial Success ({results.success}/{results.total})</>
+                        <><AlertCircle size={18} className="text-warning"/> Partial Success ({results.success}/{results.total})</>
                       ) : status === 'error' ? (
-                        <><AlertCircle size={18} className="text-red-600"/> {s.uploadError}</>
+                        <><AlertCircle size={18} className="text-danger"/> {s.uploadError}</>
                       ) : (
-                        <><Loader2 size={18} className="animate-spin text-blue-600"/> {s.uploading}</>
+                        <><Loader2 size={18} className="animate-spin text-accent"/> {s.uploading}</>
                       )}
                     </span>
-                    {uploading && <span className="text-gray-500 dark:text-slate-400 font-black">{progress}%</span>}
+                    {uploading && <span className="text-ink-muted font-semibold">{progress}%</span>}
                   </div>
 
                   {uploading && (
-                    <div className="h-3 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden border border-gray-200/50 dark:border-slate-700/50 mb-6">
+                    <div className="h-3 w-full bg-surface-muted rounded-pill overflow-hidden border border-line mb-6">
                       <div
-                        className={`h-full transition-all duration-500 ease-out ${status === 'error' ? 'bg-red-500' : 'bg-blue-600 dark:bg-blue-500'}`}
+                        className={`h-full transition-all duration-500 ease-out ${status === 'error' ? 'bg-danger' : 'bg-accent'}`}
                         style={{ width: `${progress}%` }}
                       />
                     </div>
@@ -381,25 +381,25 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                   {!uploading && status !== 'idle' && (
                     <div className="space-y-4">
                       {status === 'success' ? (
-                        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50 rounded-2xl p-6 text-center">
-                           <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-emerald-100 dark:border-emerald-800">
-                             <CheckCircle size={24} className="text-emerald-500" />
+                        <div className="bg-success-tint border border-success/30 rounded-card p-6 text-center">
+                           <div className="w-12 h-12 bg-surface-raised rounded-pill flex items-center justify-center mx-auto mb-3 shadow-card border border-success/30">
+                             <CheckCircle size={24} className="text-success" />
                            </div>
-                           <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100 mb-1 tracking-tight">Uploaded</h3>
-                           <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                           <h3 className="text-section font-semibold text-success-text mb-1">Uploaded</h3>
+                           <p className="text-sm font-medium text-ink-secondary">
                              Extraction runs in the background. Track it from the processing chip.
                            </p>
 
                            <div className="grid grid-cols-2 gap-4 mt-6">
                              <button
                                onClick={onClose}
-                               className="btn-secondary py-3 text-sm font-black dark:bg-slate-800 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400"
+                               className="py-3 text-sm font-semibold rounded-btn border-2 border-line text-ink-secondary hover:border-line-strong transition-colors"
                              >
                                Done
                              </button>
                              <button
                                onClick={resetToIdle}
-                               className="btn-primary py-3 text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-lg shadow-emerald-500/20"
+                               className="py-3 text-sm font-semibold rounded-btn bg-accent hover:bg-accent-hover text-white shadow-card transition-colors"
                              >
                                Manage Files
                              </button>
@@ -409,13 +409,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                         <div className="grid grid-cols-2 gap-4">
                           <button
                             onClick={onClose}
-                            className="btn-secondary py-3 text-sm font-black dark:bg-slate-800"
+                            className="py-3 text-sm font-semibold rounded-btn border-2 border-line text-ink-secondary hover:border-line-strong transition-colors"
                           >
                             Close Modal
                           </button>
                           <button
                             onClick={resetToIdle}
-                            className="btn-primary py-3 text-sm font-black bg-slate-900 dark:bg-blue-600"
+                            className="py-3 text-sm font-semibold rounded-btn bg-accent hover:bg-accent-hover text-white transition-colors"
                           >
                             Manage Files
                           </button>
@@ -425,16 +425,16 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                   )}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100 dark:border-slate-800">
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-line">
                   <button
                     onClick={onClose}
-                    className="w-full btn-secondary py-3 text-base font-black dark:bg-slate-800"
+                    className="w-full py-3 text-base font-semibold rounded-btn border-2 border-line text-ink-secondary hover:border-line-strong transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={startUpload}
-                    className="w-full btn-primary py-3 text-base font-black"
+                    className="w-full py-3 text-base font-semibold rounded-btn bg-accent hover:bg-accent-hover text-white transition-colors"
                   >
                     Start Extraction ({files.length})
                   </button>

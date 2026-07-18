@@ -67,6 +67,13 @@ const read = (p: string) => stripComments(readFileSync(path.resolve(dir, p), 'ut
 const FILES = {
   deleteAccountModal: read('../src/components/DeleteAccountModal.tsx'),
   captureSheet: read('../src/components/CaptureSheet.tsx'),
+  // Joined in PR 4c (the UploadModal restyle). Like CaptureSheet, it gets the
+  // SHARED blocks only — its header close button is in-flow (justify-between),
+  // not absolute-positioned, so there is no physical prop to convert to the
+  // logical idiom; requiring border-s-/rounded-e-/end- here would be cargo-cult
+  // (§10). Absence of physical props is the guard; the one pr-2 scroll gutter
+  // became pe-2 in this PR.
+  uploadModal: read('../src/components/UploadModal.tsx'),
 };
 
 // The documentDetailRestyle list…
