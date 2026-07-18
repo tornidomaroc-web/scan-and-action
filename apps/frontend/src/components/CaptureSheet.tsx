@@ -7,10 +7,12 @@ import { useProcessing } from '../contexts/ProcessingContext';
 import { useToast } from '../contexts/ToastContext';
 import { PaywallModal } from './PaywallModal';
 import { useStrings } from '../i18n/useStrings';
+import { useLanguage } from '../i18n/LanguageContext';
 import { ensureCameraPermission } from '../native/camera';
 import { useBackDismiss } from '../native/useBackDismiss';
 import { isNativePlatform } from '../native/shell';
 import { translateUploadError } from '../lib/uploadErrors';
+import { formatFileMeta } from '../lib/formatFileMeta';
 
 export interface CaptureSheetHandle {
   open: () => void;
@@ -25,6 +27,7 @@ interface CaptureSheetProps {
 // live camera capture. The confirm sheet only appears once a file exists.
 export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({ plan }, ref) => {
   const s = useStrings();
+  const { language } = useLanguage();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [chooserOpen, setChooserOpen] = useState(false);
@@ -222,8 +225,8 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
                   </div>
                   <div className="min-w-0">
                     <p dir="auto" className="text-sm font-semibold text-ink truncate">{file.name}</p>
-                    <p className="text-label font-semibold text-ink-muted mt-0.5">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type.split('/')[1]?.toUpperCase() || 'FILE'}
+                    <p dir="auto" className="text-label font-semibold text-ink-muted mt-0.5">
+                      {formatFileMeta(file, s, language)}
                     </p>
                   </div>
                 </div>
