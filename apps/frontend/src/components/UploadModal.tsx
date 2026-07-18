@@ -7,8 +7,10 @@ import { useProcessing } from '../contexts/ProcessingContext';
 import { preprocessImage } from '../lib/imagePreprocess';
 import { PaywallModal } from './PaywallModal';
 import { useStrings } from '../i18n/useStrings';
+import { useLanguage } from '../i18n/LanguageContext';
 import { isNativePlatform } from '../native/shell';
 import { translateUploadError } from '../lib/uploadErrors';
+import { formatFileMeta } from '../lib/formatFileMeta';
 import { useBackDismiss } from '../native/useBackDismiss';
 
 interface UploadModalProps {
@@ -20,6 +22,7 @@ interface UploadModalProps {
 
 export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuccess, plan }) => {
   const s = useStrings();
+  const { language } = useLanguage();
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -324,8 +327,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                           <p className={`text-sm font-bold truncate ${
                             hasError ? 'text-red-900 dark:text-red-200' : 'text-gray-900 dark:text-slate-100'
                           }`}>{f.name}</p>
-                          <p className="text-[10px] font-semibold text-gray-500 dark:text-slate-400 mt-0.5 uppercase tracking-wider">
-                            {(f.size / 1024 / 1024).toFixed(2)} MB • {f.type.split('/')[1]?.toUpperCase() || 'FILE'}
+                          <p dir="auto" className="text-[10px] font-semibold text-gray-500 dark:text-slate-400 mt-0.5 tracking-wider">
+                            {formatFileMeta(f, s, language)}
                           </p>
                         </div>
                       </div>
