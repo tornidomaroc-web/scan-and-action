@@ -9,6 +9,7 @@ import { PaywallModal } from './PaywallModal';
 import { useStrings } from '../i18n/useStrings';
 import { isNativePlatform } from '../native/shell';
 import { translateUploadError } from '../lib/uploadErrors';
+import { useBackDismiss } from '../native/useBackDismiss';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -33,6 +34,15 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
   // Processing now lives at app level: uploads hand off to the tray and the
   // modal can close freely (no more 90s hostage-taking while polling).
   const { trackUpload } = useProcessing();
+
+  // Android hardware back closes this modal before it can minimize the app or
+  // navigate the screen underneath: UploadModal is mounted in the app shell and
+  // opens over /dashboard, a HOME_ROUTE, so without this the back button hits
+  // App.minimizeApp() (see NativeBackButton). Bare `isOpen`, NOT `!uploading` —
+  // the scrim (:onClick={onClose}) and header X are unguarded and the modal is
+  // deliberately dismissable mid-upload (the app-level tray owns the in-flight
+  // upload, per the note above), so back must match. No-op on web.
+  useBackDismiss(isOpen, onClose);
 
   useEffect(() => {
     if (isOpen) {
