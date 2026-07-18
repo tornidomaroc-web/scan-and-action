@@ -127,7 +127,7 @@ bridge), after which each remaining PR is a focused per-screen restyle.
       resolve on queue rows; nothing removed, **File Detail output unchanged**.
       All copy em-dash-free. **No anti-steering / pricing / `isNativePlatform`
       change** (`nativeAntiSteering` stays green). **No fabricated data.**
-- [ ] **PR-D5** — Activity restyle (PR pending; close on merge). **First
+- [x] **PR-D5 (#90)** — Activity restyle. **First
       full-screen restyle of the session — establishes the pattern D7/D8a reuse.**
       Migrated `ActivityScreen.tsx` off raw palette onto `--sa` tokens, dropped the
       brutalist type treatment (font-black/uppercase/italic/tracking-*), and adopted
@@ -573,8 +573,8 @@ handling it actually needs.
       **"Em-dash cleanup in non-guarded copy"** entry below — see it rather than
       re-filing it. **Note:** the merged description of **PR #78 contains the false
       claim that no such guard exists**. The record is corrected here.
-- [ ] **`intelligencePulseDesc` rendered an achievement message in an empty state
-      (PR pending; close on merge).** Its ternary (`DashboardScreen.tsx` L510) made
+- [x] **`intelligencePulseDesc` rendered an achievement message in an empty state
+      (merged #87).** Its ternary (`DashboardScreen.tsx` L510) made
       it reachable **only when `pendingCount <= 0` AND `totalCount <= 0`**, so its
       `{n}` **always rendered `0`** and the user was told they successfully processed
       **0 documents**. The `n = 1` agreement defect was therefore **unreachable**;
@@ -585,8 +585,8 @@ handling it actually needs.
       itself was already correct (it identifies the empty state), so no branch
       restructure was needed. The other two branches (`pulsePending`,
       `allSystemsVerified`) are untouched.
-- [ ] **The `{n}` interpolation call sites bypassed `formatCount` (PR pending;
-      close on merge).** They used `.toString()`, so a pending count of `1234`
+- [x] **The `{n}` interpolation call sites bypassed `formatCount` (merged #88).**
+      They used `.toString()`, so a pending count of `1234`
       rendered **unseparated** in the banner while the KPI tiles rendered it
       **separated**. **Fix:** routed **three** genuine count sites through
       `formatCount(count, language)` — `finishBatch` and `intelligencePulsePending`
@@ -596,8 +596,8 @@ handling it actually needs.
       was **already de-scoped by item 6** — its always-`0` `{n}` was dropped in
       PR #87, so nothing there to localize. A **≥1000 regression assertion** was
       added for the chip (en + fr) and the Dashboard banner/insight (en).
-- [ ] **French high-punctuation spacing was inconsistent in `strings.ts`
-      (PR pending; close on merge).** French requires a **`U+00A0`** no-break space
+- [x] **French high-punctuation spacing was inconsistent in `strings.ts`
+      (merged #89).** French requires a **`U+00A0`** no-break space
       before **`: ; ! ?`**; several `fr` values used a plain **`U+0020`**. An
       authoritative codepoint scan of the whole `fr` block found **14 occurrences
       across 13 keys** — far more than the two the tracker originally named
@@ -650,7 +650,7 @@ handling it actually needs.
       green. Do not chase these locally — run `npx vitest run src`, or clear
       `dist/`.
 - [x] **Native anti-steering coverage was thinner than the tracker implied — now
-      locked (PR pending; close on merge).** Several D-series entries above promise
+      locked (merged #93).** Several D-series entries above promise
       "`nativeAntiSteering` stays green", which reads as though the whole
       anti-steering surface is covered. **It was not:** that suite only mounted
       **PaywallModal** and **SettingsScreen**. Three `isNativePlatform()` guards had
@@ -703,7 +703,7 @@ handling it actually needs.
       hardcoded figures match a single source of truth, but that only helps if the
       Paddle amount is mirrored into config; it cannot read Paddle.
 - [x] **Raw upload-error enums leaked to users, untranslated — FIXED as a class
-      (PR pending; close on merge).** Found by the PR #93 anti-steering coverage,
+      (merged #95).** Found by the PR #93 anti-steering coverage,
       then widened by a read-only scan: the leak was bigger than the one instance,
       and **decoupled from D8/D8b deliberately** (it is a correctness/i18n fix, not
       a restyle, and it was hitting **paying customers** — waiting for a restyle that
@@ -958,16 +958,37 @@ handling it actually needs.
     - **PR 4 (UploadModal) still remains** — and now inherits a clean `isLimit`-only error path.
       Its three unsettled decisions are recorded in full just below so PR 4 does not relitigate them.
 
-- [ ] **D8b arc status — three of four modal pieces DONE; PR 4 (UploadModal) is the last.**
-    - **#98** — DeleteAccountModal restyle ✅ (the first modal restyle; minted the vocabulary).
-    - **#101** — CaptureSheet restyle ✅ (validated the vocabulary on a bottom-sheet).
-    - **#102** — the `isMultiDoc` dead-branch cleanup ✅ (behavioural; its own commit — see the
-      entry above and `docs/ISMULTIDOC_DEAD_BRANCH_CLEANUP.md`).
-    - **PR 4 — UploadModal restyle (remaining).** It now inherits a clean `isLimit`-only error
-      path (the dead branch is gone). It carries the token restyle **plus three decisions that
-      were deliberately deferred to it, with their reasoning already established:**
+- [x] **D8b arc — COMPLETE. All six pieces merged; the modal-restyle sequence is done.**
+      `main` @ `097fef7`. The arc ran restyle → behavioural → i18n → restyle:
+    - **#98** — DeleteAccountModal restyle ✅ (the FIRST modal restyle; minted the token vocabulary;
+      caught the `--sa-danger`-as-fill WCAG trap — the semantic token flips to `#F87171` in dark and
+      computes 2.77:1 behind white, so the quiet tint idiom is used, never a semantic fill).
+    - **#101** — CaptureSheet restyle ✅ (validated the vocabulary on the bottom-sheet variant; the
+      scrim `/70`→`/60` convergence onto `--sa-overlay`).
+    - **#102** — the `isMultiDoc` dead-branch cleanup ✅ (behavioural, its own commit — deleted the
+      false-green test, pinned the real `markAsNeedsReview` transition. Product decision: server-emit
+      REJECTED because the Gemini vision call was moved OFF the sync path in `82e2697`, and the branch
+      was plan-gated against a plan-agnostic server check — see the entry above and
+      `docs/ISMULTIDOC_DEAD_BRANCH_CLEANUP.md`).
+    - **#104 (4a)** — UploadModal back-dismiss ✅ (behavioural; fixed a LIVE bug — hardware-back
+      minimized the app / navigated the screen underneath instead of closing the modal. Bare `isOpen`,
+      NOT `!uploading`, matching the modal's deliberate close-freely design).
+    - **#105 (4b)** — `formatFileMeta` extraction ✅ (fixed the LIVE Arabic meta defect — the dir-less
+      `<p>` bidi-reversed the mixed string to "MB • PDF 0.00"; now localised + `dir="auto"`. Also the
+      French `MO` uppercase-class fix. Uses a 2-decimal `Intl` formatter, NOT `formatCount` — that one
+      is integer-only and would drop the decimals; see `D8B_PR4_UPLOADMODAL_RESTYLE.md` CORR-1).
+    - **#106 (4c)** — UploadModal restyle ✅ (the FINAL piece; classNames-only. The scrim was the
+      biggest move of the three modals — light ~25% less dimming, dark black→navy. The shared shell was
+      **ABANDONED**: three panel families refuted extraction, and the durable value — `--sa-overlay` +
+      the named z-scale — had already shipped in #98).
+    - **Three LIVE bugs D8b surfaced-and-fixed that were NOT known at the arc's start:** (1)
+      **RTL head-truncation** of filenames in Arabic (swept in #90/#91; UploadModal's filename `<p>`
+      got `dir="auto"` in #106); (2) the **Android back-minimize** — UploadModal was the only overlay
+      with no `useBackDismiss`, so hardware-back minimized the app (fixed #104); (3) the
+      **reversed/unlocalised meta line** "MB • PDF 0.00" in Arabic (fixed #105).
+    - **The three decisions deferred INTO PR 4 were all resolved (full reasoning preserved below):**
 
-      1. **The shared shell (`ModalShell` / `SheetShell`) — deferred TWICE, decide in PR 4.**
+      1. **The shared shell (`ModalShell` / `SheetShell`) — deferred TWICE; DECIDED in #106: ABANDONED.**
          PR-2 §4.3 proposed extracting it in PR 3. **CORR-1** (appended to
          `D8B_PR2_DELETE_ACCOUNT_RESTYLE.md`) overrode that on measured geometry: there are
          **three panel families across four files** — DeleteAccountModal/PaywallModal
@@ -977,7 +998,7 @@ handling it actually needs.
          view**, so it is where the abstraction can be designed once — or explicitly declined.
          Full record: `docs/D8B_PR3_CAPTURESHEET_RESTYLE.md` §3.
 
-      2. **`formatFileMeta` — extract in PR 4, and fix a real Arabic defect, not just dedupe.**
+      2. **`formatFileMeta` — DONE in #105: extracted AND fixed the Arabic defect (not just dedupe).**
          The expression is **byte-identical** at `UploadModal.tsx:318` and `CaptureSheet.tsx:226`
          (the older "~:319 / ~:227" refs are approximate): `{(size/1024/1024).toFixed(2)} MB •
          {type.split('/')[1]?.toUpperCase() || 'FILE'}`. Deferred so both call sites collapse at
@@ -995,7 +1016,7 @@ handling it actually needs.
            `dir="auto"` wrapper or an explicit LTR-isolated number), not merely a shared expression.
            Verified dir-less + unlocalised at both `CaptureSheet.tsx:226` and `UploadModal.tsx:318`.
 
-      3. **UploadModal's missing `useBackDismiss` — decide deliberately, with a test.**
+      3. **UploadModal's missing `useBackDismiss` — DONE in #104: added deliberately, with a test.**
          **UploadModal is the ONLY overlay with no `useBackDismiss` at all** (registrations exist in
          CaptureSheet ×2, DeleteAccountModal, PaywallModal, ProcessingTray, ProWelcome). On Android,
          hardware-back does not close it today. A shared shell that *owns* back-dismiss would
@@ -1005,6 +1026,25 @@ handling it actually needs.
          (And any shell's `useBackDismiss` must take the enabled-condition as a prop:
          DeleteAccountModal passes `isOpen && !isDeleting`, CaptureSheet `!!file && !uploading` — a
          naive `useBackDismiss(isOpen, onClose)` would destroy those locks.)
+    - **DELIBERATELY DEFERRED by D8b (recorded so it is not lost):**
+      1. **UploadModal / CaptureSheet copy is still English — i18n is a SEPARATE future PR, in a
+         mandated order.** 4c was classNames-only precisely so no copy moved. The meta line's unit and
+         fallback ARE localised (#105 `formatFileMeta`), but the CTAs and status/body copy
+         ("Start Extraction", "Cancel", "Manage Files", "Uploaded", the subtitles) are hardcoded
+         English. Before ANY of it is translated, that PR must **first harden the anti-steering test
+         queries to `data-testid`** — `nativeAntiSteering.test.tsx` currently locates the submit button
+         by the literal `'Start Extraction (1)'` and the input by `input[multiple]`, so translating the
+         copy would break the compliance suite. It must **also handle Arabic's six plural forms**: the
+         upload toasts use hand-rolled English pluralization (`document${n>1?'s':''}` in
+         `UploadModal.tsx`), which cannot express Arabic plurals — count-based / ICU-style keys are
+         needed, not a boolean.
+      2. **Backend `dist/`-twin test gap (diagnosed in #103) — recommended fix on record, NOT applied.**
+         See the full entry **"Backend suite cannot run in full locally"** below. In short: `tsc`
+         compiles co-located `src/**/*.test.ts` into `dist/`, where vitest 4 re-runs them under
+         CommonJS and they fail locally; CI is green only because `npm test` runs BEFORE `npm run build`
+         on a fresh checkout. Recommended fix: `tsconfig` `exclude: ["**/*.test.ts"]` **plus** a
+         `vitest` `dist/**` exclude — the tsconfig half also fixes the **secondary defect** that the
+         production build ships test files into `dist/` at all. One small PR, no product decision.
 
 - [ ] **⚠️ Backend suite cannot run in full locally — stale `dist/` compiled test twins (pre-existing,
       NOT introduced by #102). A real local-verification gap; do NOT fix here.**
@@ -1037,14 +1077,19 @@ handling it actually needs.
       (c) clean `dist/` before test. Recommend **(b) + (a)** together. One small PR; needs no product
       decision.
 
-- [ ] **RE-NOTE (not closing) — the six "PR pending / close on merge" markers are still open.**
-      Six checklist items still carry that pending-close marker (verified count: 6 via
-      `grep -c` of the literal phrase — this re-note is deliberately worded NOT to reproduce that
-      exact phrase, so the grep count stays honest at 6). As argued previously, **closing three of
-      six is worse than closing none** (it fabricates a "half done" state with no evidence which
-      three), so they stay as written until each item's own merge is confirmed. Recorded here so they
-      are not silently forgotten; whoever confirms a merge should tick its specific marker, not a
-      batch.
+- [x] **RESOLVED (2026-07-18) — every pending-close marker is now closed against its merged PR.**
+      All were mappable to merged commits with git evidence, so the earlier "close none until each
+      merge is confirmed" caution no longer applies — each was ticked against its own PR, not batched:
+      PR-D5 Activity restyle → **#90** (`8602e64`); the `intelligencePulseDesc` empty-state copy →
+      **#87** (`0186369`); the `{n}` → `formatCount` count sites → **#88** (`09e73f6`); the French
+      high-punctuation NBSP → **#89** (`54ab345`); the native anti-steering coverage → **#93**
+      (`8bd5601`); the raw upload-error enums → **#95** (`11baadd`); the RTL truncation sweep of the
+      merged screens → **#91** (`16d14d0`).
+    - **Count correction (a lesson worth keeping).** The prior note asserted **6** markers, "verified
+      count: 6 via `grep -c` of the literal phrase". The true number was **7** — the `{n}`/`formatCount`
+      marker had the phrase **line-wrapped** (`(PR pending;` and `close on merge)` on two lines), so a
+      line-based `grep -c` silently undercounted it. A self-referential grep-count invariant is only as
+      honest as the assumption that the counted phrase never wraps; here it did.
 - [ ] **⚠️ The restyle contract has HOLES — a green contract does NOT prove a file is
       migrated. Tightened for D8b (PR 2); the older per-screen contracts still carry the
       holes.** `RAW_PALETTE` (`documentDetailRestyle.test.tsx:465-470`) bans `text-*` and
@@ -1261,8 +1306,8 @@ handling it actually needs.
       remains correct for values rendered INLINE beside other text). Only visible on
       a populated row at a narrow/overflowing width — which is exactly why the empty
       state, the Vercel preview and jsdom all missed it.
-- [ ] **RTL truncation sweep — the same defect in the ALREADY MERGED screens
-      (PR pending; close on merge).** D5 did not invent the idiom; it **copied** it,
+- [x] **RTL truncation sweep — the same defect in the ALREADY MERGED screens
+      (merged #91).** D5 did not invent the idiom; it **copied** it,
       and the original was **live in production**, clipping the identifying head of
       filenames in Arabic. Swept in the pending PR:
     - **Class A — the `<bdi>` isolate swallows `dir="auto"` on a truncating box
@@ -1365,7 +1410,9 @@ handling it actually needs.
 ### Post-launch — deferred (do NOT act before the stated gate)
 
 - [ ] **Reset the review account to FREE — GATED on Google's production review
-      completing; do NOT do it before then.** The review account
+      completing; do NOT do it before then.** **Gate status (2026-07-18): STILL CLOSED — the
+      versionCode-3 resubmission is under Google review, not yet approved (see the rejection section
+      below), so this reset must not run yet.** The review account
       **`unicornapps.support@gmail.com`** holds **PRO via
       `Organization.planOverride = PRO`** (a manual entitlement floor) with **zero
       `Subscription` rows**, deliberately, so Google's reviewer sees PRO features.
@@ -1454,6 +1501,12 @@ handling it actually needs.
 - [x] **versionCode 2 → 3** at `apps/frontend/android/app/build.gradle:23`. Play retires a
       versionCode on **upload**, not approval — the rejected build consumed 2.
       `versionName` stays `"1.0"` (nothing ever shipped under it).
+- [ ] **Resubmitted; UNDER GOOGLE REVIEW as of 2026-07-18 — not yet approved.** The versionCode-3
+      build (launcher icons + splash rebuilt per the entries above) was resubmitted to the Production
+      track; the decision is pending as of this session (owner-reported). Managed publishing is off, so
+      it **auto-publishes on approval**. **Until approval: the review-account FREE-reset ("Post-launch —
+      deferred", above) stays LOCKED**, and no versionCode beyond 3 should be built — 3 is the live
+      in-review upload. versionCode 3 confirmed at `build.gradle:23`.
 - [x] **Splash mark size 32% → 42% (owner's aesthetic call, PR #100).** Follow-up to #99.
       **This was a taste decision by the repo owner, not a correction and not a
       measurement** — 32% was an arbitrary default I picked when replacing the Capacitor
