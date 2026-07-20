@@ -7,9 +7,13 @@ vi.mock('../src/prismaClient', () => ({
     queryLog: { deleteMany: vi.fn() },
     organization: { deleteMany: vi.fn() },
     // $transaction runs the callback with a tx that reuses the same mocks.
+    // The tx must expose every model the deletion touches, including the
+    // explicit DocumentEntity/Entity cleanup that clears the RESTRICT edge.
     $transaction: vi.fn(async (cb: any) =>
       cb({
         queryLog: { deleteMany: vi.fn() },
+        documentEntity: { deleteMany: vi.fn() },
+        entity: { deleteMany: vi.fn() },
         organization: { deleteMany: vi.fn() },
         user: { deleteMany: vi.fn() },
       })
