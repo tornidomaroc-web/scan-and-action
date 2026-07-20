@@ -70,9 +70,12 @@ describe('capture wiring (offline, stub transport)', () => {
     Sentry.captureException(new Error('reach me at leak@example.com'));
     await Sentry.flush(2000);
 
-    expect(sent.length).toBe(1);
-    const raw = JSON.stringify(sent[0]);
-    // Proves beforeSend ran on the real capture path, not just in isolation.
+    // At least one envelope was delivered (the SDK may also emit a session
+    // envelope, so don't assert an exact count). Scan EVERYTHING sent: the raw
+    // email must appear nowhere, and the redaction marker must be present —
+    // proving beforeSend ran on the real capture path, not just in isolation.
+    expect(sent.length).toBeGreaterThanOrEqual(1);
+    const raw = JSON.stringify(sent);
     expect(raw).not.toContain('leak@example.com');
     expect(raw).toContain('[redacted-email]');
   });
