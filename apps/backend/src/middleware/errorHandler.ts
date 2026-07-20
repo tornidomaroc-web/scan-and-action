@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import * as Sentry from '@sentry/node';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -41,6 +42,16 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
 
   const status = err.status || 500;
   const message = status === 500 ? 'Internal Server Error' : err.message;
+
+  // Report unexpected server failures (5xx) to Sentry BEFORE responding, tagged
+  // with the same errorId so a user-reported id maps to the captured event. The
+  // handled 4xx above (P2002/P2003/P2025/Zod/Multer) already returned, so we only
+  // reach here for 500s (or an explicit err.status >= 500). captureException is a
+  // safe no-op when Sentry is not initialised (SENTRY_DSN unset). PII is stripped
+  // by beforeSend (see redaction.ts) before anything leaves the process.
+  if (status >= 500) {
+    Sentry.captureException(err, { tags: { errorId } });
+  }
 
   // Production: generic message + errorId only. Full details stay in server logs.
   if (isProduction) {

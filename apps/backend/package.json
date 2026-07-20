@@ -23,6 +23,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^6.4.1",
+    "@sentry/node": "^10.67.0",
     "@supabase/supabase-js": "^2.99.3",
     "@types/jsonwebtoken": "^9.0.10",
     "cors": "^2.8.6",

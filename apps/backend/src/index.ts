@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import './instrument'; // Sentry.init (+ redaction) — after env, before express is imported
 import app from './app';
 import { startStaleSweep } from './services/staleSweepService';
 
