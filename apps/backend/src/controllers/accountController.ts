@@ -94,11 +94,28 @@ export class AccountController {
 
       // 2) DB rows, in one transaction. Deleting the Organization cascades to its
       //    memberships, documents (+facts/+documentEntities), entities, saved and
-      //    generated reports. QueryLog has NO cascade on userId, so delete it
-      //    explicitly first. deleteMany keeps every step idempotent.
+      //    generated reports. deleteMany keeps every step idempotent.
+      //
+      //    Two foreign keys are ON DELETE RESTRICT and would block a naive cascade,
+      //    so we clear their referrers explicitly first — order-independence must
+      //    not rely on undocumented Postgres cascade-trigger ordering:
+      //      a) QueryLog.userId -> User is RESTRICT (schema.prisma:195), and
+      //         QueryLog has no org link, so delete the user's logs up front.
+      //      b) DocumentEntity.entityId -> Entity is RESTRICT (schema.prisma:185).
+      //         A single `DELETE FROM Organization` only succeeds if Postgres
+      //         happens to fire the Document cascade (which clears DocumentEntity
+      //         via documentId) BEFORE the Entity cascade hits that RESTRICT check
+      //         — accidental trigger ordering, not a contract. So we delete the
+      //         join rows, then the entities, explicitly BEFORE the org, making
+      //         the whole sequence provably order-independent.
       await prisma.$transaction(async (tx) => {
         await tx.queryLog.deleteMany({ where: { userId } });
         if (orgIds.length) {
+          // Clear the DocumentEntity -> Entity RESTRICT edge before Entity/Org.
+          await tx.documentEntity.deleteMany({
+            where: { document: { organizationId: { in: orgIds } } },
+          });
+          await tx.entity.deleteMany({ where: { organizationId: { in: orgIds } } });
           await tx.organization.deleteMany({ where: { id: { in: orgIds } } });
         }
         await tx.user.deleteMany({ where: { id: userId } });
