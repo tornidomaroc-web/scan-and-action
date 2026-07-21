@@ -41,8 +41,6 @@ export class EntityResolutionService {
     // In MVP, we assume the provided name (if not mapped) becomes the new Canonical English Name.
     // In V2, we might pass it to an LLM to generate standard formatting (e.g., 'Target Store 1234' -> 'TARGET')
     if (!entity) {
-      console.log(`[Entity Resolution] Creating new canonical entity for: ${searchName}`);
-
       entity = await this.prisma.entity.create({
         data: {
           organizationId,
@@ -57,6 +55,23 @@ export class EntityResolutionService {
           metadataJson: { source: 'auto-ingest' }
         }
       });
+
+      // The entity NAME is deliberately NOT logged (this used to be
+      // `Creating new canonical entity for: ${searchName}`). `entityType` is one
+      // of VENDOR/CLIENT/PERSON/OTHER (types/schemas.ts:16), so `searchName` can
+      // be a real person's name lifted off a scanned business card — the
+      // strongest personal data anywhere in the ingestion path, and it was going
+      // to stdout on every first sighting of an entity.
+      //
+      // The canonical key is not logged either: it is the same name, mangled, so
+      // it carries the same PII.
+      //
+      // id + type + org is what actually diagnoses the duplicate-entity class of
+      // bug this log exists for, and the id resolves to the full row for anyone
+      // who already has DB access. Logged AFTER the write so the real id is known.
+      console.log(
+        `[Entity Resolution] Created canonical entity ${entity.id} (type=${rawEntity.entityType}) for org ${organizationId}`
+      );
     }
 
     return entity;

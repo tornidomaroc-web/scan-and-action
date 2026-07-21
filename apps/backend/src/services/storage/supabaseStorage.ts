@@ -21,7 +21,12 @@ export const uploadToSupabase = async (file: Express.Multer.File): Promise<strin
     const safeOriginalName = sanitizeFileName(file.originalname);
     const filePath = `uploads/${Date.now()}-${safeOriginalName}`;
 
-    console.log(`[Storage] Uploading to bucket 'documents', path: ${filePath}`);
+    // The PATH is not logged: it embeds the sanitized original filename (see the
+    // construction above), and sanitizeFileName only lowercases and strips
+    // punctuation — "CV John Smith.pdf" survives as "cv-john-smith.pdf". The
+    // caller persists this path on the Document row and logs the documentId, so
+    // it stays recoverable without putting a filename in stdout.
+    console.log(`[Storage] Uploading to bucket 'documents' (${file.mimetype}, ${file.buffer.length} bytes)`);
     const { data, error } = await supabase.storage
         .from('documents')
         .upload(filePath, file.buffer, {
@@ -34,6 +39,6 @@ export const uploadToSupabase = async (file: Express.Multer.File): Promise<strin
         throw new Error('Failed to upload file to Supabase');
     }
 
-    console.log(`[Storage] Upload successful: ${data.path}`);
+    console.log('[Storage] Upload successful.');
     return data.path;
 };
