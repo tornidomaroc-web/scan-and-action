@@ -24,16 +24,87 @@ const JWT_RE = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g;
 const BEARER_RE = /Bearer\s+[A-Za-z0-9._~+/=-]+/gi;
 const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 
+// Storage paths and filenames (added in item #3 Half B, PR B3).
+//
+// supabaseStorage.ts builds an object key as `uploads/<epoch-ms>-<sanitized
+// filename>`, and its sanitiser only lowercases and strips punctuation — so
+// "CV John Smith.pdf" survives inside the path as "cv-john-smith.pdf". B2
+// removed our own deliberate logging of those paths, but a VENDOR error message
+// (Supabase, Gemini) can still quote one back at us, and that string is not
+// something we construct.
+//
+// A filename is not pattern-matchable in general. These two patterns cover what
+// IS matchable: our exact storage-path shape, and the generic "<name>.<ext>"
+// token for the upload types this product accepts. This is a BACKSTOP, not a
+// guarantee — see formatErrorForLog below for the structural half of the policy,
+// which is what actually bounds the exposure.
+const STORAGE_PATH_RE = /\buploads\/[0-9]+-[^\s"',;)]+/gi;
+const FILENAME_RE = /\b[\w.-]+\.(?:pdf|png|jpe?g|webp|heic|heif|gif|tiff?|bmp)\b/gi;
+
 const REDACTED_EMAIL = '[redacted-email]';
 const REDACTED_TOKEN = '[redacted-token]';
+const REDACTED_PATH = '[redacted-path]';
+const REDACTED_FILENAME = '[redacted-filename]';
 const REDACTED = '[redacted]';
 
-/** Backstop scrub of a free-text string: tokens first, then emails. */
+/**
+ * Backstop scrub of a free-text string: tokens first, then emails, then storage
+ * paths/filenames.
+ *
+ * Used by BOTH sinks — Sentry (via scrubEvent/beforeSend) and stdout (via the
+ * error logging in errorHandler/queryExecutor/formatErrorForLog). That is
+ * deliberate: one scrubber means an error string is redacted identically whether
+ * it lands in Railway or in Sentry, and there is no second implementation to
+ * drift.
+ */
 export function scrubString(input: string): string {
   return input
     .replace(JWT_RE, REDACTED_TOKEN)
     .replace(BEARER_RE, `Bearer ${REDACTED_TOKEN}`)
-    .replace(EMAIL_RE, REDACTED_EMAIL);
+    .replace(EMAIL_RE, REDACTED_EMAIL)
+    // Path before filename: the path contains a filename, and matching the
+    // whole key is more informative than leaving `uploads/173…-[redacted-filename]`.
+    .replace(STORAGE_PATH_RE, REDACTED_PATH)
+    .replace(FILENAME_RE, REDACTED_FILENAME);
+}
+
+/**
+ * THE ERROR-OBJECT LOGGING POLICY (item #3 Half B, PR B3).
+ *
+ * Rule 1 — NEVER pass an error object to console.*. `console.error('x:', err)`
+ * serialises every enumerable field. For a vendor error (Supabase, Resend,
+ * Gemini) that is an unaudited surface: it can carry request context, a storage
+ * key, or a payload echo that we never chose to log. Log a BOUNDED PROJECTION
+ * instead — that is what this function produces.
+ *
+ * Rule 2 — the projection is bounded vendor metadata (name/code/status) plus the
+ * message, and the message goes through scrubString.
+ *
+ * Rule 3 — be honest about the limit. scrubString catches emails, tokens, our
+ * storage-path shape and common upload filenames. A filename with an unusual or
+ * absent extension, quoted inside a vendor message, can still survive. The regex
+ * is the backstop; RULE 1 is what actually bounds the exposure, because the
+ * fields we never print cannot leak.
+ */
+export function formatErrorForLog(err: unknown): string {
+  if (err === null || err === undefined) return 'unknown error';
+
+  if (typeof err === 'string') return scrubString(err);
+
+  if (typeof err === 'object') {
+    const e = err as Record<string, unknown>;
+    const parts: string[] = [];
+    // Bounded, non-PII vendor metadata. Nothing else off the object is read.
+    for (const key of ['name', 'code', 'status', 'statusCode']) {
+      const v = e[key];
+      if (typeof v === 'string' || typeof v === 'number') parts.push(`${key}=${v}`);
+    }
+    const message = typeof e.message === 'string' ? scrubString(e.message) : undefined;
+    if (message) parts.push(`message=${message}`);
+    return parts.length > 0 ? parts.join(' ') : 'unspecified error';
+  }
+
+  return scrubString(String(err));
 }
 
 const SENSITIVE_HEADERS = ['authorization', 'cookie', 'set-cookie', 'proxy-authorization'];

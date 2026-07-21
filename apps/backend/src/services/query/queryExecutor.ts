@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { QueryPlan, QueryIntent, QueryResultDto } from '../../types/querySchemas';
+import { scrubString } from '../../redaction';
 
 export class QueryExecutor {
   private prisma: PrismaClient;
@@ -157,7 +158,9 @@ export class QueryExecutor {
     } catch (err: any) {
       status = 'EXECUTION_ERROR';
       errorMessage = err.message;
-      console.error(`[QueryExecutor ERROR]: ${err.message}`);
+      // Scrubbed: a Prisma error here can embed the filter VALUE derived from
+      // what the user typed (a merchant, a name). Same scrubber as Sentry.
+      console.error(`[QueryExecutor ERROR]: ${scrubString(err.message ?? String(err))}`);
     } finally {
       const executionTimeMs = Date.now() - startTime;
       

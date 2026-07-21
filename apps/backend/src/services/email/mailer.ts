@@ -21,6 +21,11 @@
 // and the unsubscribe/contact mailbox are env-driven so they can be changed
 // (e.g. swap a temporary address for a P.O. box) without a code change.
 
+// The one import this otherwise-standalone module takes: the shared scrubber
+// (item #3 Half B, PR B3). It is a pure, side-effect-free function, so the
+// "side-effect-free on import" contract above still holds.
+import { scrubString } from '../../redaction';
+
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
 /**
@@ -207,18 +212,28 @@ export async function sendTransactionalEmail(
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
+      // The recipient address is not logged. Note the second half of this fix:
+      // `detail` is RESEND'S response body, not a string we build, and it
+      // routinely echoes the offending address back ("Invalid `to` field: …").
+      // Dropping `${to}` alone would therefore not have removed the address —
+      // the body has to go through the scrubber too.
       console.error(
-        `[Mailer] Resend returned ${res.status} ${res.statusText} for ${to}: ${detail}`,
+        `[Mailer] Resend returned ${res.status} ${res.statusText}: ${scrubString(detail)}`,
       );
       return { status: 'failed', error: `Resend HTTP ${res.status}` };
     }
 
     const data = (await res.json().catch(() => ({}))) as { id?: string };
-    console.log(`[Mailer] Email accepted by Resend for ${to}. ID: ${data.id ?? 'unknown'}`);
+    // The Resend message id is a lossless, non-PII handle: Resend's own dashboard
+    // resolves it to the full delivery record, recipient included. Logging the
+    // address as well was pure duplication of a system of record we already have.
+    console.log(`[Mailer] Email accepted by Resend. ID: ${data.id ?? 'unknown'}`);
     return { status: 'sent', id: data.id ?? '' };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[Mailer] Network/exception while sending to ${to}: ${message}`);
+    // No recipient, and the exception text is scrubbed: on a fetch failure the
+    // message is vendor/runtime text we do not control.
+    console.error(`[Mailer] Network/exception while sending: ${scrubString(message)}`);
     return { status: 'failed', error: message };
   }
 }
