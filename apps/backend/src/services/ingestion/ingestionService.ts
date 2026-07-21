@@ -32,7 +32,12 @@ export class IngestionService {
     originalFileName: string,
     fileUrl: string
   ): Promise<void> {
-    console.log(`[Background] Starting validation and extraction for document ${documentId} (${originalFileName})...`);
+    // The FILENAME is not logged (this used to interpolate `originalFileName`).
+    // documentId is the handle every other line in this workflow already uses,
+    // and it resolves to the row that holds the name if it is ever needed.
+    console.log(
+      `[Background] Starting validation and extraction for document ${documentId} (${mimeType}, ${targetFileBuffer.length} bytes)...`
+    );
 
     // Step 1: Validation Signal - Ensure single document (Async check)
     const isSingleDoc = await this.validateSingleDocument(targetFileBuffer, mimeType);

@@ -8,7 +8,6 @@ export class IntentParserService {
    */
   public async parseUserQuery(userQueryText: string, sourceLanguage: string): Promise<QueryIntent> {
     const q = userQueryText.toLowerCase().trim();
-    console.log(`[IntentParser] Parsing ${sourceLanguage} question: "${q}"`);
 
     const intent: QueryIntent = {
       intent: 'list_documents', // Default fallback
@@ -97,6 +96,21 @@ export class IntentParserService {
       intent.needsClarification = true;
       intent.confidence = 0.1;
     }
+
+    // The user's RAW QUESTION is not logged (this used to be
+    // `Parsing ${sourceLanguage} question: "${q}"` at the top of this method).
+    // It is free text the user typed about their own documents and can contain
+    // anything — a merchant, an amount, a person's name.
+    //
+    // Moved to the END and reduced to the RESOLVED INTENT, which is both non-PII
+    // and strictly more useful: when this parser mis-reads a question, what you
+    // need to see is which branch won and how confident it was, not the sentence
+    // you can already get from the user. `questionLength` keeps the one property
+    // of the raw text that matters here (the <3-char ambiguity check below).
+    console.log(
+      `[IntentParser] Parsed ${sourceLanguage} question (length=${q.length}) -> intent=${intent.intent} ` +
+        `format=${intent.outputFormat} confidence=${intent.confidence.toFixed(2)} clarify=${intent.needsClarification}`
+    );
 
     return QueryIntentSchema.parse(intent);
   }

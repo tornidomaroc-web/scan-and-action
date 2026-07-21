@@ -74,12 +74,20 @@ export class GeminiExtractionAdapter {
       ]);
 
       const textOutput = result.response.text().trim().toUpperCase();
-      console.log(`[Gemini Validation DEBUG] raw result: "${textOutput}"`);
-      
+
       const containsYes = textOutput.includes('YES');
       const containsNo = textOutput.includes('NO');
-      
-      console.log(`[Gemini Validation DEBUG] containsYes: ${containsYes}, containsNo: ${containsNo}`);
+
+      // The model's RAW response is no longer echoed (it used to be logged as
+      // `[Gemini Validation DEBUG] raw result: "…"`). It is unbounded model output
+      // generated from the user's own document: normally 'YES'/'NO', but nothing
+      // constrains it, and a refusal or a stray caption would put document content
+      // in stdout. The parsed booleans carry the whole debugging signal — they are
+      // exactly what the branch below keys on — and `length` still surfaces an
+      // unexpected/verbose response without printing it.
+      console.log(
+        `[Gemini Validation] containsYes=${containsYes} containsNo=${containsNo} responseLength=${textOutput.length}`
+      );
 
       // If the AI says 'YES', it means it found MULTIPLE documents.
       // We only return 'true' if we are SURE it said 'NO' and not 'YES'.
@@ -152,19 +160,6 @@ export class GeminiExtractionAdapter {
       const finalDate = this.normalizeDate(rawJson.date);
       const finalCurrency = this.normalizeCurrency(rawJson.currency);
 
-      // PROFESSIONAL ASCII LOGGING
-      console.log(`
-┌───────────────────────────────────────────────────────────┐
-│ [GEMINI AI EXTRACTION]                                    │
-├───────────────────────────────────────────────────────────┤
-│ MERCHANT:   ${(rawJson.merchantName || 'UNKNOWN').padEnd(46)} │
-│ TOTAL:      ${(String(rawJson.totalAmount) + ' ' + finalCurrency).padEnd(46)} │
-│ DATE:       ${finalDate.padEnd(46)} │
-│ DOCUMENT:   ${(rawJson.documentType || 'Other').toUpperCase().padEnd(46)} │
-│ QUALITY:    ${(finalDate !== 'UNKNOWN' ? 'HIGH' : 'CHECK_DATE').padEnd(46)} │
-└───────────────────────────────────────────────────────────┘
-      `);
-
       // -----------------------------------------------------------------------
       // FIX-04 — CORE-FACT COMPLETENESS SCORING
       // -----------------------------------------------------------------------
@@ -186,6 +181,25 @@ export class GeminiExtractionAdapter {
       }
 
       const completenessScore = (dateScore + amountScore) / 2;
+
+      // Non-PII extraction summary.
+      //
+      // This replaces a boxed ASCII dump of the MERCHANT name, the TOTAL and the
+      // DATE read off the user's receipt — the highest-volume PII site in the
+      // codebase, written to stdout on every single successful scan. What is
+      // actually debuggable about an extraction is WHICH fields came back and how
+      // confident we are, never their values: `hasMerchant=false` tells you the
+      // prompt or the image failed just as well as printing the merchant did.
+      //
+      // Line-drawing note: `type` and `currency` are kept. Both are closed, tiny
+      // vocabularies (Receipt/Invoice/Other; USD/EUR/MAD/…) with no identifying
+      // power on their own, and `currency` is the one value normalizeCurrency
+      // bugs are diagnosed from. They are the only extracted values that survive.
+      console.log(
+        `[Gemini] Extraction complete: type=${(rawJson.documentType || 'Other').toUpperCase()} ` +
+          `hasMerchant=${!!rawJson.merchantName} hasTotal=${rawJson.totalAmount !== null && rawJson.totalAmount !== undefined} ` +
+          `hasDate=${finalDate !== 'UNKNOWN'} currency=${finalCurrency} completeness=${completenessScore.toFixed(2)}`
+      );
 
       const mappedResult: GeminiExtractionResult = {
         detectedLanguage: rawJson.language || 'en',

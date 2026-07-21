@@ -61,9 +61,22 @@ export class UploadController {
         return res.status(400).json({ error: 'No image file uploaded' });
       }
 
-      console.log(`[UploadController] Uploading ${file.originalname} to Supabase storage...`);
+      // Neither the user-chosen FILENAME nor the storage PATH is logged.
+      //
+      // Filenames routinely carry exactly what this PR is removing from stdout —
+      // "Facture_Carrefour_Jan.pdf", "CV John Smith.pdf". And the path is not a
+      // safe substitute: supabaseStorage.ts builds it as
+      // `uploads/<timestamp>-<sanitized filename>`, and the sanitiser only
+      // lowercases and strips punctuation, so "CV John Smith.pdf" survives as
+      // "cv-john-smith.pdf" inside the path.
+      //
+      // Nothing is lost: the full path is persisted on the Document row
+      // (fileUrl, written just below) and the documentId IS logged on the next
+      // line — so log -> DB -> path is lossless for anyone debugging, without a
+      // name in stdout.
+      console.log(`[UploadController] Uploading ${file.mimetype} (${file.size} bytes) to Supabase storage...`);
       const filePath = await uploadToSupabase(file);
-      console.log(`[UploadController] File uploaded to storage at: ${filePath}`);
+      console.log('[UploadController] File uploaded to storage.');
 
       // Create a stub record immediately so we can return fast
       const stubDoc = await prisma.document.create({
