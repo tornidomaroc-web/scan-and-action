@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import * as Sentry from '@sentry/node';
+import { scrubString, formatErrorForLog } from '../redaction';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -9,7 +10,19 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
   // so a user-reported error can be matched to its full stack trace.
   const errorId = crypto.randomUUID();
 
-  console.error(`[API Error] [${errorId}] ${req.method} ${req.originalUrl}`, err.stack || err);
+  // The stack is the primary debugging artifact for a 500, so it stays — but it
+  // goes through the SAME scrubber Sentry uses (redaction.ts), so an email, a
+  // token or a storage path embedded in it by Prisma/Zod/a vendor is redacted
+  // identically whether it lands in Railway stdout or in Sentry. Before this,
+  // beforeSend protected Sentry only and stdout got the raw text.
+  //
+  // A non-Error throw goes through formatErrorForLog rather than being handed to
+  // console.error as an object — see the policy in redaction.ts.
+  //
+  // req.originalUrl is kept: verified that no route carries user content in the
+  // query string (search is POST — searchRoutes.ts:7); the GET routes take UUIDs.
+  const detail = typeof err?.stack === 'string' ? scrubString(err.stack) : formatErrorForLog(err);
+  console.error(`[API Error] [${errorId}] ${req.method} ${req.originalUrl}`, detail);
 
   // Prisma: Unique constraint violation
   if (err.code === 'P2002') {

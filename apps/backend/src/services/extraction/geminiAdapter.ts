@@ -1,5 +1,6 @@
 import { GeminiExtractionSchema, GeminiExtractionResult } from '../../types/schemas';
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { formatErrorForLog } from '../../redaction';
 
 /**
  * GeminiExtractionAdapter
@@ -98,7 +99,9 @@ export class GeminiExtractionAdapter {
       return !containsYes;
 
     } catch (error: any) {
-      console.error("[Gemini Validation] CRITICAL ERROR during check:", error.message);
+      // ERROR-OBJECT POLICY (redaction.ts): vendor/SDK error text is not a string
+      // we construct — it can quote a filename or a request payload back at us.
+      console.error('[Gemini Validation] CRITICAL ERROR during check:', formatErrorForLog(error));
       return true; // Fail-open to avoid blocking users on API technicalities
     }
   }
@@ -254,7 +257,11 @@ export class GeminiExtractionAdapter {
       }
 
       console.error(`[Gemini] [FAILURE_CAUSE]: ${failureCause}`);
-      console.error(`[Gemini] Detailed Error: ${errorMessage}`);
+      // ERROR-OBJECT POLICY (redaction.ts). `failureCause` above is derived from
+      // the raw message BEFORE scrubbing (it only tests for 'parsing'/'JSON'/
+      // 'fetch'/'API'/'safety' keywords), so the classification is unaffected —
+      // only what we PRINT changes.
+      console.error(`[Gemini] Detailed Error: ${formatErrorForLog(error)}`);
 
       return {
         detectedLanguage: 'en',

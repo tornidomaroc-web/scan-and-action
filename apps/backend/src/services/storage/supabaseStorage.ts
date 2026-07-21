@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Express } from 'express';
+import { formatErrorForLog } from '../../redaction';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -35,7 +36,11 @@ export const uploadToSupabase = async (file: Express.Multer.File): Promise<strin
         });
 
     if (error) {
-        console.error('[Storage] Supabase upload error:', error);
+        // ERROR-OBJECT POLICY (redaction.ts): the upload is keyed by `filePath`,
+        // which embeds the sanitized filename, so a vendor error echoing the key
+        // would leak it. Bounded projection + scrubbed message instead of the
+        // raw object.
+        console.error('[Storage] Supabase upload error:', formatErrorForLog(error));
         throw new Error('Failed to upload file to Supabase');
     }
 

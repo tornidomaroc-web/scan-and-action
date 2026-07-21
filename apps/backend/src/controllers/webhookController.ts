@@ -115,7 +115,20 @@ export class WebhookController {
         console.warn(`[Webhook] Event without event_id (${eventName}) — processing without idempotency guard`);
       }
 
-      console.log(`[Webhook] Received ${eventName} (${eventId || 'no-id'}) for ${email || event.data?.custom_data?.userId || 'unidentified user'}`);
+      // Identify the payer by Paddle ids, never by email.
+      //
+      // Note this could NOT simply become `userId`: the email was the FALLBACK
+      // identity here, present precisely when custom_data.userId is absent, so
+      // substituting the UUID would print 'none' in exactly the cases the log
+      // exists for. Paddle's customer_id does not have that hole — it is on the
+      // event whether or not our checkout metadata survived — and it resolves to
+      // the full customer inside Paddle, our system of record for billing.
+      // Both ids are logged so either route to the customer works. Same
+      // substitution B1 made for the billing alerts.
+      console.log(
+        `[Webhook] Received ${eventName} (${eventId || 'no-id'}) for customer ` +
+          `${event.data?.customer_id || 'none'} (userId ${event.data?.custom_data?.userId || 'none'})`
+      );
 
       // From here on, a thrown error must release the idempotency claim:
       // otherwise a transient failure marks the event "processed" and

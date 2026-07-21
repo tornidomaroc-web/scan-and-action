@@ -139,7 +139,12 @@ export const authMiddleware = async (
     let organizationId: string;
 
     if (dbUser.memberships.length === 0) {
-      console.log(`[AuthMiddleware] Provisioning default organization for user: ${email}`);
+      // userId, not email. This line means "a first-time user is being
+      // provisioned"; the Supabase UUID identifies them for every downstream
+      // lookup and is already the key ensureUser/ensureOrganization work from.
+      // The email added nothing the UUID does not, and it put an address in
+      // stdout on every genuine first login.
+      console.log(`[AuthMiddleware] Provisioning default organization for user: ${userId}`);
       const { organizationId: orgId, created } = await ensureOrganization(userId);
       organizationId = orgId;
 
