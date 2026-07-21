@@ -465,4 +465,157 @@ describe('WebhookController.handlePaddle', () => {
 
     expect(res.status).toHaveBeenCalledWith(500);
   });
+
+  // ── NEGATIVE CONTROL: no personal data may reach Discord (item #3 Half B, B1)
+  //
+  // Discord is a THIRD PARTY. Until B1 these two alerts sent
+  // `ref="userId <uuid>, email <address>"`, so a paying customer's email left our
+  // boundary into a channel with no retention control and no way to age out.
+  //
+  // Every case below feeds an event that DOES carry an email (`data.customer.email`
+  // — the real fallback-identity shape, exercised at :183) down a path where
+  // resolution fails, which is precisely when the alerts fire. If anyone
+  // reintroduces the address — directly, or by putting `ref` back in the context —
+  // these fail.
+  //
+  // Scope note: these assert on what is handed to sendDiscordAlert ONLY. The
+  // controller still logs the email to stdout at webhookController.ts:118; that is
+  // a first-party log line and is PR B3's job, deliberately not B1's.
+  const PAYER_EMAIL = 'payer@example.com';
+
+  /** Everything the alert would transmit, flattened the way discordAlert.ts does. */
+  function discordPayload(): string {
+    expect(sendDiscordAlert).toHaveBeenCalledTimes(1);
+    const [message, context] = (sendDiscordAlert as any).mock.calls[0];
+    return `${message} ${JSON.stringify(context ?? {})}`;
+  }
+
+  it('ACTIVE path: the Discord payload carries NO email — not the address, not an @ at all', async () => {
+    (resolveBillingOrg as any).mockResolvedValue(null);
+    const res = mockResponse();
+
+    await WebhookController.handlePaddle(
+      signedRequest(transactionCompleted({ customer: { email: PAYER_EMAIL } })),
+      res
+    );
+
+    // Sanity: the email really was present on the event, so this is not vacuous.
+    expect(resolveBillingOrg).toHaveBeenCalledWith(null, PAYER_EMAIL);
+
+    const payload = discordPayload();
+    expect(payload).not.toContain(PAYER_EMAIL);
+    expect(payload).not.toContain('payer');
+    // Nothing email-SHAPED either, so a future partial/masked address also fails.
+    expect(payload).not.toMatch(/@/);
+    expect(payload).not.toMatch(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
+    // And the old blob key is gone, not merely emptied.
+    expect(JSON.parse(payload.slice(payload.indexOf('{')))).not.toHaveProperty('ref');
+  });
+
+  it('INACTIVE path: the Discord payload carries NO email', async () => {
+    (resolveBillingOrg as any).mockResolvedValue(null);
+    const res = mockResponse();
+
+    await WebhookController.handlePaddle(
+      signedRequest(
+        subscriptionEvent('subscription.canceled', {
+          status: 'canceled',
+          customer: { email: PAYER_EMAIL },
+        })
+      ),
+      res
+    );
+
+    expect(resolveBillingOrg).toHaveBeenCalledWith(USER_ID, PAYER_EMAIL);
+    const payload = discordPayload();
+    expect(payload).not.toContain(PAYER_EMAIL);
+    expect(payload).not.toMatch(/@/);
+  });
+
+  // The other half of the swap. A BARE deletion would leave these two alerts with
+  // no Paddle identifier at all (they carried none before B1), degrading support
+  // to "search Paddle by event id" — which is exactly the pressure that would get
+  // the email put back. These pin that the replacement handles are really there.
+  it('ACTIVE path: the alert still identifies the customer — Paddle customer + object ids', async () => {
+    (resolveBillingOrg as any).mockResolvedValue(null);
+    const res = mockResponse();
+
+    await WebhookController.handlePaddle(
+      signedRequest(transactionCompleted({ customer: { email: PAYER_EMAIL } })),
+      res
+    );
+
+    const [, context] = (sendDiscordAlert as any).mock.calls[0];
+    // ctm_1 resolves to the full customer record inside Paddle.
+    expect(context).toMatchObject({
+      event: 'transaction.completed',
+      customer_id: 'ctm_1',
+      paddle_id: 'txn_1', // transaction.completed -> data.id is the txn
+      event_id: 'evt_test_1',
+    });
+  });
+
+  it('INACTIVE path: paddle_id resolves to the SUBSCRIPTION id for subscription.* events', async () => {
+    (resolveBillingOrg as any).mockResolvedValue(null);
+    const res = mockResponse();
+
+    await WebhookController.handlePaddle(
+      signedRequest(subscriptionEvent('subscription.canceled', { status: 'canceled', customer_id: 'ctm_9' })),
+      res
+    );
+
+    const [, context] = (sendDiscordAlert as any).mock.calls[0];
+    expect(context).toMatchObject({
+      customer_id: 'ctm_9',
+      paddle_id: 'sub_1', // subscription.* -> data.id is the sub
+      user_id: USER_ID,
+    });
+  });
+
+  // The incidental first-party win: `ref` is shared with the [Webhook][ALERT]
+  // stdout lines, so redefining it at the single definition site cleaned those up
+  // too. Pinned here so the stdout half cannot silently regress either.
+  //
+  // Deliberately scoped to the [Webhook][ALERT] warn lines. The separate
+  // `[Webhook] Received …` console.log at webhookController.ts:118 still contains
+  // the email and is PR B3's scope — asserting "no email in any console output"
+  // here would fail, and papering over that with a broader mock would be dishonest
+  // about what B1 actually fixed.
+  it('the [Webhook][ALERT] stdout line no longer carries the email either', async () => {
+    (resolveBillingOrg as any).mockResolvedValue(null);
+    const res = mockResponse();
+
+    await WebhookController.handlePaddle(
+      signedRequest(transactionCompleted({ customer: { email: PAYER_EMAIL } })),
+      res
+    );
+
+    const alertLines = (console.warn as any).mock.calls
+      .map((c: any[]) => c.join(' '))
+      .filter((line: string) => line.includes('[Webhook][ALERT]'));
+
+    expect(alertLines.length).toBeGreaterThan(0);
+    const blob = alertLines.join('\n');
+    expect(blob).not.toContain(PAYER_EMAIL);
+    expect(blob).not.toMatch(/@/);
+    // Replaced by the Paddle handle, so the line stays actionable.
+    expect(blob).toContain('paddleCustomer ctm_1');
+  });
+
+  // Paddle omits customer_id on some manual/imported events. The alert must still
+  // fire and still be well-formed rather than throwing or going quiet.
+  it('degrades safely to "none" when the event carries no customer_id', async () => {
+    (resolveBillingOrg as any).mockResolvedValue(null);
+    const res = mockResponse();
+
+    await WebhookController.handlePaddle(
+      signedRequest(subscriptionEvent('subscription.canceled', { status: 'canceled' })),
+      res
+    );
+
+    const [, context] = (sendDiscordAlert as any).mock.calls[0];
+    expect(context.customer_id).toBe('none');
+    expect(context.paddle_id).toBe('sub_1');
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
 });
