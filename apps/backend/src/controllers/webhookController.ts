@@ -261,25 +261,58 @@ export class WebhookController {
       if (!status) return;
 
       const userId = WebhookController.extractUserId(event, eventId);
-      const ref = `userId ${userId || 'none'}, email ${email || 'none'}`;
+
+      // Identity handle for the alert/log trail below.
+      //
+      // This string used to be `userId <uuid>, email <address>`, and it is
+      // interpolated into the two Discord alerts below — so a paying customer's
+      // email address left our boundary and landed in a third-party chat channel
+      // with no retention control and no way to age out. Removed here (item #3
+      // Half B, PR B1).
+      //
+      // Paddle's customer id is the replacement, and it is a STRICTLY BETTER
+      // support handle than the email was: it resolves inside Paddle (our system
+      // of record for billing) to the full customer — email, transactions,
+      // subscriptions — while being an opaque vendor identifier on its own.
+      const paddleCustomerId = event.data?.customer_id || 'none';
+      const ref = `userId ${userId || 'none'}, paddleCustomer ${paddleCustomerId}`;
 
       const resolved = await resolveBillingOrg(userId, email);
 
       if (!resolved) {
         // Loud and grep-able: a paid checkout / billing change that did not map to
         // an org is a support incident, not a debug detail.
+        //
+        // The Discord context carries DISCRETE identifier fields (mirroring
+        // logRefundForReview above) rather than the free-text `ref` blob: every
+        // value is a bare id, which makes it obvious at a glance that no personal
+        // data is in the payload, and keeps the alert greppable in Discord.
+        //
+        // The Paddle object this event is about. `subscription_id || id` is the
+        // same expression `externalId` uses below, so the alert names exactly the
+        // object the entitlement write would have targeted: a transaction id
+        // (txn_…) for transaction.completed, a subscription id (sub_…) for
+        // subscription.*. Paddle ids are type-prefixed, so one field is
+        // unambiguous — and unlike `transaction_id`, it is never empty on the
+        // event families that reach this branch.
+        const paddleObjectId = event.data?.subscription_id || event.data?.id || 'none';
+
         if (status === 'ACTIVE') {
           console.warn(`[Webhook][ALERT] PRO upgrade NOT applied — no user/org matches ${ref} (event ${eventId || 'no-id'}, ${eventName}). Customer paid but is still on FREE.`);
           fireDiscordAlert('PRO upgrade NOT applied — customer paid but is still on FREE (no user/org match).', {
             event: eventName,
-            ref,
+            user_id: userId || 'none',
+            customer_id: paddleCustomerId,
+            paddle_id: paddleObjectId,
             event_id: eventId || 'no-id',
           });
         } else {
           console.warn(`[Webhook][ALERT] Downgrade NOT applied — no user/org matches ${ref} (event ${eventId || 'no-id'}, ${eventName}).`);
           fireDiscordAlert('Downgrade NOT applied — no user/org match for a billing change.', {
             event: eventName,
-            ref,
+            user_id: userId || 'none',
+            customer_id: paddleCustomerId,
+            paddle_id: paddleObjectId,
             event_id: eventId || 'no-id',
           });
         }

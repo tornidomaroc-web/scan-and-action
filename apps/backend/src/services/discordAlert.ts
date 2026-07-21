@@ -12,8 +12,21 @@
 //     mode or add latency to the Paddle webhook response.
 //   * Reads DISCORD_ALERT_WEBHOOK_URL from the environment at call time.
 //   * NEVER logs the webhook URL or its token, and NEVER puts it in the body.
-//   * Callers pass only non-secret business identifiers (event name, the
-//     user/email ref string, org id, adjustment/transaction ids) as context.
+//   * Callers pass only non-secret, NON-PERSONAL business identifiers (event
+//     name, our userId/org UUIDs, Paddle customer/subscription/transaction ids)
+//     as context. NEVER an email address, a person's name, or any other direct
+//     personal data.
+//
+//     This rule is stricter than it looks, and it is deliberate: Discord is a
+//     THIRD PARTY. Anything posted here leaves our boundary, is readable by
+//     everyone in the channel (including future invitees), and persists
+//     INDEFINITELY — there is no retention window to age it out, only manual
+//     deletion. That makes it categorically different from a Railway log line.
+//     Until item #3 Half B PR B1 this contract listed "the user/email ref
+//     string" as an acceptable example, and the billing alerts duly sent a
+//     paying customer's email address to Discord. Do not reintroduce it: if you
+//     need to identify a customer, send the Paddle customer id, which resolves
+//     to the full record inside Paddle without egressing personal data.
 
 // Discord renders the top-level `content` field of an incoming-webhook payload.
 // Hard cap is 2000 chars; we truncate well under it defensively.
@@ -24,8 +37,13 @@ const REQUEST_TIMEOUT_MS = 3000;
 
 /**
  * Non-secret context appended to the alert as `key=value` pairs. Pass only
- * business identifiers that are already present in the existing [Webhook][ALERT]
- * logs — never tokens, secrets, signatures, or raw payloads.
+ * opaque business identifiers — never tokens, secrets, signatures, raw payloads,
+ * or PERSONAL DATA (email addresses, names, document contents).
+ *
+ * Note the rule is NOT "anything already in the [Webhook][ALERT] logs is fine"
+ * (which is what this said before PR B1). Our own stdout still contains personal
+ * data at other sites; a value being acceptable in a first-party log does not
+ * make it acceptable to transmit to a third party.
  */
 export type DiscordAlertContext = Record<string, string | number | undefined | null>;
 
