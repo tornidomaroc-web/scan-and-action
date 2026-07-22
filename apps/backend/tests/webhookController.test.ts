@@ -40,10 +40,15 @@ import {
 import { applyEntitlementChange } from '../src/services/entitlement/applyEntitlementChange';
 import { sendDiscordAlert } from '../src/services/discordAlert';
 import { WebhookController } from '../src/controllers/webhookController';
+import { CANONICAL_PADDLE_PRICE_IDS } from '../src/config/paddlePrices';
 
 const SECRET = 'test-webhook-secret';
 const USER_ID = '7f1e2d3c-4b5a-4678-9abc-def012345678';
 const ORG_ID = 'org-uuid-1';
+// A REAL shipping price id, from the same catalog the grant gate validates
+// against — so these tests exercise the allowlist rather than a stand-in that
+// could pass while the real ids are wrong.
+const MONTHLY_PRICE_ID = [...CANONICAL_PADDLE_PRICE_IDS][0];
 
 // Builds a correctly signed request the way Paddle does: h1 = HMAC-SHA256
 // over `${ts}:${rawBody}` — so these tests also exercise the signature path.
@@ -67,11 +72,27 @@ function mockResponse() {
   return res;
 }
 
+// A Paddle Billing transaction.completed for a SUBSCRIPTION purchase.
+//
+// SHAPE IS LOAD-BEARING. This fixture previously carried neither `subscription_id`
+// nor `items`, so it did not match any real Paddle payload: a subscription
+// transaction always carries `subscription_id` (documented `string | null`, null
+// only for one-off transactions) and `data.items[].price.id`. Nothing caught it
+// because no code read those fields — the same way the adjustment fixture carried
+// a `custom_data` field Paddle does not send. Both are now read, so both must be
+// real. https://developer.paddle.com/webhooks/transactions/transaction-completed
 function transactionCompleted(data: object, eventId = 'evt_test_1') {
   return {
     event_id: eventId,
     event_type: 'transaction.completed',
-    data: { id: 'txn_1', status: 'completed', customer_id: 'ctm_1', ...data },
+    data: {
+      id: 'txn_1',
+      status: 'completed',
+      customer_id: 'ctm_1',
+      subscription_id: 'sub_1',
+      items: [{ price: { id: MONTHLY_PRICE_ID } }],
+      ...data,
+    },
   };
 }
 
@@ -517,6 +538,137 @@ describe('WebhookController.handlePaddle', () => {
     expect(res.status).toHaveBeenCalledWith(500);
   });
 
+  // ==========================================================================
+  // GRANT-SIDE HARDENING (PR B).
+  //
+  // Part 1 (price allowlist) is ALERT-ONLY: an unrecognised price is named loudly
+  // but still granted, because the likely false positive is US adding a promo
+  // price and forgetting the config — and rejecting a charged customer is worse
+  // than granting one we then review.
+  //
+  // Part 2 (one-off transactions) is ENFORCED: a transaction with no subscription
+  // behind it would set PRO that NO event we handle can ever clear. A wrong denial
+  // is loud and fixable via planOverride; a wrong permanent grant is silent and
+  // has no remedy.
+  //
+  // Both gate ACTIVE only. Every downgrade must survive them untouched.
+  // ==========================================================================
+
+  it('GRANTS on a canonical price (the happy path is genuinely exercised, not bypassed)', async () => {
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(transactionCompleted({ custom_data: { userId: USER_ID } })),
+      res
+    );
+    expect(applyEntitlementChange).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId: ORG_ID, source: 'PADDLE', status: 'ACTIVE' })
+    );
+    const logged = (console.warn as any).mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(logged).not.toMatch(/UNRECOGNISED/);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('ALERT-ONLY: an unrecognised price is named loudly but STILL GRANTED', async () => {
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(
+        transactionCompleted({
+          custom_data: { userId: USER_ID },
+          items: [{ price: { id: 'pri_legacy_five_dollar' } }],
+        })
+      ),
+      res
+    );
+
+    // Granted — a charged customer is never denied over a config gap.
+    expect(applyEntitlementChange).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'ACTIVE' })
+    );
+    // …but the price is named, or the alert is useless for triage.
+    const logged = (console.warn as any).mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(logged).toContain('[Webhook][ALERT]');
+    expect(logged).toContain('UNRECOGNISED price');
+    expect(logged).toContain('pri_legacy_five_dollar');
+    expect(sendDiscordAlert).toHaveBeenCalledWith(
+      expect.stringContaining('UNRECOGNISED Paddle price'),
+      expect.objectContaining({ unknown_price_ids: 'pri_legacy_five_dollar' })
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('reads the price from data.details.line_items[] when items[] is absent', async () => {
+    const res = mockResponse();
+    const ev = transactionCompleted({ custom_data: { userId: USER_ID } });
+    delete (ev.data as any).items;
+    (ev.data as any).details = { line_items: [{ price_id: 'pri_promo_unknown' }] };
+
+    await WebhookController.handlePaddle(signedRequest(ev), res);
+
+    const logged = (console.warn as any).mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(logged).toContain('pri_promo_unknown');
+    expect(applyEntitlementChange).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'ACTIVE' })
+    );
+  });
+
+  it('ENFORCED: a bare one-off transaction (no subscription_id) does NOT grant', async () => {
+    const res = mockResponse();
+    const ev = transactionCompleted({ custom_data: { userId: USER_ID } });
+    delete (ev.data as any).subscription_id;
+
+    await WebhookController.handlePaddle(signedRequest(ev), res);
+
+    // The whole point: no unrevokable PRO.
+    expect(applyEntitlementChange).not.toHaveBeenCalled();
+    const logged = (console.warn as any).mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(logged).toContain('[Webhook][ALERT]');
+    expect(logged).toContain('Grant REFUSED');
+    expect(sendDiscordAlert).toHaveBeenCalledWith(
+      expect.stringContaining('Grant REFUSED'),
+      expect.objectContaining({ transaction_id: 'txn_1' })
+    );
+    // Still 200: Paddle must not retry a decision that will not change.
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('a subscription purchase still grants via subscription.created even if its transaction is refused', async () => {
+    // Why enforcing Part 2 is safe: subscription.created grants independently of
+    // the one-off gate, so a real subscription customer cannot be stranded by it.
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(subscriptionEvent('subscription.created', { items: [{ price: { id: MONTHLY_PRICE_ID } }] })),
+      res
+    );
+    expect(applyEntitlementChange).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'ACTIVE' })
+    );
+  });
+
+  // ── THE UNCONDITIONAL-DOWNGRADE GUARD ──────────────────────────────────────
+  // The opposite direction from the grant gate, and the one that must never
+  // regress: if a gate ever blocked a downgrade, a cancelled subscription would
+  // keep PRO forever — undoing PR A (#114).
+  const downgradeCases: Array<{ name: string; mutate: (d: any) => void }> = [
+    { name: 'no items array at all', mutate: (d) => delete d.items },
+    { name: 'an unrecognised price', mutate: (d) => (d.items = [{ price: { id: 'pri_who_knows' } }]) },
+    { name: 'a null subscription_id', mutate: (d) => (d.subscription_id = null) },
+  ];
+  for (const { name, mutate } of downgradeCases) {
+    it(`DOWNGRADE still applies with ${name}`, async () => {
+      downgrade();
+      const res = mockResponse();
+      const ev = subscriptionEvent('subscription.canceled', { status: 'canceled' });
+      mutate(ev.data as any);
+
+      await WebhookController.handlePaddle(signedRequest(ev), res);
+
+      expect(applyEntitlementChange).toHaveBeenCalledWith(
+        expect.objectContaining({ source: 'PADDLE', status: 'INACTIVE' })
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+    });
+  }
+
   // ── The claim-release is itself allowed to fail, and that must be LOUD ──────
   //
   // Releasing the claim is the only thing that lets Paddle's retry work. If the
@@ -771,7 +923,12 @@ describe('WebhookController.handlePaddle', () => {
     expect(context).toMatchObject({
       event: 'transaction.completed',
       customer_id: 'ctm_1',
-      paddle_id: 'txn_1', // transaction.completed -> data.id is the txn
+      // `subscription_id || id`. This previously expected 'txn_1' only because the
+      // fixture omitted subscription_id, which no real Paddle subscription
+      // transaction does. With a realistic payload it resolves to the SUBSCRIPTION
+      // — which is the better support handle anyway: it names the object the
+      // entitlement write actually targets, not one invoice against it.
+      paddle_id: 'sub_1',
       event_id: 'evt_test_1',
     });
   });

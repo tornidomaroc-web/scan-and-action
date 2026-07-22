@@ -7,6 +7,7 @@ import { resolveBillingOrg } from '../services/entitlement/resolveBillingOrg';
 import { resolveBillingOrgByExternalId } from '../services/entitlement/resolveBillingOrgByExternalId';
 import { applyEntitlementChange } from '../services/entitlement/applyEntitlementChange';
 import { sendDiscordAlert } from '../services/discordAlert';
+import { unknownPriceIds } from '../config/paddlePrices';
 
 // Fire a best-effort Discord alert WITHOUT awaiting and without any chance of
 // throwing into the payment path. sendDiscordAlert already never rejects; the
@@ -448,6 +449,144 @@ export class WebhookController {
     });
   }
 
+  // Every Paddle price id named by a granting event.
+  //
+  // Verified against Paddle's official webhook docs: transaction.completed,
+  // subscription.created and subscription.updated all carry data.items[].price.id
+  // (on subscription.* the items array is documented REQUIRED), and
+  // transaction.completed additionally carries data.details.line_items[].price_id.
+  // Both paths are read, deduped, so a shape change on one does not blind us.
+  private static extractPriceIds(data: any): string[] {
+    const fromItems: string[] = Array.isArray(data?.items)
+      ? data.items.map((i: any) => i?.price?.id).filter((id: unknown): id is string => typeof id === 'string')
+      : [];
+    const fromLineItems: string[] = Array.isArray(data?.details?.line_items)
+      ? data.details.line_items
+          .map((li: any) => li?.price_id)
+          .filter((id: unknown): id is string => typeof id === 'string')
+      : [];
+    return [...new Set([...fromItems, ...fromLineItems])];
+  }
+
+  /**
+   * Decides whether an ACTIVE (upgrade) event is allowed to grant PRO.
+   * NEVER consulted for a downgrade — see the call site.
+   *
+   * PART 1 — price allowlist: ALERT-ONLY, still grants.
+   *
+   *   A grant on a price we do not sell is worth knowing about instantly, but it
+   *   is NOT worth denying a payer over. The false positive here is not an
+   *   attacker — it is US: the moment someone adds a promo, lifetime or regional
+   *   price in the Paddle dashboard and forgets this file, hard enforcement would
+   *   reject a genuine customer who has already been charged, producing exactly
+   *   the "customer paid but is still on FREE" incident the code elsewhere
+   *   shouts about. That false positive fires precisely in the scenario this
+   *   hardening exists for (a new price appearing), which makes enforcement
+   *   self-defeating.
+   *
+   *   The upside of enforcing is also small today: with a clean catalog (two
+   *   active recurring prices, no one-off, no legacy), substituting a price id
+   *   client-side gets an attacker nothing they cannot already get by clicking
+   *   the other button in the paywall.
+   *
+   *   So: name the unknown price loudly and let the customer in. To flip this to
+   *   enforcement later, two things must be true — the alert has been quiet
+   *   across real traffic (proving the extraction works on live payloads), and
+   *   adding a price to Paddle is a checklisted change that includes this file.
+   *
+   * PART 2 — one-off transactions: ENFORCED.
+   *
+   *   transaction.completed granted ACTIVE unconditionally. But Subscription is
+   *   one row per (org, source) and every downgrade path fires only on
+   *   subscription.* events, so a transaction with NO subscription behind it sets
+   *   PADDLE=ACTIVE with no lifecycle that can ever clear it. That is not "cheap
+   *   PRO", it is PERMANENT, unrevokable PRO.
+   *
+   *   Enforced rather than alert-only because the asymmetry runs the other way:
+   *     * A wrong DENIAL is loud, immediate and repairable in one field
+   *       (Organization.planOverride, which derivePlan treats as a floor).
+   *     * A wrong permanent GRANT is silent forever and has no remedy at all —
+   *       no Paddle event we handle can undo it.
+   *     * It cannot strand a subscription customer, because a real subscription
+   *       purchase ALSO fires subscription.created, which grants independently of
+   *       this gate. The redundancy makes enforcement safe here in a way it is
+   *       not for Part 1.
+   *
+   *   The flow this WOULD block is a deliberate one-time sale (lifetime deal,
+   *   credit pack) — which does not exist today and, when it does, needs a
+   *   lifecycle design anyway, since nothing could ever revoke it. Blocking with
+   *   a loud alert forces that conversation instead of silently creating an
+   *   unrevokable entitlement. A manually-invoiced ENTERPRISE deal is likewise
+   *   expected to go through planOverride, not through this path.
+   */
+  private static checkGrantEligibility(
+    event: any,
+    eventName: string,
+    eventId: string | undefined
+  ): { grant: boolean } {
+    const data = event?.data;
+
+    // ── PART 2 (enforced) ────────────────────────────────────────────────────
+    if (eventName === 'transaction.completed' && !data?.subscription_id) {
+      console.warn(
+        `[Webhook][ALERT] Grant REFUSED — transaction.completed with no subscription_id ` +
+          `(transaction ${data?.id || 'unknown'}, customer ${data?.customer_id || 'none'}, ` +
+          `event ${eventId || 'no-id'}). A one-off transaction would set PRO with no ` +
+          `subscription lifecycle to ever clear it — permanent, unrevokable access. ` +
+          `If this was an intentional one-time sale, grant it deliberately via ` +
+          `Organization.planOverride and design its expiry.`
+      );
+      fireDiscordAlert(
+        'Grant REFUSED — one-off transaction.completed with no subscription. Granting would ' +
+          'create PERMANENT unrevokable PRO. If intentional, use Organization.planOverride.',
+        {
+          event: eventName,
+          transaction_id: data?.id || 'unknown',
+          customer_id: data?.customer_id || 'none',
+          event_id: eventId || 'no-id',
+        }
+      );
+      return { grant: false };
+    }
+
+    // ── PART 1 (alert only — still grants) ───────────────────────────────────
+    const priceIds = WebhookController.extractPriceIds(data);
+    if (priceIds.length === 0) {
+      // Not treated as an offence: an event family we do not yet know the shape
+      // of must not silently change behaviour. Recorded so a real gap is visible.
+      console.warn(
+        `[Webhook] No price id found on granting ${eventName} (event ${eventId || 'no-id'}) — ` +
+          `price allowlist not applied.`
+      );
+      return { grant: true };
+    }
+
+    const unknown = unknownPriceIds(priceIds);
+    if (unknown.length > 0) {
+      console.warn(
+        `[Webhook][ALERT] Grant on an UNRECOGNISED price — access GRANTED, review required. ` +
+          `unknown_price_ids=${unknown.join(',')} all_price_ids=${priceIds.join(',')} ` +
+          `event=${eventName} customer=${data?.customer_id || 'none'} event_id=${eventId || 'no-id'}. ` +
+          `If this price is legitimate, add it to src/config/paddlePrices.ts (and keep it in step ` +
+          `with apps/frontend/src/lib/pricing.ts). If it is not, this is a checkout tampered with ` +
+          `client-side and the subscription should be cancelled in Paddle.`
+      );
+      fireDiscordAlert(
+        'Grant on an UNRECOGNISED Paddle price — access was GRANTED, review required. ' +
+          'Add it to the catalog if legitimate; cancel the subscription in Paddle if not.',
+        {
+          event: eventName,
+          unknown_price_ids: unknown.join(','),
+          customer_id: data?.customer_id || 'none',
+          subscription_id: data?.subscription_id || 'none',
+          event_id: eventId || 'no-id',
+        }
+      );
+    }
+
+    return { grant: true };
+  }
+
   // Thin mapper: classify -> resolve org -> apply via the shared service. All the
   // billing logic (per-source state, derivation, plan write) lives in the service;
   // all the event-shape/identity parsing lives here.
@@ -464,6 +603,20 @@ export class WebhookController {
 
       const status = WebhookController.classifyPaddleStatus(eventName, event.data);
       if (!status) return;
+
+      // GRANT-SIDE HARDENING. Deliberately gated on status === 'ACTIVE' so it can
+      // only ever affect an UPGRADE.
+      //
+      // A downgrade must apply UNCONDITIONALLY — an unrecognised price, an absent
+      // items array, a null subscription_id must NEVER stop entitlement being
+      // removed. Getting this backwards would mean a cancelled subscription keeps
+      // PRO forever, which is the failure PR A (#114) exists to prevent. This
+      // early branch is the whole of the coupling: nothing below it changes, and
+      // INACTIVE events never enter it.
+      if (status === 'ACTIVE') {
+        const gate = WebhookController.checkGrantEligibility(event, eventName, eventId);
+        if (!gate.grant) return;
+      }
 
       const userId = WebhookController.extractUserId(event, eventId);
 
