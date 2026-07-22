@@ -203,6 +203,22 @@ describe('PaywallModal — displayed price comes from Paddle, for the charged pr
     // ...and the hardcoded USD literals are gone entirely.
     expect(text).not.toContain('$9');
     expect(text).not.toContain('$59');
+
+    // PER-TILE, not just "present somewhere". The mocked response deliberately
+    // returns the line items in REVERSE request order, so a component that mapped
+    // them by array position would put the yearly total on the monthly tile — and
+    // an assertion that only checked both strings exist on the page would happily
+    // pass while the UI showed a customer the wrong price. Bind each total to its
+    // own tile.
+    const tile = (label: 'Monthly' | 'Yearly') =>
+      [...document.body.querySelectorAll('button')].find(
+        (b) => b.textContent?.includes(label) && !b.textContent?.includes('Upgrade Now')
+      )!.textContent ?? '';
+
+    expect(tile('Monthly')).toContain('MAD 90.00');
+    expect(tile('Monthly')).not.toContain('MAD 590.00');
+    expect(tile('Yearly')).toContain('MAD 590.00');
+    expect(tile('Yearly')).not.toContain('MAD 90.00');
   });
 
   it('THE INVARIANT: Checkout.open is handed the SAME price id the displayed total was previewed for', async () => {
