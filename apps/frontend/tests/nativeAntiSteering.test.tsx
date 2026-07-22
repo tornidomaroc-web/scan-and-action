@@ -27,6 +27,10 @@ const h = vi.hoisted(() => ({
   // Spies on the Paddle checkout path. On native these must stay UNTOUCHED.
   getPaddle: vi.fn(),
   checkoutOpen: vi.fn(),
+  // PricePreview is the paywall's price lookup. It loads the Paddle SDK, so on
+  // native it is a policy breach in its own right — a payment SDK inside the Play
+  // build — even if it never renders a single character of price.
+  pricePreview: vi.fn(),
 }));
 
 // THE gate under test — forced ON (native) for the whole file.
@@ -48,7 +52,10 @@ vi.mock('../src/contexts/AuthContext', () => ({
 // getPaddle resolves a fake SDK; if the native branch ever (wrongly) reached the
 // checkout code, these spies would record it and the test would fail.
 vi.mock('../src/lib/paddle', () => ({
-  getPaddle: h.getPaddle.mockResolvedValue({ Checkout: { open: h.checkoutOpen } }),
+  getPaddle: h.getPaddle.mockResolvedValue({
+    Checkout: { open: h.checkoutOpen },
+    PricePreview: h.pricePreview,
+  }),
   PaddleNotConfiguredError: class PaddleNotConfiguredError extends Error {},
 }));
 vi.mock('../src/native/useBackDismiss', () => ({ useBackDismiss: () => {} }));
@@ -68,14 +75,13 @@ vi.mock('../src/services/documentService', () => ({
   documentService: { getStats: vi.fn(), getDocumentDetail: vi.fn(), getRecentActivity: vi.fn(), getAllActivity: vi.fn() },
 }));
 
-// Price IDs are read at PaywallModal module-eval time from import.meta.env, so
-// they MUST be stubbed before that module is imported. We set REAL-looking ids
-// here on purpose: it means the WEB checkout path would genuinely reach
-// getPaddle() when "Upgrade Now" is clicked — so the "SDK never opens on native"
-// test below is a true regression catcher, not an artifact of unset price ids.
-// (PaywallModal is therefore imported dynamically, after these stubs.)
-vi.stubEnv('VITE_PADDLE_PRICE_ID_MONTHLY', 'pri_test_monthly');
-vi.stubEnv('VITE_PADDLE_PRICE_ID_YEARLY', 'pri_test_yearly');
+// Price ids are no longer env-stubbed: they are committed constants in
+// src/lib/pricing.ts (the single source of truth for displayed AND charged price).
+// That makes these tests STRONGER, not weaker — the web path now always has real
+// price ids, so it would genuinely reach getPaddle() both on an "Upgrade Now"
+// click AND on the PricePreview lookup that runs when the modal opens. Every
+// `getPaddle` / `PricePreview` not-called assertion below is therefore a true
+// regression catcher and can never pass by accident on unset ids.
 
 import { strings } from '../src/i18n/strings';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
@@ -143,8 +149,8 @@ describe('NATIVE anti-steering invariant — PaywallModal (primary gate)', () =>
   it('NEVER loads or opens the Paddle checkout SDK on native — even when every button is clicked', async () => {
     // Click every interactive element in the native render. The only buttons are
     // Close / "Got it" (both call onClose). If ANY of them reached checkout, the
-    // spies below would record it. (Price ids are stubbed, so on the WEB branch
-    // an "Upgrade Now" click WOULD call getPaddle — proving this test bites.)
+    // spies below would record it. (Price ids are real committed constants, so on
+    // the WEB branch an "Upgrade Now" click WOULD call getPaddle — this bites.)
     const buttons = [...document.body.querySelectorAll('button')];
     for (const btn of buttons) {
       flushSync(() => btn.dispatchEvent(new MouseEvent('click', { bubbles: true })));
@@ -154,6 +160,23 @@ describe('NATIVE anti-steering invariant — PaywallModal (primary gate)', () =>
 
     expect(h.getPaddle).not.toHaveBeenCalled();
     expect(h.checkoutOpen).not.toHaveBeenCalled();
+  });
+
+  // THE PRICE-LOOKUP GATE. The paywall now asks Paddle what its prices actually
+  // cost (PricePreview) so the displayed price equals the charged price. That call
+  // loads the Paddle SDK, which must NEVER happen inside the Play build — it is a
+  // policy breach on its own, with or without a price on screen. Unlike the
+  // checkout path this needs no click: it fires from an effect on open, so a
+  // missing guard would leak on EVERY native paywall render.
+  it('NEVER calls PricePreview on native — the price lookup must not load the payment SDK', async () => {
+    // The modal is already mounted (beforeEach) with isOpen, so the price-preview
+    // effect has had its chance to run. Let any microtasks/timers settle first, or
+    // this asserts against a moment before the effect would have fired.
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(h.pricePreview).not.toHaveBeenCalled();
+    // getPaddle is the only route to PricePreview, so it must be untouched too.
+    expect(h.getPaddle).not.toHaveBeenCalled();
   });
 });
 

@@ -7,6 +7,7 @@ import { createRoot, Root } from 'react-dom/client';
 // the tests reference the same spies/state.
 const h = vi.hoisted(() => ({
   checkoutOpen: vi.fn(),
+  pricePreview: vi.fn(),
   // Mutable auth state — each test sets h.auth.user before mounting.
   auth: {
     user: { id: '7f1e2d3c-4b5a-4678-9abc-def012345678', email: 'buyer@example.com' } as
@@ -20,7 +21,10 @@ const h = vi.hoisted(() => ({
 
 vi.mock('../src/contexts/AuthContext', () => ({ useAuth: () => h.auth }));
 vi.mock('../src/lib/paddle', () => ({
-  getPaddle: vi.fn().mockResolvedValue({ Checkout: { open: h.checkoutOpen } }),
+  getPaddle: vi.fn().mockResolvedValue({
+    Checkout: { open: h.checkoutOpen },
+    PricePreview: h.pricePreview,
+  }),
   PaddleNotConfiguredError: class PaddleNotConfiguredError extends Error {},
 }));
 // Force the WEB checkout path: the native anti-steering early-return must stay
@@ -29,13 +33,12 @@ vi.mock('../src/lib/paddle', () => ({
 vi.mock('../src/native/shell', () => ({ isNativePlatform: () => false }));
 vi.mock('../src/native/useBackDismiss', () => ({ useBackDismiss: () => {} }));
 
-// Price IDs are read at module-eval time from import.meta.env, so they must be
-// stubbed BEFORE the component module is imported. The component is therefore
-// imported dynamically inside mountPaywall, after these stubs are in place.
-vi.stubEnv('VITE_PADDLE_PRICE_ID_MONTHLY', 'pri_test_monthly');
-vi.stubEnv('VITE_PADDLE_PRICE_ID_YEARLY', 'pri_test_yearly');
-
+// Price ids are no longer env-stubbed — they are committed constants in
+// src/lib/pricing.ts, the single source for BOTH the displayed and the charged
+// price. The tests below import that same catalog, so they assert against the
+// real shipping ids rather than a test-only stand-in.
 import { LanguageProvider } from '../src/i18n/LanguageContext';
+import { PLAN_CATALOG } from '../src/lib/pricing';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -64,10 +67,62 @@ function clickUpgrade() {
   });
 }
 
+function clickPlan(label: 'Monthly' | 'Yearly') {
+  // The yearly tile's DOM starts with the savings badge, not the label, so match
+  // on containment — and exclude the CTA, which also names the selected plan.
+  const btn = [...document.body.querySelectorAll('button')].find(
+    (b) => b.textContent?.includes(label) && !b.textContent?.includes('Upgrade Now')
+  )!;
+  flushSync(() => {
+    btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+}
+
+/**
+ * A PricePreview response in Paddle's real shape, per the SDK's own types
+ * (@paddle/paddle-js types/price-preview): data.details.lineItems[], each with
+ * price.id, formattedTotals.total (the localized string we display) and
+ * totals.total (minor units, used to derive the savings badge).
+ *
+ * Deliberately returned in REVERSE request order and in a non-USD currency: the
+ * component must match line items by price id, not array position, and must
+ * display whatever currency Paddle resolved for the buyer.
+ */
+function pricePreviewResponse() {
+  return {
+    data: {
+      currencyCode: 'MAD',
+      details: {
+        lineItems: [
+          {
+            price: { id: PLAN_CATALOG.yearly.priceId },
+            formattedTotals: { total: 'MAD 590.00' },
+            totals: { total: '59000' },
+          },
+          {
+            price: { id: PLAN_CATALOG.monthly.priceId },
+            formattedTotals: { total: 'MAD 90.00' },
+            totals: { total: '9000' },
+          },
+        ],
+      },
+    },
+    meta: { requestId: 'req_test' },
+  };
+}
+
+/** Lets the PricePreview effect resolve and React flush the resulting render. */
+async function settlePreview() {
+  await vi.waitFor(() =>
+    expect(document.body.textContent).not.toContain(PLAN_CATALOG.monthly.fallbackFormatted)
+  );
+}
+
 describe('PaywallModal — fail-closed checkout guard (custom_data.userId)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    h.pricePreview.mockResolvedValue(pricePreviewResponse());
     h.auth.user = { id: '7f1e2d3c-4b5a-4678-9abc-def012345678', email: 'buyer@example.com' };
   });
 
@@ -101,5 +156,169 @@ describe('PaywallModal — fail-closed checkout guard (custom_data.userId)', () 
         customData: { userId: '7f1e2d3c-4b5a-4678-9abc-def012345678' },
       })
     );
+  });
+});
+
+// ============================================================================
+// DISPLAYED PRICE == CHARGED PRICE.
+//
+// The price on screen is no longer a literal typed into JSX beside a separately
+// configured Paddle price id. It is Paddle's own answer for the EXACT id that
+// Checkout.open will be handed. These tests assert that equality directly — the
+// rendered string, and the id it was previewed for.
+// ============================================================================
+describe('PaywallModal — displayed price comes from Paddle, for the charged price id', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    h.pricePreview.mockResolvedValue(pricePreviewResponse());
+    h.auth.user = { id: '7f1e2d3c-4b5a-4678-9abc-def012345678', email: 'buyer@example.com' };
+  });
+
+  afterEach(() => {
+    root.unmount();
+    container.remove();
+  });
+
+  it('previews EXACTLY the two price ids that can be charged', async () => {
+    await mountPaywall();
+    await vi.waitFor(() => expect(h.pricePreview).toHaveBeenCalled());
+
+    expect(h.pricePreview).toHaveBeenCalledWith({
+      items: [
+        { priceId: PLAN_CATALOG.monthly.priceId, quantity: 1 },
+        { priceId: PLAN_CATALOG.yearly.priceId, quantity: 1 },
+      ],
+    });
+  });
+
+  it('renders the previewed totals VERBATIM, matched by price id and not by position', async () => {
+    await mountPaywall();
+    await settlePreview();
+
+    const text = document.body.textContent ?? '';
+    // Both localized totals are on screen, exactly as Paddle formatted them...
+    expect(text).toContain('MAD 90.00');
+    expect(text).toContain('MAD 590.00');
+    // ...and the hardcoded USD literals are gone entirely.
+    expect(text).not.toContain('$9');
+    expect(text).not.toContain('$59');
+  });
+
+  it('THE INVARIANT: Checkout.open is handed the SAME price id the displayed total was previewed for', async () => {
+    await mountPaywall();
+    await settlePreview();
+
+    // Monthly is the default selection; its tile shows the monthly previewed total.
+    expect(document.body.textContent).toContain('MAD 90.00');
+    clickUpgrade();
+    await vi.waitFor(() => expect(h.checkoutOpen).toHaveBeenCalled());
+
+    const chargedId = h.checkoutOpen.mock.calls[0][0].items[0].priceId;
+    const previewedIds = h.pricePreview.mock.calls[0][0].items.map((i: any) => i.priceId);
+
+    expect(chargedId).toBe(PLAN_CATALOG.monthly.priceId);
+    expect(previewedIds).toContain(chargedId);
+  });
+
+  it('switching to Yearly charges the yearly id whose total is the one displayed', async () => {
+    await mountPaywall();
+    await settlePreview();
+
+    clickPlan('Yearly');
+    clickUpgrade();
+    await vi.waitFor(() => expect(h.checkoutOpen).toHaveBeenCalled());
+
+    expect(h.checkoutOpen.mock.calls[0][0].items[0].priceId).toBe(PLAN_CATALOG.yearly.priceId);
+    expect(document.body.textContent).toContain('MAD 590.00');
+  });
+
+  it('derives the savings badge from the PREVIEWED totals, so it cannot contradict them', async () => {
+    await mountPaywall();
+    await settlePreview();
+
+    // 9000 x 12 = 108000 vs 59000 => 45% saved, computed from the same response
+    // that produced the displayed strings — never a frozen "Save 45%" literal.
+    expect(document.body.textContent).toContain('Save 45%');
+  });
+
+  it('drops the savings badge entirely when the yearly plan is not actually cheaper', async () => {
+    h.pricePreview.mockResolvedValue({
+      data: {
+        currencyCode: 'USD',
+        details: {
+          lineItems: [
+            {
+              price: { id: PLAN_CATALOG.monthly.priceId },
+              formattedTotals: { total: '$9.00' },
+              totals: { total: '900' },
+            },
+            {
+              price: { id: PLAN_CATALOG.yearly.priceId },
+              // Deliberately worse than 12x monthly.
+              formattedTotals: { total: '$200.00' },
+              totals: { total: '20000' },
+            },
+          ],
+        },
+      },
+      meta: { requestId: 'req_test' },
+    });
+    await mountPaywall();
+    await vi.waitFor(() => expect(document.body.textContent).toContain('$200.00'));
+
+    expect(document.body.textContent).not.toContain('Save');
+  });
+
+  it('FALLBACK: renders the declared price and still opens checkout when PricePreview throws', async () => {
+    h.pricePreview.mockRejectedValue(new Error('network down'));
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await mountPaywall();
+    await vi.waitFor(() => expect(h.pricePreview).toHaveBeenCalled());
+
+    // Never blank: the declared fallback is on screen.
+    expect(document.body.textContent).toContain(PLAN_CATALOG.monthly.fallbackFormatted);
+    // And a pricing lookup failure must never block the sale.
+    clickUpgrade();
+    await vi.waitFor(() => expect(h.checkoutOpen).toHaveBeenCalled());
+    expect(h.checkoutOpen.mock.calls[0][0].items[0].priceId).toBe(PLAN_CATALOG.monthly.priceId);
+    consoleWarn.mockRestore();
+  });
+
+  it('ignores a line item for a price id we never asked about', async () => {
+    h.pricePreview.mockResolvedValue({
+      data: {
+        currencyCode: 'USD',
+        details: {
+          lineItems: [
+            {
+              price: { id: 'pri_some_other_product' },
+              formattedTotals: { total: '$999.00' },
+              totals: { total: '99900' },
+            },
+          ],
+        },
+      },
+      meta: { requestId: 'req_test' },
+    });
+    await mountPaywall();
+    await vi.waitFor(() => expect(h.pricePreview).toHaveBeenCalled());
+
+    // A stranger's total must never reach the tiles; the fallback stands instead.
+    expect(document.body.textContent).not.toContain('$999.00');
+    expect(document.body.textContent).toContain(PLAN_CATALOG.monthly.fallbackFormatted);
+  });
+
+  it('defaults to the MONTHLY plan — the price the landing page advertises', async () => {
+    await mountPaywall();
+    await settlePreview();
+
+    // The CTA names the monthly total, so a click-through from the landing's
+    // monthly card cannot silently transact at the yearly price.
+    const cta = [...document.body.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Upgrade Now')
+    )!;
+    expect(cta.textContent).toContain('MAD 90.00');
+    expect(cta.textContent).not.toContain('MAD 590.00');
   });
 });

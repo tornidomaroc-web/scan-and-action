@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Zap, CheckCircle2, Crown, Star } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,21 +6,27 @@ import { useStrings } from '../i18n/useStrings';
 import { getPaddle, PaddleNotConfiguredError } from '../lib/paddle';
 import { useBackDismiss } from '../native/useBackDismiss';
 import { isNativePlatform } from '../native/shell';
+import {
+  PLAN_CATALOG,
+  PLAN_ORDER,
+  planForPriceId,
+  yearlySavingsPercent,
+  fallbackSavingsPercent,
+  type Plan,
+} from '../lib/pricing';
 
 interface PaywallModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type Plan = 'monthly' | 'yearly';
-
-// Paddle price IDs come from the deploy environment (Vercel), one per plan.
-// No fallback: a misconfigured deploy must surface an error, never open a
-// checkout at the wrong price.
-const PADDLE_PRICE_IDS: Record<Plan, string | undefined> = {
-  monthly: import.meta.env.VITE_PADDLE_PRICE_ID_MONTHLY,
-  yearly: import.meta.env.VITE_PADDLE_PRICE_ID_YEARLY,
-};
+/** What Paddle told us this checkout will actually cost, per plan. */
+interface PreviewedPricing {
+  /** Localized, currency-correct, tax-aware total strings, keyed by plan. */
+  formatted: Partial<Record<Plan, string>>;
+  /** Derived from the SAME previewed totals, so it can never contradict them. */
+  savingsPercent: number | null;
+}
 
 // Post-checkout landing. The custom domain, not the vercel.app alias, so the
 // URL customers see (and bookmark) is the canonical one. Must land on
@@ -31,12 +37,77 @@ const CHECKOUT_SUCCESS_URL = 'https://www.scan-action.com/dashboard?checkout=suc
 export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) => {
   const s = useStrings();
   const { user } = useAuth();
-  const [selectedPlan, setSelectedPlan] = useState<Plan>('yearly');
+  // Defaults to MONTHLY, matching the price the landing page advertises ($9/mo).
+  // It used to default to 'yearly': a visitor who clicked through the landing's
+  // $9/mo card landed on a paywall silently pre-selected at the yearly price, one
+  // careless click from being charged the annual amount they were never shown.
+  const [selectedPlan, setSelectedPlan] = useState<Plan>('monthly');
   const [openingCheckout, setOpeningCheckout] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  // null until Paddle answers (or fails) — the fallback renders meanwhile, so the
+  // price area is never blank.
+  const [preview, setPreview] = useState<PreviewedPricing | null>(null);
 
   // Android back button closes the modal before navigating (no-op on web).
   useBackDismiss(isOpen, onClose);
+
+  // Ask Paddle what these prices ACTUALLY cost, for the exact price ids we are
+  // about to charge. This is what makes the displayed price equal the charged
+  // price by construction: the number on screen and the number on the invoice come
+  // from one id, resolved by Paddle, in the buyer's own currency.
+  //
+  // SILENT SHELL — this hook must NEVER run inside the native app. PricePreview
+  // loads the Paddle SDK, and a payment SDK inside the Play build is a policy
+  // breach on its own, independent of whether any price is rendered. The native
+  // branch below returns before the pricing UI, but that is a SECOND line of
+  // defence; this guard is the first. Note the guard lives INSIDE the effect
+  // rather than around it, because hooks cannot sit behind an early return.
+  useEffect(() => {
+    if (!isOpen || isNativePlatform()) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const paddle = await getPaddle();
+        const response = await paddle.PricePreview({
+          items: PLAN_ORDER.map((plan) => ({
+            priceId: PLAN_CATALOG[plan].priceId,
+            quantity: 1,
+          })),
+        });
+        if (cancelled) return;
+
+        const formatted: Partial<Record<Plan, string>> = {};
+        const totals: Partial<Record<Plan, number>> = {};
+        for (const lineItem of response.data.details.lineItems) {
+          // Match by price id, never by array position: Paddle does not promise
+          // line items come back in request order, and rendering the yearly total
+          // on the monthly tile is precisely the bug this whole change prevents.
+          // An id we did not ask about is ignored rather than displayed.
+          const plan = planForPriceId(lineItem.price.id);
+          if (!plan) continue;
+          formatted[plan] = lineItem.formattedTotals.total;
+          totals[plan] = Number(lineItem.totals.total);
+        }
+
+        setPreview({
+          formatted,
+          // Both totals come from this one response, so they share a currency and
+          // the percentage is meaningful.
+          savingsPercent: yearlySavingsPercent(totals.monthly, totals.yearly),
+        });
+      } catch (err) {
+        // Never block the sale on a pricing lookup. The declared fallback renders
+        // and checkout still works — the button opens Paddle's own checkout, which
+        // shows the real total before any payment is taken.
+        console.warn('[Paywall] PricePreview failed — showing declared fallback prices.', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -107,9 +178,12 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
       return;
     }
 
-    const priceId = PADDLE_PRICE_IDS[selectedPlan];
+    // THE SAME id the price on screen was previewed for — this single expression
+    // is what makes displayed == charged. Do not source the checkout price id
+    // from anywhere the displayed price does not also come from.
+    const priceId = PLAN_CATALOG[selectedPlan].priceId;
     if (!priceId) {
-      console.error(`[Paywall] VITE_PADDLE_PRICE_ID_${selectedPlan.toUpperCase()} is not set — refusing to open checkout.`);
+      console.error(`[Paywall] No Paddle price id configured for the ${selectedPlan} plan — refusing to open checkout.`);
       setCheckoutError('Checkout is not available right now. Please contact support.');
       return;
     }
@@ -135,6 +209,15 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
       setOpeningCheckout(false);
     }
   };
+
+  // Previewed total when Paddle answered, declared fallback otherwise. Never
+  // blank, and never a number typed into JSX.
+  const priceLabel = (plan: Plan): string =>
+    preview?.formatted[plan] ?? PLAN_CATALOG[plan].fallbackFormatted;
+
+  // Derived from whichever source is actually on screen, so the badge and the
+  // amounts can never disagree. Null (e.g. yearly not cheaper) drops the badge.
+  const savingsPercent = preview ? preview.savingsPercent : fallbackSavingsPercent();
 
   return createPortal(
     <div
@@ -191,7 +274,10 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
                   }`}
               >
                 <span className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-tight mb-1">Monthly</span>
-                <span className="text-2xl font-black text-slate-900 dark:text-white italic">$9<span className="text-sm font-bold opacity-50">/mo</span></span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white italic">
+                  {priceLabel('monthly')}
+                  <span className="text-sm font-bold opacity-50">{PLAN_CATALOG.monthly.periodSuffix}</span>
+                </span>
               </button>
 
               {/* Yearly Plan */}
@@ -202,13 +288,18 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
                   : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700'
                   }`}
               >
-                <div className="absolute top-[-10px] right-2 bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-lg">
-                  Save 45%
-                </div>
+                {savingsPercent !== null && (
+                  <div className="absolute top-[-10px] right-2 bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-lg">
+                    Save {savingsPercent}%
+                  </div>
+                )}
                 <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-tight mb-1 flex items-center gap-1">
                   Yearly <Star size={10} className="fill-emerald-500" />
                 </span>
-                <span className="text-2xl font-black text-slate-900 dark:text-white italic">$59<span className="text-sm font-bold opacity-50">/yr</span></span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white italic">
+                  {priceLabel('yearly')}
+                  <span className="text-sm font-bold opacity-50">{PLAN_CATALOG.yearly.periodSuffix}</span>
+                </span>
                 <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase">Best Value</span>
               </button>
             </div>
@@ -245,7 +336,9 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-wait text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
             >
               <Crown size={20} fill="white" className="group-hover:rotate-12 transition-transform" />
-              {openingCheckout ? 'Opening checkout…' : `Upgrade Now - ${selectedPlan === 'monthly' ? '$9/mo' : '$59/yr'}`}
+              {openingCheckout
+                ? 'Opening checkout…'
+                : `Upgrade Now - ${priceLabel(selectedPlan)}${PLAN_CATALOG[selectedPlan].periodSuffix}`}
             </button>
             <button
               onClick={onClose}
