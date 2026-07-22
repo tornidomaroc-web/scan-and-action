@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { PLAN_CATALOG } from '../lib/pricing';
 
 export function LandingScreen() {
   return (
@@ -180,7 +181,19 @@ export function LandingScreen() {
               <div className="absolute top-4 right-4 bg-indigo-600 text-white px-3 py-1 rounded-full text-[10px] font-black tracking-widest">MOST POPULAR</div>
               <div className="space-y-2">
                 <h3 className="font-black text-indigo-600 text-xl italic">Pro</h3>
-                <div className="text-5xl font-black text-slate-900 italic">$9<span className="text-2xl opacity-40">/mo</span></div>
+                {/* Reads the SAME catalog entry the paywall charges from, so the
+                    marketing price and the checkout price cannot drift apart in a
+                    code change. Deliberately the declared amount and NOT a
+                    PricePreview call: this is a pre-auth marketing page, and
+                    loading the payment SDK for every anonymous visitor would cost
+                    a network round-trip on the landing path and — if the native
+                    "/" redirect ever regressed — put a payment SDK inside the Play
+                    build. The transactional price the customer actually acts on is
+                    the paywall's, which IS previewed. */}
+                <div className="text-5xl font-black text-slate-900 italic">
+                  {PLAN_CATALOG.monthly.fallbackFormatted}
+                  <span className="text-2xl opacity-40">{PLAN_CATALOG.monthly.periodSuffix}</span>
+                </div>
               </div>
               <ul className="space-y-3 font-bold text-slate-900 text-sm italic">
                 <li>✓ Unlimited scans</li>
