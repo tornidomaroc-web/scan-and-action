@@ -13,6 +13,11 @@ vi.mock('../src/prismaClient', () => ({
 vi.mock('../src/services/entitlement/resolveBillingOrg', () => ({
   resolveBillingOrg: vi.fn(),
 }));
+// The adjustment (refund/chargeback) identity path. Distinct from resolveBillingOrg
+// on purpose: adjustments carry no custom_data, so they resolve by subscription_id.
+vi.mock('../src/services/entitlement/resolveBillingOrgByExternalId', () => ({
+  resolveBillingOrgByExternalId: vi.fn(),
+}));
 vi.mock('../src/services/entitlement/applyEntitlementChange', () => ({
   applyEntitlementChange: vi.fn(),
 }));
@@ -26,6 +31,12 @@ vi.mock('../src/services/discordAlert', () => ({
 
 import { prisma } from '../src/prismaClient';
 import { resolveBillingOrg } from '../src/services/entitlement/resolveBillingOrg';
+import { resolveBillingOrgByExternalId } from '../src/services/entitlement/resolveBillingOrgByExternalId';
+import {
+  adjustmentCreated,
+  adjustmentUpdated,
+  FIXTURE_SUBSCRIPTION_ID,
+} from '../src/testSupport/paddleAdjustment';
 import { applyEntitlementChange } from '../src/services/entitlement/applyEntitlementChange';
 import { sendDiscordAlert } from '../src/services/discordAlert';
 import { WebhookController } from '../src/controllers/webhookController';
@@ -78,24 +89,10 @@ function subscriptionEvent(
   };
 }
 
-// A Paddle Billing adjustment.created event (how refunds arrive). On live
-// accounts these often land as status 'pending_approval' before Paddle reviews.
-function adjustmentCreated(data: object = {}, eventId = 'evt_adj_1') {
-  return {
-    event_id: eventId,
-    event_type: 'adjustment.created',
-    data: {
-      id: 'adj_1',
-      action: 'refund',
-      status: 'pending_approval',
-      subscription_id: 'sub_1',
-      transaction_id: 'txn_1',
-      customer_id: 'ctm_1',
-      custom_data: { userId: USER_ID },
-      ...data,
-    },
-  };
-}
+// Adjustment fixtures come from the SHARED definition (src/testSupport/paddleAdjustment)
+// so this file and the resolver's tests can never disagree about the event shape —
+// the disagreement is exactly what let a fabricated `custom_data` field survive here.
+// See that file for the Paddle doc references and for why it lives under src/.
 
 describe('WebhookController.handlePaddle', () => {
   beforeEach(() => {
@@ -105,6 +102,7 @@ describe('WebhookController.handlePaddle', () => {
     (prisma.webhookEvent.delete as any).mockResolvedValue({});
     // Defaults: resolution succeeds, service reports an upgrade.
     (resolveBillingOrg as any).mockResolvedValue({ organizationId: ORG_ID });
+    (resolveBillingOrgByExternalId as any).mockResolvedValue({ organizationId: ORG_ID });
     (applyEntitlementChange as any).mockResolvedValue({
       previousPlan: 'FREE',
       newPlan: 'PRO',
@@ -269,19 +267,176 @@ describe('WebhookController.handlePaddle', () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
-  it('adjustment.created (refund) → NO entitlement change, logs a tagged [ALERT] for manual review', async () => {
+  // ==========================================================================
+  // ADJUSTMENT POLICY (refunds / chargebacks).
+  //
+  // Every test here asserts the ENTITLEMENT OUTCOME — that applyEntitlementChange
+  // was or was not called, and with INACTIVE — not merely that nothing threw.
+  // A "no-throw" assertion would have passed against the old do-nothing handler.
+  //
+  // Identity on this path NEVER comes from custom_data (adjustments do not have
+  // it); it comes from subscription_id via resolveBillingOrgByExternalId.
+  // ==========================================================================
+
+  /** Asserts a revoke happened: the org was set INACTIVE through the shared service. */
+  function expectRevoked() {
+    expect(applyEntitlementChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: ORG_ID,
+        source: 'PADDLE',
+        status: 'INACTIVE',
+        externalId: FIXTURE_SUBSCRIPTION_ID,
+      })
+    );
+  }
+
+  it('REVOKES on chargeback — funds are already gone, no approval step to wait for', async () => {
     const res = mockResponse();
     await WebhookController.handlePaddle(
-      signedRequest(adjustmentCreated({ status: 'pending_approval' })),
+      signedRequest(adjustmentCreated({ action: 'chargeback', status: 'approved' })),
       res
     );
-    // v1 policy: refunds are surfaced for manual review, NOT auto-downgraded.
+    expectRevoked();
+    // Resolved by subscription_id, NOT by any user identifier.
+    expect(resolveBillingOrgByExternalId).toHaveBeenCalledWith('PADDLE', FIXTURE_SUBSCRIPTION_ID);
+    expect(resolveBillingOrg).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('does NOT revoke a refund still pending Paddle approval — it may yet be rejected', async () => {
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(adjustmentCreated({ action: 'refund', status: 'pending_approval', type: 'full' })),
+      res
+    );
     expect(applyEntitlementChange).not.toHaveBeenCalled();
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('[Webhook][ALERT]'));
-    // Identifying context present for finding the order; no secret material.
     const logged = (console.warn as any).mock.calls.map((c: any[]) => c.join(' ')).join('\n');
     expect(logged).toMatch(/adj_1/);
     expect(logged).toMatch(/refund/);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('REVOKES when adjustment.updated carries the approved FULL refund — the only event with the decision', async () => {
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(adjustmentUpdated({ action: 'refund', status: 'approved', type: 'full' })),
+      res
+    );
+    expectRevoked();
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('does NOT revoke an approved PARTIAL refund — the customer still paid for most of the period', async () => {
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(adjustmentUpdated({ action: 'refund', status: 'approved', type: 'partial' })),
+      res
+    );
+    expect(applyEntitlementChange).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('does NOT revoke when `type` is ABSENT — Paddle defaults type to partial, so absence must not read as full', async () => {
+    const res = mockResponse();
+    const ev = adjustmentUpdated({ action: 'refund', status: 'approved' });
+    delete (ev.data as any).type;
+    await WebhookController.handlePaddle(signedRequest(ev), res);
+    expect(applyEntitlementChange).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('does NOT revoke a rejected refund', async () => {
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(adjustmentUpdated({ action: 'refund', status: 'rejected', type: 'full' })),
+      res
+    );
+    expect(applyEntitlementChange).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  // The non-revoking actions, asserted as a set so a future edit cannot quietly
+  // promote one of them into a revoke.
+  const logOnlyActions = [
+    'credit',
+    'chargeback_warning',
+    'chargeback_reverse',
+    'chargeback_warning_reverse',
+    'credit_reverse',
+  ];
+  for (const action of logOnlyActions) {
+    it(`does NOT touch entitlement for action='${action}'`, async () => {
+      const res = mockResponse();
+      await WebhookController.handlePaddle(
+        signedRequest(adjustmentCreated({ action, status: 'approved', type: 'full' })),
+        res
+      );
+      expect(applyEntitlementChange).not.toHaveBeenCalled();
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('[Webhook][ALERT]'));
+      expect(res.status).toHaveBeenCalledWith(200);
+    });
+  }
+
+  it('does NOT revoke on an unrecognized action — unknown vocabulary never moves entitlement', async () => {
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(adjustmentCreated({ action: 'some_future_action', status: 'approved', type: 'full' })),
+      res
+    );
+    expect(applyEntitlementChange).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('FAILS SAFE: a chargeback with subscription_id null does NOT revoke, and alerts instead', async () => {
+    // Paddle types subscription_id as `string | null` — a refund/chargeback against
+    // a one-off transaction has none. Guessing an org here would revoke an innocent
+    // customer, so we must alert and stop.
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(adjustmentCreated({ action: 'chargeback', subscription_id: null })),
+      res
+    );
+    expect(applyEntitlementChange).not.toHaveBeenCalled();
+    expect(resolveBillingOrgByExternalId).not.toHaveBeenCalled();
+    const logged = (console.warn as any).mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(logged).toMatch(/subscription_id is absent/);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('FAILS SAFE: a chargeback whose subscription matches no stored row does NOT revoke, and alerts', async () => {
+    (resolveBillingOrgByExternalId as any).mockResolvedValue(null);
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(adjustmentCreated({ action: 'chargeback' })),
+      res
+    );
+    expect(applyEntitlementChange).not.toHaveBeenCalled();
+    const logged = (console.warn as any).mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(logged).toMatch(/matches no stored subscription/);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('THE ESCAPE HATCH: a manual planOverride survives a refund revoke — org keeps PRO', async () => {
+    // "Refunded but keep access" is handled by Organization.planOverride, which the
+    // entitlement service never writes and derivePlan treats as a floor. Here the
+    // controller's part is asserted: it maps the approved full refund to INACTIVE and
+    // hands it to the floor-owning service, which reports PRO still standing. The
+    // controller has no path that writes plan itself — the prisma mock in this file
+    // exposes only webhookEvent, so a direct plan write would throw.
+    (applyEntitlementChange as any).mockResolvedValue({
+      previousPlan: 'PRO',
+      newPlan: 'PRO',
+      applied: true,
+    });
+    const res = mockResponse();
+    await WebhookController.handlePaddle(
+      signedRequest(adjustmentUpdated({ action: 'refund', status: 'approved', type: 'full' })),
+      res
+    );
+    expectRevoked();
+    const logged = (console.warn as any).mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(logged).toMatch(/PRO -> PRO/);
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
