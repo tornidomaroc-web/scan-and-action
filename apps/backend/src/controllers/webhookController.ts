@@ -138,7 +138,50 @@ export class WebhookController {
         await WebhookController.processEvent(event, eventName, eventId, email);
       } catch (processingError) {
         if (eventId) {
-          await prisma.webhookEvent.delete({ where: { id: webhookEventKey! } }).catch(() => {});
+          // Releasing the claim is the ONLY thing that lets Paddle's retry work,
+          // so a failed release cannot be swallowed.
+          //
+          // If this delete fails the claim STAYS, and the consequences are silent
+          // and terminal: we return 500, Paddle retries, the retry hits P2002 on
+          // the create above and is answered 200 "OK (duplicate)", Paddle marks
+          // the notification delivered and stops. Nothing was ever written. The
+          // same P2002 also defeats Paddle's replay-a-notification, so the manual
+          // recovery path dies with the automatic one.
+          //
+          // This is not a hypothetical pairing: the delete is most likely to fail
+          // exactly when the database is the thing that is broken — which is the
+          // most likely reason processEvent threw in the first place. The recovery
+          // mechanism is correlated with the fault it exists to recover from.
+          //
+          // We cannot fix the stuck claim from here (the DB is what just failed),
+          // so the goal is that it can never be SILENT: name the row so a human
+          // can delete it and replay the notification.
+          //
+          // Deliberately NOT rethrown, and deliberately caught separately: this
+          // must not replace `processingError`, which carries the real diagnosis
+          // and is what the outer handler logs and alerts on.
+          try {
+            await prisma.webhookEvent.delete({ where: { id: webhookEventKey! } });
+          } catch (releaseError: any) {
+            console.error(
+              `[Webhook][ALERT] Idempotency claim STUCK — could not release ${webhookEventKey} ` +
+                `(${eventName || 'unknown'}) after a processing failure. Paddle's retry AND its replay ` +
+                `will both be answered "duplicate" and write NOTHING. If this event granted access, the ` +
+                `customer paid and is still on FREE. FIX: delete the WebhookEvent row with this id, then ` +
+                `replay the notification from Paddle. release_error=${releaseError?.message || String(releaseError)}`
+            );
+            fireDiscordAlert(
+              'Idempotency claim STUCK — a webhook failed AND its claim could not be released. ' +
+                'Paddle retries/replays will be rejected as duplicates and write nothing. ' +
+                'FIX: delete the WebhookEvent row with this id, then replay the notification.',
+              {
+                webhook_event_key: webhookEventKey,
+                event: eventName || 'unknown',
+                event_id: eventId,
+                release_error: releaseError?.message || String(releaseError),
+              }
+            );
+          }
         }
         throw processingError;
       }

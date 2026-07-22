@@ -517,6 +517,72 @@ describe('WebhookController.handlePaddle', () => {
     expect(res.status).toHaveBeenCalledWith(500);
   });
 
+  // ── The claim-release is itself allowed to fail, and that must be LOUD ──────
+  //
+  // Releasing the claim is the only thing that lets Paddle's retry work. If the
+  // release ALSO fails, the claim stays: the retry hits P2002, is answered 200
+  // "duplicate", and Paddle stops — having written nothing. Paddle's
+  // replay-a-notification dies to the same P2002, so the manual recovery path
+  // goes with the automatic one. The delete is most likely to fail exactly when
+  // the DB is broken, which is the most likely reason processing threw at all,
+  // so this is a correlated failure, not an independent one.
+  //
+  // We cannot repair it from inside the request. The requirement is only that it
+  // can never be SILENT — this used to be `.catch(() => {})`.
+  it('ALERTS (never swallows) when the claim-release itself fails, naming the stuck row', async () => {
+    (applyEntitlementChange as any).mockRejectedValue(new Error('db down'));
+    (prisma.webhookEvent.delete as any).mockRejectedValue(new Error('connection terminated'));
+    const res = mockResponse();
+
+    await WebhookController.handlePaddle(
+      signedRequest(transactionCompleted({ custom_data: { userId: USER_ID } }, 'evt_stuck_claim')),
+      res
+    );
+
+    // The stuck row is named in the log, or nobody can clear it by hand.
+    const logged = (console.error as any).mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(logged).toContain('[Webhook][ALERT]');
+    expect(logged).toContain('Idempotency claim STUCK');
+    expect(logged).toContain('paddle:evt_stuck_claim');
+
+    // And pushed to Discord with the id as a discrete field — a Railway log line
+    // nobody reads is exactly the failure mode the alert sink exists to fix.
+    expect(sendDiscordAlert).toHaveBeenCalledWith(
+      expect.stringContaining('Idempotency claim STUCK'),
+      expect.objectContaining({
+        webhook_event_key: 'paddle:evt_stuck_claim',
+        event_id: 'evt_stuck_claim',
+        event: 'transaction.completed',
+      })
+    );
+
+    // Unchanged behaviour: still 500, so Paddle still retries. The release
+    // failure must not swallow, mask, or replace the original processing error.
+    expect(res.status).toHaveBeenCalledWith(500);
+    const outerLog = (console.error as any).mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(outerLog).toContain('db down');
+  });
+
+  it('does NOT alert about a stuck claim when the release succeeds', async () => {
+    // Guards against the alert firing on every processing failure, which would
+    // train the channel to be ignored. Only a FAILED release is noteworthy.
+    (applyEntitlementChange as any).mockRejectedValue(new Error('db down'));
+    const res = mockResponse();
+
+    await WebhookController.handlePaddle(
+      signedRequest(transactionCompleted({ custom_data: { userId: USER_ID } }, 'evt_clean_release')),
+      res
+    );
+
+    const logged = (console.error as any).mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(logged).not.toContain('Idempotency claim STUCK');
+    expect(sendDiscordAlert).not.toHaveBeenCalledWith(
+      expect.stringContaining('Idempotency claim STUCK'),
+      expect.anything()
+    );
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
+
   // ── Discord alert sink wiring ──────────────────────────────────────────────
   // The sink is fired ALONGSIDE the existing console.* on the four founder-
   // actionable failure paths. It must never alter control flow or HTTP status,
