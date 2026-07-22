@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { SubscriptionStatus } from '@prisma/client';
 import { prisma } from '../prismaClient';
 import { resolveBillingOrg } from '../services/entitlement/resolveBillingOrg';
+import { resolveBillingOrgByExternalId } from '../services/entitlement/resolveBillingOrgByExternalId';
 import { applyEntitlementChange } from '../services/entitlement/applyEntitlementChange';
 import { sendDiscordAlert } from '../services/discordAlert';
 
@@ -189,8 +190,9 @@ export class WebhookController {
   //           at period end for cancel-at-period-end, or immediately for an
   //           immediate cancel), and subscription.updated whose status is
   //           paused / canceled.
-  // null    : everything else (ignored). adjustment.created (refunds) is handled
-  //           separately in processEvent as log-only — see logRefundForReview.
+  // null    : everything else (ignored). adjustment.created / adjustment.updated
+  //           (refunds, chargebacks) are handled separately in processEvent —
+  //           see processAdjustment / classifyAdjustment.
   private static classifyPaddleStatus(eventName: string, data: any): SubscriptionStatus | null {
     if (eventName === 'transaction.completed' || eventName === 'subscription.created') {
       return 'ACTIVE';
@@ -229,28 +231,176 @@ export class WebhookController {
     return Number.isNaN(d.getTime()) ? undefined : d;
   }
 
-  // Refund visibility for manual review (v1 policy: log-only, no entitlement
-  // change). Logs ONLY non-secret business identifiers (ids, action, status) so
-  // the order can be found in the Paddle dashboard — never any token or secret.
-  //
-  // TODO(refund-auto-revoke): a future follow-up MAY auto-revoke on refund, but
-  // only when strictly gated on action === 'refund' AND status === 'approved' AND
-  // a full-amount refund — never on 'pending_approval' and never a partial refund.
-  private static logRefundForReview(event: any, eventId: string | undefined): void {
+  // Adjustment visibility for manual review (no entitlement change on this path).
+  // Logs ONLY non-secret business identifiers (ids, action, status) so the order
+  // can be found in the Paddle dashboard — never any token or secret.
+  private static logAdjustmentForReview(
+    event: any,
+    eventId: string | undefined,
+    reason: string
+  ): void {
     const d = event?.data || {};
     console.warn(
-      `[Webhook][ALERT] Refund adjustment received — manual review required, NO entitlement change applied. ` +
+      `[Webhook][ALERT] Adjustment received — manual review required, NO entitlement change applied (${reason}). ` +
         `adjustment_id=${d.id || 'unknown'} action=${d.action || 'unknown'} status=${d.status || 'unknown'} ` +
+        `type=${d.type || 'unspecified'} ` +
         `subscription_id=${d.subscription_id || 'none'} transaction_id=${d.transaction_id || 'none'} ` +
         `customer_id=${d.customer_id || 'none'} event_id=${eventId || 'no-id'}`
     );
-    fireDiscordAlert('Refund adjustment received — manual review required (no entitlement change applied).', {
+    fireDiscordAlert('Adjustment received — manual review required (no entitlement change applied).', {
       adjustment_id: d.id || 'unknown',
       action: d.action || 'unknown',
       status: d.status || 'unknown',
+      type: d.type || 'unspecified',
+      reason,
       subscription_id: d.subscription_id || 'none',
       transaction_id: d.transaction_id || 'none',
       customer_id: d.customer_id || 'none',
+      event_id: eventId || 'no-id',
+    });
+  }
+
+  // Decides what an adjustment does to entitlement. Pure — no I/O, no DB — so the
+  // policy is readable in one place and testable on its own.
+  //
+  // Paddle documents SEVEN adjustment actions. Mapping, and why:
+  //
+  //   chargeback ................. REVOKE. The bank has already pulled the money
+  //       back and Paddle charges us a fee on top. It is the strongest adversarial
+  //       signal a processor emits, and unlike a refund there is no approval step
+  //       worth waiting for — the loss is already realised. Deliberately NOT gated
+  //       on `type`: a chargeback means the customer went to their bank instead of
+  //       to us, and that is true whether they disputed part of the charge or all
+  //       of it. (Banks dispute the full charge in practice anyway.)
+  //
+  //   refund ..................... REVOKE only when status === 'approved' AND
+  //       type === 'full'. Refunds on live accounts are created 'pending_approval'
+  //       and Paddle may REJECT them; acting early would strip a customer who is
+  //       still paying, and no event would ever restore them. The approval arrives
+  //       on adjustment.updated. A PARTIAL refund must not strip full PRO — the
+  //       customer still paid for most of the period.
+  //
+  //   credit ..................... log only. A credit reduces what is owed on a
+  //       manually-collected transaction; it is not money returned and not a
+  //       signal that the relationship ended.
+  //
+  //   chargeback_warning ......... log only. This is a NOTICE that a dispute may be
+  //       coming — the money has not moved. Many warnings never become chargebacks.
+  //       Revoking here would punish customers for their bank's early-warning feed.
+  //       If it does become a chargeback, the real `chargeback` event revokes then.
+  //
+  //   chargeback_reverse ......... log only + alert. See the note below: this one
+  //   chargeback_warning_reverse . log only. Reverses a warning we never acted on,
+  //       so there is nothing to undo.
+  //   credit_reverse ............. log only. Reverses a credit we never acted on.
+  //
+  //   anything else / absent ..... log only. Unknown vocabulary must never move
+  //       entitlement in either direction.
+  //
+  // ON chargeback_reverse (Paddle wins the dispute back for us) — I considered
+  // auto-RESTORING PRO here and chose not to, deliberately:
+  //   (a) restoring is a GRANT, and every other grant in this system is being moved
+  //       toward validation, not away from it. An adjustment event is a poor
+  //       authority for handing out entitlement.
+  //   (b) `planOverride` already restores access in one field and survives every
+  //       billing event (derivePlan), so a human has a clean, instant remedy.
+  //   (c) it is rare, and rare + automatic + granting is how silent bugs live for
+  //       months.
+  // KNOWN COST, accepted: a customer whose chargeback we successfully contest stays
+  // on FREE until someone acts on the alert or their next renewal fires
+  // transaction.completed. The alert is what makes that a minute, not a month.
+  private static classifyAdjustment(data: any): { revoke: boolean; reason: string } {
+    const action = data?.action;
+    const status = data?.status;
+    // Paddle defaults `type` to 'partial' when omitted, so mirror that default
+    // rather than inventing our own — an absent type must never read as 'full'
+    // and trigger a revoke.
+    const type = data?.type ?? 'partial';
+
+    if (action === 'chargeback') {
+      return { revoke: true, reason: 'chargeback — funds already reversed by the bank' };
+    }
+
+    if (action === 'refund') {
+      if (status !== 'approved') {
+        return { revoke: false, reason: `refund not approved yet (status=${status ?? 'unknown'})` };
+      }
+      if (type !== 'full') {
+        return { revoke: false, reason: `partial refund (type=${type}) does not revoke full entitlement` };
+      }
+      return { revoke: true, reason: 'approved full refund' };
+    }
+
+    return { revoke: false, reason: `action '${action ?? 'unknown'}' does not affect entitlement` };
+  }
+
+  // Handles adjustment.created and adjustment.updated: refunds, chargebacks and
+  // their reversals.
+  //
+  // IDENTITY IS THE WHOLE TRAP HERE. Paddle's adjustment entity carries NO
+  // custom_data, so `custom_data.userId` — the identifier every other branch in
+  // this controller resolves on — is simply absent. Resolution goes
+  // subscription_id -> Subscription.externalId via resolveBillingOrgByExternalId.
+  // Never reach for extractUserId on this path: it would return null in production
+  // on every single refund.
+  private static async processAdjustment(event: any, eventId: string | undefined): Promise<void> {
+    const decision = WebhookController.classifyAdjustment(event?.data);
+
+    if (!decision.revoke) {
+      WebhookController.logAdjustmentForReview(event, eventId, decision.reason);
+      return;
+    }
+
+    // `subscription_id` is nullable: a refund against a one-off, non-subscription
+    // transaction has none, and we have nothing to map it to. Fail SAFE — alert a
+    // human rather than guess at an org and revoke the wrong customer.
+    const subscriptionId = event?.data?.subscription_id || null;
+    if (!subscriptionId) {
+      WebhookController.logAdjustmentForReview(
+        event,
+        eventId,
+        `${decision.reason}, but subscription_id is absent — cannot identify the org, NOT revoking`
+      );
+      return;
+    }
+
+    const resolved = await resolveBillingOrgByExternalId('PADDLE', subscriptionId);
+    if (!resolved) {
+      WebhookController.logAdjustmentForReview(
+        event,
+        eventId,
+        `${decision.reason}, but subscription ${subscriptionId} matches no stored subscription — NOT revoking`
+      );
+      return;
+    }
+
+    // Reuses the SAME entitlement mechanism as subscription.canceled. In
+    // particular planOverride is never touched by the service, so a manually
+    // granted PRO/ENTERPRISE floor survives this revoke — that is the sanctioned
+    // "refunded but keep access" escape hatch. To keep a refunded customer on PRO,
+    // set Organization.planOverride = PRO; no billing event can lower it.
+    const result = await applyEntitlementChange({
+      organizationId: resolved.organizationId,
+      source: 'PADDLE',
+      status: 'INACTIVE',
+      externalId: subscriptionId,
+      eventOccurredAt: WebhookController.extractOccurredAt(event),
+    });
+
+    console.warn(
+      `[Webhook][ALERT] PRO REVOKED by adjustment (${decision.reason}) — ` +
+        `org ${resolved.organizationId} plan ${result.previousPlan} -> ${result.newPlan} ` +
+        `(${result.applied ? 'applied' : 'stale event, plan reconciled only'}) ` +
+        `adjustment_id=${event?.data?.id || 'unknown'} subscription_id=${subscriptionId} ` +
+        `event_id=${eventId || 'no-id'}`
+    );
+    fireDiscordAlert('PRO REVOKED — refund/chargeback processed.', {
+      reason: decision.reason,
+      organization_id: resolved.organizationId,
+      previous_plan: result.previousPlan,
+      new_plan: result.newPlan,
+      adjustment_id: event?.data?.id || 'unknown',
+      subscription_id: subscriptionId,
       event_id: eventId || 'no-id',
     });
   }
@@ -259,14 +409,13 @@ export class WebhookController {
   // billing logic (per-source state, derivation, plan write) lives in the service;
   // all the event-shape/identity parsing lives here.
   private static async processEvent(event: any, eventName: string, eventId: string | undefined, email: string | undefined) {
-      // Refunds arrive as adjustment.created (action 'refund'), often as status
-      // 'pending_approval' until Paddle reviews. v1 deliberately does NOT
-      // auto-downgrade on a refund: a pending refund may be rejected, and a
-      // partial/goodwill refund must not revoke an otherwise-active subscription.
-      // subscription.canceled remains the authoritative entitlement downgrade.
-      // We surface refunds loudly for manual review instead.
-      if (eventName === 'adjustment.created') {
-        WebhookController.logRefundForReview(event, eventId);
+      // Refunds and chargebacks arrive as adjustment.created; the approval decision
+      // for a refund arrives later as adjustment.updated. Both are routed to the
+      // adjustment policy, which decides revoke-vs-log per action/status/type.
+      // A pending refund is still log-only (Paddle may reject it); an approved full
+      // refund and any chargeback now revoke. See classifyAdjustment.
+      if (eventName === 'adjustment.created' || eventName === 'adjustment.updated') {
+        await WebhookController.processAdjustment(event, eventId);
         return;
       }
 
