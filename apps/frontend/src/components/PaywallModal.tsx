@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { X, Zap, CheckCircle2, Crown, Star } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useStrings } from '../i18n/useStrings';
+import { useLanguage } from '../i18n/LanguageContext';
+import { formatPercent } from '../lib/formatNumber';
 import { getPaddle, PaddleNotConfiguredError } from '../lib/paddle';
 import { useBackDismiss } from '../native/useBackDismiss';
 import { isNativePlatform } from '../native/shell';
@@ -36,6 +38,7 @@ const CHECKOUT_SUCCESS_URL = 'https://www.scan-action.com/dashboard?checkout=suc
 
 export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) => {
   const s = useStrings();
+  const { language } = useLanguage();
   const { user } = useAuth();
   // Defaults to MONTHLY, matching the price the landing page advertises ($9/mo).
   // It used to default to 'yearly': a visitor who clicked through the landing's
@@ -139,7 +142,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
             <button
               onClick={onClose}
               aria-label="Close"
-              className="absolute top-2 right-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/60 hover:text-white rounded-full hover:bg-white/10 transition-all"
+              className="absolute top-2 end-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/60 hover:text-white rounded-full hover:bg-white/10 transition-all"
             >
               <X size={20} />
             </button>
@@ -174,7 +177,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
     // fire in practice; the guard exists so it CANNOT.
     if (!user?.id) {
       console.error('[Paywall] refusing checkout: no user.id');
-      setCheckoutError('Please sign in again to upgrade.');
+      setCheckoutError(s.paywallErrorSignIn);
       return;
     }
 
@@ -184,7 +187,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
     const priceId = PLAN_CATALOG[selectedPlan].priceId;
     if (!priceId) {
       console.error(`[Paywall] No Paddle price id configured for the ${selectedPlan} plan — refusing to open checkout.`);
-      setCheckoutError('Checkout is not available right now. Please contact support.');
+      setCheckoutError(s.paywallErrorUnavailable);
       return;
     }
 
@@ -202,8 +205,8 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
       console.error('[Paywall] Failed to open Paddle checkout:', err);
       setCheckoutError(
         err instanceof PaddleNotConfiguredError
-          ? 'Checkout is not available in this environment.'
-          : 'Could not open checkout. Please check your connection and try again.'
+          ? s.paywallErrorEnv
+          : s.paywallErrorOpen
       );
     } finally {
       setOpeningCheckout(false);
@@ -211,13 +214,27 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
   };
 
   // Previewed total when Paddle answered, declared fallback otherwise. Never
-  // blank, and never a number typed into JSX.
+  // blank, and never a number typed into JSX. This is Paddle's own localized,
+  // currency-correct string — rendered VERBATIM (never reformatted here: that was
+  // the #115 drift). We only wrap it in <bdi> at the call site so a Latin-digit
+  // amount cannot reorder the surrounding Arabic on an RTL line.
   const priceLabel = (plan: Plan): string =>
     preview?.formatted[plan] ?? PLAN_CATALOG[plan].fallbackFormatted;
+
+  // The period suffix is OURS (Paddle gives the amount, we append the period), so
+  // it is localized from the catalog — unlike the amount. AR uses the adverbial
+  // form with a leading space, not a slash (see strings.ts).
+  const periodSuffix = (plan: Plan): string =>
+    plan === 'monthly' ? s.paywallPerMonth : s.paywallPerYear;
 
   // Derived from whichever source is actually on screen, so the badge and the
   // amounts can never disagree. Null (e.g. yearly not cheaper) drops the badge.
   const savingsPercent = preview ? preview.savingsPercent : fallbackSavingsPercent();
+
+  // The CTA glue is ours and localized; the price is Paddle's. Split the template
+  // on {price} so the amount can be isolated in its own <bdi> rather than
+  // hand-concatenated into an RTL string (the classic bidi break the recon flagged).
+  const [ctaBefore, ctaAfter = ''] = s.paywallCta.split('{price}');
 
   return createPortal(
     <div
@@ -239,13 +256,13 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
               <Zap size={32} className="text-white fill-white" />
             </div>
             <h2 className="text-2xl font-black text-white tracking-tight uppercase italic">
-              Upgrade to PRO
+              {s.paywallTitle}
             </h2>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="absolute top-2 right-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/60 hover:text-white rounded-full hover:bg-white/10 transition-all"
+            className="absolute top-2 end-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/60 hover:text-white rounded-full hover:bg-white/10 transition-all"
           >
             <X size={20} />
           </button>
@@ -254,53 +271,53 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
         {/* Content */}
         <div className="p-5 sm:p-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-8">
           <p className="text-slate-600 dark:text-slate-400 font-bold text-center mb-6 sm:mb-8 leading-relaxed">
-            Unlock the full power of Scan & Action. <span className="text-slate-900 dark:text-white">PRO</span> gives you the ultimate productivity workflow.
+            {s.paywallBody}
           </p>
 
           {/* Plan Selection */}
           <div className="mb-8">
             <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
               <Star size={14} className="fill-slate-400 dark:fill-slate-500" />
-              Choose your plan
+              {s.paywallChoosePlan}
             </h3>
 
             <div className="grid grid-cols-2 gap-4">
               {/* Monthly Plan */}
               <button
                 onClick={() => setSelectedPlan('monthly')}
-                className={`flex flex-col p-4 min-h-[88px] rounded-2xl border-2 text-left transition-all relative ${selectedPlan === 'monthly'
+                className={`flex flex-col p-4 min-h-[88px] rounded-2xl border-2 text-start transition-all relative ${selectedPlan === 'monthly'
                   ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-900/10 shadow-lg shadow-blue-500/5'
                   : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700'
                   }`}
               >
-                <span className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-tight mb-1">Monthly</span>
+                <span className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-tight mb-1">{s.paywallMonthly}</span>
                 <span className="text-2xl font-black text-slate-900 dark:text-white italic">
-                  {priceLabel('monthly')}
-                  <span className="text-sm font-bold opacity-50">{PLAN_CATALOG.monthly.periodSuffix}</span>
+                  <bdi>{priceLabel('monthly')}</bdi>
+                  <span className="text-sm font-bold opacity-50">{s.paywallPerMonth}</span>
                 </span>
               </button>
 
               {/* Yearly Plan */}
               <button
                 onClick={() => setSelectedPlan('yearly')}
-                className={`flex flex-col p-4 min-h-[88px] rounded-2xl border-2 text-left transition-all relative ${selectedPlan === 'yearly'
+                className={`flex flex-col p-4 min-h-[88px] rounded-2xl border-2 text-start transition-all relative ${selectedPlan === 'yearly'
                   ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-900/10 shadow-lg shadow-blue-500/5 ring-4 ring-blue-500/10'
                   : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700'
                   }`}
               >
                 {savingsPercent !== null && (
-                  <div className="absolute top-[-10px] right-2 bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-lg">
-                    Save {savingsPercent}%
+                  <div className="absolute top-[-10px] end-2 bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-lg">
+                    {s.paywallSave.replace('{p}', formatPercent(savingsPercent / 100, language))}
                   </div>
                 )}
                 <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-tight mb-1 flex items-center gap-1">
-                  Yearly <Star size={10} className="fill-emerald-500" />
+                  {s.paywallYearly} <Star size={10} className="fill-emerald-500" />
                 </span>
                 <span className="text-2xl font-black text-slate-900 dark:text-white italic">
-                  {priceLabel('yearly')}
-                  <span className="text-sm font-bold opacity-50">{PLAN_CATALOG.yearly.periodSuffix}</span>
+                  <bdi>{priceLabel('yearly')}</bdi>
+                  <span className="text-sm font-bold opacity-50">{s.paywallPerYear}</span>
                 </span>
-                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase">Best Value</span>
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase">{s.paywallBestValue}</span>
               </button>
             </div>
           </div>
@@ -308,10 +325,10 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
           {/* Features List */}
           <div className="space-y-3 mb-8">
             {[
-              "Unlimited Document Scans",
-              "Upload multiple files at once",
-              "Faster processing workflow",
-              "Export your data (CSV)"
+              s.paywallFeatureUnlimited,
+              s.paywallFeatureBatch,
+              s.paywallFeatureFaster,
+              s.paywallFeatureExport,
             ].map((feature, i) => (
               <div key={i} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
                 <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
@@ -336,15 +353,24 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-wait text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
             >
               <Crown size={20} fill="white" className="group-hover:rotate-12 transition-transform" />
-              {openingCheckout
-                ? 'Opening checkout…'
-                : `Upgrade Now - ${priceLabel(selectedPlan)}${PLAN_CATALOG[selectedPlan].periodSuffix}`}
+              {openingCheckout ? (
+                s.paywallOpening
+              ) : (
+                <span>
+                  {ctaBefore}
+                  {/* Paddle's amount, isolated so its Latin digits can't reorder the
+                      surrounding Arabic; the suffix stays outside as a localized word. */}
+                  <bdi>{priceLabel(selectedPlan)}</bdi>
+                  {periodSuffix(selectedPlan)}
+                  {ctaAfter}
+                </span>
+              )}
             </button>
             <button
               onClick={onClose}
               className="w-full min-h-[44px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 py-2 rounded-xl font-bold text-sm transition-all"
             >
-              Maybe later
+              {s.paywallMaybeLater}
             </button>
           </div>
         </div>
