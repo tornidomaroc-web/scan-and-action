@@ -159,6 +159,35 @@ export const strings = {
     proComingSoonTitle: 'Pro is coming soon',
     proComingSoonBody: 'In-app upgrades aren’t available yet. They’re coming in a future update. If your workspace already has Pro, your features stay unlocked here automatically.',
     proComingSoonDismiss: 'Got it',
+    // ── WEB paywall (PaywallModal web branch). Localized in the AR/FR paywall PR.
+    // NOTE the boundary with Paddle: the price AMOUNT + currency comes from Paddle's
+    // PricePreview (already buyer-localized — never reformatted here, see #115). We
+    // localize only the labels, the period suffix, and the "Save" word; the percent
+    // itself is Intl's job via formatPercent(). {p} = a formatted percent, {price} =
+    // the Paddle amount + suffix.
+    paywallTitle: 'Upgrade to PRO',
+    paywallBody: 'Unlock the full power of Scan & Action. PRO gives you the ultimate productivity workflow.',
+    paywallChoosePlan: 'Choose your plan',
+    paywallMonthly: 'Monthly',
+    paywallYearly: 'Yearly',
+    paywallSave: 'Save {p}',
+    paywallBestValue: 'Best Value',
+    paywallFeatureUnlimited: 'Unlimited Document Scans',
+    paywallFeatureBatch: 'Upload multiple files at once',
+    paywallFeatureFaster: 'Faster processing workflow',
+    paywallFeatureExport: 'Export your data (CSV)',
+    paywallOpening: 'Opening checkout…',
+    paywallCta: 'Upgrade Now {price}',
+    paywallMaybeLater: 'Maybe later',
+    paywallErrorSignIn: 'Please sign in again to upgrade.',
+    paywallErrorUnavailable: 'Checkout is not available right now. Please contact support.',
+    paywallErrorEnv: 'Checkout is not available in this environment.',
+    paywallErrorOpen: 'Could not open checkout. Please check your connection and try again.',
+    // Period suffix appended to the price. LTR locales use a slash (attaches to the
+    // Latin numeral cleanly); AR uses the adverbial form with a leading space so it
+    // sits as a word after the price rather than a slash glued to a Latin digit.
+    paywallPerMonth: '/mo',
+    paywallPerYear: '/yr',
     // Native-only neutral status copy (no pricing, no links, no upsell — anti-steering).
     freePlanLimitReached: 'You’ve reached the free limit of 10 scans.',
     freePlanSingleDoc: 'Free plan supports one document at a time.',
@@ -496,6 +525,27 @@ export const strings = {
     proComingSoonTitle: 'Pro arrive bientôt',
     proComingSoonBody: 'Les mises à niveau dans l’application ne sont pas encore disponibles. Elles arriveront dans une prochaine mise à jour. Si votre espace de travail dispose déjà de Pro, vos fonctionnalités restent débloquées ici automatiquement.',
     proComingSoonDismiss: 'Compris',
+    // ── WEB paywall (voir la note EN). « scans » / « export CSV » alignés sur proWelcomeBody.
+    paywallTitle: 'Passer à PRO',
+    paywallBody: 'Libérez toute la puissance de Scan & Action. PRO vous offre le meilleur flux de productivité.',
+    paywallChoosePlan: 'Choisissez votre formule',
+    paywallMonthly: 'Mensuel',
+    paywallYearly: 'Annuel',
+    paywallSave: 'Économisez {p}',
+    paywallBestValue: 'Meilleure offre',
+    paywallFeatureUnlimited: 'Scans de documents illimités',
+    paywallFeatureBatch: 'Téléversez plusieurs fichiers à la fois',
+    paywallFeatureFaster: 'Traitement plus rapide',
+    paywallFeatureExport: 'Exportez vos données (CSV)',
+    paywallOpening: 'Ouverture du paiement…',
+    paywallCta: 'Passer à PRO {price}',
+    paywallMaybeLater: 'Peut-être plus tard',
+    paywallErrorSignIn: 'Veuillez vous reconnecter pour passer à PRO.',
+    paywallErrorUnavailable: 'Le paiement est indisponible pour le moment. Veuillez contacter le support.',
+    paywallErrorEnv: 'Le paiement n’est pas disponible dans cet environnement.',
+    paywallErrorOpen: 'Impossible d’ouvrir le paiement. Vérifiez votre connexion et réessayez.',
+    paywallPerMonth: '/mois',
+    paywallPerYear: '/an',
     // Native-only neutral status copy (no pricing, no links, no upsell — anti-steering).
     freePlanLimitReached: 'Vous avez atteint la limite gratuite de 10 analyses.',
     freePlanSingleDoc: 'Le plan gratuit prend en charge un document à la fois.',
@@ -826,6 +876,36 @@ export const strings = {
     proComingSoonTitle: 'النسخة Pro قادمة قريبًا',
     proComingSoonBody: 'ترقيات الاشتراك داخل التطبيق غير متوفرة بعد. ستتوفر في تحديث قادم. إذا كانت مساحة عملك تتضمّن Pro بالفعل، فستظل ميزاتك مفعّلة هنا تلقائيًا.',
     proComingSoonDismiss: 'حسنًا',
+    // ── WEB paywall — Abo Jad's approved finals (MSA). {p} = formatted percent,
+    // {price} = Paddle amount + suffix. Latin digits are the house rule (see
+    // formatNumber.ts); "PRO" / "Scan & Action" / "CSV" stay Latin by design.
+    // The period suffix uses the adverbial form (شهرياً / سنوياً) with a leading
+    // space — deliberately NOT a slash, which would glue to a Latin numeral and
+    // break direction on an RTL line.
+    // CTA separator: Abo Jad's draft had an em dash before {price}; dropped for a
+    // plain space. Em/en dashes are a banned house rule (dashboardRestyle test),
+    // and a neutral dash between RTL text and an LTR price is the classic bidi
+    // jump — the space + <bdi>-isolated price in PaywallModal sidesteps both.
+    paywallTitle: 'الترقية إلى PRO',
+    paywallBody: 'أطلق العنان لكامل قوة Scan & Action. تمنحك PRO أفضل سير عمل لإنتاجية أعلى.',
+    paywallChoosePlan: 'اختر خطتك',
+    paywallMonthly: 'شهري',
+    paywallYearly: 'سنوي',
+    paywallSave: 'وفّر {p}',
+    paywallBestValue: 'أفضل قيمة',
+    paywallFeatureUnlimited: 'مسح غير محدود للمستندات',
+    paywallFeatureBatch: 'رفع عدّة ملفات دفعة واحدة',
+    paywallFeatureFaster: 'معالجة أسرع',
+    paywallFeatureExport: 'تصدير بياناتك (CSV)',
+    paywallOpening: 'جارٍ فتح الدفع…',
+    paywallCta: 'الترقية الآن {price}',
+    paywallMaybeLater: 'ربما لاحقاً',
+    paywallErrorSignIn: 'يرجى تسجيل الدخول مجدداً للترقية.',
+    paywallErrorUnavailable: 'الدفع غير متاح حالياً. يرجى التواصل مع الدعم.',
+    paywallErrorEnv: 'الدفع غير متاح في هذه البيئة.',
+    paywallErrorOpen: 'تعذّر فتح الدفع. تحقّق من اتصالك وحاول مرة أخرى.',
+    paywallPerMonth: ' شهرياً',
+    paywallPerYear: ' سنوياً',
     // Native-only neutral status copy (no pricing, no links, no upsell — anti-steering).
     freePlanLimitReached: 'لقد وصلت إلى الحد المجاني وهو 10 عمليات مسح.',
     freePlanSingleDoc: 'الخطة المجانية تدعم مستندًا واحدًا في كل مرة.',
