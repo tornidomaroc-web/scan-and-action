@@ -82,7 +82,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
       }
 
       if (plan === undefined) {
-        showToast('Verifying account status...', 'info');
+        showToast(s.verifyingAccount, 'info');
         return; // Reject until plan is confirmed (Neutral behavior)
       }
     }
@@ -92,7 +92,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
     });
 
     if (validFiles.length < incomingFiles.length) {
-      showToast('Duplicate files ignored', 'info');
+      showToast(s.duplicatesIgnored, 'info');
     }
 
     setFiles(prev => [...prev, ...validFiles]);
@@ -194,18 +194,18 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
 
       if (successCount === totalCount) {
         setStatus('success');
-        showToast(`Uploaded ${totalCount} document${totalCount > 1 ? 's' : ''}. Processing in background...`, 'success');
+        showToast(s.uploadedProcessing, 'success');
         if (onSuccess) onSuccess();
       } else if (successCount > 0) {
         setStatus('partial');
-        showToast(`Uploaded ${successCount}/${totalCount} documents. Some failed.`, 'info');
+        showToast(s.uploadedPartialResult, 'info');
         if (onSuccess) onSuccess();
       } else {
         setStatus('error');
       }
     } catch (error) {
       setStatus('error');
-      showToast('Batch processing interrupted.', 'error');
+      showToast(s.batchInterrupted, 'error');
     } finally {
       setUploading(false);
     }
@@ -232,12 +232,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
             <h2 className="text-title-lg font-semibold text-ink tracking-tight">
               {status === 'idle' ? s.upload :
                status === 'success' ? s.uploadSuccess :
-               status === 'partial' ? 'Partial Success' : s.uploadError}
+               status === 'partial' ? s.uploadPartial : s.uploadError}
             </h2>
             <p className="text-sm font-medium text-ink-secondary mt-1">
-              {status === 'idle' ? 'Select one or more files for AI extraction.' :
-               status === 'success' ? 'Uploaded. Extraction continues in the background. You can close this.' :
-               'Please review the status of your items below.'}
+              {status === 'idle' ? s.uploadSubtitleIdle :
+               status === 'success' ? s.uploadSubtitleSuccess :
+               s.uploadSubtitleReview}
             </p>
           </div>
           <button
@@ -359,7 +359,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                        {status === 'success' ? (
                         <><CheckCircle size={18} className="text-success"/> {s.uploadSuccess}</>
                       ) : status === 'partial' ? (
-                        <><AlertCircle size={18} className="text-warning"/> Partial Success ({results.success}/{results.total})</>
+                        <><AlertCircle size={18} className="text-warning"/> {s.uploadPartial} <bdi>({results.success}/{results.total})</bdi></>
                       ) : status === 'error' ? (
                         <><AlertCircle size={18} className="text-danger"/> {s.uploadError}</>
                       ) : (
@@ -385,9 +385,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                            <div className="w-12 h-12 bg-surface-raised rounded-pill flex items-center justify-center mx-auto mb-3 shadow-card border border-success/30">
                              <CheckCircle size={24} className="text-success" />
                            </div>
-                           <h3 className="text-section font-semibold text-success-text mb-1">Uploaded</h3>
+                           <h3 className="text-section font-semibold text-success-text mb-1">{s.uploadedTitle}</h3>
                            <p className="text-sm font-medium text-ink-secondary">
-                             Extraction runs in the background. Track it from the processing chip.
+                             {s.uploadBackgroundNote}
                            </p>
 
                            <div className="grid grid-cols-2 gap-4 mt-6">
@@ -395,13 +395,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                                onClick={onClose}
                                className="py-3 text-sm font-semibold rounded-btn border-2 border-line text-ink-secondary hover:border-line-strong transition-colors"
                              >
-                               Done
+                               {s.done}
                              </button>
                              <button
                                onClick={resetToIdle}
                                className="py-3 text-sm font-semibold rounded-btn bg-accent hover:bg-accent-hover text-white shadow-card transition-colors"
                              >
-                               Manage Files
+                               {s.manageFiles}
                              </button>
                            </div>
                         </div>
@@ -411,13 +411,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                             onClick={onClose}
                             className="py-3 text-sm font-semibold rounded-btn border-2 border-line text-ink-secondary hover:border-line-strong transition-colors"
                           >
-                            Close Modal
+                            {s.close}
                           </button>
                           <button
                             onClick={resetToIdle}
                             className="py-3 text-sm font-semibold rounded-btn bg-accent hover:bg-accent-hover text-white transition-colors"
                           >
-                            Manage Files
+                            {s.manageFiles}
                           </button>
                         </div>
                       )}
@@ -430,13 +430,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                     onClick={onClose}
                     className="w-full py-3 text-base font-semibold rounded-btn border-2 border-line text-ink-secondary hover:border-line-strong transition-colors"
                   >
-                    Cancel
+                    {s.cancel}
                   </button>
                   <button
                     onClick={startUpload}
+                    data-testid="start-extraction"
                     className="w-full py-3 text-base font-semibold rounded-btn bg-accent hover:bg-accent-hover text-white transition-colors"
                   >
-                    Start Extraction ({files.length})
+                    {s.startExtraction.replace('{n}', String(files.length))}
                   </button>
                 </div>
               )}

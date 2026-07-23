@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { documentService } from '../services/documentService';
 import { useToast } from './ToastContext';
+import { useStrings } from '../i18n/useStrings';
 
 export type JobStatus = 'PROCESSING' | 'COMPLETED' | 'NEEDS_REVIEW' | 'FAILED';
 
@@ -60,6 +61,7 @@ export const ProcessingProvider: React.FC<{
   const settledRef = useRef(onJobSettled);
   settledRef.current = onJobSettled;
   const { showToast } = useToast();
+  const s = useStrings();
 
   jobsRef.current = jobs;
 
@@ -88,14 +90,15 @@ export const ProcessingProvider: React.FC<{
   const settle = (documentId: string, status: JobStatus) => {
     stopPolling(documentId);
     updateJob(documentId, status);
-    const job = jobsRef.current.find((j) => j.documentId === documentId);
-    const name = job?.fileName || 'Document';
+    // Generic, filename-free copy: the localized toast must not splice a Latin
+    // filename into an Arabic sentence (bidi break — see the #118 lesson and
+    // docs/AR_ENGLISH_LEAKS_RECON_2026-07-23.md, ruling D1).
     if (status === 'COMPLETED') {
-      showToast(`${name} processed successfully.`, 'success');
+      showToast(s.scanProcessed, 'success');
     } else if (status === 'NEEDS_REVIEW') {
-      showToast(`${name} needs review.`, 'info');
+      showToast(s.scanNeedsReview, 'info');
     } else if (status === 'FAILED') {
-      showToast(`${name} could not be processed.`, 'error');
+      showToast(s.scanFailed, 'error');
     }
     // Bumps Layout's refresh counter -> stats refetch -> queue badge.
     settledRef.current?.();
