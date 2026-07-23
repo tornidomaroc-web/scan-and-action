@@ -45,13 +45,12 @@
          degrades gracefully (file/gallery/PDF still work) if denied. -->
     <uses-permission android:name="android.permission.CAMERA" />
 
-    <!-- Android 13+ scoped media read. The system Photo Picker / SAF document
-         picker used by the WebView file chooser are actually permissionless, but
-         these cover older OEM WebViews that still hit the legacy gallery path. -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
+    <!-- No READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE: every media entry is a
+         user-initiated pick through the WebView file chooser (system Photo Picker
+         for images, SAF for PDFs), which hands back a permissionless content:// URI
+         grant — the app never reads the media library. Broad storage permissions
+         are therefore unused and were rejected under Google Play's Photo & Video
+         Permissions policy (see docs/PHOTO_VIDEO_PERMISSIONS_REJECTION_RECON_2026-07-23.md). -->
 
     <!-- Camera is optional: file/gallery/PDF upload works without it, so don't
          let Play Store filter out camera-less devices. -->
