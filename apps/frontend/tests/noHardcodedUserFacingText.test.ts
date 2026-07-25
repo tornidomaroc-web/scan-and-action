@@ -51,11 +51,19 @@ const CORE_DIRS = ['components', 'screens', 'contexts'];
 //                                          forcing this list to be emptied
 // So it is a self-retiring ratchet, not an exclusion. Nothing is hidden.
 // Fixing them here is out of scope: this PR changes no app behavior or strings.
+//
+// KEYED ON file + sink + literal TEXT — deliberately NOT on the line number.
+// A line-keyed pin is brittle in a way that actively misleads: adding one
+// unrelated comment above these calls shifts every line below it, and all three
+// DashboardScreen pins then report as brand-new violations telling the developer
+// to localize strings that are already known and already pinned. Verified
+// against e420771 by inserting a single comment line. The literal text is stable
+// under any edit that does not touch the leak itself.
 const KNOWN_PENDING_PR2 = [
-  'components/Sidebar.tsx:73 showToast',
-  'screens/DashboardScreen.tsx:135 setError',
-  'screens/DashboardScreen.tsx:137 setError',
-  'screens/DashboardScreen.tsx:142 setError',
+  'components/Sidebar.tsx | showToast | Checking for your PRO upgrade...',
+  'screens/DashboardScreen.tsx | setError | We could not connect to the intelligence server. This might be a temporary connection issue.',
+  'screens/DashboardScreen.tsx | setError | Intelligence metrics are temporarily unavailable. Your activity data is still visible.',
+  'screens/DashboardScreen.tsx | setError | An unexpected error occurred while loading your dashboard.',
 ];
 
 function walkFiles(dir: string): string[] {
@@ -78,8 +86,36 @@ function coreFiles(): string[] {
 const rel = (f: string) => path.relative(SRC, f).split(path.sep).join('/');
 
 interface Violation {
+  /** Line-independent identity used for MATCHING against KNOWN_PENDING_PR2. */
+  key: string;
+  /** Human-facing location, INCLUDING the line. Reported, never matched on. */
   id: string;
   text: string;
+}
+
+/**
+ * Multiset difference: violations minus the pinned set, consuming each pin at
+ * most once.
+ *
+ * The multiset handling is load-bearing, not pedantry. Two calls to the SAME
+ * sink in the SAME file carrying byte-identical literal text produce an
+ * IDENTICAL key — the key cannot tell them apart, by construction. A plain
+ * `.includes()` filter would let one pin absorb BOTH occurrences, silently
+ * masking a real second leak. Consuming pins one-by-one means the second
+ * occurrence is reported as unexpected, and the exactness test below fails on
+ * the count mismatch. If two identical literals are ever both legitimately
+ * pending, the key must appear TWICE in KNOWN_PENDING_PR2 — duplicates are
+ * meaningful here, so never de-duplicate this list.
+ */
+function unexpectedAgainstPins(violations: Violation[]): Violation[] {
+  const remaining = [...KNOWN_PENDING_PR2];
+  const unexpected: Violation[] = [];
+  for (const v of violations) {
+    const at = remaining.indexOf(v.key);
+    if (at === -1) unexpected.push(v);
+    else remaining.splice(at, 1);
+  }
+  return unexpected;
 }
 
 // A literal reaching a sink. What counts:
@@ -107,7 +143,11 @@ function scanSinks(file: string): Violation[] {
         else if (ts.isNoSubstitutionTemplateLiteral(arg) && arg.text.trim() !== '') bad = arg.text;
         if (bad !== null) {
           const line = sf.getLineAndCharacterOfPosition(arg.getStart(sf)).line + 1;
-          found.push({ id: `${rel(file)}:${line} ${callee}`, text: bad });
+          found.push({
+            key: `${rel(file)} | ${callee} | ${bad}`,
+            id: `${rel(file)}:${line} ${callee}`,
+            text: bad,
+          });
         }
       }
     }
@@ -127,9 +167,11 @@ describe('structural sink guard — no bare string literals reach user-facing si
     expect(files.some((f) => rel(f) === 'components/UploadModal.tsx')).toBe(true);
   });
 
+  // Direction 1 of the ratchet: a NEW literal must fail. Matching is on `key`
+  // (line-independent); the REPORT carries `id`, so the human still gets the
+  // line number they need to go fix it.
   it('finds NO literal at a sink outside the pinned PR-2 set', () => {
-    const violations = coreFiles().flatMap(scanSinks);
-    const unexpected = violations.filter((v) => !KNOWN_PENDING_PR2.includes(v.id));
+    const unexpected = unexpectedAgainstPins(coreFiles().flatMap(scanSinks));
     expect(
       unexpected.map((v) => `${v.id} -> ${JSON.stringify(v.text)}`),
       'A hardcoded user-facing string reached a toast/error sink. Route it through the ' +
@@ -137,13 +179,19 @@ describe('structural sink guard — no bare string literals reach user-facing si
     ).toEqual([]);
   });
 
+  // Direction 2 of the ratchet: a pin whose leak NO LONGER EXISTS must also
+  // fail, so a fixed leak cannot leave a stale pin quietly widening the guard's
+  // blind spot. Compared as SORTED ARRAYS, not Sets — array comparison preserves
+  // multiplicity, so a duplicated literal cannot hide behind a single pin.
   it('the pinned PR-2 leak set is EXACTLY as recorded (ratchet: fixes and regressions both fail)', () => {
-    const ids = coreFiles().flatMap(scanSinks).map((v) => v.id).sort();
+    const keys = coreFiles().flatMap(scanSinks).map((v) => v.key).sort();
     expect(
-      ids,
-      'The known-unremediated set drifted. If audit #7 PR 2 fixed these, DELETE the ' +
-        'corresponding entries from KNOWN_PENDING_PR2 (that is the intended retirement ' +
-        'path). If something new appeared, it is a new leak — localize it.'
+      keys,
+      'The known-unremediated set drifted. If audit #7 PR 2 fixed one of these, DELETE ' +
+        'its entry from KNOWN_PENDING_PR2 — a pin for a leak that no longer exists is ' +
+        'stale and must not linger. If an entry appeared, it is a new leak — localize it. ' +
+        '(Matching ignores line numbers, so an unrelated edit above a pinned call is NOT ' +
+        'a cause of this failure.)'
     ).toEqual([...KNOWN_PENDING_PR2].sort());
   });
 });
