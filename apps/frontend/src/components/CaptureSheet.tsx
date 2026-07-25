@@ -87,7 +87,7 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
         // Hand off to the app-level tray and free the user immediately.
         trackUpload(result.documentId, file.name);
       }
-      showToast('Uploaded. Processing in background...', 'success');
+      showToast(s.uploadedProcessing, 'success');
       close();
     } catch (err: any) {
       // Raw API code; it becomes words only via translateUploadError (which never

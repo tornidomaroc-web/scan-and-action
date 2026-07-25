@@ -77,15 +77,13 @@ async function failUploadWith(code: string) {
   Object.defineProperty(input, 'files', { value: [photo('a.jpg')], configurable: true });
   flushSync(() => input.dispatchEvent(new Event('change', { bubbles: true })));
 
+  // Locate the submit button by testid, not by English text — the label is now
+  // localized (item #7 PR 1), so a substring match on 'Start Extraction' would
+  // miss the FR/AR renders. The testid is locale-agnostic and stable.
   await vi.waitFor(() => {
-    const btn = [...document.body.querySelectorAll('button')].find((b) =>
-      b.textContent?.includes('Start Extraction')
-    );
-    expect(btn).toBeTruthy();
+    expect(document.body.querySelector('[data-testid="start-extraction"]')).toBeTruthy();
   });
-  const start = [...document.body.querySelectorAll('button')].find((b) =>
-    b.textContent?.includes('Start Extraction')
-  )!;
+  const start = document.body.querySelector('[data-testid="start-extraction"]') as HTMLButtonElement;
   flushSync(() => start.dispatchEvent(new MouseEvent('click', { bubbles: true })));
 }
 

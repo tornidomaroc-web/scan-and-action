@@ -190,15 +190,15 @@ export const SettingsScreen = () => {
                 <div className="space-y-3 mb-10 inline-block text-left mx-auto">
                    <div className="flex items-center gap-3 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-tight">
                       <ShieldCheck size={16} className="text-blue-500" />
-                      Unlimited document scans
+                      {s.paywallFeatureUnlimited}
                    </div>
                    <div className="flex items-center gap-3 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-tight">
                       <ShieldCheck size={16} className="text-blue-500" />
-                      High-volume batch uploads
+                      {s.paywallFeatureBatch}
                    </div>
                    <div className="flex items-center gap-3 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-tight">
                       <ShieldCheck size={16} className="text-blue-500" />
-                      Faster processing workflow
+                      {s.paywallFeatureFaster}
                    </div>
                 </div>
                 <button 
