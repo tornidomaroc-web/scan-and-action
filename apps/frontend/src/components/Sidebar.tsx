@@ -70,7 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
     e.stopPropagation();
     if (onRefreshPlan) {
       onRefreshPlan();
-      showToast('Checking for your PRO upgrade...', 'info');
+      showToast(s.planRefreshChecking, 'info');
     }
   };
 

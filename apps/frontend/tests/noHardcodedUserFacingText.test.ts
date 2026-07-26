@@ -43,14 +43,18 @@ const SINKS = ['showToast', 'setError', 'setErrorMsg'];
 // NEW file is covered the day it lands instead of being silently outside scope.
 const CORE_DIRS = ['components', 'screens', 'contexts'];
 
-// ── Known-unremediated sites: audit #7 PR 2, NOT YET LANDED. ────────────────
-// These are REAL LEAKS, not legitimate exceptions. They are pinned here rather
-// than suppressed, and the test asserts this set matches EXACTLY:
-//   - add a new literal to these files  -> set no longer matches -> FAIL
-//   - PR 2 fixes them                   -> set no longer matches -> FAIL,
-//                                          forcing this list to be emptied
-// So it is a self-retiring ratchet, not an exclusion. Nothing is hidden.
-// Fixing them here is out of scope: this PR changes no app behavior or strings.
+// ── Known-unremediated sites: EMPTY. Audit #7 PR 2 has landed. ─────────────
+// This list held four Class-A leaks (one Sidebar showToast, three
+// DashboardScreen setError). All four are now routed through the s.* catalog:
+//   Sidebar.tsx            -> s.planRefreshChecking
+//   DashboardScreen.tsx    -> s.dashboardConnectionError
+//                          -> s.dashboardMetricsUnavailable
+//                          -> s.dashboardUnexpectedError
+// The ratchet below is TWO-WAY, so the pins had to be deleted in the same
+// commit as the fix: a pin whose leak no longer exists fails just as loudly as
+// an unpinned leak. The empty list is the intended terminal state — the guard
+// now simply asserts that NO bare literal reaches a sink anywhere in the core
+// set. Do not re-add entries to "quiet" a failure; localize the string instead.
 //
 // KEYED ON file + sink + literal TEXT — deliberately NOT on the line number.
 // A line-keyed pin is brittle in a way that actively misleads: adding one
@@ -58,13 +62,10 @@ const CORE_DIRS = ['components', 'screens', 'contexts'];
 // DashboardScreen pins then report as brand-new violations telling the developer
 // to localize strings that are already known and already pinned. Verified
 // against e420771 by inserting a single comment line. The literal text is stable
-// under any edit that does not touch the leak itself.
-const KNOWN_PENDING_PR2 = [
-  'components/Sidebar.tsx | showToast | Checking for your PRO upgrade...',
-  'screens/DashboardScreen.tsx | setError | We could not connect to the intelligence server. This might be a temporary connection issue.',
-  'screens/DashboardScreen.tsx | setError | Intelligence metrics are temporarily unavailable. Your activity data is still visible.',
-  'screens/DashboardScreen.tsx | setError | An unexpected error occurred while loading your dashboard.',
-];
+// under any edit that does not touch the leak itself. The keying is kept (rather
+// than deleted with the entries) because it is the contract any FUTURE pin must
+// follow, and because the multiset logic below still depends on it.
+const KNOWN_PENDING_PR2: string[] = [];
 
 function walkFiles(dir: string): string[] {
   const out: string[] = [];

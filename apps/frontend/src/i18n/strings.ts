@@ -126,6 +126,14 @@ export const strings = {
     needsReview: 'Needs review',
     atRisk: 'At risk',
     connectionError: 'Connection interrupted',
+    // ── Failure-only edge leaks (audit #7 PR 2, Class A) ──────────────────
+    // Four literals that only ever appeared on a failure path, so no locale
+    // ever saw them translated. EN text is byte-identical to the retired
+    // literals: this PR routes the strings, it does not reword them.
+    dashboardConnectionError: 'We could not connect to the intelligence server. This might be a temporary connection issue.',
+    dashboardMetricsUnavailable: 'Intelligence metrics are temporarily unavailable. Your activity data is still visible.',
+    dashboardUnexpectedError: 'An unexpected error occurred while loading your dashboard.',
+    planRefreshChecking: 'Checking for your PRO upgrade...',
     finalizeProcessing: 'Finalize processing',
     intelligencePulse: 'Intelligence pulse',
     powerTip: 'Power tip',
@@ -512,6 +520,11 @@ export const strings = {
     needsReview: 'À réviser',
     atRisk: 'À risque',
     connectionError: 'Connexion interrompue',
+    // ── Failure-only edge leaks (audit #7 PR 2, Class A) ──────────────────
+    dashboardConnectionError: 'Impossible de se connecter au serveur d’intelligence. Il s’agit peut-être d’un problème de connexion temporaire.',
+    dashboardMetricsUnavailable: 'Les mesures d’intelligence sont temporairement indisponibles. Vos données d’activité restent visibles.',
+    dashboardUnexpectedError: 'Une erreur inattendue s’est produite lors du chargement de votre tableau de bord.',
+    planRefreshChecking: 'Vérification de votre mise à niveau PRO...',
     finalizeProcessing: 'Finaliser le traitement',
     intelligencePulse: 'Pouls intelligent',
     powerTip: 'Conseil pro',
@@ -883,6 +896,11 @@ export const strings = {
     needsReview: 'يحتاج مراجعة',
     atRisk: 'في خطر',
     connectionError: 'انقطع الاتصال',
+    // ── Failure-only edge leaks (audit #7 PR 2, Class A) ──────────────────
+    dashboardConnectionError: 'تعذّر الاتصال بخادم الذكاء. قد تكون هذه مشكلة اتصال مؤقتة.',
+    dashboardMetricsUnavailable: 'مقاييس الذكاء غير متاحة مؤقتًا. بيانات نشاطك لا تزال ظاهرة.',
+    dashboardUnexpectedError: 'حدث خطأ غير متوقع أثناء تحميل لوحة القيادة.',
+    planRefreshChecking: 'جارٍ التحقق من ترقية PRO الخاصة بك...',
     finalizeProcessing: 'إنهاء المعالجة',
     intelligencePulse: 'نبض الذكاء',
     powerTip: 'نصيحة احترافية',

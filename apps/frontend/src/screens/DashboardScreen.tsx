@@ -132,14 +132,14 @@ export const DashboardScreen = () => {
       if (activityData) setRecentActivity(activityData);
 
       if (!statsData && !activityData) {
-        setError('We could not connect to the intelligence server. This might be a temporary connection issue.');
+        setError(s.dashboardConnectionError);
       } else if (!statsData) {
-        setError('Intelligence metrics are temporarily unavailable. Your activity data is still visible.');
+        setError(s.dashboardMetricsUnavailable);
       } else {
         setError(null);
       }
     } catch (err: any) {
-      setError('An unexpected error occurred while loading your dashboard.');
+      setError(s.dashboardUnexpectedError);
     } finally {
       if (showLoading) setLoading(false);
     }
