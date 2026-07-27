@@ -221,9 +221,17 @@ describe('PASSWORD_RECOVERY routing — the reset screen wins over the authentic
 
     // Let the getSession() promise settle: the app is now an ordinary
     // authenticated app and has already redirected to /dashboard.
-    await vi.waitFor(() => {
-      expect(window.location.pathname).toBe('/dashboard');
-    });
+    //
+    // This wait is part of the test's PREMISE, not its conclusion, and it is
+    // anchored on the Layout's plan fetch rather than on the URL for that exact
+    // reason. The URL flips one commit before the authenticated tree paints, so
+    // a URL-only wait would fire PASSWORD_RECOVERY while the app had NOT yet
+    // "already rendered authenticated" — quietly testing a weaker scenario than
+    // the one this test is named for.
+    await settleOn(
+      () => window.location.pathname === '/dashboard' && h.getStats.mock.calls.length > 0,
+      'the authenticated dashboard (test premise)'
+    );
 
     emit('PASSWORD_RECOVERY', RECOVERY_SESSION);
     await settleOn(onResetScreen, 'the reset screen');
@@ -254,7 +262,13 @@ describe('PASSWORD_RECOVERY routing — the reset screen wins over the authentic
     await settleOn(onResetScreen, 'the reset screen');
 
     emit('SIGNED_OUT', null);
-    await settleOn(() => window.location.pathname === '/' && container.querySelectorAll('h1').length > 0, 'the landing page');
+    // "An h1 exists" would NOT discriminate here — the reset screen has one
+    // too, so that anchor is satisfied by the very state this test is trying to
+    // prove the user left. Anchor on the reset screen being GONE instead.
+    await settleOn(
+      () => window.location.pathname === '/' && !onResetScreen(),
+      'the landing page, off the reset screen'
+    );
 
     expect(headings()).not.toContain(strings.en.resetPasswordTitle);
   });
@@ -339,9 +353,16 @@ describe('the recovery state is released only once the password has actually cha
     expect(cta, 'the continue CTA did not render').toBeTruthy();
     flushSync(() => cta.dispatchEvent(new MouseEvent('click', { bubbles: true })));
 
-    await vi.waitFor(() => {
-      expect(window.location.pathname).toBe('/dashboard');
-    });
+    // The user must COME TO REST in the app. Polling the URL alone is not
+    // enough: navigate() updates window.location synchronously, so a still-set
+    // recovery flag would bounce the user back on the NEXT commit while the
+    // poll had already seen /dashboard. Anchor on the authenticated Layout
+    // actually mounting (its plan fetch) — that cannot happen from inside the
+    // recovery branch.
+    await settleOn(
+      () => window.location.pathname === '/dashboard' && h.getStats.mock.calls.length > 0,
+      'the dashboard'
+    );
   });
 
   it('validation failures are caught locally and never call updateUser', async () => {
