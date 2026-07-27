@@ -35,8 +35,12 @@ const SRC = path.resolve(__dirname, '../src');
 //                 ActivityScreen, DeleteAccountModal, FixActionPanel
 //   setErrorMsg — useState setters in DocumentDetailScreen, ReviewQueueScreen,
 //                 SearchScreen
-// All three render their argument directly to the user.
-const SINKS = ['showToast', 'setError', 'setErrorMsg'];
+//   setResetNotice — AuthScreen's forgot-password confirmation (audit #8 Part 2).
+//                 Added in the SAME commit that introduced the sink, so the new
+//                 surface is covered from its first day rather than waiting for
+//                 the next audit to notice it.
+// All four render their argument directly to the user.
+const SINKS = ['showToast', 'setError', 'setErrorMsg', 'setResetNotice'];
 
 // Core component set: everything a user actually looks at. Deliberately the
 // whole of components/ + screens/ + contexts/ rather than a curated list, so a

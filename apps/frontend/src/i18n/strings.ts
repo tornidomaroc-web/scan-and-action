@@ -356,6 +356,12 @@ export const strings = {
     resetPasswordSuccessBody: 'You can now use your new password to sign in.',
     resetPasswordContinueCta: 'Continue to dashboard',
     resetPasswordGenericError: 'Could not update your password. Please try again.',
+    // ── Forgot password (audit #8 Part 2) ─────────────────────────────
+    forgotPasswordEmailRequired: 'Enter your email address first.',
+    forgotPasswordSending: 'Sending reset link...',
+    forgotPasswordSent: 'If an account exists for that address, a password reset link is on its way.',
+    forgotPasswordRateLimited: 'Too many reset requests. Please wait a moment before trying again.',
+    forgotPasswordError: 'Could not send the reset link. Please try again.',
     // ── Dashboard redesign (PR-B) ──────────────────────────────────────
     reviewNow: 'Review now',
     documentsProcessed: 'Documents processed',
@@ -745,6 +751,12 @@ export const strings = {
     resetPasswordSuccessBody: 'Vous pouvez maintenant utiliser votre nouveau mot de passe pour vous connecter.',
     resetPasswordContinueCta: 'Continuer vers le tableau de bord',
     resetPasswordGenericError: 'Impossible de mettre à jour le mot de passe. Veuillez réessayer.',
+    // ── Forgot password (audit #8 Part 2) ─────────────────────────────
+    forgotPasswordEmailRequired: "Saisissez d'abord votre adresse e-mail.",
+    forgotPasswordSending: 'Envoi du lien de réinitialisation...',
+    forgotPasswordSent: 'Si un compte existe pour cette adresse, un lien de réinitialisation est en route.',
+    forgotPasswordRateLimited: 'Trop de demandes de réinitialisation. Veuillez patienter un instant avant de réessayer.',
+    forgotPasswordError: "Impossible d'envoyer le lien de réinitialisation. Veuillez réessayer.",
     // ── Dashboard redesign (PR-B) ──────────────────────────────────────
     reviewNow: 'Réviser',
     documentsProcessed: 'Documents traités',
@@ -1143,6 +1155,12 @@ export const strings = {
     resetPasswordSuccessBody: 'يمكنك الآن استخدام كلمة المرور الجديدة لتسجيل الدخول.',
     resetPasswordContinueCta: 'المتابعة إلى لوحة القيادة',
     resetPasswordGenericError: 'تعذّر تحديث كلمة المرور. أعد المحاولة.',
+    // ── Forgot password (audit #8 Part 2) ─────────────────────────────
+    forgotPasswordEmailRequired: 'أدخل بريدك الإلكتروني أولاً.',
+    forgotPasswordSending: 'جارٍ إرسال الرابط...',
+    forgotPasswordSent: 'إذا كان هناك حساب بهذا البريد الإلكتروني، فسيصلك رابط إعادة تعيين كلمة المرور.',
+    forgotPasswordRateLimited: 'طلبات كثيرة جدًا. انتظر قليلاً قبل المحاولة مرة أخرى.',
+    forgotPasswordError: 'تعذّر إرسال رابط إعادة التعيين. أعد المحاولة.',
     // ── Dashboard redesign (PR-B) ──────────────────────────────────────
     reviewNow: 'مراجعة الآن',
     documentsProcessed: 'المستندات المعالجة',
