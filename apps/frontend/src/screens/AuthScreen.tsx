@@ -15,6 +15,27 @@ import {
 import { useStrings } from '../i18n/useStrings';
 import { useToast } from '../contexts/ToastContext';
 
+// Where the password-reset email lands. ABSOLUTE and CANONICAL, deliberately
+// NOT window.location.origin — the same reasoning (and the same www host) as
+// CHECKOUT_SUCCESS_URL in components/PaywallModal.tsx.
+//
+// window.location.origin is WRONG here on two of the three surfaces we ship:
+//   - Android: capacitor.config.ts sets androidScheme 'https', so the WebView
+//     origin is literally `https://localhost` (the backend's own CORS allowlist
+//     names it, apps/backend/src/corsOrigin.ts). A reset link pointing at
+//     https://localhost/reset-password resolves to nothing in the user's mail
+//     client, and Supabase would reject the unlisted redirect and silently fall
+//     back to the Site URL.
+//   - Vercel previews: the origin is a per-deploy *.vercel.app host that is not
+//     in Supabase's redirect allowlist, so the same silent fallback applies.
+// Pinning the canonical URL means every surface — web, preview, Android —
+// sends a link that actually works.
+//
+// REQUIRES (Supabase dashboard, Authentication -> URL Configuration): this exact
+// URL must be on the Redirect URLs allowlist. If it is not, Supabase ignores
+// redirectTo and falls back to the Site URL. See the PR body.
+const RESET_PASSWORD_REDIRECT_URL = 'https://www.scan-action.com/reset-password';
+
 export const AuthScreen: React.FC = () => {
   const s = useStrings();
   const { showToast } = useToast();
@@ -24,6 +45,8 @@ export const AuthScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sendingReset, setSendingReset] = useState(false);
+  const [resetNotice, setResetNotice] = useState<string | null>(null);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +66,61 @@ export const AuthScreen: React.FC = () => {
       setError(err.message || s.authGenericError);
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * Send the password-reset email.
+   *
+   * ENUMERATION: the success notice is deliberately conditional wording —
+   * "if an account exists for that address" — and is shown for EVERY accepted
+   * request. Supabase's resetPasswordForEmail already refuses to distinguish a
+   * known address from an unknown one, so the response cannot leak; the only
+   * remaining leak vector was our own copy, and it is closed. Never change this
+   * to "we sent you an email": that turns the login screen into an oracle for
+   * which addresses hold accounts.
+   *
+   * RATE LIMITING: three layers, because Supabase's own limit is a shared
+   * project-wide budget that Abo Jad has already had to raise once.
+   *   1. `sendingReset` disables the control for the whole round trip, so a
+   *      double-click cannot produce two sends.
+   *   2. `resetNotice` keeps it disabled AFTER a success, until the user edits
+   *      the email field — so "did it work?" clicking cannot burn the budget.
+   *   3. If Supabase rejects with 429 / over_email_send_rate_limit anyway, that
+   *      is surfaced as its OWN catalog string, not the generic failure, so the
+   *      user is told to wait rather than to retry immediately.
+   */
+  const handleForgotPassword = async () => {
+    const address = email.trim();
+    if (!address) {
+      setResetNotice(null);
+      setError(s.forgotPasswordEmailRequired);
+      return;
+    }
+
+    setSendingReset(true);
+    setError(null);
+    setResetNotice(null);
+
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(address, {
+        redirectTo: RESET_PASSWORD_REDIRECT_URL,
+      });
+      if (resetError) {
+        // Supabase's own message is server-side English and would leak
+        // untranslated into an Arabic or French screen; only catalog strings
+        // are ever shown.
+        const status = (resetError as { status?: number }).status;
+        const code = (resetError as { code?: string }).code;
+        const limited = status === 429 || code === 'over_email_send_rate_limit';
+        setError(limited ? s.forgotPasswordRateLimited : s.forgotPasswordError);
+        return;
+      }
+      setResetNotice(s.forgotPasswordSent);
+    } catch {
+      setError(s.forgotPasswordError);
+    } finally {
+      setSendingReset(false);
     }
   };
 
@@ -145,7 +223,13 @@ export const AuthScreen: React.FC = () => {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    // Editing the address re-arms the reset control: a typo is
+                    // correctable, but idle re-clicking is not (see layer 2 in
+                    // handleForgotPassword).
+                    if (resetNotice) setResetNotice(null);
+                  }}
                   required
                   autoFocus
                   className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-100 dark:border-slate-700/50 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 rounded-2xl text-slate-900 dark:text-white font-bold placeholder-slate-350 dark:placeholder-slate-600 transition-all outline-none"
@@ -159,8 +243,15 @@ export const AuthScreen: React.FC = () => {
                     <Lock size={12} /> {s.authPasswordLabel}
                   </label>
                   {isLogin && (
-                    <button type="button" className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline">
-                      {s.authForgotPassword}
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      // Disabled while in flight AND after a successful send —
+                      // see handleForgotPassword for why both matter.
+                      disabled={sendingReset || resetNotice !== null}
+                      className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-60 disabled:no-underline disabled:cursor-not-allowed"
+                    >
+                      {sendingReset ? s.forgotPasswordSending : s.authForgotPassword}
                     </button>
                   )}
                 </div>
@@ -188,6 +279,17 @@ export const AuthScreen: React.FC = () => {
                 <div className="p-4 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-2xl text-sm font-bold border border-rose-100 dark:border-rose-900/30 flex items-center gap-3 animate-in fade-in zoom-in-95">
                   <div className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" />
                   {error}
+                </div>
+              )}
+
+              {resetNotice && (
+                <div
+                  role="status"
+                  data-testid="reset-notice"
+                  className="p-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-2xl text-sm font-bold border border-emerald-100 dark:border-emerald-900/30 flex items-center gap-3 animate-in fade-in zoom-in-95"
+                >
+                  <ShieldCheck size={16} className="shrink-0" />
+                  {resetNotice}
                 </div>
               )}
 
