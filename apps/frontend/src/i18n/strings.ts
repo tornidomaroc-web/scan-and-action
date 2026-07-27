@@ -338,6 +338,24 @@ export const strings = {
     authSignInCta: 'Sign in',
     authGenericError: 'Invalid email or password',
     authConfirmEmailToast: 'Check your email for the confirmation link!',
+    // ── Password recovery (audit #8 Part 1) ────────────────────────────
+    // The "8" in resetPasswordTooShort is the MIN_PASSWORD_LENGTH constant in
+    // screens/ResetPasswordScreen.tsx, written out rather than interpolated:
+    // a {n} slot would splice a number into Arabic at render time (ruling D1).
+    // resetPasswordLocalization.test.tsx pins the two together so they cannot
+    // drift.
+    resetPasswordTitle: 'Set a new password',
+    resetPasswordSubtitle: 'Choose a strong password for your account.',
+    resetPasswordNewLabel: 'New password',
+    resetPasswordConfirmLabel: 'Confirm password',
+    resetPasswordSubmit: 'Update password',
+    resetPasswordSubmitting: 'Updating...',
+    resetPasswordTooShort: 'Password must be at least 8 characters.',
+    resetPasswordMismatch: 'Passwords do not match.',
+    resetPasswordSuccessTitle: 'Password updated',
+    resetPasswordSuccessBody: 'You can now use your new password to sign in.',
+    resetPasswordContinueCta: 'Continue to dashboard',
+    resetPasswordGenericError: 'Could not update your password. Please try again.',
     // ── Dashboard redesign (PR-B) ──────────────────────────────────────
     reviewNow: 'Review now',
     documentsProcessed: 'Documents processed',
@@ -714,6 +732,19 @@ export const strings = {
     authSignInCta: 'Se connecter',
     authGenericError: 'E-mail ou mot de passe invalide',
     authConfirmEmailToast: 'Vérifiez votre e-mail pour le lien de confirmation !',
+    // ── Password recovery (audit #8 Part 1) ────────────────────────────
+    resetPasswordTitle: 'Définir un nouveau mot de passe',
+    resetPasswordSubtitle: 'Choisissez un mot de passe fort pour votre compte.',
+    resetPasswordNewLabel: 'Nouveau mot de passe',
+    resetPasswordConfirmLabel: 'Confirmer le mot de passe',
+    resetPasswordSubmit: 'Mettre à jour le mot de passe',
+    resetPasswordSubmitting: 'Mise à jour...',
+    resetPasswordTooShort: 'Le mot de passe doit contenir au moins 8 caractères.',
+    resetPasswordMismatch: 'Les mots de passe ne correspondent pas.',
+    resetPasswordSuccessTitle: 'Mot de passe mis à jour',
+    resetPasswordSuccessBody: 'Vous pouvez maintenant utiliser votre nouveau mot de passe pour vous connecter.',
+    resetPasswordContinueCta: 'Continuer vers le tableau de bord',
+    resetPasswordGenericError: 'Impossible de mettre à jour le mot de passe. Veuillez réessayer.',
     // ── Dashboard redesign (PR-B) ──────────────────────────────────────
     reviewNow: 'Réviser',
     documentsProcessed: 'Documents traités',
@@ -1099,6 +1130,19 @@ export const strings = {
     authSignInCta: 'تسجيل الدخول',
     authGenericError: 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
     authConfirmEmailToast: 'تحقق من بريدك الإلكتروني للحصول على رابط التأكيد!',
+    // ── Password recovery (audit #8 Part 1) ────────────────────────────
+    resetPasswordTitle: 'تعيين كلمة مرور جديدة',
+    resetPasswordSubtitle: 'اختر كلمة مرور قوية لحسابك.',
+    resetPasswordNewLabel: 'كلمة المرور الجديدة',
+    resetPasswordConfirmLabel: 'تأكيد كلمة المرور',
+    resetPasswordSubmit: 'تحديث كلمة المرور',
+    resetPasswordSubmitting: 'جارٍ التحديث...',
+    resetPasswordTooShort: 'يجب ألا تقل كلمة المرور عن 8 أحرف.',
+    resetPasswordMismatch: 'كلمتا المرور غير متطابقتين.',
+    resetPasswordSuccessTitle: 'تم تحديث كلمة المرور',
+    resetPasswordSuccessBody: 'يمكنك الآن استخدام كلمة المرور الجديدة لتسجيل الدخول.',
+    resetPasswordContinueCta: 'المتابعة إلى لوحة القيادة',
+    resetPasswordGenericError: 'تعذّر تحديث كلمة المرور. أعد المحاولة.',
     // ── Dashboard redesign (PR-B) ──────────────────────────────────────
     reviewNow: 'مراجعة الآن',
     documentsProcessed: 'المستندات المعالجة',
