@@ -12,6 +12,10 @@ vi.mock('../src/contexts/AuthContext', () => ({
     user: { id: '7f1e2d3c-4b5a-4678-9abc-def012345678', email: 'render-check@example.com' },
     session: null,
     loading: false,
+    // No recovery in progress: these screens are the ordinary app. The recovery
+    // branch is exercised in passwordRecoveryRouting.test.tsx.
+    isRecovering: false,
+    clearRecovery: () => {},
     signOut: async () => {},
   }),
 }));
@@ -28,6 +32,7 @@ import { ReviewQueueScreen } from '../src/screens/ReviewQueueScreen';
 import { DocumentDetailScreen } from '../src/screens/DocumentDetailScreen';
 import { SettingsScreen } from '../src/screens/SettingsScreen';
 import { AuthScreen } from '../src/screens/AuthScreen';
+import { ResetPasswordScreen } from '../src/screens/ResetPasswordScreen';
 import { LandingScreen } from '../src/screens/LandingScreen';
 import { Sidebar } from '../src/components/Sidebar';
 import { UploadModal } from '../src/components/UploadModal';
@@ -99,6 +104,7 @@ const SCREENS: Array<{ name: string; path: string; element: React.ReactElement; 
   { name: 'DocumentDetailScreen', path: '/documents/doc-1', element: <DocumentDetailScreen />, withParams: true },
   { name: 'SettingsScreen', path: '/settings', element: <SettingsScreen /> },
   { name: 'AuthScreen', path: '/login', element: <AuthScreen /> },
+  { name: 'ResetPasswordScreen', path: '/reset-password', element: <ResetPasswordScreen /> },
   { name: 'LandingScreen', path: '/', element: <LandingScreen /> },
   { name: 'Sidebar', path: '/dashboard', element: <Sidebar onNewScan={() => {}} plan="FREE" /> },
 ];
