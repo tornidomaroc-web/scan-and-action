@@ -67,6 +67,40 @@ npm run dev                  # http://localhost:5173
 
 See `.env.example` for every required variable.
 
+## Deployment — database migrations
+
+There is exactly one reachable database: **production** (Supabase). There is no
+staging or throwaway database in this project. Every rule below follows from that.
+
+**How migrations are applied.** Migrations are applied by `prisma migrate deploy`,
+configured as the **pre-deploy command on the Railway backend service**. Railway runs
+the pre-deploy command to completion before the new container starts serving traffic,
+so schema application strictly precedes the code that depends on it. If the pre-deploy
+command fails, the new container is not promoted.
+
+> **Status:** the Railway pre-deploy setting is not configured yet. Until it is, this
+> section describes the intended and required mechanism, not the current live state,
+> and migrations still reach production only when someone runs `prisma migrate deploy`
+> manually. Do not assume a merged migration has been applied.
+
+**CI does not apply migrations, and must not.** `.github/workflows/ci.yml` only
+typechecks, tests, and builds. It has no database credentials and must never be given
+any. Applying schema changes is the deploy path's job, not CI's.
+
+**Never run against production:**
+
+- `prisma db push` — applies the schema with no migration history and will drop
+  columns or tables it considers drift. The `db:push` npm script was removed for this
+  reason.
+- `prisma migrate reset` — drops and recreates the database. It destroys all
+  production data.
+
+**Before merging any migration.** Run `prisma migrate diff` read-only and confirm it
+comes back **empty** — an empty diff means the committed migrations fully describe the
+schema and nothing will be silently applied or skipped at deploy time. A non-empty diff
+means the migration set and the schema disagree; resolve that before merging, never at
+deploy time.
+
 ## Built by
 
 [AboJad](https://github.com/tornidomaroc-web) — Full Stack AI Engineer, Marrakesh 🇲🇦
