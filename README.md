@@ -72,16 +72,18 @@ See `.env.example` for every required variable.
 There is exactly one reachable database: **production** (Supabase). There is no
 staging or throwaway database in this project. Every rule below follows from that.
 
-**How migrations are applied.** Migrations are applied by `prisma migrate deploy`,
-configured as the **pre-deploy command on the Railway backend service**. Railway runs
-the pre-deploy command to completion before the new container starts serving traffic,
-so schema application strictly precedes the code that depends on it. If the pre-deploy
-command fails, the new container is not promoted.
+**How migrations are applied.** Migrations are applied by `prisma migrate deploy`, which
+runs as the **pre-deploy command on the Railway backend service**. Railway runs it to
+completion before the new container starts serving traffic, so schema application strictly
+precedes the code that depends on it. A failing migration fails the deploy — the new
+container is not promoted and the previous one keeps serving — rather than shipping new
+code onto an old schema.
 
-> **Status:** the Railway pre-deploy setting is not configured yet. Until it is, this
-> section describes the intended and required mechanism, not the current live state,
-> and migrations still reach production only when someone runs `prisma migrate deploy`
-> manually. Do not assume a merged migration has been applied.
+**Where to find the output.** Railway does not render a separate "Pre-deploy" row in the
+stage list; it still reads Initialization / Build / Deploy / Post-deploy. The
+`migrate deploy` output appears inside the **Deploy** logs, above the
+`Stopping Container` / `Starting Container` lines. Look there — there is no stage to
+click on.
 
 **CI does not apply migrations, and must not.** `.github/workflows/ci.yml` only
 typechecks, tests, and builds. It has no database credentials and must never be given
