@@ -67,7 +67,21 @@ export const DocumentDetailScreen = () => {
     documentService
       .getDocumentDetail(documentId!)
       .then(setDoc)
-      .catch((err) => setErrorMsg(err.message))
+      // `err.message` used to render VERBATIM as the full-screen ErrorState body.
+      // It is always English and never a machine code: documentService.ts:12
+      // throws `errorData.error || 'Failed to load document'`, and the backend
+      // puts PROSE in `data.error` ('Document not found', 'Unauthorized: Invalid
+      // or expired token', 'Internal Server Error', ...). A dropped connection
+      // adds the browser's own TypeError('Failed to fetch'). Every one of those
+      // reached an Arabic or French user in English.
+      //
+      // s.somethingWrong is ErrorState's OWN default for an unspecified failure
+      // (components/ErrorState.tsx:21), so it is the one existing string that is
+      // true for all of those shapes at once. Deliberately NOT s.docNotFound:
+      // that claims the document does not exist, which is false for a 401, a 500
+      // or an offline phone, and :101 already uses it for the real not-found
+      // case. The retry affordance below is unchanged.
+      .catch(() => setErrorMsg(s.somethingWrong))
       .finally(() => setLoading(false));
   };
 
