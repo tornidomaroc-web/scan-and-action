@@ -336,8 +336,18 @@ export const strings = {
     authHaveAccount: 'Already have an account?',
     authCreateAccountCta: 'Create account',
     authSignInCta: 'Sign in',
+    // authGenericError is the copy for ONE code, invalid_credentials. It makes a
+    // specific claim, so lib/serverErrors.ts must never use it as a fallback:
+    // authUnexpectedError is the generic tail.
     authGenericError: 'Invalid email or password',
     authConfirmEmailToast: 'Check your email for the confirmation link!',
+    // ── Auth server errors (audit #9 Class B, PR 1) ────────────────────────
+    // Mapped in lib/serverErrors.ts. No interpolation slots (ruling D1).
+    authEmailNotConfirmed: 'Confirm your email first. Check your inbox for the confirmation link.',
+    authWeakPassword: 'That password is too weak. Please choose a longer one.',
+    authTooManyAttempts: 'Too many attempts. Please wait a moment before trying again.',
+    authNetworkError: 'No connection. Check your internet and try again.',
+    authUnexpectedError: 'Something went wrong. Please try again.',
     // ── Password recovery (audit #8 Part 1) ────────────────────────────
     // The "8" in resetPasswordTooShort is the MIN_PASSWORD_LENGTH constant in
     // screens/ResetPasswordScreen.tsx, written out rather than interpolated:
@@ -738,6 +748,13 @@ export const strings = {
     authSignInCta: 'Se connecter',
     authGenericError: 'E-mail ou mot de passe invalide',
     authConfirmEmailToast: 'Vérifiez votre e-mail pour le lien de confirmation !',
+    // ── Auth server errors (audit #9 Class B, PR 1) ────────────────────────
+    authEmailNotConfirmed:
+      "Confirmez d'abord votre e-mail. Consultez votre boîte de réception pour le lien de confirmation.",
+    authWeakPassword: 'Ce mot de passe est trop faible. Veuillez en choisir un plus long.',
+    authTooManyAttempts: 'Trop de tentatives. Veuillez patienter un instant avant de réessayer.',
+    authNetworkError: 'Pas de connexion. Vérifiez votre accès à Internet et réessayez.',
+    authUnexpectedError: 'Une erreur est survenue. Veuillez réessayer.',
     // ── Password recovery (audit #8 Part 1) ────────────────────────────
     resetPasswordTitle: 'Définir un nouveau mot de passe',
     resetPasswordSubtitle: 'Choisissez un mot de passe fort pour votre compte.',
@@ -1142,6 +1159,17 @@ export const strings = {
     authSignInCta: 'تسجيل الدخول',
     authGenericError: 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
     authConfirmEmailToast: 'تحقق من بريدك الإلكتروني للحصول على رابط التأكيد!',
+    // ── Auth server errors (audit #9 Class B, PR 1) ────────────────────────
+    // Fragments reused verbatim from already-approved entries so the screen
+    // does not grow a second spelling of the same words:
+    //   تحقق من بريدك (authConfirmEmailToast) · كلمة المرور (authPasswordLabel)
+    //   انتظر قليلاً قبل المحاولة مرة أخرى (forgotPasswordRateLimited)
+    //   حدث خطأ ما (somethingWrong) · يرجى المحاولة مرة أخرى (uploadFailedGeneric)
+    authEmailNotConfirmed: 'أكّد بريدك الإلكتروني أولاً. تحقق من بريدك للحصول على رابط التأكيد.',
+    authWeakPassword: 'كلمة المرور ضعيفة جدًا. اختر كلمة مرور أطول.',
+    authTooManyAttempts: 'محاولات كثيرة جدًا. انتظر قليلاً قبل المحاولة مرة أخرى.',
+    authNetworkError: 'لا يوجد اتصال. تحقق من الإنترنت وأعد المحاولة.',
+    authUnexpectedError: 'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
     // ── Password recovery (audit #8 Part 1) ────────────────────────────
     resetPasswordTitle: 'تعيين كلمة مرور جديدة',
     resetPasswordSubtitle: 'اختر كلمة مرور قوية لحسابك.',
