@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useStrings } from '../i18n/useStrings';
 import { useToast } from '../contexts/ToastContext';
+import { translateAuthError } from '../lib/serverErrors';
 
 // Where the password-reset email lands. ABSOLUTE and CANONICAL, deliberately
 // NOT window.location.origin — the same reasoning (and the same www host) as
@@ -63,7 +64,11 @@ export const AuthScreen: React.FC = () => {
         showToast(s.authConfirmEmailToast, 'success');
       }
     } catch (err: any) {
-      setError(err.message || s.authGenericError);
+      // Supabase's `err.message` is server-side English ("Invalid login
+      // credentials") and used to render verbatim here, in every locale. Only
+      // catalog strings are ever shown; lib/serverErrors.ts picks which one and
+      // cannot return its input. Control flow is unchanged.
+      setError(translateAuthError(err, s));
     } finally {
       setLoading(false);
     }
