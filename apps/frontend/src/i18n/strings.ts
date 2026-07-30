@@ -341,7 +341,7 @@ export const strings = {
     // authUnexpectedError is the generic tail.
     authGenericError: 'Invalid email or password',
     authConfirmEmailToast: 'Check your email for the confirmation link!',
-    // ── Auth server errors (audit #9 Class B, PR 1) ────────────────────────
+    // ── Auth server errors (audit #7 Class B, PR 1) ────────────────────────
     // Mapped in lib/serverErrors.ts. No interpolation slots (ruling D1).
     authEmailNotConfirmed: 'Confirm your email first. Check your inbox for the confirmation link.',
     authWeakPassword: 'That password is too weak. Please choose a longer one.',
@@ -748,7 +748,7 @@ export const strings = {
     authSignInCta: 'Se connecter',
     authGenericError: 'E-mail ou mot de passe invalide',
     authConfirmEmailToast: 'Vérifiez votre e-mail pour le lien de confirmation !',
-    // ── Auth server errors (audit #9 Class B, PR 1) ────────────────────────
+    // ── Auth server errors (audit #7 Class B, PR 1) ────────────────────────
     authEmailNotConfirmed:
       "Confirmez d'abord votre e-mail. Consultez votre boîte de réception pour le lien de confirmation.",
     authWeakPassword: 'Ce mot de passe est trop faible. Veuillez en choisir un plus long.',
@@ -1159,7 +1159,7 @@ export const strings = {
     authSignInCta: 'تسجيل الدخول',
     authGenericError: 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
     authConfirmEmailToast: 'تحقق من بريدك الإلكتروني للحصول على رابط التأكيد!',
-    // ── Auth server errors (audit #9 Class B, PR 1) ────────────────────────
+    // ── Auth server errors (audit #7 Class B, PR 1) ────────────────────────
     // Fragments reused verbatim from already-approved entries so the screen
     // does not grow a second spelling of the same words:
     //   تحقق من بريدك (authConfirmEmailToast) · كلمة المرور (authPasswordLabel)
