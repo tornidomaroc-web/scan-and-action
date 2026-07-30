@@ -44,8 +44,26 @@ export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, 
     try {
       await documentService.applyFixAction(documentId, actionType, payload);
       onSuccess();
-    } catch (err: any) {
-      setError(err.message || s.fixErrorJustification);
+    } catch {
+      // TWO defects lived on this line (audit #7 Class B, PR 3 of 3).
+      //
+      // 1. `err.message` rendered VERBATIM. It is always English and never a
+      //    machine code: documentService.ts:114 throws
+      //    `errorData.error || 'Failed to submit action'`, and the backend puts
+      //    prose in `data.error` ('Document not found or access denied',
+      //    'Unauthorized: Invalid or expired token', 'Internal Server Error',
+      //    ...). A dropped connection adds TypeError('Failed to fetch').
+      //
+      // 2. The fallback was s.fixErrorJustification — the FORM-VALIDATION
+      //    message from line 39, shown when the textarea is empty. As a
+      //    fallback for a failed SERVER call it told a user who had filled the
+      //    field in correctly to fill it in. The two uses are now distinct:
+      //    line 39 keeps the validation string, this line reports the failure.
+      //
+      // s.toastUpdateError is the same string DocumentDetailScreen already
+      // shows when a review-action update fails (DocumentDetailScreen.tsx:59) —
+      // same operation, same document, no new copy.
+      setError(s.toastUpdateError);
     } finally {
       setLoading(false);
     }
