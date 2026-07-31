@@ -86,7 +86,14 @@ export const ResetPasswordScreen: React.FC = () => {
               <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mb-3">
                 {s.resetPasswordSuccessTitle}
               </h1>
-              <p className="text-slate-500 dark:text-slate-400 font-bold text-base leading-relaxed mb-8">
+              {/* text-balance evens the two lines out instead of letting a long
+                  first line push a short fragment onto its own line. The card is
+                  max-w-[440px] with p-10, so this paragraph renders in ~360px and
+                  wraps at an awkward point in EN. TYPOGRAPHY ONLY: the catalog
+                  string is byte-identical in all three locales and must stay so
+                  (pinned by resetPasswordSuccessWrap.test.tsx). Direction-agnostic,
+                  so it behaves the same in Arabic RTL. */}
+              <p className="text-balance text-slate-500 dark:text-slate-400 font-bold text-base leading-relaxed mb-8">
                 {s.resetPasswordSuccessBody}
               </p>
               <button

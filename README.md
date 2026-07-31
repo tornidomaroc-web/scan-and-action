@@ -57,7 +57,7 @@ apps/
 # Backend (apps/backend)
 npm install
 cp ../../.env.example .env   # fill in real values
-npx prisma migrate deploy
+npx prisma generate          # generates the client only; does NOT touch any database
 npm run dev                  # http://localhost:3001
 
 # Frontend (apps/frontend)
@@ -66,6 +66,12 @@ npm run dev                  # http://localhost:5173
 ```
 
 See `.env.example` for every required variable.
+
+> **Do not run migrations from your machine.** These steps deliberately stop at
+> `prisma generate`. `DATABASE_URL` points at the only reachable database, which is
+> **production**, so `prisma migrate deploy` from a fresh clone would apply migrations
+> straight to prod. Migrations are applied by the Railway pre-deploy command and by
+> nothing else — see [Deployment — database migrations](#deployment--database-migrations).
 
 ## Deployment — database migrations
 
