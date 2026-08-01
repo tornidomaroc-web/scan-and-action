@@ -4,6 +4,7 @@ import { Lock, ShieldCheck, CheckCircle, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useStrings } from '../i18n/useStrings';
+import { MIN_PASSWORD_LENGTH } from '../lib/passwordPolicy';
 
 /**
  * The password-recovery screen.
@@ -21,14 +22,6 @@ import { useStrings } from '../i18n/useStrings';
  * keys is a follow-up, not a silent English fallback.
  */
 
-/**
- * Minimum accepted length. The catalog states this number in words
- * (resetPasswordTooShort) rather than interpolating it, so that no number is
- * spliced into Arabic at render time (ruling D1). resetPasswordLocalization
- * .test.tsx asserts the constant and the three catalog strings agree, so the
- * two cannot drift apart.
- */
-export const MIN_PASSWORD_LENGTH = 8;
 
 export const ResetPasswordScreen: React.FC = () => {
   const s = useStrings();
@@ -46,7 +39,7 @@ export const ResetPasswordScreen: React.FC = () => {
     setError(null);
 
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(s.resetPasswordTooShort);
+      setError(s.passwordTooShort);
       return;
     }
     if (password !== confirm) {

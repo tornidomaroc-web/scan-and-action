@@ -63,7 +63,13 @@ const AR_EXPECTED: Record<string, number[]> = {
   // "يجب ألا تقل كلمة المرور عن 8 أحرف."
   // 56 is the ASCII digit 8 — the same convention the catalog already uses for
   // numbers inside Arabic copy (freeLimit "10", dailyLimitReached "24").
-  resetPasswordTooShort: [
+  //
+  // RENAMED from resetPasswordTooShort when the signup branch started using the
+  // same sentence. These numbers are UNCHANGED — the identical array, refiled
+  // under the shared key. Nothing here was re-approved because nothing here is
+  // new; scripts/verifyRenamedKeyBytes.mjs proves that against the git blob at
+  // the base commit rather than against this file.
+  passwordTooShort: [
     1610, 1580, 1576, 32, 1571, 1604, 1575, 32, 1578, 1602, 1604, 32, 1603, 1604, 1605, 1577, 32,
     1575, 1604, 1605, 1585, 1608, 1585, 32, 1593, 1606, 32, 56, 32, 1571, 1581, 1585, 1601, 46,
   ],
@@ -115,7 +121,8 @@ vi.mock('../src/contexts/AuthContext', () => ({
 
 import { strings } from '../src/i18n/strings';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
-import { ResetPasswordScreen, MIN_PASSWORD_LENGTH } from '../src/screens/ResetPasswordScreen';
+import { ResetPasswordScreen } from '../src/screens/ResetPasswordScreen';
+import { MIN_PASSWORD_LENGTH } from '../src/lib/passwordPolicy';
 
 const cps = (s: string) => [...s].map((c) => c.codePointAt(0)!);
 type Key = keyof typeof strings.en;
@@ -168,8 +175,8 @@ describe('AR password-recovery catalog — code-point exact (never trust the ter
     expect(MIN_PASSWORD_LENGTH).toBe(8);
     for (const lang of LANGS) {
       expect(
-        strings[lang].resetPasswordTooShort,
-        `${lang}.resetPasswordTooShort no longer states ${MIN_PASSWORD_LENGTH}`
+        strings[lang].passwordTooShort,
+        `${lang}.passwordTooShort no longer states ${MIN_PASSWORD_LENGTH}`
       ).toContain(String(MIN_PASSWORD_LENGTH));
     }
   });

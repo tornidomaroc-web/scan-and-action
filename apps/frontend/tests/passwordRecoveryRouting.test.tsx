@@ -374,7 +374,7 @@ describe('the recovery state is released only once the password has actually cha
     typeInto('new-password', 'short');
     typeInto('confirm-password', 'short');
     submit();
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe(strings.en.resetPasswordTooShort);
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(strings.en.passwordTooShort);
 
     typeInto('new-password', 'a-long-enough-password');
     typeInto('confirm-password', 'a-different-password');

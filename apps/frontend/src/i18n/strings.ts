@@ -349,18 +349,26 @@ export const strings = {
     authNetworkError: 'No connection. Check your internet and try again.',
     authUnexpectedError: 'Something went wrong. Please try again.',
     // ── Password recovery (audit #8 Part 1) ────────────────────────────
-    // The "8" in resetPasswordTooShort is the MIN_PASSWORD_LENGTH constant in
-    // screens/ResetPasswordScreen.tsx, written out rather than interpolated:
-    // a {n} slot would splice a number into Arabic at render time (ruling D1).
+    // The "8" in passwordTooShort is the MIN_PASSWORD_LENGTH constant in
+    // lib/passwordPolicy.ts, written out rather than interpolated: a {n} slot
+    // would splice a number into Arabic at render time (ruling D1).
     // resetPasswordLocalization.test.tsx pins the two together so they cannot
     // drift.
+    //
+    // passwordTooShort is SHARED, not recovery-scoped: AuthScreen's signup
+    // branch shows the same sentence. It was renamed from resetPasswordTooShort
+    // for that reason — the copy was always flow-neutral in all three locales
+    // ("Password must be at least 8 characters", not "your NEW password"), so
+    // the bytes are unchanged and no new Arabic was authored. Reusing the
+    // approved wording is the same discipline resetPasswordContinueCta already
+    // follows; a second spelling of the same sentence is what we avoid.
     resetPasswordTitle: 'Set a new password',
     resetPasswordSubtitle: 'Choose a strong password for your account.',
     resetPasswordNewLabel: 'New password',
     resetPasswordConfirmLabel: 'Confirm password',
     resetPasswordSubmit: 'Update password',
     resetPasswordSubmitting: 'Updating...',
-    resetPasswordTooShort: 'Password must be at least 8 characters.',
+    passwordTooShort: 'Password must be at least 8 characters.',
     resetPasswordMismatch: 'Passwords do not match.',
     resetPasswordSuccessTitle: 'Password updated',
     resetPasswordSuccessBody: 'You can now use your new password to sign in.',
@@ -762,7 +770,7 @@ export const strings = {
     resetPasswordConfirmLabel: 'Confirmer le mot de passe',
     resetPasswordSubmit: 'Mettre à jour le mot de passe',
     resetPasswordSubmitting: 'Mise à jour...',
-    resetPasswordTooShort: 'Le mot de passe doit contenir au moins 8 caractères.',
+    passwordTooShort: 'Le mot de passe doit contenir au moins 8 caractères.',
     resetPasswordMismatch: 'Les mots de passe ne correspondent pas.',
     resetPasswordSuccessTitle: 'Mot de passe mis à jour',
     resetPasswordSuccessBody: 'Vous pouvez maintenant utiliser votre nouveau mot de passe pour vous connecter.',
@@ -1177,7 +1185,7 @@ export const strings = {
     resetPasswordConfirmLabel: 'تأكيد كلمة المرور',
     resetPasswordSubmit: 'تحديث كلمة المرور',
     resetPasswordSubmitting: 'جارٍ التحديث...',
-    resetPasswordTooShort: 'يجب ألا تقل كلمة المرور عن 8 أحرف.',
+    passwordTooShort: 'يجب ألا تقل كلمة المرور عن 8 أحرف.',
     resetPasswordMismatch: 'كلمتا المرور غير متطابقتين.',
     resetPasswordSuccessTitle: 'تم تحديث كلمة المرور',
     resetPasswordSuccessBody: 'يمكنك الآن استخدام كلمة المرور الجديدة لتسجيل الدخول.',

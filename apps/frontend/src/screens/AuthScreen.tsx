@@ -15,6 +15,7 @@ import {
 import { useStrings } from '../i18n/useStrings';
 import { useToast } from '../contexts/ToastContext';
 import { translateAuthError } from '../lib/serverErrors';
+import { MIN_PASSWORD_LENGTH } from '../lib/passwordPolicy';
 
 // Where the password-reset email lands. ABSOLUTE and CANONICAL, deliberately
 // NOT window.location.origin — the same reasoning (and the same www host) as
@@ -51,8 +52,28 @@ export const AuthScreen: React.FC = () => {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+
+    // SIGNUP ONLY — never gate the login branch on length.
+    //
+    // Supabase's project minimum is 6 (lib/passwordPolicy.ts records the
+    // dashboard reading), so accounts created before this check exist in
+    // production RIGHT NOW with 6- and 7-character passwords. Moving this
+    // condition above the isLogin branch, or dropping the `!isLogin`, would
+    // refuse to even ATTEMPT sign-in for every one of those users and lock them
+    // out of their own accounts without a single network call. That is the one
+    // way this screen can cause an outage; authPasswordLength.test.tsx holds it
+    // down from both sides.
+    //
+    // The rule this closes: ResetPasswordScreen has always rejected under
+    // MIN_PASSWORD_LENGTH, so without this a user could sign up with six
+    // characters and then be refused that same password at reset time.
+    if (!isLogin && password.length < MIN_PASSWORD_LENGTH) {
+      setError(s.passwordTooShort);
+      return;
+    }
+
+    setLoading(true);
 
     try {
       if (isLogin) {
