@@ -402,7 +402,17 @@ describe('AuthScreen render — the production leak, closed', () => {
     const email = container.querySelector('#email') as HTMLInputElement;
     const password = container.querySelector('#password') as HTMLInputElement;
     flushSync(() => type(email, 'new.user@example.com'));
-    flushSync(() => type(password, 'abc'));
+    // Long enough to clear AuthScreen's own MIN_PASSWORD_LENGTH guard. This
+    // test is about the SINK — that a server-side signup failure is localized —
+    // so it must actually reach signUp(). It used to type 'abc', which the
+    // local check now rejects before any network call, and the assertion below
+    // would then be comparing against the wrong string entirely.
+    //
+    // Note what this implies: with the Supabase minimum at 6 and no character
+    // rules set, weak_password is no longer reachable from our own signup form.
+    // The mapping stays as defence in depth — the dashboard can change without
+    // a commit — but it is deliberately no longer the first thing a user meets.
+    flushSync(() => type(password, 'a-long-enough-password'));
     const form = container.querySelector('form') as HTMLFormElement;
     flushSync(() => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
 
