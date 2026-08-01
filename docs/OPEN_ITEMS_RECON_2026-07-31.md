@@ -157,6 +157,23 @@ filename or address from its leading end under Arabic. The app-wide guard is Cla
 `planOverride = null` **and** `plan = FREE` in one transaction — because `Organization.plan` is a cache recomputed only
 on a billing event, so nulling the override alone leaves `plan = PRO` frozen forever.
 
+That mechanism was **carried over from that file, not derived**. It is re-derived from code here at `25788bd`, and it
+**holds**:
+
+| Fact | Evidence |
+|---|---|
+| `Organization.plan` is a stored column that enforcement reads **directly** — nothing recomputes it at read time | `uploadController.ts:33` (`plan === 'FREE' && scanCount >= 10`), `:51` (PRO daily cap), `routes/userRoutes.ts:25`, `documentController.ts:120` |
+| The **only** production writer of `Organization.plan` is the entitlement service, and only when the derived value differs | `services/entitlement/applyEntitlementChange.ts:123-130` |
+| That service's only callers are the two Paddle webhook paths — **a billing event is the only trigger** | `controllers/webhookController.ts:426` (adjustment/refund revoke), `:683` (subscription status) |
+| `derivePlan` is pure, and has no other production caller | `services/entitlement/derivePlan.ts:37-45`; its only other importer is the read-only audit `scripts/verifyEntitlement.ts:36` |
+| The remaining `organization.update` sites never write `plan` | `services/ingestion/persistence.ts:150`, `:279` increment `scanCount` (`plan` appears in the `where`, never in the `data`); `scripts/backfillSubscriptions.ts:122`, `:133` write `planOverride` only |
+
+An org with **zero `Subscription` rows has no billing source that could ever fire a webhook**, so no code path exists
+that would recompute its `plan`. "Frozen forever" is therefore literal, not rhetorical: nulling the override alone
+leaves the stored `plan = PRO` indefinitely, not merely until the next event. The second write is
+`derivePlan(null, [])` = **`FREE`** (`derivePlan.ts:41-44`). `scripts/verifyEntitlement.ts` would *detect* the
+resulting mismatch on its next run — it is read-only and exits non-zero (`:37-45`, `:50-56`); it does not repair.
+
 **Gate status as recorded there: 2026-07-18, "STILL CLOSED."** This session made **no database and no dashboard
 contact**, so whether Google's production review has since completed is **unverified as of 2026-07-31**. Treat the
 13-day-old gate reading as the last known state, not as current.
@@ -357,7 +374,17 @@ Reasoning, against how this repository actually behaves:
 - **ESLint is not an option** (§3.4): no flat config exists and CI never runs lint, so a lint rule would gate nothing.
   A vitest scan runs inside the required check.
 
-**Not recommended as the next step:** item 3 (Class C) is blocked on a product decision about Accept-Language
-detection and cannot be unblocked by engineering; items 1 and 4 need new catalog keys and therefore Arabic
-code-point sign-off, which is a human gate; item 5 is infrastructure provisioning, not code. Those are all real, but
-none of them can be *finished* by the next PR. The attribute scanner can.
+**Not recommended as the next step** — and the reason differs per item, so they are listed rather than run together.
+(Numbers below are *item* numbers from §1–§3, not section numbers. The recommendation above is **item 2**, whose
+coordinates happen to live in §4.)
+
+| Item | Why it is not the next PR |
+|---|---|
+| **Item 3** — Class C English | Blocked on a product decision about Accept-Language detection. Engineering cannot unblock it. |
+| **Item 1** — document-detail copy | Needs one new catalog key, and therefore Arabic code-point sign-off — a human gate, not an engineering one. |
+| **Item 4** — signup password length | **Its shape is not yet known.** §2 records the server-side minimum as unchecked; whether the fix needs a new catalog key at all depends on what that check finds. Do not schedule this as copy work before someone checks. |
+| **Item 5** — shadow database | Infrastructure provisioning, not code. |
+
+All four are real. None of them can be *started and finished* inside a single next PR the way the attribute scanner
+can — for items 1, 3 and 5 because a human gate sits in front of the work, and for item 4 because the work is not yet
+specified.
