@@ -86,7 +86,13 @@ export const PLATFORM_ENFORCED_MIN_PASSWORD_LENGTH = 8;
  * would be silently gone. Both files assert against that; see the vacuity
  * guard inside the sign-in test and the tripwire at the bottom of it.
  *
- * This moves only when every pre-2026-08-02 account has been audited and
- * force-reset. Until then it is 6 forever.
+ * WHAT WOULD LET THIS MOVE — and why it is harder than it sounds. Not an
+ * audit: passwords are stored as bcrypt hashes, so nothing can measure how
+ * long any existing password is, and no query will ever tell you whether a
+ * short one is still out there. The only sound method is a cohort force-reset
+ * of every account with created_at before 2026-08-02, which is a product
+ * decision (it logs real users out and mails them all) rather than a cleanup.
+ * Until that has actually run, this is 6 forever. Treat any argument that
+ * "there probably aren't any left" as unfalsifiable, because it is.
  */
 export const SHORTEST_EXISTING_PASSWORD_LENGTH = 6;
