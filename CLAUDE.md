@@ -35,6 +35,29 @@ false claim that required status checks were unenforced, when in fact they
 would have blocked the merge. The 404 is well-formed, quotable and confident,
 and nothing about it prompts a second look. That is the whole danger.
 
+### A scheduled workflow that stopped running looks exactly like one that passes
+
+GitHub disables `schedule` triggers in a repository with no activity for **60
+days**. It stops firing. Nothing is emailed, no run appears, and no badge turns
+red — the absence of a red badge is indistinguishable from a passing check.
+
+This matters for `.github/workflows/password-policy-drift.yml`, which is the
+only thing that can notice the Supabase password minimum moving. Every other
+guard pins the repository against itself and stays green regardless of
+production. A silently dormant monitor is worse than none, because it
+manufactures confidence that something is being watched.
+
+**Absence of failure is not evidence of running.** Before relying on any
+scheduled check, confirm it actually ran:
+
+```
+gh run list --workflow=<file>.yml --limit 5     # when did it last fire?
+gh workflow view <file>.yml                     # state: active | disabled_inactivity
+```
+
+Not solved here — re-enabling is a click, and detecting dormancy automatically
+needs state across runs. Recorded 2026-08-02 so it is met before it is trusted.
+
 ### Cite the command, or drop the claim
 
 In merge and verification reports, every statement about repository or platform
