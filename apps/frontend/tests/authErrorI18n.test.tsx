@@ -391,7 +391,9 @@ describe('AuthScreen render — the production leak, closed', () => {
     mount('ar');
     h.signUp.mockResolvedValue({
       data: { user: null, session: null },
-      error: authError('Password should be at least 6 characters', 422, 'weak_password'),
+      // The exact sentence production returned on 2026-08-02 for a six-character
+      // signup, transcribed from the live 422 rather than invented.
+      error: authError('Password should be at least 8 characters.', 422, 'weak_password'),
     });
     // Flip to the signup branch via its catalog CTA, not English text.
     const toggle = [...container.querySelectorAll('button')].find(
@@ -408,10 +410,16 @@ describe('AuthScreen render — the production leak, closed', () => {
     // local check now rejects before any network call, and the assertion below
     // would then be comparing against the wrong string entirely.
     //
-    // Note what this implies: with the Supabase minimum at 6 and no character
-    // rules set, weak_password is no longer reachable from our own signup form.
-    // The mapping stays as defence in depth — the dashboard can change without
-    // a commit — but it is deliberately no longer the first thing a user meets.
+    // Note what this implies: weak_password is not reachable by LENGTH from our
+    // own signup form. That was true when the Supabase minimum was 6 (ours was
+    // higher) and it stays true now the 2026-08-02 raise has made it 8 (ours is
+    // equal, so anything our guard passes, the endpoint accepts). The reason
+    // changed; the conclusion did not.
+    //
+    // The mapping stays as defence in depth, and the case for it got STRONGER,
+    // not weaker: the minimum moved through a web UI with no commit, and it can
+    // move again — including back down — between one request and the next. It
+    // also still covers the paths this form is not: updateUser and recovery.
     flushSync(() => type(password, 'a-long-enough-password'));
     const form = container.querySelector('form') as HTMLFormElement;
     flushSync(() => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));

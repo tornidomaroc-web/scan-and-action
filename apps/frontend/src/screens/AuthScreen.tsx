@@ -56,9 +56,11 @@ export const AuthScreen: React.FC = () => {
 
     // SIGNUP ONLY — never gate the login branch on length.
     //
-    // Supabase's project minimum is 6 (lib/passwordPolicy.ts records the
-    // dashboard reading), so accounts created before this check exist in
-    // production RIGHT NOW with 6- and 7-character passwords. Moving this
+    // Supabase's project minimum was raised 6 -> 8 on 2026-08-02, but that does
+    // not lengthen any password already chosen: accounts created against the old
+    // minimum exist in production RIGHT NOW with 6- and 7-character passwords,
+    // and one of them was signed in successfully after the raise to prove it
+    // (lib/passwordPolicy.ts, SHORTEST_EXISTING_PASSWORD_LENGTH). Moving this
     // condition above the isLogin branch, or dropping the `!isLogin`, would
     // refuse to even ATTEMPT sign-in for every one of those users and lock them
     // out of their own accounts without a single network call. That is the one
