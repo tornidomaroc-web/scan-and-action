@@ -9,9 +9,15 @@ import { MemoryRouter } from 'react-router-dom';
 // ============================================================================
 // The defect: ResetPasswordScreen has always rejected passwords under
 // MIN_PASSWORD_LENGTH (8), while AuthScreen's signup branch had no length check
-// of any kind. Supabase's project minimum is 6 and was never raised, so
-// production accepted a 6-character signup and then refused that same password
-// at reset time. One app, two policies.
+// of any kind. Supabase's project minimum was 6 at the time, so production
+// accepted a 6-character signup and then refused that same password at reset
+// time. One app, two policies.
+//
+// The dashboard minimum was raised to 8 on 2026-08-02 and the signup endpoint
+// was observed rejecting six characters with weak_password. That closes the
+// gap for NEW passwords and changes nothing below: accounts created before the
+// raise still hold 6- and 7-character passwords, so the login assertions in
+// section 2 are exactly as load-bearing as they were.
 //
 // THE DANGEROUS HALF OF THIS FIX IS NOT THE CHECK — IT IS ITS SCOPE.
 // Accounts created before this commit exist RIGHT NOW with 6- and 7-character
@@ -51,7 +57,11 @@ import { strings } from '../src/i18n/strings';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { ToastProvider } from '../src/contexts/ToastContext';
 import { AuthScreen } from '../src/screens/AuthScreen';
-import { MIN_PASSWORD_LENGTH, PLATFORM_ENFORCED_MIN_PASSWORD_LENGTH } from '../src/lib/passwordPolicy';
+import {
+  MIN_PASSWORD_LENGTH,
+  PLATFORM_ENFORCED_MIN_PASSWORD_LENGTH,
+  SHORTEST_EXISTING_PASSWORD_LENGTH,
+} from '../src/lib/passwordPolicy';
 
 type Locale = 'en' | 'fr' | 'ar';
 const LOCALES: Locale[] = ['en', 'fr', 'ar'];
@@ -200,11 +210,29 @@ describe('signup rejects a password under MIN_PASSWORD_LENGTH', () => {
 // ────────────────────────────────────────────────────────────────────────────
 describe('login is NEVER gated on length (existing short passwords still work)', () => {
   it('a 6-character existing password still reaches signInWithPassword', () => {
-    // 6 is not hypothetical: it is the Supabase project minimum recorded in
-    // lib/passwordPolicy.ts, so accounts at exactly this length exist today.
+    // 6 is not hypothetical: accounts created before the 2026-08-02 dashboard
+    // raise hold passwords this short, and one was signed in successfully after
+    // the raise to confirm it (lib/passwordPolicy.ts).
+    //
+    // VACUITY GUARD — this must come first and must never be deleted. This test
+    // only proves anything if the password it types would be REJECTED on the
+    // signup branch. Let SHORTEST_EXISTING_PASSWORD_LENGTH drift up to match the
+    // platform minimum and the line below types 8 characters, which the signup
+    // guard accepts anyway: every assertion in this test would still pass while
+    // proving nothing, and the sole guard against locking every legacy user out
+    // of their own account would be gone with a green suite. Fail loudly here
+    // instead, at the site of the harm.
+    expect(
+      SHORTEST_EXISTING_PASSWORD_LENGTH,
+      'SHORTEST_EXISTING_PASSWORD_LENGTH is no longer below MIN_PASSWORD_LENGTH, so this test ' +
+        'types a password the signup guard would accept and proves NOTHING about the login path. ' +
+        'It is frozen history (accounts predating the 2026-08-02 raise), not a copy of the ' +
+        'platform minimum — restore it to 6 rather than making this assertion pass.'
+    ).toBeLessThan(MIN_PASSWORD_LENGTH);
+
     mount('en');
     typeInto('email', 'existing-user@example.com');
-    typeInto('password', 'x'.repeat(PLATFORM_ENFORCED_MIN_PASSWORD_LENGTH));
+    typeInto('password', 'x'.repeat(SHORTEST_EXISTING_PASSWORD_LENGTH));
     submit();
 
     expect(
@@ -213,7 +241,7 @@ describe('login is NEVER gated on length (existing short passwords still work)',
     ).toHaveBeenCalledTimes(1);
     expect(h.signInWithPassword).toHaveBeenCalledWith({
       email: 'existing-user@example.com',
-      password: 'x'.repeat(PLATFORM_ENFORCED_MIN_PASSWORD_LENGTH),
+      password: 'x'.repeat(SHORTEST_EXISTING_PASSWORD_LENGTH),
     });
     expect(errorBox(), 'the login path rejected a short password locally').toBeNull();
     expect(h.signUp).not.toHaveBeenCalled();
@@ -269,20 +297,44 @@ describe('the policy module is the single source of the number', () => {
     }
   });
 
-  // A tripwire, not a fact about the code: it records that the platform still
-  // enforces LESS than we ask for. When someone raises the Supabase dashboard
-  // minimum, this test fails and points at the note that has to be rewritten
-  // with it. That is the intended way to find out the gap has closed.
-  it('records that the platform minimum is still BELOW ours (raise this when the dashboard moves)', () => {
+  // A tripwire, not a fact about the code. It fired once already: it was 6
+  // until the dashboard was raised on 2026-08-02, and it is the reason that
+  // change could not land quietly. It is worth more now than it was then,
+  // because an OVERSTATEMENT here fails unsafe — a future reader who believes
+  // production enforces a number it does not will conclude AuthScreen's check
+  // is redundant and delete it. The note in src/lib/passwordPolicy.ts argues
+  // against that deletion explicitly; keep the two in step.
+  it('records the OBSERVED platform minimum (re-run the signup curl when the dashboard moves)', () => {
     expect(
       PLATFORM_ENFORCED_MIN_PASSWORD_LENGTH,
       'If the Supabase dashboard minimum changed, update PLATFORM_ENFORCED_MIN_PASSWORD_LENGTH ' +
         'and the note above it in src/lib/passwordPolicy.ts — the repository must not claim a ' +
-        'number production does not enforce, in either direction.'
-    ).toBe(6);
+        'number production does not enforce, in either direction. Do not update it from the ' +
+        'settings page alone: the note carries a curl against /auth/v1/signup that OBSERVES the ' +
+        'number, and a field reading is not an observation.'
+    ).toBe(8);
     expect(
       PLATFORM_ENFORCED_MIN_PASSWORD_LENGTH,
       'our screens must never ask for less than the platform already enforces'
     ).toBeLessThanOrEqual(MIN_PASSWORD_LENGTH);
+  });
+
+  // The second half of the same tripwire, and the one that protects users
+  // rather than the record. SHORTEST_EXISTING_PASSWORD_LENGTH is frozen
+  // history; the platform minimum is live configuration. They were both 6
+  // until 2026-08-02 and merging them again would hollow out the sign-in
+  // tests above — see the vacuity guard in section 2.
+  it('keeps frozen history separate from live configuration', () => {
+    expect(
+      SHORTEST_EXISTING_PASSWORD_LENGTH,
+      'SHORTEST_EXISTING_PASSWORD_LENGTH records the shortest password a REAL ACCOUNT holds ' +
+        '(6, from before the 2026-08-02 raise). It is not a second name for the platform ' +
+        'minimum and must not be raised to track it: the sign-in tests above would go vacuous ' +
+        'and still pass. It moves only after every pre-2026-08-02 account is force-reset.'
+    ).toBe(6);
+    expect(
+      SHORTEST_EXISTING_PASSWORD_LENGTH,
+      'the login path must stay exercised with a password our own signup guard would reject'
+    ).toBeLessThan(MIN_PASSWORD_LENGTH);
   });
 });
