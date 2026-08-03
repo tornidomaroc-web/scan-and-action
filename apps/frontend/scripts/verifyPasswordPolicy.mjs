@@ -1,5 +1,37 @@
-#!/usr/bin/env node
 /**
+ * NO SHEBANG, DELIBERATELY. Read this before typing `#!/usr/bin/env node` on
+ * the line above — adding one back does not fail loudly, it silently switches
+ * off every test in tests/passwordPolicyDrift.test.ts.
+ *
+ * That file imports this module, so vite's SSR transform rewrites it. The
+ * transform hoists the `node:` builtin requires onto line 1, AHEAD of the
+ * shebang. With LF endings vite strips the shebang first and nothing breaks;
+ * on a CRLF checkout it does not, and rolldown then meets `#!` in the middle
+ * of line 1 and refuses to parse the module at all.
+ *
+ * The failure does not look like a failing assertion. Vitest reports the FILE
+ * as failed with "no tests" — all 20-odd guards below stop running at once,
+ * including the DRIFT-vs-PASS comparison that is the entire point of this
+ * script.
+ *
+ * And it is invisible where it matters most: CI is Linux and checks out LF, so
+ * CI stays green while every Windows clone (git core.autocrlf=true, the
+ * Windows default) has a dead guard. Verified 2026-08-03 by flipping each
+ * factor alone: CRLF+shebang fails to load; LF+shebang passes; CRLF without
+ * the shebang passes.
+ *
+ * The shebang was never load-bearing. Nothing executes this file directly: the
+ * workflow runs `node apps/frontend/scripts/verifyPasswordPolicy.mjs`, and the
+ * file is mode 100644 — not executable, so `./verifyPasswordPolicy.mjs` never
+ * worked in the first place. It arrived as a copy of verifyRenamedKeyBytes.mjs
+ * (which carries the same unused shebang, harmlessly, because nothing imports
+ * it). Copying is exactly how it got here; that is why this note is at the top
+ * rather than in a commit message.
+ *
+ * Section 6 of the test file fails if it comes back.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ *
  * Drift check: does production still enforce the password minimum this
  * repository CLAIMS it enforces?
  *
