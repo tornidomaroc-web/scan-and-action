@@ -335,6 +335,46 @@ describe('the guard can actually run', () => {
     expect(r.stderr).toMatch(/CONFIG-ERROR/);
   });
 
+  // ── The probe runs against LIVE Supabase. Everything below keeps it off
+  // pull requests, which is the only thing standing between "a monitor" and
+  // "a third party can wedge every merge in the repository".
+  it('never runs on pull_request', () => {
+    expect(
+      WORKFLOW_SRC,
+      'the drift check now triggers on pull_request. It probes LIVE Supabase, so this puts a ' +
+        'third party on the PR path: a Supabase outage would show a failing check on every open ' +
+        'pull request, including the one fixing the outage, and it would be one ruleset edit away ' +
+        'from blocking merges outright. The three-outcome design (UNREACHABLE stays green) exists ' +
+        'precisely so this job can never wedge a merge — do not undo it from the trigger side.'
+    ).not.toMatch(/pull_request/);
+  });
+
+  it('the push trigger is restricted to main, so it only ever runs post-merge', () => {
+    const m = /push:\s*\n\s*branches:\s*\[([^\]]*)\]/.exec(WORKFLOW_SRC);
+    expect(
+      m,
+      'the drift workflow no longer has a `push: branches: [...]` trigger, or it is written in a ' +
+        'form this test cannot read. That trigger is what makes dormancy survivable: the schedule ' +
+        'is disabled by 60 days of INACTIVITY, so it dies exactly when it was the only thing ' +
+        'running. See the anti-correlation note in CLAUDE.md before removing it.'
+    ).not.toBeNull();
+    expect(
+      m![1].split(',').map((s) => s.trim().replace(/['"]/g, '')),
+      'the push trigger was widened beyond main. On any other branch pattern this runs a live ' +
+        'Supabase probe on in-flight work — the same harm as a pull_request trigger, reached by a ' +
+        'different route. Post-merge only.'
+    ).toEqual(['main']);
+  });
+
+  it('still runs on a schedule — the push trigger is redundancy, not a replacement', () => {
+    expect(
+      WORKFLOW_SRC,
+      'the cron is gone. The push trigger only covers periods when someone is pushing; the ' +
+        'schedule is what notices a dashboard change during a quiet week. They cover different ' +
+        'gaps and neither replaces the other.'
+    ).toMatch(/schedule:\s*\n\s*-\s*cron:/);
+  });
+
   // The comment in the YAML saying this check installs nothing is load-bearing
   // for two separate reasons, so it is asserted instead of described.
   it('the workflow installs no toolchain and no dependencies', () => {

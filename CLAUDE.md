@@ -55,8 +55,34 @@ gh run list --workflow=<file>.yml --limit 5     # when did it last fire?
 gh workflow view <file>.yml                     # state: active | disabled_inactivity
 ```
 
-Not solved here — re-enabling is a click, and detecting dormancy automatically
-needs state across runs. Recorded 2026-08-02 so it is met before it is trusted.
+**Do not reach for a freshness check.** The obvious fix — something that asks
+when the schedule last fired and goes red if the gap is too wide — was
+recommended, designed and then withdrawn on 2026-08-03. It fails twice, and the
+second reason is the one that generalises to any cron:
+
+- **Nowhere it can run is right.** It cannot live in the dormant workflow, since
+  a workflow that is not running cannot report that it is not running. Putting
+  it in `ci.yml` blocks merges on the monitor's liveness rather than on the
+  change under review — a red gate produced by an API hiccup or a rate limit —
+  which is the exact trade `password-policy-drift.yml` refuses when it keeps
+  itself off the PR gate. It also means editing the file that produces both
+  required contexts, where a YAML error stops every merge in the repository.
+
+- **A cron's coverage and its failure mode are anti-correlated.** The 60-day
+  disable is triggered by INACTIVITY. During busy periods an activity-triggered
+  run fires constantly and the cron adds little; the cron's unique value is
+  entirely in quiet periods — which is exactly what disables it. It is most
+  valuable in precisely the conditions that kill it. Monitoring it measures the
+  proxy, not the thing: a freshness check tells you the instrument died, never
+  that the password minimum moved.
+
+So `password-policy-drift.yml` also runs on a push to `main`. That does not
+detect dormancy and is not claimed to — the schedule can still die silently and
+re-enabling is still a click. It removes the reason to care, by probing whenever
+someone is actually working. The residual gap is a quiet period, which is also
+the period in which nobody is changing anything.
+
+Recorded 2026-08-02, amended 2026-08-03.
 
 ### Cite the command, or drop the claim
 
