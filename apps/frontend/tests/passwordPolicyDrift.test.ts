@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 // ============================================================================
 // THE DRIFT CHECK — and the two ways it can rot into decoration.
@@ -20,10 +21,23 @@ import { join } from 'node:path';
 //      the badge cries wolf and gets ignored; if a real contradiction is
 //      reported as UNREACHABLE it never turns red at all. Both directions are
 //      asserted below, not described.
+//   3. THIS FILE, OR THE SCRIPT, STOPS RUNNING AT ALL. Sections 1-5 test what
+//      the check DECIDES. They are worth nothing if the module never loads or
+//      the workflow's command no longer resolves to a runnable script, and
+//      that failure does not look like a failing assertion — it looks like a
+//      file reporting "no tests", or like a job that passes without checking
+//      anything. Section 6 is that guard, and it exists because this has
+//      already happened once: a copied shebang stopped this entire file from
+//      loading on every CRLF checkout while CI stayed green.
 //
 // The safety property of the probe itself — one character, never "minimum - 1"
 // — is pinned in section 4, because the tempting "improvement" creates a weak
 // production account in exactly the alarm condition.
+//
+// KNOWN GAP, STATED RATHER THAN PAPERED OVER: nothing here fires if this FILE
+// is deleted or renamed out of the `tests/**/*.test.{ts,tsx}` glob. Vitest
+// would simply collect one file fewer and report all green. Section 6 closes
+// the "stops loading" hole, not the "stops existing" one.
 // ============================================================================
 
 import {
@@ -231,5 +245,111 @@ describe('parseObservedMinimum', () => {
     expect(parseObservedMinimum({ error_code: 'user_already_exists', msg: 'x' })).toBeNull();
     expect(parseObservedMinimum({ error_code: 'weak_password', msg: 'too weak' })).toBeNull();
     expect(parseObservedMinimum(null)).toBeNull();
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// 6. THE GUARD'S OWN EXECUTABILITY.
+// ────────────────────────────────────────────────────────────────────────────
+// The least-tested property of any guard is whether it runs. Everything above
+// asserts what the check CONCLUDES, and every one of those assertions is worth
+// nothing on a run where the module does not load or the workflow's command
+// does not resolve. Both of those failures are quiet in the place that counts:
+// a module that will not parse reports as "no tests", not as a red assertion,
+// and a workflow step that runs the wrong path can still exit 0.
+// ────────────────────────────────────────────────────────────────────────────
+
+const REPO_ROOT = resolve(__dirname, '..', '..', '..');
+const SCRIPT_PATH = resolve(__dirname, '..', 'scripts', 'verifyPasswordPolicy.mjs');
+const WORKFLOW_PATH = resolve(REPO_ROOT, '.github', 'workflows', 'password-policy-drift.yml');
+// Comments are stripped before matching. The workflow explains at length why
+// it has no setup-node and no `npm ci`, and naming them is how it does that —
+// asserting against the raw file would make the documentation trip its own
+// guard, and the fix for that is always to delete the explanation.
+const WORKFLOW_SRC = readFileSync(WORKFLOW_PATH, 'utf8')
+  .split('\n')
+  .filter((line) => !/^\s*#/.test(line))
+  .join('\n');
+
+describe('the guard can actually run', () => {
+  // This is the mutation that already happened once. It is asserted on the
+  // SOURCE rather than left to the module loader because on Linux with LF
+  // endings a shebang loads fine — so without this, re-adding one would be
+  // caught only on Windows checkouts and CI would stay green over a file whose
+  // every assertion had stopped running.
+  it('the script carries no shebang', () => {
+    expect(
+      readFileSync(SCRIPT_PATH, 'utf8').startsWith('#!'),
+      'verifyPasswordPolicy.mjs starts with a shebang again. This does not fail loudly where it ' +
+        'matters: vite\'s SSR transform hoists the node: imports ahead of it, and on a CRLF ' +
+        'checkout rolldown then cannot parse the module — vitest reports THIS FILE as "no tests" ' +
+        'and every guard in it, including the DRIFT comparison, silently stops running. CI is ' +
+        'Linux and checks out LF, so CI would not notice. Nothing executes this file directly ' +
+        '(the workflow runs `node <path>` and the file is not mode +x), so the shebang buys ' +
+        'nothing. Read the header of the script before removing this test.'
+    ).toBe(false);
+  });
+
+  // Pins the YAML to the script. A rename, a move, or a typo'd path in the
+  // workflow is otherwise discovered only by a human reading a scheduled run.
+  it('the command in the workflow points at this script', () => {
+    const m = /run:\s*node\s+(\S+verifyPasswordPolicy\.mjs)/.exec(WORKFLOW_SRC);
+    expect(
+      m,
+      'password-policy-drift.yml no longer contains a `node ...verifyPasswordPolicy.mjs` command. ' +
+        'Either the drift check is not being invoked at all, or it moved and this test must move with it.'
+    ).not.toBeNull();
+    expect(
+      resolve(REPO_ROOT, m![1]),
+      'the workflow invokes a path that is not this script, so the scheduled run is not running ' +
+        'the code these tests cover'
+    ).toBe(SCRIPT_PATH);
+  });
+
+  // Executability through the REAL delivery mechanism: a separate `node`
+  // process, not vitest's module graph. This is the only assertion in the file
+  // that would survive the transform breaking, and it is also the only one
+  // that exercises the `import.meta.url === process.argv[1]` main-guard — a
+  // module that imports cleanly but whose main-guard never fires would run in
+  // CI, print nothing, and exit 0 forever.
+  //
+  // Uses the CONFIG-ERROR path (no credentials), so it touches no network.
+  it('runs as a standalone node process and exits non-zero when unconfigured', () => {
+    const env = { ...process.env };
+    delete env.SUPABASE_URL;
+    delete env.SUPABASE_ANON_KEY;
+
+    const r = spawnSync(process.execPath, [SCRIPT_PATH], { env, encoding: 'utf8' });
+
+    expect(
+      r.error,
+      `could not execute the script as the workflow does: ${r.error?.message}`
+    ).toBeUndefined();
+    expect(
+      r.status,
+      'running the script the way the workflow runs it did not exit 1 on missing credentials. ' +
+        `Exit was ${r.status}. If it exited 0 with no output the main-guard never fired, which ` +
+        'means the scheduled job would pass every day WITHOUT PROBING ANYTHING. ' +
+        `stdout=${JSON.stringify(r.stdout)} stderr=${JSON.stringify(r.stderr)}`
+    ).toBe(1);
+    expect(r.stderr).toMatch(/CONFIG-ERROR/);
+  });
+
+  // The comment in the YAML saying this check installs nothing is load-bearing
+  // for two separate reasons, so it is asserted instead of described.
+  it('the workflow installs no toolchain and no dependencies', () => {
+    expect(
+      WORKFLOW_SRC,
+      'actions/setup-node is back in the drift workflow. It is not needed (the script uses only ' +
+        'node: builtins and the runtime\'s own fetch) and it is not free: on run 30806299900 it ' +
+        'downloaded a Node tarball on every run, and it put a PERMANENT ::warning:: annotation on ' +
+        'a job that uses the ::warning:: channel for exactly one thing — "the policy was NOT ' +
+        'checked on this run". A standing warning there is noise the real signal has to be found in.'
+    ).not.toMatch(/actions\/setup-node/);
+    expect(
+      WORKFLOW_SRC,
+      'the drift check now installs dependencies. That adds minutes and a supply-chain surface to ' +
+        'a check whose entire value is being boring, reliable and unable to wedge a merge.'
+    ).not.toMatch(/npm ci|npm install|yarn |pnpm /);
   });
 });
