@@ -1,0 +1,27 @@
+# Line endings. The repository has always stored text as LF; this file is about
+# what a CHECKOUT produces, which until now was CRLF on Windows via
+# core.autocrlf=true. That divergence is why a file could parse in CI and fail
+# on a clone — see the shebang in verifyPasswordPolicy.mjs, which vite hoists
+# imports past, leaving `#!` mid-line where rolldown rejects it. LF only in CI
+# meant LF only where anyone was looking.
+#
+# eol=lf, not bare text=auto: text=auto alone normalizes the INDEX, which is
+# already clean, and leaves core.autocrlf to smudge CRLF back on checkout. Only
+# eol=lf changes the working tree, and the working tree is the whole problem.
+* text=auto eol=lf
+
+# Binary. Every 0x0D byte in this repository lives in one of these; none of it
+# is a line ending. text=auto's heuristic already classifies them correctly —
+# these lines are here so that a future file type added alongside them inherits
+# an explicit rule rather than a guess.
+*.png binary
+*.jpg binary
+*.jar binary
+
+# Windows batch files must keep CRLF. cmd.exe reads gradlew.bat line by line to
+# resolve `goto` against its labels (:execute, :fail, :omega); with LF endings
+# that parsing misbehaves. This is the one file in the repo that a checkout
+# genuinely must NOT normalize, and CI cannot catch a regression here because
+# ci.yml deliberately runs no Gradle step — it would break only on Windows,
+# silently, which is the same failure shape this file exists to close.
+*.bat text eol=crlf
