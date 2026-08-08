@@ -123,3 +123,64 @@ describe('Settings — Preferences section (mobile home for language & theme)', 
     expect(document.documentElement.dir).toBe('rtl');
   });
 });
+
+// ============================================================================
+// Class-B RTL hazard: the identity card's two truncating boxes.
+// ============================================================================
+// Settings is where the app shows a user their OWN address, so a leading-end
+// clip here is uniquely bad: "…@gmail.com" is identical for every Gmail user.
+//
+// The two boxes take DIFFERENT instruments even though both derive from the same
+// string (userName = email.split('@')[0], SettingsScreen.tsx:43):
+//
+//   <h3>{userName}</h3>   dir="auto" — the "@domain" is stripped, so this is pure
+//                         content of unknown direction; auto is exactly its case.
+//   <p>{user.email}</p>   dir="ltr"  — this one still HAS the "@domain" structure.
+//                         Under auto, an Arabic local part is the first strong
+//                         character, the box resolves RTL, and the domain lands on
+//                         the wrong side of the address.
+//
+// HONEST LIMIT: green here means nobody dropped the attributes. It does NOT mean
+// the ellipsis lands on the correct end — jsdom has no layout engine and no bidi
+// resolution, so which end truncates cannot be asserted anywhere in this suite.
+// The instrument was proven by hand in Chrome; see tests/rtlTruncation.test.ts.
+describe('Settings identity card — direction is stated, not inherited (Class B)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem('lang', 'ar');
+    document.documentElement.dir = 'rtl';
+    mount();
+  });
+
+  afterEach(() => {
+    root.unmount();
+    container.remove();
+    document.documentElement.dir = 'ltr';
+  });
+
+  it('AR: the truncating display-name <h3> carries dir="auto"', () => {
+    const h3 = [...container.querySelectorAll('h3')].find(
+      (el) => el.textContent?.trim() === 'prefs-check'
+    );
+    expect(h3, 'the identity card should render the display name').toBeTruthy();
+    expect(h3!.className).toContain('truncate');
+    expect(h3!.getAttribute('dir')).toBe('auto');
+  });
+
+  it('AR: the truncating email <p> carries dir="ltr" — NOT "auto"', () => {
+    const email = [...container.querySelectorAll('p')].find(
+      (p) => p.textContent === 'prefs-check@example.com'
+    );
+    expect(email, 'the identity card should render the email').toBeTruthy();
+    expect(email!.className).toContain('truncate');
+    // Asserted as an exact value on purpose: "auto" here is a real defect, not a
+    // near-miss, so the test must fail if someone "corrects" it to match the
+    // filename precedent.
+    expect(email!.getAttribute('dir')).toBe('ltr');
+    expect(email!.getAttribute('dir')).not.toBe('auto');
+  });
+
+  it('AR: the document really is RTL, so these boxes are in the hazard context', () => {
+    expect(document.documentElement.dir).toBe('rtl');
+  });
+});

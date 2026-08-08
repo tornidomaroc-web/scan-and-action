@@ -43,6 +43,7 @@ import { documentService } from '../src/services/documentService';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { ToastProvider } from '../src/contexts/ToastContext';
 import { DocumentDetailScreen } from '../src/screens/DocumentDetailScreen';
+import { ChartPlaceholder } from '../src/components/SharedComponents';
 import { ReviewQueueScreen } from '../src/screens/ReviewQueueScreen';
 import { FixActionPanel } from '../src/components/FixActionPanel';
 import { translateDecisionReasons } from '../src/components/DecisionBanner';
@@ -543,5 +544,60 @@ describe('Detail follow-ups: Dashboard recent activity uses the shared type labe
     expect(dashboard).toContain('getDocTypeLabel(item.documentType');
     // The old raw render (`${item.documentType} · `) is gone.
     expect(dashboard).not.toContain('${item.documentType}');
+  });
+});
+
+// ============================================================================
+// Class-B RTL hazard in SharedComponents: the chart's category label.
+// ============================================================================
+// ChartPlaceholder's label is `d.category || d.key` — EXTRACTED data, not an i18n
+// string, so its direction is unknown and it must not inherit the page's. The
+// amount beside it stays dir="ltr" and is asserted here too, so the pair cannot
+// drift apart.
+//
+// HONEST LIMIT: green means the attributes are present. jsdom has no layout engine
+// and no bidi resolution, so this cannot show which end the ellipsis eats. See
+// tests/rtlTruncation.test.ts for the hand measurement that established the fix.
+describe('SharedComponents ChartPlaceholder — category label states its direction (Class B)', () => {
+  let c: HTMLDivElement;
+  let r: Root;
+
+  const DATA = [{ category: 'Maroc Telecom SA', key: null, sum: '1234.50', currency: 'MAD' }];
+
+  beforeEach(() => {
+    localStorage.setItem('lang', 'ar');
+    c = document.createElement('div');
+    document.body.appendChild(c);
+    r = createRoot(c);
+    flushSync(() => {
+      r.render(
+        <LanguageProvider>
+          <ChartPlaceholder data={DATA} />
+        </LanguageProvider>
+      );
+    });
+  });
+
+  afterEach(() => {
+    r.unmount();
+    c.remove();
+    localStorage.clear();
+  });
+
+  it('AR: the truncating category label carries dir="auto"', () => {
+    const label = [...c.querySelectorAll('span')].find(
+      (s) => s.textContent === 'Maroc Telecom SA'
+    );
+    expect(label, 'the chart should render the category label').toBeTruthy();
+    expect(label!.className).toContain('truncate');
+    expect(label!.getAttribute('dir')).toBe('auto');
+  });
+
+  it('AR: the amount beside it stays dir="ltr"', () => {
+    const amount = [...c.querySelectorAll('span')].find((s) =>
+      s.textContent?.includes('1234.50')
+    );
+    expect(amount).toBeTruthy();
+    expect(amount!.getAttribute('dir')).toBe('ltr');
   });
 });

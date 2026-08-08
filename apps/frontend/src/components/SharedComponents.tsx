@@ -74,7 +74,11 @@ export const ChartPlaceholder = ({ data }: { data: any[] }) => {
           return (
             <div key={i} className="flex flex-col gap-1">
               <div className="flex items-center justify-between gap-3 text-[13px]">
-                <span className="min-w-0 truncate font-medium text-ink-secondary">{label}</span>
+                {/* Category/key comes from EXTRACTED data, not from i18n, so its
+                    direction is unknown — dir="auto" on the truncating span keeps a
+                    Latin label from being clipped at its leading end in Arabic. The
+                    amount beside it stays dir="ltr" (below). */}
+                <span dir="auto" className="min-w-0 truncate font-medium text-ink-secondary">{label}</span>
                 <span className="flex-shrink-0 font-semibold text-ink" dir="ltr">
                   {d.sum} {d.currency}
                 </span>

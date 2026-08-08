@@ -62,10 +62,26 @@ export const SettingsScreen = () => {
                 {userName.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
-                <h3 className="text-lg md:text-2xl font-black text-slate-900 dark:text-white mb-1 uppercase tracking-tight truncate">
+                {/* A person's name is natural language of unknown direction — the
+                    exact case dir="auto" exists for. On the truncating element
+                    itself, with no isolate child to swallow it. */}
+                <h3 dir="auto" className="text-lg md:text-2xl font-black text-slate-900 dark:text-white mb-1 uppercase tracking-tight truncate">
                   {userName}
                 </h3>
-                <p className="text-sm md:text-base text-slate-500 font-bold truncate" title={user?.email}>{user?.email}</p>
+                {/* dir="ltr", deliberately NOT dir="auto" — the one place in this
+                    app where the filename precedent does not transfer.
+                    An email is not natural language; it is an identifier with LTR
+                    structure. Under "auto" an Arabic local part is the first STRONG
+                    character, so the box resolves RTL and "@gmail.com" is positioned
+                    on the wrong side of the address: a correct bidi result that reads
+                    as a corrupted address. Under "ltr" an Arabic local part still
+                    renders correctly as an embedded RTL run, the domain stays where a
+                    reader expects it, and the ellipsis eats the TAIL
+                    ("abojad.longname@…"), keeping the identifying half. This matches
+                    how the app already treats email INPUTS (DeleteAccountModal.tsx,
+                    FixActionPanel.tsx). `title` keeps the full value on desktop hover;
+                    it does nothing on touch, which is why the direction matters. */}
+                <p dir="ltr" className="text-sm md:text-base text-slate-500 font-bold truncate" title={user?.email}>{user?.email}</p>
               </div>
             </div>
 
