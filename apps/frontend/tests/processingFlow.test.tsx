@@ -40,8 +40,8 @@ const TrackButton: React.FC = () => {
   return <button onClick={() => trackUpload('doc-x', 'snap.jpg')}>TRACK</button>;
 };
 
-function mount(children: React.ReactNode) {
-  localStorage.setItem('lang', 'en');
+function mount(children: React.ReactNode, lang: 'en' | 'ar' = 'en') {
+  localStorage.setItem('lang', lang);
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -307,5 +307,58 @@ describe('CaptureSheet — one-tap mobile capture', () => {
     await vi.waitFor(() => expect(uploadDocument).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 50));
     expect(document.body.textContent).not.toContain('Unlock the full power of Scan & Action');
+  });
+});
+
+// ============================================================================
+// Class-B RTL hazard: the tray's filename box must STATE a direction.
+// ============================================================================
+// This is the surface every scan passes through, so a filename clipped from its
+// leading end here costs the user the only thing that identifies the document.
+//
+// HONEST LIMIT: green here means nobody dropped dir="auto" from the truncating
+// <p>. It does NOT mean the ellipsis lands on the correct end. jsdom has no
+// layout engine and no bidi resolution, so which end truncates is not observable
+// in this suite at all. That property was proven once by hand in Chrome and the
+// measurement is recorded at the top of tests/rtlTruncation.test.ts; this
+// assertion only stops the fix being deleted.
+describe('ProcessingTray DOM — the filename box is direction-agnostic (Class B)', () => {
+  const LATIN_NAME = 'invoice-maroc-telecom-2026-final.pdf';
+
+  const TrackNamed: React.FC = () => {
+    const { trackUpload } = useProcessing();
+    return <button onClick={() => trackUpload('doc-rtl', LATIN_NAME)}>TRACK-RTL</button>;
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    settled = vi.fn();
+  });
+
+  afterEach(() => {
+    root.unmount();
+    container.remove();
+    document.body.innerHTML = '';
+  });
+
+  it('AR: the truncating filename <p> carries dir="auto"', async () => {
+    (documentService.getDocumentDetail as any).mockResolvedValue({ status: 'PROCESSING' });
+    mount(<TrackNamed />, 'ar');
+
+    click([...container.querySelectorAll('button')].find((b) => b.textContent === 'TRACK-RTL')!);
+
+    await vi.waitFor(() =>
+      expect(document.body.querySelector('[data-testid="processing-chip"]')).toBeTruthy()
+    );
+    click(document.body.querySelector('[data-testid="processing-chip"]')!);
+
+    const tray = document.body.querySelector('[data-testid="processing-tray"]')!;
+    const p = [...tray.querySelectorAll('p')].find((el) => el.textContent === LATIN_NAME);
+    expect(p, 'the tray should list the processing filename').toBeTruthy();
+    // the hazard only exists because the box truncates — assert that too, so the
+    // test fails loudly if the class is ever dropped and the dir becomes moot
+    expect(p!.className).toContain('truncate');
+    expect(p!.getAttribute('dir')).toBe('auto');
   });
 });

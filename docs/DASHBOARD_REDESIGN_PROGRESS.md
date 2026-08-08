@@ -1332,25 +1332,39 @@ handling it actually needs.
       ReviewQueue amount + date, DocumentDetail summary / fact values / table cell /
       entity chips (`break-words`, never truncated), and `DecisionBanner`. `<bdi>`
       stays right for a value rendered **inline beside other text**.
-- [ ] **Class-B RTL truncation in the UN-RESTYLED screens — DEFERRED to their own
-      restyle PRs (recorded so they are not lost).** Same defect (a truncating box
-      holding user text with no `dir`, so it inherits the page direction and clips a
-      Latin filename from its leading end in Arabic). These files still carry the raw
-      `slate-*` palette and are awaiting D6/D8, so the `dir="auto"` fix should ride
-      that restyle rather than a token-only sweep: **`ProcessingTray.tsx:97`**
-      (`job.fileName`), **`CaptureSheet.tsx:225`** (`file.name`),
-      **`UploadModal.tsx:315`** (file name), **`SettingsScreen.tsx:68`** (user email),
-      **`SharedComponents.tsx:77`** (grouped query label). The app-wide guard does
-      **not** catch these (it is Class-A only), so they will not fail CI — they must
-      be fixed by hand when their screen is restyled.
-      **Line numbers corrected 2026-07-16** (D8b mapping pass, re-verified at
-      `7a2cfe3f`): `CaptureSheet` is **`:225`** not `:221`, and `UploadModal` is
-      **`:315`** not `:310`. The five sites themselves are all re-confirmed live.
-      **Within the three D8b modals, `:315` and `:225` are the ONLY two** — they are
-      the sole `truncate` occurrences in those files, and **`DeleteAccountModal` has
-      no `truncate` at all**, so it carries zero Class-B exposure (its only `dir` is
-      the correct `dir="ltr"` on the email input). The other three sites above live
-      outside D8b's scope and are **not** superseded by that count.
+- [x] **Class-B RTL truncation — CLOSED. This entry is deliberately a pointer, not
+      a list of sites.** The register that used to live here named five sites with
+      line numbers. It was wrong in **both** directions every time it was read: by
+      2026-08-08 two of the five were already fixed, the numbers had drifted twice
+      (corrected once on 2026-07-16 and still stale after), and it had never listed
+      `SettingsScreen.tsx`'s display-name `<h3>` at all. A hand-maintained list of
+      coordinates in a progress document decays silently on every merge and reads
+      confidently while doing it — the exact failure mode `CLAUDE.md` exists to
+      prevent. **Record the instrument, never the state.**
+
+      **The instruments, which cannot drift because they execute:**
+      - `apps/frontend/tests/rtlTruncation.test.ts` — app-wide source guard. Class A
+        (a `<bdi>` isolate swallowing `dir="auto"` on a truncating box) plus a narrow
+        Class-B rule over an allowlist of unambiguous user-data identifiers
+        (`fileName` / `originalFileName` / `email`) requiring that such a box **state**
+        a direction. Both carry positive controls, and the Class-B exclusion is proven
+        against the live `{status.label}` / `{meta.label}` spans rather than asserted.
+      - Per-screen DOM assertions, where a human decided which boxes hold user data:
+        `processingFlow.test.tsx`, `settingsPreferences.test.tsx`,
+        `documentDetailRestyle.test.tsx`, `captureSheetRestyle.test.tsx`,
+        `activityRestyle.test.tsx`.
+
+      **What the fix actually was:** four boxes, three instruments — `dir="auto"` for
+      the filename, the display name and the chart category; **`dir="ltr"` for the
+      email**, because an email is an identifier with LTR structure, not natural
+      language, and `auto` puts the `@domain` on the wrong side of an Arabic local
+      part. The reasoning lives next to each element.
+
+      **Honest limit, true of every guard above:** green means the attribute is
+      present, never that the ellipsis lands on the correct end. jsdom has no layout
+      engine and no bidi resolution, so no test in this repository can establish that.
+      The instrument itself was proven once by hand in Chrome; the measured strings
+      are recorded at the top of `rtlTruncation.test.ts`.
 - [ ] **Arabic copy for the three new PR #96 keys is verified at CODE-POINT level
       only — needs a human eyeball in the Arabic UI during the D8b restyle PR.**
       (Owner: **@tornidomaroc-web** — this one is a human task, not an agent task.)

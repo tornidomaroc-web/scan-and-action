@@ -94,7 +94,11 @@ export const ProcessingTray: React.FC = () => {
                         <div className="w-9 h-9 flex-shrink-0 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center">
                           <FileText size={16} className="text-slate-400" />
                         </div>
-                        <p className="flex-1 min-w-0 text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{job.fileName}</p>
+                        {/* dir="auto" ON the truncating box (no isolate child): without
+                            it the box inherits the document direction, so in Arabic a
+                            Latin filename truncates from its LEADING (identifying) end
+                            and the user cannot tell which document is processing. */}
+                        <p dir="auto" className="flex-1 min-w-0 text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{job.fileName}</p>
                         {statusIcon(job)}
                         {openable && <ChevronRight size={16} className="text-slate-300 flex-shrink-0" />}
                       </div>
