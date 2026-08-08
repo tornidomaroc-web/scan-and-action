@@ -84,6 +84,47 @@ the period in which nobody is changing anything.
 
 Recorded 2026-08-02, amended 2026-08-03.
 
+### `grep` answers confidently and wrongly about CR, in both directions
+
+"Does this file contain CR?" is the question under every line-ending audit, and
+`grep` cannot be trusted with it here. It fails **both ways, silently**:
+
+- **Clean false negative.** MSYS / Git-Bash `grep` strips CR before matching, so
+  `grep -lI $'\r' <file>` prints nothing for a file that is unambiguously CRLF.
+  The empty output is indistinguishable from "no CRLF anywhere in the tree".
+
+- **Clean false positive.** In bash, `$"..."` is locale-translation syntax, not
+  an escape. `$"\r"` expands to the two characters `\` and `r`, so `grep $"\r"`
+  matches every file containing the letter *r* — which is very nearly all of
+  them, and reads as "the whole tree is CRLF".
+
+One quote character separates those two spellings. Neither emits a warning, a
+non-zero exit, nor anything else that invites a second look, and both produce a
+tidy number that reads like a finding.
+
+**Measure the bytes instead.** The replacement is not "be careful with grep", it
+is a different instrument:
+
+| Question | Call |
+|---|---|
+| Does this one file contain CRLF? | `od -c <file>` and look for `\r \n` |
+| Which files in the tree do? | PowerShell `[IO.File]::ReadAllBytes($p)`, scan for `0x0D 0x0A` |
+| What would a *checkout* produce, without touching the working tree? | `git checkout-index -a --prefix=<dir>/`, then compare |
+| What does git *declare* for a path? | `git check-attr text eol -- <path>` |
+
+**And prove the detector before believing it.** Write one known-CRLF file and
+one known-LF file, and confirm whatever you are using separates them, before
+trusting any census it produces. A positive control is the only thing that
+catches this; no amount of reading the command catches it.
+
+Both directions were hit within minutes of each other on 2026-08-07, during the
+audit that produced the line-ending policy this repository now guards: one
+spelling reported almost every tracked file as CRLF, the other reported none,
+and the truth was neither. The wrong answer nearly became the stated premise of
+a merged change. The positive control is what caught it.
+
+Recorded 2026-08-07.
+
 ### Cite the command, or drop the claim
 
 In merge and verification reports, every statement about repository or platform
