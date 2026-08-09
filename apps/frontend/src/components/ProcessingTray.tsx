@@ -100,7 +100,11 @@ export const ProcessingTray: React.FC = () => {
                             and the user cannot tell which document is processing. */}
                         <p dir="auto" className="flex-1 min-w-0 text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{job.fileName}</p>
                         {statusIcon(job)}
-                        {openable && <ChevronRight size={16} className="text-slate-300 flex-shrink-0" />}
+                        {/* Reading-direction icon: `rtl:-scale-x-100`, the same idiom
+                            every other chevron in the app carries. It sits in the
+                            SAME row as the dir="auto" filename above and was missed
+                            when that attribute landed (#142). */}
+                        {openable && <ChevronRight size={16} className="text-slate-300 flex-shrink-0 rtl:-scale-x-100" />}
                       </div>
                       {job.status === 'PROCESSING' && (
                         <div

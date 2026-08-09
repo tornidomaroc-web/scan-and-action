@@ -233,7 +233,7 @@ export const AuthScreen: React.FC = () => {
           </div>
 
           <div className="bg-white dark:bg-slate-800 p-10 lg:p-12 rounded-[40px] shadow-xl shadow-slate-200/60 dark:shadow-none border border-slate-200/50 dark:border-slate-700/50">
-            <div className="mb-10 lg:text-left text-center">
+            <div className="mb-10 lg:text-start text-center">
               <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-3 italic">
                 {isLogin ? s.authWelcomeBack : s.authCreateWorkspace}
               </h2>
@@ -244,7 +244,7 @@ export const AuthScreen: React.FC = () => {
 
             <form onSubmit={handleAuth} className="space-y-6">
               <div className="space-y-2">
-                <label htmlFor="email" className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] pl-1 flex items-center gap-2">
+                <label htmlFor="email" className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ps-1 flex items-center gap-2">
                   <Mail size={12} /> {s.authEmailLabel}
                 </label>
                 <input
@@ -296,7 +296,7 @@ export const AuthScreen: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    className="absolute end-4 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -334,7 +334,20 @@ export const AuthScreen: React.FC = () => {
                 ) : (
                   <>
                     {isLogin ? s.authContinueCta : s.authAccessCta}
-                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                    {/* `rtl:-scale-x-100` is the house idiom for a reading-direction
+                        icon (DashboardScreen.tsx:279, ReviewQueueScreen.tsx:206,
+                        ResultTable.tsx:145, DocumentDetailScreen.tsx:153).
+                        `group-hover:translate-x-1` is DROPPED rather than mirrored:
+                        translate-x is a physical axis, and the two ways to mirror it
+                        are a stacked `rtl:group-hover:` variant — whose precedence
+                        against the unprefixed rule depends on Tailwind's internal
+                        variant sort order, which nothing here verifies — or a
+                        logical margin, which reflows instead of compositing. Neither
+                        is worth an unverifiable dependency for a 4px hover nudge in a
+                        PR whose whole purpose is removing physical-axis classes.
+                        `transition-transform` is kept: the language switcher changes
+                        `dir` at runtime, so the flip itself animates. */}
+                    <ArrowRight size={18} className="transition-transform rtl:-scale-x-100" />
                   </>
                 )}
               </button>
@@ -352,7 +365,7 @@ export const AuthScreen: React.FC = () => {
                 {isLogin ? s.authNoAccount : s.authHaveAccount}
                 <button
                   onClick={() => { setIsLogin(!isLogin); setError(null); }}
-                  className="ml-2 text-blue-600 dark:text-blue-400 hover:underline font-black"
+                  className="ms-2 text-blue-600 dark:text-blue-400 hover:underline font-black"
                 >
                   {isLogin ? s.authCreateAccountCta : s.authSignInCta}
                 </button>
