@@ -180,7 +180,7 @@ export const SettingsScreen = () => {
                   <Zap size={32} strokeWidth={2.5} className="fill-blue-500" />
                 </div>
                 <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">{s.freeTier}</h4>
-                <div className="bg-amber-50 dark:bg-amber-900/10 border-l-4 border-amber-400 p-5 rounded-r-2xl mb-6 max-w-[360px] mx-auto text-left">
+                <div className="bg-amber-50 dark:bg-amber-900/10 border-s-4 border-amber-400 p-5 rounded-e-2xl mb-6 max-w-[360px] mx-auto text-start">
                   <p className="text-amber-700 dark:text-amber-500 font-black text-sm leading-relaxed italic">
                     {s.freeLimit}
                   </p>
@@ -198,12 +198,16 @@ export const SettingsScreen = () => {
                 <p className="text-slate-500 font-bold mb-6 max-w-[320px] mx-auto text-base">
                   {s.upgradeDesc}
                 </p>
-                <div className="bg-amber-50 dark:bg-amber-900/10 border-l-4 border-amber-400 p-5 rounded-r-2xl mb-8 max-w-[360px] mx-auto text-left">
+                {/* Logical accent bar: `border-s-4` + `rounded-e-2xl`, the idiom
+                    DeleteAccountModal.tsx:115 already uses after the same
+                    `border-l-4 … rounded-r-2xl` shape was found pinning the bar to
+                    the physical left — i.e. the TRAILING edge in Arabic. */}
+                <div className="bg-amber-50 dark:bg-amber-900/10 border-s-4 border-amber-400 p-5 rounded-e-2xl mb-8 max-w-[360px] mx-auto text-start">
                   <p className="text-amber-700 dark:text-amber-500 font-black text-sm leading-relaxed italic">
                     {s.freeLimit}
                   </p>
                 </div>
-                <div className="space-y-3 mb-10 inline-block text-left mx-auto">
+                <div className="space-y-3 mb-10 inline-block text-start mx-auto">
                    <div className="flex items-center gap-3 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-tight">
                       <ShieldCheck size={16} className="text-blue-500" />
                       {s.paywallFeatureUnlimited}
@@ -222,7 +226,10 @@ export const SettingsScreen = () => {
                   className="btn btn-primary w-full py-4 rounded-2xl shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 flex items-center justify-center gap-2 group transition-all"
                 >
                   {s.goPro}
-                  <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  {/* Same call as AuthScreen.tsx:337: flip with `rtl:-scale-x-100`,
+                      drop the physical `group-hover:translate-x-1` rather than try
+                      to mirror it. See the note there for why. */}
+                  <ChevronRight size={18} className="transition-transform rtl:-scale-x-100" />
                 </button>
               </div>
             )}

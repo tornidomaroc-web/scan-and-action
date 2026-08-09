@@ -104,7 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
           style={{ width: '100%', cursor: 'pointer' }}
         >
           <Plus size={18} />
-          New Scan
+          {s.newScan}
         </button>
       </div>
 
@@ -207,10 +207,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
               {userName.charAt(0).toUpperCase()}
             </div>
             <div style={{ flex: 1, minWidth: 0, textAlign: 'start' }}>
-              <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName}</p>
+              {/* Same value as SettingsScreen.tsx:69 (`user.email.split('@')[0]`),
+                  in a box that truncates — so it takes the same dir="auto".
+
+                  WHY THE APP-WIDE GUARD CANNOT SEE THIS LINE, in case someone
+                  later deletes the attribute and finds every check still green.
+                  tests/rtlTruncation.test.ts misses it TWICE over, and adding
+                  `userName` to its allowlist would close neither:
+                    1. TRUNCATING_ELEMENT keys on the `truncate` CLASS token. This
+                       box truncates via three inline style properties, so it is
+                       never scanned at all — it is the only such box in src
+                       (`git grep -c textOverflow -- apps/frontend/src` → 1).
+                    2. `userName` is deliberately OUT of USER_DATA, because the
+                       identifier also plausibly names an i18n label, and a guard
+                       that fires on label spans gets suppressed.
+                  So it is guarded where that file says such cases belong — per
+                  screen, at the DOM level, by a human who decided which it is:
+                  tests/sidebarLocalization.test.tsx. That is the same place
+                  SettingsScreen's copy is guarded (settingsPreferences.test.tsx:167). */}
+              <p dir="auto" style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName}</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
-                  {plan === 'PRO' ? s.proPlan : plan === 'FREE' ? s.freePlan : 'Checking Plan...'}
+                  {/* `verifyingAccount` ("جارٍ التحقق من حالة الحساب…"), not a new
+                      key: the same in-flight account check UploadModal.tsx:85
+                      already shows while `plan` is undefined. Reusing it keeps
+                      one approved wording for one state in all three locales. */}
+                  {plan === 'PRO' ? s.proPlan : plan === 'FREE' ? s.freePlan : s.verifyingAccount}
                 </p>
                 {plan === 'FREE' && (
                   <button
