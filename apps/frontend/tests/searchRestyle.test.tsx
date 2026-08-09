@@ -298,8 +298,13 @@ describe('Search restyle — RTL uses logical properties (source scan)', () => {
     expect(searchSrc).toMatch(/\bend-/);
     expect(searchSrc).toMatch(/\bps-/);
     expect(searchSrc).toMatch(/\bpe-/);
-    // The intent strip border is logical.
-    expect(searchSrc).toMatch(/border-s|border-s-/);
+    // A `border-s` assertion used to live here, covering the intent strip's accent
+    // bar. That strip is deleted (see the block below), and `border-s-4` /
+    // `rounded-e-card` appeared ONLY on it — so the assertion has no subject left.
+    // It is removed rather than relaxed: this repo treats a pin whose target no
+    // longer exists as failing just as loudly as an unpinned defect
+    // (noHardcodedUserFacingText.test.ts:57-61). Keeping it green would have meant
+    // re-adding a logical border somewhere unrelated purely to satisfy a scan.
   });
 
   it('ResultTable aligns by start (not the physical text-left) and pads logically', () => {
@@ -404,5 +409,121 @@ describe('Search page heading outline — h1 -> h2 (no skipped h2)', () => {
     runQuery('recent invoices');
     await vi.waitFor(() => expect(text()).toContain(strings.en.resultsTitle));
     expect(headingFor(strings.en.resultsTitle)?.tagName).toBe('H2'); // was H3
+  });
+});
+
+// ============================================================================
+// The English intent strip is gone, and must not come back
+// ============================================================================
+// `result.explanation` is assembled by queryPlanner.ts:147-172 from hardcoded
+// English fragments — a verb ("Grouping expenses"), an optional RAW ENUM
+// ("under NEEDS_REVIEW", the only value intentParser.ts:87-89 ever pushes), and a
+// relative-date expression ("from this month"). It was rendered verbatim on the
+// Search screen, so an Arabic session read English on every search. Confirmed by
+// eye on production, on all three suggestion chips.
+//
+// THE FIELD STILL ARRIVES. The backend was not touched, so a green source scan
+// alone would be the weaker claim ("nobody typed the identifier"). The assertions
+// below send a payload that DOES carry `explanation` and require that nothing
+// displays it — the property that actually matters now the field is dead payload.
+//
+// ANTI-VACUITY: the first test asserts the mock really did carry the string before
+// asserting it is absent from the DOM. Without that, a mock that silently stopped
+// including the field would produce the same green.
+describe('Search — the English intent strip is deleted and stays deleted', () => {
+  const searchSrc = read('../src/screens/SearchScreen.tsx');
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
+  afterEach(() => { root.unmount(); container.remove(); });
+
+  // Real output of generateExplanation for "total spend this month" — the exact
+  // string Abo Jad read on the Arabic screen.
+  const EXPLANATION = 'Calculating total spend from this month.';
+
+  const payloadWithExplanation = (lang: string) => ({
+    intent: 'sum_expenses',
+    outputFormat: 'short_answer',
+    requiresClarification: false,
+    data: [],
+    resultCount: 1,
+    executionTimeMs: 42,
+    sourceLanguage: lang,
+    explanation: EXPLANATION,
+    answerText: lang === 'ar' ? 'لقد أنفقت ما مجموعه 4,280.50 د.م.' : 'You spent 4,280.50 MAD.',
+  });
+
+  it('AR: the response carries `explanation`, and NOTHING renders it', async () => {
+    const payload = payloadWithExplanation('ar');
+    // Anti-vacuity control: prove the field is actually in the payload, so the
+    // absence assertion below is testing the UI and not an empty mock.
+    expect(payload.explanation).toBe(EXPLANATION);
+    h.executeQuery.mockResolvedValue(payload);
+    mount('ar');
+    runQuery('إجمالي');
+    await vi.waitFor(() => expect(text()).toContain(payload.answerText));
+    expect(text()).not.toContain(EXPLANATION);
+    // Every fragment generateExplanation can emit, not just the assembled string.
+    for (const fragment of [
+      'Calculating total spend', 'Grouping expenses', 'Listing documents',
+      'Counting documents', 'Finding the latest document', 'Searching workspace',
+      'under NEEDS_REVIEW', 'from this month', 'from last month',
+    ]) {
+      expect(text()).not.toContain(fragment);
+    }
+  });
+
+  it('EN: not rendered in English either — the strip is gone, not locale-gated', async () => {
+    h.executeQuery.mockResolvedValue(payloadWithExplanation('en'));
+    mount('en');
+    runQuery('total spend');
+    await vi.waitFor(() => expect(text()).toContain('You spent 4,280.50 MAD.'));
+    expect(text()).not.toContain(EXPLANATION);
+  });
+
+  it('the clarification path is unaffected — it renders from answerText, not explanation', async () => {
+    // Third ground of the deletion: clarification never depended on this field.
+    h.executeQuery.mockResolvedValue({
+      intent: 'list_documents', outputFormat: 'short_answer', requiresClarification: true,
+      data: [], resultCount: 0, executionTimeMs: 12, sourceLanguage: 'ar',
+      explanation: EXPLANATION,
+      answerText: strings.ar.clarifyFailed,
+    });
+    mount('ar');
+    runQuery('؟');
+    await vi.waitFor(() => expect(text()).toContain(strings.ar.clarifyFailed));
+    expect(text()).not.toContain(EXPLANATION);
+  });
+
+  it('clarification falls back to the translated string when answerText is absent', async () => {
+    h.executeQuery.mockResolvedValue({
+      intent: 'list_documents', outputFormat: 'short_answer', requiresClarification: true,
+      data: [], resultCount: 0, executionTimeMs: 12, sourceLanguage: 'ar',
+      explanation: EXPLANATION,
+    });
+    mount('ar');
+    runQuery('؟');
+    await vi.waitFor(() => expect(text()).toContain(strings.ar.clarifyFailed));
+  });
+
+  it('source: SearchScreen reads `explanation` nowhere', () => {
+    // Comments stripped first. The deletion site carries a note explaining WHY the
+    // strip is gone, and that note names `result.explanation` — so an unstripped
+    // scan fails on its own documentation and the documentation gets deleted to
+    // make it green. Same stripper, same reason, as
+    // tests/logicalDirectionRegression.test.ts; deliberately duplicated rather than
+    // shared, because coupling two independent guards through a helper is worse
+    // than two lines of overlap.
+    const code = searchSrc.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+    // Positive control: the stripper must not simply blank the file.
+    expect(code).toContain('const SearchScreen');
+    expect(code).not.toMatch(/result\.explanation/);
+    // The strip's own markup is gone too, so a partial revert cannot pass.
+    expect(code).not.toContain('border-s-4 border-accent');
+  });
+
+  it('the field is still DECLARED and documented as dead payload, not silently dropped', () => {
+    // Removing it from the DTO would make the type misdescribe the wire response.
+    const typesSrc = read('../src/types.ts');
+    expect(typesSrc).toMatch(/explanation\?: string;/);
+    expect(typesSrc).toMatch(/KNOWN DEAD PAYLOAD/);
   });
 });

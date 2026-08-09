@@ -199,14 +199,29 @@ export const SearchScreen = () => {
 
         {!loading && !errorMsg && result && (
           <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-            {/* Persistent intent confirmation */}
-            {result.explanation && (
-              <div className="flex items-center gap-2 rounded-e-card border-s-4 border-accent bg-surface-alt px-4 py-3">
-                <Sparkles size={16} className="flex-shrink-0 text-accent" />
-                <p className="text-sm text-ink-secondary">{result.explanation}</p>
-              </div>
-            )}
+            {/* The "persistent intent confirmation" strip that used to sit here is
+                GONE, deliberately. It rendered `result.explanation`, which the
+                backend assembles in queryPlanner.ts:147-172 out of hardcoded
+                English fragments — so it read "Grouping expenses." / "Calculating
+                total spend from this month." in an Arabic session, and in a French
+                one too. Two of three locales, on every search.
 
+                Localizing it was rejected: the fragments are a verb, an optional
+                raw enum (`under NEEDS_REVIEW`, from intentParser.ts:87-89), and a
+                relative-date expression, so a translation means either three
+                parallel sentence assemblers on the backend or a new API contract
+                shipping structured intent to the client.
+
+                Deleted rather than translated because the line was REDUNDANT:
+                  * the user's query is still on screen, in the input above — see
+                    `value={query}` below; submitQuery never clears it;
+                  * the answer card already states the result in Arabic
+                    (answerFormatter.ts has real ar templates);
+                  * the clarification path renders from `answerText ||
+                    s.clarifyFailed`, which has its own ar template, so it is
+                    unaffected — see the block immediately below.
+                Do NOT reinstate a reader for `explanation`; see the note on the
+                field in src/types.ts. */}
             {result.requiresClarification && (
               <div className="mx-auto max-w-2xl">
                 <ClarificationCard message={result.answerText || s.clarifyFailed} />
