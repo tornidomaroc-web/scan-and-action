@@ -211,32 +211,104 @@ surface" — one guard each, so the PR cannot be half-reverted quietly.
 
 ---
 
+## Approval record — the new Arabic copy, approved as numbers
+
+Approved by Abo Jad, decoded independently before presentation, unchanged:
+
+```
+ar.nameLabel        [1575, 1604, 1575, 1587, 1605]   U+0627 U+0644 U+0627 U+0633 U+0645
+ar.confidenceLabel  [1575, 1604, 1579, 1602, 1577]   U+0627 U+0644 U+062B U+0642 U+0629
+```
+
+**Approved as numbers, not as glyphs.** The arrays above are the approved
+artifact. What those code points render as depends on the font, the shaping
+engine and the surrounding bidi context, none of which are part of the
+approval — which is the whole reason the approval is expressed this way. A
+later reader comparing a screenshot against this section is comparing the
+wrong thing; compare against `strings.ts` via guard 11, which pins these exact
+arrays.
+
+The other four Arabic headers (`entityRoleVendor`, `amountLabel`, `status`,
+`date`) are pre-existing shipped copy, unchanged by this PR, and were
+deliberately **not** put up for approval: re-approving a live string invites
+an edit that would silently change Review Queue and Document Detail too.
+
+---
+
 ## What the screenshot review is confirming
 
-Abo Jad, this is the written claim. One screenshot: `/search`, language
-Arabic, desktop width `>= 1280px`, after running a query that returns a
-table (a `list` intent — "الفواتير الأخيرة"). Please check each line and
-say which fail, rather than whether it looks right.
+Abo Jad — each numbered item below gives a **pass shape and a fail shape**.
+Answer each one, rather than saying whether the screen looks right. Where a
+fail shape names a literal string, that string is what would actually appear;
+seeing it is the failure, no interpretation needed.
 
-1. The header row has **exactly six** headers.
-2. **Every one of the six is Arabic.** No Latin word in the header row at
-   all — not `Name`, not `Vendor`, not `Original File Name`.
-3. The header row reads **right to left**: the first column starts at the
-   **right** edge of the table.
-4. Latin in the body is allowed only where it is **user data** — a filename,
-   a vendor's own name, a currency code such as `MAD`, and digits. Any Latin
-   that is UI wording rather than data is a failure.
-5. **No raw enum anywhere**: no `COMPLETED`, `NEEDS_REVIEW`, `PROCESSING`,
-   `UNKNOWN_DOCUMENT_TYPE`. Status reads as an Arabic word.
-6. **No prose cell and no text dump.** No paragraph-length summary, no wall
-   of OCR text, no bare `ar` in its own column.
-7. Rows with no vendor or no amount show a **small faint hyphen**, not a
-   blank void, and not a long dash.
-8. The confidence column reads as a **percentage**, not `0.42`.
-9. **No horizontal scrollbar** under the table at 1280px.
+Setup: `/search`, language Arabic, after a query returning a table (a `list`
+intent, e.g. "الفواتير الأخيرة"). **Two widths — see 9a and 9b.** Items 1-8
+are checked on the 1280px shot.
 
-If 1-3 pass, this PR did its job. 4-6 are what #144 could not reach. 7-9 are
+| # | PASS looks like | FAIL looks like |
+|---|---|---|
+| 1 | Exactly **six** headers, plus a narrow empty chevron column | Any other count. Thirteen headers means the change did not take. Five means a column was dropped. |
+| 2 | All six headers Arabic | Any of `Name`, `Vendor`, `Amount`, `Status`, `Date`, `Confidence`, or `original File Name` in the header row |
+| 3 | First column at the **right** edge; chevron at the **left** | Name at the left edge and the chevron at the right — the table did not mirror |
+| 4 | Latin only as user data: filenames, vendor names, `MAD`/`USD`, digits | An English **UI word** in a body cell — most likely `Not available` appearing as visible text, which means the `sr-only` class did not apply and the screen-reader-only name leaked on screen |
+| 5 | Status reads as an Arabic word | `COMPLETED`, `NEEDS_REVIEW`, `PROCESSING`, `UNKNOWN_DOCUMENT_TYPE`, or `PROFORMA` visible anywhere |
+| 6 | Every cell is short | A cell holding a full sentence (the summary), a wall of OCR text (rawText), or a lone `ar` / `AR` in its own column |
+| 7 | Empty vendor/amount show a **small faint hyphen** `-` | A completely empty cell; **or** a long dash `—` / `–`; **or** the words `Not available` printed where the hyphen should be |
+| 8 | Confidence reads e.g. `42%` | `0.42` (the raw ratio), or `42` with no percent sign, or `4200%` (a value multiplied twice) |
+
+If 1-3 pass, this PR did its job. 4-6 are what #144 could not reach. 7-8 are
 the two decisions above, made visible.
+
+### 9a. Wide width — a claim, with a pass condition
+
+**1280px viewport.** Available table width is 872px: 1280 minus the 280px
+fixed rail (`Layout.tsx:99`) minus 128px of `xl:p-16` padding
+(`Layout.tsx:105`).
+
+- **PASS:** no horizontal scrollbar under the table, and the Confidence
+  column (the last one, at the **left** edge in Arabic) is fully visible.
+- **FAIL:** a horizontal scrollbar, or the last column clipped at the left
+  edge.
+
+I expect this one may fail, and the reason is a defect reported below rather
+than a mistake in the claim. Report the result either way; do not adjust the
+window to make it pass.
+
+### 9b. Narrow width — NOT a claim. An inspection with no pass condition.
+
+**768px viewport**, the exact `md` breakpoint at which the card layout stops
+and this table starts.
+
+I originally flagged this as "the real failure mode of this change". **That
+was wrong, and the correction matters here.** The six columns are a strict
+subset of the thirteen this table rendered before the change — every one of
+the six was already among them, and `rawText` and `summary` are gone. So the
+table is strictly narrower at every width than what already ships, and **no
+observation at 768px can be a regression caused by this PR.** A pass/fail set
+here would point this review at a pre-existing layout problem and invite it to
+fail this PR for something this PR improved.
+
+Your point stands and I am acting on it: "the columns are not cramped" is not
+a claim, because two readers answer it differently. It is not written as one.
+But an inspection can still have **forced answers** even without a verdict, and
+that is strictly better than a bare "have a look". Answer these three; each is
+a count or a yes/no that the screen decides, not you:
+
+- **Q1.** Is there a horizontal scrollbar under the table? **yes / no**
+- **Q2.** Without scrolling, how many of the six headers are **fully**
+  readable? **Write the integer, 0-6.**
+- **Q3.** Which header is the last fully readable one? **Name it.**
+
+There is no pass mark on those answers. They are recorded so a later reader
+has a number instead of an impression.
+
+**Prediction, so the inspection can falsify my model even though it cannot
+fail the PR.** Available table width at 768px is **424px**: 768 minus the
+280px rail minus 64px of `md:p-8`. Six cells at `px-5` spend 240px on padding
+alone, and the chevron column takes ~40px more — so roughly 144px is left for
+all six columns' text. I expect **Q1 = yes** and **Q2 = 2 or 3**. If you
+report Q2 = 6, my arithmetic is wrong and that is worth knowing on its own.
 
 ---
 
@@ -304,6 +376,52 @@ additionally rejects, in either of them:
   search and collation. Shaping is the font's job, not the catalog's.
 
 Both classes were confirmed caught by mutation, not by reading the test.
+
+## Two defects surfaced while writing the width instruction — NOT fixed here
+
+Both were found by reading `Layout.tsx` and `ResultTable.tsx` to state the
+available widths accurately. Both are reported rather than fixed, because
+fixing either is outside what this PR was scoped to do and neither is a
+regression it introduced. **Neither has been measured in a browser** — both
+are arithmetic from the source lines cited, and both should be confirmed
+before anyone acts on them.
+
+### D1 — the desktop table has no truncation, on any column
+
+The mobile card truncates its title, vendor and status
+(`ResultTable.tsx:137,138,152`). The desktop branch has no `truncate`, no
+`max-w` and no `whitespace` handling on any cell. A filename like
+`JPEG_20260615_222241_1286235000237534355.jpg` is a single unbreakable token
+— underscores are not break opportunities — so it sets the Name column's
+minimum width and pushes the table wider than its container, which then
+scrolls.
+
+This is why I expect **9a may fail**. It is pre-existing: the table has always
+lacked truncation. What changed is that it is now *visible* as the binding
+constraint, because `rawText` used to be far wider and dominated everything.
+So 9a's pass condition was never true before either — it was written in step 1
+as an expectation, not from a measurement, and it may simply be wrong.
+
+The fix is a `max-w-[Xch] truncate` on the Name cell with `title` carrying the
+full value, mirroring what the card already does. It is one line and it is not
+in this PR.
+
+### D2 — the `md` breakpoint hands the desktop table 424px
+
+`Layout.tsx:99` pins a 280px rail from `md` upward, and `Layout.tsx:105` adds
+`md:p-8`. At the 768px `md` breakpoint that leaves the table **424px**, of
+which ~280px is cell padding and the chevron column. The card layout stops at
+exactly the width where the table has least room.
+
+The real question this raises is whether the card/table switch belongs at `md`
+(768px) at all, rather than at `lg` (1024px) or `xl`. That is a layout
+decision about a component this PR did not restyle, it affects the mobile card
+branch which is out of scope here, and answering it by changing a breakpoint
+inside a localization PR is exactly the kind of ride-along change the
+description-first step exists to prevent.
+
+Recorded for a follow-up. 9b is written as an inspection partly so that this
+PR records a number for it without pretending to own it.
 
 ## One pre-existing test was rewritten
 
