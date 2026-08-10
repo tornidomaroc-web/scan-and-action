@@ -12,6 +12,7 @@
 // label (never the raw backend enum).
 
 import { formatCellValue, formatDateValue } from './formatCellValue';
+import { formatPercent } from './formatNumber';
 
 export interface CardStatus {
   key: string;
@@ -25,6 +26,8 @@ export interface PrimaryFields {
   vendor: string | null;
   amount: string | null;
   status: CardStatus | null;
+  date: string | null;
+  confidence: string | null;
 }
 
 // Minimal shape of the i18n dictionary this helper reads (keeps it React-free).
@@ -176,6 +179,32 @@ const firstReadable = (row: any, language: string): string | null => {
   return null;
 };
 
+// The row's date is `uploadedAt`, not `processedAt`. Three candidates existed:
+// `processedAt` is `DateTime?` (schema.prisma:128) and is null for every row
+// still processing — it would blank on exactly the rows a user is most likely
+// to be watching. A document-date fact is not reliably present. `uploadedAt` is
+// non-null with @default(now()) (schema.prisma:127) and is what the query
+// planner sorts by (queryPlanner.ts:73,129), so the column shows the value the
+// rows are already ordered by. DocumentDetailScreen.tsx:209 independently pairs
+// s.date with uploadedAt, so this matches an existing user-visible convention
+// rather than inventing a second one.
+export const getDate = (row: any, language: string): string | null =>
+  formatDateValue(row?.uploadedAt, language);
+
+// `overallConfidence` is a non-null Float in 0..1 (schema.prisma:125). Rendered
+// through the SHARED formatPercent, which is what DashboardScreen.tsx:212
+// already uses for a confidence ratio — so the two surfaces cannot drift on
+// separator or percent-sign placement. Guarded against three real mistakes:
+//   - a bare 0.42 (what formatCellValue would print),
+//   - dropping a legitimate 0 (a `value || null` shape treats it as absent),
+//   - a non-finite value, which formatPercent honestly renders as '' and which
+//     is mapped back to null here so the caller shows its placeholder.
+export const getConfidence = (row: any, language: string): string | null => {
+  const raw = row?.overallConfidence;
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return null;
+  return formatPercent(raw, language) || null;
+};
+
 export const getPrimaryFields = (row: any, s: Strings, language: string): PrimaryFields => {
   const title =
     (typeof row?.originalFileName === 'string' && row.originalFileName.trim()) ||
@@ -188,5 +217,47 @@ export const getPrimaryFields = (row: any, s: Strings, language: string): Primar
     vendor: getVendor(row),
     amount: getAmount(row, language),
     status: getStatus(row, s),
+    date: getDate(row, language),
+    confidence: getConfidence(row, language),
   };
 };
+
+// ============================================================================
+// ONE extractor, TWO display sets
+// ============================================================================
+// getPrimaryFields above is the single answer to "what does a search row mean".
+// Both layouts call it. What each layout DISPLAYS stays separate, and
+// deliberately so:
+//
+// The tempting version — one flat list of columns consumed by both layouts —
+// is not available here, and not because of taste. The mobile card is
+// progressive disclosure, and tests/searchRestyle.test.tsx:221 asserts by name
+// that confidence must NOT reach it. A single shared list would either push
+// confidence onto the card and break that guard, or would not be a single list.
+//
+// So the invariant that IS true gets pinned instead: DESKTOP is a SUPERSET of
+// MOBILE. A field the card shows must be a column the table shows; a column the
+// table shows need not appear on the card. That catches a field added to one
+// layout and forgotten in the other, in the one direction where forgetting is a
+// bug, without manufacturing a coupling that contradicts a passing test.
+// Asserted in tests/searchTableColumns.test.tsx (guard 10), both directions.
+
+export type PrimaryFieldName = 'title' | 'vendor' | 'amount' | 'status' | 'date' | 'confidence';
+
+export const MOBILE_FIELDS: PrimaryFieldName[] = ['title', 'vendor', 'amount', 'status'];
+
+// `labelKey` is a catalog key, never a literal. Four of the six are pre-existing
+// shipped copy, reused unchanged rather than duplicated under a new name:
+//   entityRoleVendor  strings.ts:271  ('Vendor' / 'Fournisseur' / Arabic)
+//   amountLabel       strings.ts:264  already a <th> in ReviewQueueScreen.tsx:252
+//   status            strings.ts:57   already a field label in DocumentDetail
+//   date              strings.ts:59   already labels uploadedAt in DocumentDetail
+// Only nameLabel and confidenceLabel are new in this PR.
+export const DESKTOP_COLUMNS: { field: PrimaryFieldName; labelKey: string }[] = [
+  { field: 'title', labelKey: 'nameLabel' },
+  { field: 'vendor', labelKey: 'entityRoleVendor' },
+  { field: 'amount', labelKey: 'amountLabel' },
+  { field: 'status', labelKey: 'status' },
+  { field: 'date', labelKey: 'date' },
+  { field: 'confidence', labelKey: 'confidenceLabel' },
+];

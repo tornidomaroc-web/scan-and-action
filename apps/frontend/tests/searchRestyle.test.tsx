@@ -189,16 +189,31 @@ describe('Search restyle — answer + labels come from i18n and real data only',
   // which still renders every raw column).
   const mobileText = () => (container.querySelector('div.md\\:hidden') as HTMLElement)?.textContent ?? '';
 
-  it('desktop table still formats object/array cells as readable text (never "[object Object]")', async () => {
+  // REWRITTEN BY PR 3, and the old assertions are recorded here rather than
+  // quietly dropped. This used to read:
+  //     // Desktop still shows the raw facts column formatted.
+  //     expect(desktop).toContain('4280');
+  //     expect(desktop).toContain('USD');
+  // Both pinned the PASSTHROUGH: a raw `facts` column serialized as
+  // "amount: 4280 USD". PR 3 replaced the passthrough with six named columns,
+  // so that column no longer exists and those two lines had no subject left.
+  // They are replaced, not relaxed — the repo treats a pin whose target is gone
+  // as failing as loudly as an unpinned defect (noHardcodedUserFacingText.test.ts:57-61).
+  // The surviving intent — object/array data never reaches a cell raw — is
+  // asserted below in its new form: the amount arrives currency-formatted
+  // through getAmount, and the raw serialization is gone.
+  it('desktop table renders extracted values, never raw object/array serializations', async () => {
     h.executeQuery.mockResolvedValue(tableResult);
     mount('en');
     runQuery('recent invoices');
     await vi.waitFor(() => expect(text()).toContain('Aurora Studios'));
     expect(text()).not.toContain('[object Object]');
-    // Desktop still shows the raw facts column formatted.
     const desktop = (container.querySelector('div.md\\:block') as HTMLElement).textContent ?? '';
-    expect(desktop).toContain('4280');
-    expect(desktop).toContain('USD');
+    // The amount is the extracted fact, currency-formatted (not the bare 4280).
+    expect(desktop).toContain('4,280');
+    // The raw fact serialization the passthrough used to emit is gone.
+    expect(desktop).not.toContain('amount: 4280');
+    expect(desktop).not.toContain('4280 USD');
   });
 
   it('mobile card shows ONLY the primary fields (name, vendor, amount, status), not every column', async () => {

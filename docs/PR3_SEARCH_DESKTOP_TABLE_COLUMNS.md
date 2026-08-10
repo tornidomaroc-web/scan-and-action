@@ -54,12 +54,20 @@ Six, fixed, in this order:
 
 | # | Column | Source | Header key |
 |---|---|---|---|
-| 1 | Name | `PrimaryFields.title` | new |
-| 2 | Vendor | `PrimaryFields.vendor` | new |
+| 1 | Name | `PrimaryFields.title` | `nameLabel` — **new** |
+| 2 | Vendor | `PrimaryFields.vendor` | `entityRoleVendor` (exists, all 3 locales) |
 | 3 | Amount | `PrimaryFields.amount` | `amountLabel` (exists, all 3 locales) |
 | 4 | Status | `PrimaryFields.status.label` | `status` (exists, all 3 locales) |
 | 5 | Date | `uploadedAt` | `date` (exists, all 3 locales) |
-| 6 | Confidence | `overallConfidence` | new (`aiConfidence` exists; see below) |
+| 6 | Confidence | `overallConfidence` | `confidenceLabel` — **new** |
+
+**Only two keys are new.** The vendor header reuses `entityRoleVendor`
+(`strings.ts:271`, 'Vendor' / 'Fournisseur' / Arabic), which is shipped,
+approved copy that already means exactly this. `amountLabel` is already a
+`<th>` in `ReviewQueueScreen.tsx:252`, and `date` already labels `uploadedAt`
+in `DocumentDetailScreen.tsx:209` — the second of those is an independent
+confirmation of the date ruling below, made on a different screen before this
+PR existed.
 
 Dropped: `summary`, `rawText`, `detectedLanguage`, `documentSubtype`, and
 everything else the passthrough currently exposes.
@@ -240,3 +248,68 @@ the two decisions above, made visible.
 
 Not merged from this commit. No catalog key is added until step 2, so `main`
 is unchanged in behaviour by this file.
+
+---
+
+# Amendment, step 2
+
+What the implementation changed about the plan above. Recorded here rather
+than left as a discrepancy between this file and the code.
+
+## Guard 5 as specified was wrong in both directions, and is replaced
+
+The plan named: *"in `ar`, each rendered header equals `strings.ar.<key>` and
+**no header equals its `strings.en` value**"*. The second half was written,
+run, and deleted. It fails twice:
+
+- **It was GREEN against the broken component.** The generated header was
+  `original File Name`, which is not a value in the EN catalog, so "differs
+  from English" held perfectly while every header on the Arabic screen was
+  English. It would have shipped as a passing guard over the exact defect it
+  was written for — the same false-green shape as the CR grep in `CLAUDE.md`.
+- **It then went RED against the correct component**, on `fr.date`: the
+  French for "Date" is "Date". A legitimate identical translation is
+  indistinguishable from a missing one by that test.
+
+The first half — the positional `toEqual` against the locale's own catalog —
+subsumes it and has neither failure. Kept alongside it: `ar` headers contain
+no Latin letter at all, and the two genuinely-new keys differ from their
+English spelling in `fr`. The deletion and its reasoning are recorded at the
+guard site, not only here.
+
+This is the one claim of the nine that moved. Claims 1, 2, 3, 4, 6, 7, 8, 9,
+10 and 11 are implemented as written.
+
+## Two new keys, not six
+
+The plan implied a new key per column. Four of the six already existed as
+shipped copy and are reused unchanged; see the column table above. So the new
+user-visible copy in this PR is two strings per locale, six in total.
+
+## The gate is now BOTH code points and screenshot
+
+This PR was scoped as a layout change when the five-PR shape was ruled, which
+is why it drew the screenshot gate and PR 4 drew code-point approval. It is
+not a layout change any more — it adds Arabic copy — so it carries both. The
+code-point approval covers `ar.nameLabel` and `ar.confidenceLabel` only; the
+other four Arabic headers are already-approved strings this PR does not touch.
+
+Guard 11 pins both new Arabic strings **as code-point arrays**, and
+additionally rejects, in either of them:
+
+- bidi controls U+200E/U+200F, U+202A-U+202E, U+2066-U+2069 — invisible, and
+  would survive any review conducted on glyphs;
+- Arabic presentation forms U+FB50-U+FDFF and U+FE70-U+FEFF — legal
+  characters that render identically to the canonical letters and break
+  search and collation. Shaping is the font's job, not the catalog's.
+
+Both classes were confirmed caught by mutation, not by reading the test.
+
+## One pre-existing test was rewritten
+
+`searchRestyle.test.tsx:192` asserted that the desktop table renders the raw
+`facts` column as `4280` and `USD`. That column no longer exists, so those
+two lines had no subject. They are replaced, not relaxed, and the old
+assertions are quoted at the site — the repo treats a pin whose target is
+gone as failing as loudly as an unpinned defect
+(`noHardcodedUserFacingText.test.ts:57-61`).
