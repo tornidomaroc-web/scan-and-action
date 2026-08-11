@@ -295,6 +295,128 @@ describe('Guard 10 — desktop shows every field mobile shows', () => {
   });
 });
 
+// ── GUARD 12: D1 — the free-text columns are bounded and state a direction ─
+describe('Guard 12 — bounded Name/Vendor cells: full value recoverable, direction decided', () => {
+  afterEach(() => { root.unmount(); container.remove(); localStorage.clear(); });
+
+  // A vendor longer than its own bound, so the vendor half of this guard is
+  // about a value that would actually clip rather than one that happens to fit.
+  const LONG_VENDOR = 'Societe Marocaine de Distribution SARL';
+  const LONG_ROW = { ...RICH_ROW, documentEntities: [{ role: 'VENDOR', entity: { canonicalName: LONG_VENDOR } }] };
+
+  // Positional, and only safe because guard 1 pins the count and guard 5 the order.
+  const BOUNDED = { title: 0, vendor: 1 } as const;
+  const UNBOUNDED = [2, 3, 4, 5]; // amount, status, date, confidence
+  const cells = () => [...desktop()!.querySelectorAll('tbody td')];
+  const box = (i: number) => cells()[i].querySelector('div') as HTMLElement | null;
+
+  it('ANTI-VACUITY: the fixtures are longer than their bounds and unbreakable', async () => {
+    // Without this the whole guard could pass on values that never clip, which
+    // is a different situation wearing the same green.
+    const { DESKTOP_COLUMNS } = await import('../src/lib/searchResultCard');
+    expect(LONG_NAME.length).toBeGreaterThan(DESKTOP_COLUMNS[BOUNDED.title].maxCh!);
+    expect(LONG_VENDOR.length).toBeGreaterThan(DESKTOP_COLUMNS[BOUNDED.vendor].maxCh!);
+    // The name is one token: underscores are not break opportunities, which is
+    // why it, and not the vendor, was the column that forced the table wide.
+    expect(LONG_NAME).not.toMatch(/\s/);
+  });
+
+  it('exactly the two free-text columns declare a bound, and it is a real number', () => {
+    // Pins the WIDENING decision as data. D1 was reported against the Name cell
+    // alone; vendor is bounded too because it is the other free-text column and
+    // an unbounded vendor reintroduces the scroll the bound exists to prevent.
+    // Also stops the guard going vacuous if a maxCh is deleted.
+    return import('../src/lib/searchResultCard').then(({ DESKTOP_COLUMNS }) => {
+      const bounded = DESKTOP_COLUMNS.filter((c) => c.maxCh != null).map((c) => c.field);
+      expect(bounded).toEqual(['title', 'vendor']);
+      for (const c of DESKTOP_COLUMNS.filter((x) => x.maxCh != null)) {
+        expect(typeof c.maxCh).toBe('number');
+        expect(c.maxCh!).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  for (const [name, idx, value] of [
+    ['name', BOUNDED.title, LONG_NAME],
+    ['vendor', BOUNDED.vendor, LONG_VENDOR],
+  ] as const) {
+    it(`ar: the ${name} cell's title attribute is the COMPLETE value`, () => {
+      // The point of the attribute: the clipped value stays recoverable. A
+      // pre-truncated title (…, slice, or the ellipsis character) is the failure
+      // this asserts against, so `toBe` on the whole string, never `toContain`.
+      mount('ar', <ResultTable data={[LONG_ROW]} />);
+      expect(box(idx)?.getAttribute('title')).toBe(value);
+      expect(box(idx)?.getAttribute('title')).not.toContain('…');
+    });
+
+    it(`ar: the ${name} cell's TEXT is still the complete value (AT loses nothing)`, () => {
+      // The clipping must be CSS, never a JS slice. This is the assertion that
+      // protects screen-reader users; the title attribute does not, and is not
+      // claimed to — on a role-less <div> it is not reliably an accessible name.
+      mount('ar', <ResultTable data={[LONG_ROW]} />);
+      expect(box(idx)?.textContent).toBe(value);
+    });
+
+    it(`ar: the ${name} cell states dir="auto" specifically`, () => {
+      // NOT a presence check. The app-wide Class-B rule accepts any stated
+      // direction because no human has looked at those sites; one has looked at
+      // this one. `auto` is the only value that keeps the HEAD of both a Latin
+      // and an Arabic value — see the reasoning at the render site. Flipping it
+      // to "ltr" must be a red test, not a silent preference change.
+      mount('ar', <ResultTable data={[LONG_ROW]} />);
+      expect(box(idx)?.getAttribute('dir')).toBe('auto');
+    });
+
+    it(`ar: the ${name} cell carries the bound its column declares`, () => {
+      mount('ar', <ResultTable data={[LONG_ROW]} />);
+      return import('../src/lib/searchResultCard').then(({ DESKTOP_COLUMNS }) => {
+        expect(box(idx)!.style.maxWidth).toBe(`${DESKTOP_COLUMNS[idx].maxCh}ch`);
+      });
+    });
+  }
+
+  it('the four formatted columns are NOT bounded (the branch is conditional)', () => {
+    // If the bounded branch were unconditional this whole guard would still be
+    // green while an ellipsis appeared in the date and status cells.
+    mount('ar', <ResultTable data={[LONG_ROW]} />);
+    for (const i of UNBOUNDED) {
+      expect(cells()[i].querySelector('[title]'), `column ${i} should not be bounded`).toBeNull();
+      expect(box(i), `column ${i} should render the plain span`).toBeNull();
+    }
+  });
+
+  it('an empty bounded cell renders the placeholder and no title at all', () => {
+    // Not title="" and not title="null": the placeholder path must not grow a
+    // tooltip advertising an absent value.
+    const BARE = { id: 'doc-3', originalFileName: 'card.jpg', status: 'COMPLETED', uploadedAt: '2026-07-01T10:00:00Z', overallConfidence: 0.7, documentEntities: [], facts: [] };
+    mount('ar', <ResultTable data={[BARE]} />);
+    expect(cells()[BOUNDED.vendor].querySelector('[title]')).toBeNull();
+    expect(cells()[BOUNDED.vendor].querySelector('.sr-only')?.textContent).toBe(strings.ar.notAvailable);
+  });
+
+  // HONEST LIMIT OF GUARD 12, stated because the gap is not obvious from the
+  // greens above. What is asserted: the value reaching the DOM is complete, the
+  // recovery path carries it complete, the direction is the decided one, and the
+  // declared bound reaches the element. What is NOT, and cannot be here:
+  //   - that the ellipsis lands on the tail rather than the head. jsdom has no
+  //     layout engine and no bidi resolution; no test in this repo can show it.
+  //     The idiom was proven by hand in Chrome (rtlTruncation.test.ts:17) and
+  //     confirmed on the Arabic activity screen, which is why this cell copies a
+  //     working site instead of inventing one.
+  //   - that `truncate` (the three clipping properties) is still on the box.
+  //     Asserting the class token would prove nothing about behaviour while
+  //     reading as if it did, which is the false-green shape CLAUDE.md is about.
+  //     MEASURED, not assumed: deleting the class leaves all 51 tests green.
+  //   - that 24ch and 16ch are the RIGHT numbers. They are arithmetic. Screenshot
+  //     check 9a is the measurement, and is the reason this commit exists: with
+  //     no bound at all, a scrollbar in that shot could not be attributed.
+  //     MEASURED: maxCh 24 -> 40 survives every test here. (24 -> 999 does go
+  //     red, but on the anti-vacuity test above and only because the fixture
+  //     stops being longer than the bound — that is a fixture check, not a
+  //     layout one, and it must not be read as this file having an opinion on
+  //     the width.)
+});
+
 // ── GUARD 11: catalog parity for the two NEW keys ──────────────────────────
 describe('Guard 11 — catalog parity for the new keys', () => {
   // Only these two are new. entityRoleVendor / amountLabel / status / date are

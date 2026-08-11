@@ -20,6 +20,9 @@ type ResultTableProps = {
 //    rendered as "COMPLETED"; and the column SET was decided by row 1, so a
 //    sparse first row deleted columns for every row beneath it. It also dragged
 //    in `summary`, `rawText`, `detectedLanguage` and `documentSubtype`.
+//    The two free-text columns (Name, Vendor) are BOUNDED and clip with an
+//    ellipsis; the other four are formatted to a bounded length and are not.
+//    See the direction note on the bounded cell below before changing it.
 //  - Mobile (< md): PROGRESSIVE DISCLOSURE. Each row is a slim card showing only
 //    the primary fields (name, vendor, amount, translated status) rather than
 //    every column; the whole card taps through to the document detail route where
@@ -96,7 +99,96 @@ export const ResultTable = ({ data, emptyStateComponent, onRowClick }: ResultTab
                       key={c.field}
                       className="px-5 py-3.5 text-start align-top text-sm text-ink-secondary transition-colors group-hover:text-ink"
                     >
-                      {v == null || v === '' ? placeholder : <span dir="auto">{v}</span>}
+                      {v == null || v === '' ? (
+                        placeholder
+                      ) : c.maxCh ? (
+                        // ── The bounded cell (defect D1) ─────────────────────
+                        // Only Name and Vendor take this branch; see the maxCh
+                        // note in lib/searchResultCard.ts for why the other four
+                        // are not bounded. Without it a single unbreakable token
+                        // — `JPEG_20260615_222241_1286235000237534355.jpg`, where
+                        // underscores are not break opportunities — sets the
+                        // column's minimum width and pushes the table past its
+                        // container into a horizontal scroll.
+                        //
+                        // A <div>, not the existing <span>: `overflow` and
+                        // `text-overflow` do not apply to a non-replaced inline
+                        // box, so a span could not clip at all. And not the <td>
+                        // either: under `table-layout: auto` a cell's max-width
+                        // is advisory and the algorithm may exceed it, whereas a
+                        // block child's max-width caps its own box and the cell
+                        // takes its preferred width from that child.
+                        //
+                        // DIRECTION: dir="auto", DECIDED, not inherited.
+                        // This box holds user data inside a page whose direction
+                        // is the UI language's, and those are independent — so
+                        // the ambient direction is never the right answer here,
+                        // only the unconsidered one (#142). Three values were
+                        // available and only one is correct for BOTH scripts:
+                        //   inherit  in Arabic the box resolves RTL, and a Latin
+                        //            filename loses its LEADING end — the reader
+                        //            gets a wrong string, not a missing one.
+                        //   dir=ltr  correct for a Latin name, and wrong for an
+                        //            Arabic one, which then loses its leading end
+                        //            instead. Arabic filenames are a real case
+                        //            here, measured in Chrome and recorded at
+                        //            tests/rtlTruncation.test.ts:17.
+                        //   dir=auto takes the direction from the value's own
+                        //            first strong character, so the HEAD survives
+                        //            in both. This is the behaviour Abo Jad
+                        //            confirmed on the Arabic activity screen —
+                        //            head kept, tail eaten — which is the same
+                        //            idiom at ActivityScreen.tsx:114, so this
+                        //            matches an observed-good result rather than
+                        //            inventing a preference.
+                        // A second, independent reason it must be `auto` and not
+                        // a guess about the script: `title` is not necessarily a
+                        // filename. getPrimaryFields falls back through `name`,
+                        // `entity.canonicalName` and firstReadable(), so the
+                        // value's script is genuinely unknown at this line.
+                        //
+                        // WHY THE APP-WIDE GUARD CANNOT ENFORCE THIS BOX, in case
+                        // someone later deletes the dir and finds every check
+                        // still green. tests/rtlTruncation.test.ts DOES scan this
+                        // element — unlike the Sidebar box, it truncates by class
+                        // — but its Class-B rule fires only when the element's
+                        // content names `fileName`, `originalFileName` or
+                        // `email`. This is a generic cell renderer: the content is
+                        // `{v}`, so the rule looks straight at it and clears it.
+                        // Measured, not assumed: with the dir deleted from this
+                        // box, rtlTruncation.test.ts stays fully green and only
+                        // guard 12 goes red. Adding `v` to that allowlist is not
+                        // available — it would fire on every truncating box in
+                        // the app. So this is guarded where that file says such
+                        // cases belong: per screen, at the DOM level, by a human
+                        // who decided which it is — searchTableColumns.test.tsx,
+                        // guard 12. The mobile card two branches below is blind
+                        // for the same reason (`{title}`, `{vendor}`).
+                        //
+                        // `title` IS A POINTER AFFORDANCE, NOT AN ACCESSIBILITY
+                        // MEASURE, and must not be mistaken for one. The clipping
+                        // is CSS: the full string stays in the text node, so a
+                        // screen reader reads the whole name whether or not it is
+                        // visually clipped, and nothing needs recovering for AT.
+                        // On this role-less <div> the title is exactly the shape
+                        // that failed for the placeholder's old aria-label — not
+                        // reliably exposed as an accessible name — which costs
+                        // nothing only because AT never needed it. Guard 12
+                        // asserts the cell's text is still the complete value,
+                        // which is the claim that actually protects AT. Keyboard
+                        // users, who cannot hover, reach the full name by
+                        // activating the row.
+                        <div
+                          className="truncate"
+                          dir="auto"
+                          title={v}
+                          style={{ maxWidth: `${c.maxCh}ch` }}
+                        >
+                          {v}
+                        </div>
+                      ) : (
+                        <span dir="auto">{v}</span>
+                      )}
                     </td>
                   );
                 })}

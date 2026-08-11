@@ -406,6 +406,10 @@ The fix is a `max-w-[Xch] truncate` on the Name cell with `title` carrying the
 full value, mirroring what the card already does. It is one line and it is not
 in this PR.
 
+**D1 was subsequently fixed in this PR — see "Amendment, D1" at the end of this
+file.** The paragraph above is left as written because it is the report that
+prompted the fix, and because two of its claims turned out to be wrong.
+
 ### D2 — the `md` breakpoint hands the desktop table 424px
 
 `Layout.tsx:99` pins a 280px rail from `md` upward, and `Layout.tsx:105` adds
@@ -422,6 +426,78 @@ description-first step exists to prevent.
 
 Recorded for a follow-up. 9b is written as an inspection partly so that this
 PR records a number for it without pretending to own it.
+
+## Amendment, D1 — the bound is now in this PR, and it is two columns
+
+Two claims in the D1 report above were wrong, and both changed the fix.
+
+**"One line" was wrong, and the missing part is the whole risk.** A box that
+clips, holding user data, with no stated direction is the exact shape #142 was
+written about: in Arabic an unstated direction is inherited from the page, and a
+Latin filename loses its LEADING end — the reader gets a wrong string, not a
+missing one. Adding truncation without answering "which end does the ellipsis
+eat" is how that class of defect is created, and it would have been created here
+in the same lane that catalogued it.
+
+The direction is **`dir="auto"`**, and the reasoning is at the site, not here.
+Summarised: it is the only one of the three available values that keeps the HEAD
+of both a Latin and an Arabic value, Arabic filenames are a real case in this
+repo (measured in Chrome, recorded at `rtlTruncation.test.ts:17`), and it matches
+the behaviour already confirmed correct on the Arabic activity screen —
+`ActivityScreen.tsx:114`, same idiom, head kept and tail eaten. This copies an
+observed-good result rather than inventing a preference.
+
+**"The Name cell" was wrong: it is Name AND Vendor.** Vendor is the other
+free-text column — `displayName ?? aliases[0] ?? canonicalName` straight from a
+document — and it is not length-limited anywhere. Bounding Name alone would
+leave 9a's pass condition falsifiable by a long vendor, which defeats the reason
+for bounding at all. The other four columns are deliberately NOT bounded: amount
+and confidence go through Intl, date through the shared date path, and status to
+a member of a fixed label set, so none can widen the table.
+
+**The bound is data, not a class.** `maxCh` lives in `DESKTOP_COLUMNS` beside the
+header key. Tailwind cannot emit an arbitrary value it cannot see as a literal,
+so a per-column width can only reach the DOM as an inline style anyway; putting
+the number in the column definition makes it reviewable next to the column and
+lets guard 12 assert that the declared bound is the one the element carries.
+
+### Guard 12, and what the mutations actually established
+
+Ten mutations, run against the implementation, not read:
+
+- **Killed, each by its own assertion:** deleting the `dir`; changing it to
+  `ltr`; slicing the `title`; deleting the `title`; deleting the width; making
+  the bounded branch unconditional; putting a `title` on the placeholder path;
+  and replacing the CSS clip with a JS slice of the text node.
+- **Survived — `maxCh: 24 → 40`.** A plausible wrong width passes every test in
+  the file. Deliberate: 24 and 16 are arithmetic from `Layout.tsx`, nothing in
+  this repo can evaluate them, and a test that appeared to would be lying. **9a
+  owns this number.**
+- **Survived — deleting the `truncate` class.** jsdom loads no CSS, so the three
+  clipping properties are unverifiable here. Asserting the class token would
+  prove nothing about behaviour while reading as if it did.
+
+Both survivors are recorded at the guard site with their owner named.
+
+### The app-wide truncation scan cannot enforce this cell
+
+Stated here and at the site, for the same reason the Sidebar box carries the
+same note: someone who later deletes the `dir` will find every other check
+green. `rtlTruncation.test.ts` **does** scan this element — unlike Sidebar's box
+it truncates by class — but its Class-B rule only fires when the element's
+content names `fileName`, `originalFileName` or `email`. This is a generic cell
+renderer whose content is `{v}`, so the rule looks straight at it and clears it.
+Measured, not inferred: with the `dir` deleted, `rtlTruncation.test.ts` stays
+fully green and only guard 12 goes red. The mobile card is blind for the same
+reason (`{title}`, `{vendor}`).
+
+### What 9a should now report
+
+9a is unchanged and is still the measurement. What changed is that it is now
+**answerable**: before this commit no column had any bound, so a horizontal
+scrollbar in the shot could not be attributed to anything in particular. It can
+now. If 9a still shows a scrollbar, the two numbers in `DESKTOP_COLUMNS` are
+what to change, and nothing else.
 
 ## One pre-existing test was rewritten
 

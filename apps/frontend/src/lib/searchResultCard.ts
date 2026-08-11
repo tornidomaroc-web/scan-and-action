@@ -253,9 +253,36 @@ export const MOBILE_FIELDS: PrimaryFieldName[] = ['title', 'vendor', 'amount', '
 //   status            strings.ts:57   already a field label in DocumentDetail
 //   date              strings.ts:59   already labels uploadedAt in DocumentDetail
 // Only nameLabel and confidenceLabel are new in this PR.
-export const DESKTOP_COLUMNS: { field: PrimaryFieldName; labelKey: string }[] = [
-  { field: 'title', labelKey: 'nameLabel' },
-  { field: 'vendor', labelKey: 'entityRoleVendor' },
+// `maxCh` BOUNDS A COLUMN (defect D1). A bounded cell renders inside a box that
+// clips with an ellipsis at `maxCh` characters; an unbounded one renders as it
+// always did and sets its own width from its content.
+//
+// WHICH TWO, AND WHY NOT THE OTHER FOUR. Only `title` and `vendor` are free
+// text of unbounded length arriving from a document. The other four are
+// formatted by this file into values with a ceiling: `amount` and `confidence`
+// through Intl, `date` through the shared date path, `status` to a member of a
+// fixed label set. None of them can widen a table, so bounding them would buy
+// nothing and would put an ellipsis where a reader would read it as data loss.
+//
+// The bound lives HERE, as a number in the column definition, rather than as a
+// `max-w-[24ch]` class at the render site. Two reasons, and the first is not
+// stylistic: Tailwind cannot generate an arbitrary value it cannot see as a
+// literal, so a per-column width can only reach the DOM as an inline style.
+// Given that, the number belongs next to the column it bounds, where it is
+// reviewable alongside the header key — and where a test can read the declared
+// bound and assert the DOM carries that exact value.
+//
+// THE NUMBERS ARE ARITHMETIC, NOT A MEASUREMENT. At the 1280px viewport of
+// screenshot check 9a the table has 872px. Six cells at `px-5` spend 240px on
+// padding and the chevron column ~40px, leaving ~592px of text. The four
+// bounded-by-format columns want roughly 10ch + 12ch + 11ch + 4ch; 24ch + 16ch
+// for these two fits the remainder with a little slack at a 14px UI font. That
+// is a calculation from the source lines cited in the PR doc, and nothing in
+// this repo can confirm it — 9a is the measurement. If 9a still reports a
+// horizontal scrollbar, these two numbers are what to change.
+export const DESKTOP_COLUMNS: { field: PrimaryFieldName; labelKey: string; maxCh?: number }[] = [
+  { field: 'title', labelKey: 'nameLabel', maxCh: 24 },
+  { field: 'vendor', labelKey: 'entityRoleVendor', maxCh: 16 },
   { field: 'amount', labelKey: 'amountLabel' },
   { field: 'status', labelKey: 'status' },
   { field: 'date', labelKey: 'date' },
