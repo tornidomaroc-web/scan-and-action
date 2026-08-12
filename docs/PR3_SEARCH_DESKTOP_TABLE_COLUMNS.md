@@ -589,3 +589,148 @@ two lines had no subject. They are replaced, not relaxed, and the old
 assertions are quoted at the site — the repo treats a pin whose target is
 gone as failing as loudly as an unpinned defect
 (`noHardcodedUserFacingText.test.ts:57-61`).
+
+---
+
+# Screenshot review — results
+
+Taken by Abo Jad on the preview at `9dd91bb`, UI language Arabic, desktop at
+full window width. Query: `أظهر كل المستندات`, 26 rows returned. These are eye
+observations of a screen, recorded against the question each one answers.
+
+**The 768px inspection (9b) has not been taken.** Its three questions are still
+open and the prediction at 9b is still unfalsified.
+
+| # | Answer | Result |
+|---|---|---|
+| 1 | 6 headers | PASS |
+| 2 | الاسم · المورّد · المبلغ · الحالة · التاريخ · الثقة | PASS — all six Arabic, no English header |
+| 3 | First column at the right, arrows at the left | PASS — the table mirrored |
+| 4 | — | not separately reported; see the finding on `UNKNOWN` below |
+| 5 | `تمت المعالجة`, `يحتاج مراجعة`; no raw enum on any row | PASS |
+| 6 | No sentence, no OCR wall, no lone `ar`/`AR` column | PASS |
+| 7 | `fghj1.jpg` row: small faint hyphen in both vendor and amount | PASS — and its confidence renders `0%`, so a legitimate zero is not swallowed by the placeholder |
+| 8 | `99%`, `65%`, `0%` | PASS — never `0.99`, never bare `42`, never `4200%` |
+| 9a | No horizontal scrollbar; `الثقة` fully visible at the left edge; dates on one line | **PASS** |
+| 9c | **A**, on many rows and on **both** bounded columns | **PASS** |
+| 9b | not taken | open |
+
+**9a passed, so the `maxCh` arithmetic holds.** `24` and `16` are the right
+numbers at full width and are not to be changed. Recorded separately, as an
+observation with no pass condition attached: at a narrower window the date
+column wrapped to three lines (day / month / year), still with no scrollbar.
+That is a wrap, not an overflow, and no claim in this file covers it.
+
+**9c answered A, which is the result the bound was written to earn.** Name:
+`D9C02893-E610-4FD7-AA8A…`, `JPEG_20260615_222241_1286…`,
+`IC-Basic-Receipt-Template (1)…`, `cafe-receipt-design-template.…`. Vendor:
+`Société Régionale …`, `ARTGROUP T-Shirt…`, `Berghotel Grosse S…`,
+`Flame Kitchen Rest…`, `ANTICO FORNO A…`. Every one keeps the head and eats the
+tail, in both scripts, on both columns. `dir="auto"` on the bounded box is
+confirmed correct by observation, which was the only instrument that could
+confirm it — and answer **C** was not reached, so the bound was genuinely
+exercised by the data.
+
+## Two findings the checks did not cover
+
+Reported by Abo Jad as observations. Both are diagnosed here from the code, and
+the two diagnoses land differently.
+
+### F1 — `UNKNOWN` in the vendor column is stored data, and it predates this PR
+
+Several rows print the literal word `UNKNOWN` in the vendor column, alongside
+values that are plainly document content (`Your Company name`,
+`[Company Name]`, `SHOP NAME`, `Company inc.`, `THE BISTRO`, `Coffee-Shop`).
+
+**It is not written by any front-end fallback.** `getVendor`
+(`lib/searchResultCard.ts:68-79`) reads
+`displayName ?? aliases[0] ?? canonicalName ?? name` off a stored entity and
+returns `null` when all are empty. No branch of it can invent a string.
+
+**It is a sentinel that leaks out of extraction.** The Gemini prompt teaches the
+model to use the literal `"UNKNOWN"` as the not-found marker for the date field
+(`geminiAdapter.ts:131`, and again in the schema at `:139`). `merchantName` is
+declared in the same schema with no not-found convention of its own
+(`:143`), so the model reuses the one it was taught. `geminiAdapter.ts:237`
+then persists it: `if (rawJson.merchantName)` is truthy for the string
+`"UNKNOWN"`, so a VENDOR entity is created literally named `UNKNOWN`. The date
+path guards against exactly this and the merchant path does not — compare `:221`,
+`finalDate === 'UNKNOWN' ? undefined : finalDate`.
+
+**Not caused by this PR, and already visible before it.** The value is
+back-end data reaching the front end through a shared helper; the same helper
+already fed the mobile card (`ResultTable.tsx:125` on `3db3b6f`) and the review
+queue (`ReviewQueueScreen.tsx:200`, `:285`), both of which rendered vendor
+before this change. This PR made it visible in one more place; it did not
+create it. **Out of scope here.** The fix belongs in `geminiAdapter.ts`, is a
+back-end change, and needs a decision this PR is not the place to take: whether
+to drop the entity or to store nothing and let the hyphen placeholder do its
+job.
+
+### F2 — `$US` is a bidi scramble, and THIS PR INTRODUCED IT ON THIS SCREEN
+
+Every USD row renders the symbol as `$US` with the dollar sign to the **left**
+of the letters — `$US 42.07`, `$US 1,234.00`. On the same screen `€ 41.29`,
+`€ 90.50`, `CHF 54.50`, `₹ 290.00` and `د.م. 128.23` are all correct.
+
+**The string is correct; the container is wrong.** `formatCurrency`
+(`lib/searchResultCard.ts:55-66`) returns `Intl.NumberFormat('ar', {style:
+'currency', currency: 'USD'})`, whose code points are:
+
+```
+200f 34 32 2e 30 37 a0 55 53 24     →  RLM "42.07" NBSP "U" "S" "$"
+```
+
+Two facts about that string decide everything. It **begins with U+200F**, a
+RIGHT-TO-LEFT MARK, which is a *strong* right-to-left character. And it **ends
+with `$`**, which is not strong at all — it is a neutral, and a trailing neutral
+takes its direction from the run around it.
+
+The cell renders through the unbounded branch, `<span dir="auto">{v}</span>`.
+`dir="auto"` resolves direction from the **first strong character**, and the
+first strong character is that leading RLM — so the span resolves **RTL**, and
+the trailing `$` resolves RTL with it and is placed to the *left* of the LTR
+run `US`. The display is `$US`. `dir="auto"` does not merely fail to help here;
+the RLM guarantees it picks the wrong answer.
+
+**Why the other currencies are fine, and what the real discriminator is.** Not
+"multi-character Latin symbol" — `CHF` is exactly that and renders correctly,
+because `C`, `H`, `F` are all strong LTR letters with no neutral among them.
+`€` and `₹` are single neutrals with no letters to jump around. `د.م.` is
+Arabic, already RTL. The discriminator is **a symbol containing both strong
+Latin letters and a neutral**, and `US$` is the only one on that screen. The
+prediction this makes, which is falsifiable: `CA$`, `A$`, `NZ$`, `HK$`, `MX$`
+and `NT$` all scramble the same way, and no three-letter code ever does.
+
+**The same app already renders this correctly, twice, and the difference is the
+wrapper.** The review queue uses `dir="ltr"` **plus** `<bdi>` on the amount —
+`ReviewQueueScreen.tsx:204` and `:292` — which pins the trailing neutral to the
+right of `US`. The mobile card in this very file used `dir="ltr"` before this
+PR and still does (`ResultTable.tsx:128` on `3db3b6f`). Same helper, same
+string, same page direction, different wrapper, different result: that is a
+controlled comparison, not an inference.
+
+**This PR introduced it on the desktop table.** Before this change that table
+had no formatted-amount column at all — it dumped raw `facts`, and the
+assertion that pinned it read `4280` and `USD` as separate raw values
+(`searchRestyle.test.tsx:192`, rewritten by this PR; see the section above).
+Adding the Amount column routed a currency string through the generic
+`dir="auto"` cell for the first time. The defect is new **on this screen**, and
+it is new **because of this commit**.
+
+**It is the same class of defect this PR was written to avoid**, and it slipped
+in through the branch nobody was looking at. The bounded branch got the
+direction question asked and answered — 9c confirms it. The unbounded branch
+inherited `dir="auto"` from the old code without anyone asking whether it was
+right for a currency, and for a currency it is not. #142's lesson applied to
+Name and Vendor and was not carried across to Amount.
+
+**The fix is not `dir="auto"` on that cell**, and it is not blanket `dir="ltr"`
+on all four unbounded columns either — that would be wrong for status, which is
+Arabic. It is the wrapper the other two surfaces already use, applied to the
+amount cell specifically. That is a code change, and it is not in this commit.
+
+**No check in this file would have caught it.** Item 8 asks whether the
+confidence *number* is formatted correctly and item 7 asks about the
+placeholder; nothing asks which way round the amount reads. That gap is the
+finding, as much as the scramble is.
