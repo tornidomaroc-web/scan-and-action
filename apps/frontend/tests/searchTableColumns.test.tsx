@@ -461,3 +461,155 @@ describe('Guard 11 — catalog parity for the new keys', () => {
     }
   });
 });
+
+// ── GUARD 13: F2 — the amount column pins its direction, and carries no <bdi> ─
+describe('Guard 13 — amount cell direction (defect F2)', () => {
+  afterEach(() => { root.unmount(); container.remove(); localStorage.clear(); });
+
+  // Positional, safe for the same reason guard 12's indices are: guard 1 pins
+  // the count and guard 5 the order.
+  const IDX = { title: 0, vendor: 1, amount: 2, status: 3, date: 4, confidence: 5 } as const;
+  const cells = () => [...desktop()!.querySelectorAll('tbody td')];
+  const inner = (i: number) => cells()[i].firstElementChild as HTMLElement | null;
+
+  it('ANTI-VACUITY: the fixture currency actually produces the trap string', () => {
+    // Without this the whole guard could pass on a currency that cannot scramble
+    // — CHF, say — which is a different situation wearing the same green. The
+    // trap is a string that BEGINS with a strong RTL mark and ENDS with a
+    // neutral; both halves are required, and both are asserted as code points
+    // rather than glyphs, because U+200F is invisible in a diff and in a
+    // terminal.
+    const s = new Intl.NumberFormat('ar', { style: 'currency', currency: 'USD' }).format(4280);
+    const cps = [...s].map((c) => c.codePointAt(0)!);
+    expect(cps[0]).toBe(0x200f);                    // leading RIGHT-TO-LEFT MARK
+    expect(cps[cps.length - 1]).toBe(0x24);         // trailing '$', a neutral
+    // and the letters it gets reordered around are really there, in this order
+    expect(s.endsWith('US$')).toBe(true);
+    expect(RICH_ROW.facts[0].currency).toBe('USD');
+  });
+
+  it('exactly one column declares a direction, it is amount, and it is ltr', () => {
+    // Pins the decision as data, beside the header key, the same way guard 12
+    // pins maxCh. Also stops the guard going vacuous if the dir is deleted.
+    return import('../src/lib/searchResultCard').then(({ DESKTOP_COLUMNS }) => {
+      const pinned = DESKTOP_COLUMNS.filter((c) => c.dir != null);
+      expect(pinned.map((c) => c.field)).toEqual(['amount']);
+      expect(pinned[0].dir).toBe('ltr');
+    });
+  });
+
+  for (const loc of ['en', 'fr', 'ar'] as const) {
+    it(`${loc}: the amount cell carries dir="ltr"`, () => {
+      mount(loc, <ResultTable data={[RICH_ROW]} />);
+      expect(inner(IDX.amount)?.getAttribute('dir')).toBe('ltr');
+    });
+  }
+
+  it('ar: STATUS is not dragged along — it stays dir="auto"', () => {
+    // The failure this guards is a blanket `dir="ltr"` across the unbounded
+    // columns. Status is an Arabic label; ltr there would be actively wrong,
+    // and it is the column most likely to be swept up by a "fix the row" edit.
+    mount('ar', <ResultTable data={[RICH_ROW]} />);
+    expect(inner(IDX.status)?.getAttribute('dir')).toBe('auto');
+  });
+
+  it('ar: the two bounded columns keep dir="auto" (screenshot 9c pinned this)', () => {
+    // 9c answered A on both columns with `auto`. Pinning it here means a later
+    // edit that pins a direction on them has to argue with an observed result.
+    mount('ar', <ResultTable data={[RICH_ROW]} />);
+    expect(inner(IDX.title)?.getAttribute('dir')).toBe('auto');
+    expect(inner(IDX.vendor)?.getAttribute('dir')).toBe('auto');
+  });
+
+  it('ar: date and confidence are NOT pinned — they keep dir="auto"', () => {
+    mount('ar', <ResultTable data={[RICH_ROW]} />);
+    expect(inner(IDX.date)?.getAttribute('dir')).toBe('auto');
+    expect(inner(IDX.confidence)?.getAttribute('dir')).toBe('auto');
+  });
+
+  it('ar: the amount cell contains NO <bdi>, and neither does the component', () => {
+    // THE MOST IMPORTANT ASSERTION IN THIS GUARD, and the least obvious. <bdi>
+    // is defined as an isolate whose direction is `auto` — so a <bdi> inside the
+    // ltr span re-runs the detection the dir exists to override, finds the
+    // leading RLM, and puts the `$` back on the wrong side. Measured in Chrome:
+    // `<span dir="ltr"><bdi>…</bdi></span>` renders "$US 42.07", identically to
+    // no fix at all. It is exactly the edit a reviewer would make in good faith,
+    // reading it as "more isolation", and every other assertion here would stay
+    // green while the screen went back to being wrong.
+    mount('ar', <ResultTable data={[RICH_ROW]} />);
+    expect(cells()[IDX.amount].querySelector('bdi')).toBeNull();
+    // The source half is scanned with COMMENTS STRIPPED, and that is not
+    // tidiness. Written naively it went RED on its first run — against the
+    // warning comment at the render site, which at the time spelled the element
+    // out in order to tell the reader not to use it. A guard tripping on its own
+    // warning reads exactly like the defect it is hunting, and the tidy fix
+    // (never name the thing) would have made the warning useless. Stripping
+    // comments keeps both: the note can name it, the assertion sees only code.
+    const code = resultTableSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toMatch(/<bdi[\s>]/);
+    // positive control: the stripper did not just empty the file
+    expect(code).toMatch(/<span dir=\{c\.dir/);
+  });
+
+  // HONEST LIMIT OF GUARD 13, stated for the same reason guard 12 states its
+  // own. What is asserted: the declared direction is the one the element
+  // carries, no other column was swept up, and the <bdi> that would silently
+  // undo it is absent from both the DOM and the source.
+  //
+  // What is NOT asserted, and cannot be here: THAT THE `$` ACTUALLY LANDS ON
+  // THE RIGHT OF `US` ON SCREEN. jsdom has no bidi resolution and no layout, so
+  // every string in this file comes back in logical order no matter what any
+  // `dir` says — the defect and the fix are literally indistinguishable to it.
+  // That is not a gap this file can close by trying harder; it is what the
+  // environment is.
+  //
+  // So SCREENSHOT CHECK 9d OWNS THE RENDER, and it is written in the PR doc
+  // with its failing shape spelled out. The direction was proven in Chrome by
+  // measuring the on-screen x of each character in an RTL Arabic container
+  // against the real Intl string, which is how the <bdi> was ruled out; that
+  // measurement is a one-off, not a regression test, and 9d is what re-checks
+  // it on the real screen.
+  //
+  // SIX MUTATIONS, APPLIED AND WATCHED. Recorded as what each one PROVED, and
+  // where the result differed from what was predicted before running it, the
+  // measured result is what is written down.
+  //
+  //   M1  dir 'ltr' -> 'auto' in the declaration.
+  //       RED x4: the declaration test and all three per-locale tests.
+  //       Proves the per-locale tests read the ELEMENT, and that they and the
+  //       declaration test fail together when the single source of truth moves.
+  //
+  //   M2  delete `dir` from the declaration entirely.
+  //       RED x4, the same four. Proves the declaration assertion is not vacuous
+  //       when the field is ABSENT rather than merely wrong — a different failure
+  //       from M1 that a `toBe('ltr')` alone would not have distinguished.
+  //
+  //   M3  `c.dir ?? 'auto'` -> a literal `'ltr'` at the render site: the blanket
+  //       fix, which is the plausible wrong version of this change.
+  //       RED x3: status, date/confidence, and — NOT as predicted — the <bdi>
+  //       test, via its positive control, because the mutation deleted the very
+  //       expression that control looks for. Predicted status only. The extra
+  //       red is the positive control proving it is not decorative.
+  //
+  //   M4  `c.dir ?? 'auto'` -> `'auto'` at the render site, declaration left in
+  //       place. RED x4 (three per-locale + the M3 positive control) and GREEN on
+  //       the declaration test. Proves declaration and render are independent,
+  //       which is the whole reason both are asserted.
+  //
+  //   M5  wrap the value in an isolate element inside the ltr span — the edit a
+  //       reviewer would make in good faith, reading it as "more isolation".
+  //       RED x1, that assertion alone. FIFTY tests stayed green, including every
+  //       dir assertion above. THIS IS THE MOST IMPORTANT RESULT IN THE FILE: the
+  //       direction assertions alone would NOT have caught it, and the screen
+  //       would have gone back to "$US 42.07" under a full green suite.
+  //
+  //   M6  fixture currency 'USD' -> 'CHF'.
+  //       RED x1 on anti-vacuity. Proves the guard knows the difference between a
+  //       currency that can scramble and one that cannot, instead of passing on
+  //       either.
+  //
+  //   NO MUTATION IS AVAILABLE for the symbol itself — the string is Intl's, not
+  //   ours, so nothing here can go red if a future ICU changes `US$`. 9d would
+  //   see that; this file would not. Stated so the green is not read as wider
+  //   than it is.
+});

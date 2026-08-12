@@ -272,7 +272,7 @@ the two decisions above, made visible.
 
 **1280px viewport.** Available table width is 872px: 1280 minus the 280px
 fixed rail (`Layout.tsx:99`) minus 128px of `xl:p-16` padding
-(`Layout.tsx:105`).
+(`Layout.tsx:105`). Items 9a, 9c and 9d are all answered on this one shot.
 
 - **PASS:** no horizontal scrollbar under the table, and the Confidence
   column (the last one, at the **left** edge in Arabic) is fully visible.
@@ -292,9 +292,10 @@ table is wrong. If it fails, the fix is to change those two numbers in
 added or removed, no direction is revisited, no test is relaxed. Report the
 number; do not change it yourself.
 
-This was written before the bound existed, when a scrollbar in the shot could
-not be attributed to anything in particular because no column had any bound at
-all. It can be attributed now. That is the only thing about 9a that changed.
+**9a itself** was written before the bound existed, when a scrollbar in the shot
+could not be attributed to anything in particular because no column had any
+bound at all. It can be attributed now. That is the only thing about 9a that
+changed.
 
 ### 9c. Wide width — which end does the ellipsis eat?
 
@@ -342,6 +343,37 @@ the table's own edge. A cell truncated by the ellipsis and a cell sliced by the
 table edge look identical in the shot, and answer B would be indistinguishable
 from the table simply running out of room. The question is only meaningful
 where the whole cell is on screen.
+
+### 9d. Wide width — which way round does the amount read?
+
+**1280px viewport — the same shot as 9a and 9c.**
+
+Find a row in the **المبلغ** (Amount) column whose currency is **US dollars**.
+The symbol has two parts: the letters `US` and the sign `$`. This check asks
+only **which side the `$` is on**.
+
+- **A — PASS.** The letters come first and the sign follows them: `US$ 42.07`.
+  Read the two characters left to right: `U`, `S`, then `$`.
+- **B — FAIL.** The sign is on the **left of the letters**: `$US 42.07`. This is
+  a wrong string, not an untidy one — the symbol has been taken apart and
+  reassembled backwards by the page's text direction. Report B plainly; it
+  fails the PR.
+- **C — UNANSWERABLE, which is not a pass.** No row on screen is in US dollars,
+  so there is nothing to look at. Write "C — no USD row" rather than "fine".
+  If any row shows **British pounds**, answer the same three shapes for it
+  instead: `UK£ 42.07` is A, `£UK 42.07` is B.
+
+**Every other currency on the screen is expected to be correct and is not what
+this check is about.** `€ 41.29`, `CHF 54.50`, `₹ 290.00` and `د.م. 128.23` were
+all correct in the previous round and none of them can show this defect. Only a
+currency whose symbol mixes Latin **letters** with a **sign** can, and in this
+data that is USD, GBP, CAD, AUD, NZD, HKD, MXN, TWD, JPY, CNY and BRL — eleven
+codes, measured, not guessed. If one of those renders backwards while `€` and
+`CHF` are fine, that is this defect and not a font problem.
+
+**Do not check this at 768px.** Same reason as 9c: a cell sliced by the
+overflowing table edge is indistinguishable from one whose symbol was
+reordered.
 
 ### 9b. Narrow width — NOT a claim. An inspection with no pass condition.
 
@@ -733,4 +765,65 @@ amount cell specifically. That is a code change, and it is not in this commit.
 **No check in this file would have caught it.** Item 8 asks whether the
 confidence *number* is formatted correctly and item 7 asks about the
 placeholder; nothing asks which way round the amount reads. That gap is the
-finding, as much as the scramble is.
+finding, as much as the scramble is. Check **9d** now asks it.
+
+### F2 census — this is a RULE, not a site, and it has four other sites
+
+The diagnosis above is not about the amount cell. It is about a string shape:
+*begins with a strong RTL mark, ends with a neutral*, which resolves wrongly
+under any auto-detected direction. Intl produces exactly that shape for a whole
+class of currencies, so the question "where else does a `formatCurrency` string
+reach the DOM without an explicit direction" had to be asked before fixing the
+one place it was noticed. Asked, and answered:
+
+**Every site in the front end that renders a `formatCurrency` string:**
+
+| Site | Wrapper | Verdict |
+|---|---|---|
+| `ResultTable.tsx` desktop cell (this PR) | was `dir="auto"` | **BROKEN — fixed here** |
+| `ResultTable.tsx` mobile card | `dir="ltr"`, no isolate | correct, and the only site that already was |
+| `ReviewQueueScreen.tsx:204` mobile card | `dir="ltr"` + `<bdi>` | **believed broken** |
+| `ReviewQueueScreen.tsx:292` desktop table | `dir="ltr"` + `<bdi>` | **believed broken** |
+| `DocumentDetailScreen.tsx:285` facts card | `dir="auto"` + `<bdi>` | **believed broken** |
+| `DocumentDetailScreen.tsx:303` facts table | `dir="auto"` + `<bdi>` | **believed broken** |
+
+That is four other live sites on two other screens, all of them in production
+today.
+
+**The `<bdi>` does not save them, and that is the surprise.** `<bdi>` is defined
+as an isolate whose direction is `auto` — so it re-runs the same detection,
+finds the same leading RLM, and lands on the same wrong answer. Measured in
+Chrome against the real Intl string in an RTL Arabic container, by reading the
+on-screen x of every character:
+
+```
+<span dir="auto">…</span>             ->  "$US 42.07"   WRONG
+<span dir="ltr"><bdi>…</bdi></span>   ->  "$US 42.07"   WRONG   <- the queue idiom
+<span dir="ltr">…</span>              ->  "42.07 US$"   right
+<bdi>…</bdi>                          ->  "$US 42.07"   WRONG
+```
+
+The first line reproduces Abo Jad's observation exactly, which is the positive
+control for the whole measurement: the probe reproduces the real defect before
+it is trusted about anything else. The same run confirmed GBP behaves
+identically (`£UK` vs `UK£`) and that MAD is unchanged by the fix, so nothing
+regresses for the primary currency.
+
+**The eleven currencies that can show this**, enumerated against Intl rather
+than guessed: USD `US$`, GBP `UK£`, CAD `CA$`, AUD `AU$`, NZD `NZ$`, HKD `HK$`,
+MXN `MX$`, TWD `NT$`, JPY `JP¥`, CNY `CN¥`, BRL `R$`. A bare three-letter code
+like `CHF` is all-strong and safe; a lone sign like `€` or `₹` has no letters to
+reorder around. **GBP is in the extractor's own symbol map**
+(`geminiAdapter.ts:42`), and `normalizeCurrency` at `:43` passes any three-letter
+code through unvalidated, so every one of the eleven is reachable from real
+data. This is not a USD-only curiosity.
+
+**Ruling on scope: the other four are NOT fixed here, and they are not being
+left unasked either.** They predate this PR, they are on two screens this PR
+does not touch and whose screenshot review does not cover them, and neither has
+been observed. Fixing them blind — changing a bidi container with no visual
+check — is precisely the mistake that produced F2 in the first place: a
+guard-green, screen-unverified edit. They get their own PR, with their own
+9d-shaped check per screen, and this census plus the measurement above is what
+makes that PR cheap. The rule is recorded here so the next person fixes the
+class, not the site.

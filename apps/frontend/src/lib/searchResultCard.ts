@@ -280,10 +280,66 @@ export const MOBILE_FIELDS: PrimaryFieldName[] = ['title', 'vendor', 'amount', '
 // is a calculation from the source lines cited in the PR doc, and nothing in
 // this repo can confirm it — 9a is the measurement. If 9a still reports a
 // horizontal scrollbar, these two numbers are what to change.
-export const DESKTOP_COLUMNS: { field: PrimaryFieldName; labelKey: string; maxCh?: number }[] = [
+// `dir` PINS A COLUMN'S TEXT DIRECTION (defect F2). Declared here for the same
+// reason `maxCh` is: it is per-column data, reviewable beside the header key,
+// and a test can assert the DOM carries the declared value. A column with no
+// `dir` renders `dir="auto"`, which is what every column did before F2 and what
+// `title` and `vendor` must keep — screenshot 9c confirmed `auto` is correct on
+// the bounded cells, where it is the only value that keeps the head of both a
+// Latin and an Arabic name.
+//
+// ONLY `amount` IS PINNED, AND ONLY BECAUSE Intl HANDS US A TRAP. For Arabic,
+// `Intl.NumberFormat('ar', {style:'currency', currency:'USD'})` returns:
+//
+//     200f 34 32 2e 30 37 a0 55 53 24   =   RLM "42.07" NBSP "U" "S" "$"
+//
+// That string BEGINS with U+200F, a RIGHT-TO-LEFT MARK, which is a *strong*
+// RTL character — and it ENDS with `$`, which is not strong at all. `dir="auto"`
+// resolves from the first strong character, finds the RLM, and makes the box
+// RTL; the trailing neutral `$` then resolves RTL with it and is placed to the
+// LEFT of the `US` run. The reader sees `$US 42.07`. `auto` does not merely fail
+// to help here — the RLM guarantees it picks the wrong answer.
+//
+// NOT A `<bdi>`. MEASURED, NOT ASSUMED. `<bdi>` is defined as an isolate whose
+// direction is `auto`, so it re-runs exactly the detection above and lands on
+// the same wrong answer. Measured in Chrome against the real Intl string, in an
+// RTL Arabic container, by reading the on-screen x of every character:
+//
+//     <span dir="auto">…</span>              ->  "$US 42.07"   WRONG
+//     <span dir="ltr"><bdi>…</bdi></span>    ->  "$US 42.07"   WRONG  (!)
+//     <span dir="ltr">…</span>               ->  "42.07 US$"   right
+//     <bdi>…</bdi>                           ->  "$US 42.07"   WRONG
+//
+// The second line is the idiom used at ReviewQueueScreen.tsx:204 and :292; the
+// `<bdi>` there is not protecting anything and those sites are believed to carry
+// this same defect. See the F2 census in the PR doc — they are NOT fixed here.
+//
+// An explicit `dir="ltr"` is also self-isolating: the UA stylesheet gives
+// `[dir=ltr]` `unicode-bidi: isolate` (confirmed via getComputedStyle), so no
+// wrapper is needed to keep the amount from disturbing Arabic neighbours, and
+// measuring it with Arabic text on both sides confirms it does not.
+//
+// ELEVEN CURRENCIES CAN SHOW THIS, not one. The trap needs a symbol mixing
+// strong Latin LETTERS with a neutral: USD "US$", GBP "UK£", CAD "CA$", AUD
+// "AU$", NZD "NZ$", HKD "HK$", MXN "MX$", TWD "NT$", JPY "JP¥", CNY "CN¥",
+// BRL "R$". Enumerated against Intl, not guessed. A bare three-letter code
+// (CHF) is all-strong and safe; a lone sign (€, ₹) has no letters to reorder
+// around. GBP is in the extractor's own symbol map, so this is not exotic.
+//
+// WHY NOT THE OTHER THREE UNBOUNDED COLUMNS. `status` MUST stay `auto`: it is an
+// Arabic label and `ltr` would be actively wrong. `date` and `confidence` are
+// digits with at most a neutral adjacent to them, which resolves as part of the
+// number run either way — both rendered correctly in the 9a/9c round, and
+// pinning them would claim a fix for a defect they cannot have.
+export const DESKTOP_COLUMNS: {
+  field: PrimaryFieldName;
+  labelKey: string;
+  maxCh?: number;
+  dir?: 'ltr';
+}[] = [
   { field: 'title', labelKey: 'nameLabel', maxCh: 24 },
   { field: 'vendor', labelKey: 'entityRoleVendor', maxCh: 16 },
-  { field: 'amount', labelKey: 'amountLabel' },
+  { field: 'amount', labelKey: 'amountLabel', dir: 'ltr' },
   { field: 'status', labelKey: 'status' },
   { field: 'date', labelKey: 'date' },
   { field: 'confidence', labelKey: 'confidenceLabel' },

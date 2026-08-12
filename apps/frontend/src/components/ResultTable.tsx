@@ -180,14 +180,33 @@ export const ResultTable = ({ data, emptyStateComponent, onRowClick }: ResultTab
                         // activating the row.
                         <div
                           className="truncate"
-                          dir="auto"
+                          dir={c.dir ?? 'auto'}
                           title={v}
                           style={{ maxWidth: `${c.maxCh}ch` }}
                         >
                           {v}
                         </div>
                       ) : (
-                        <span dir="auto">{v}</span>
+                        // ── The direction-pinned cell (defect F2) ────────────
+                        // `c.dir ?? 'auto'`, not a literal `auto`. Only `amount`
+                        // declares a direction, and the reasoning — the Intl
+                        // code points, the measured comparison, and why an
+                        // isolate element here would NOT fix it — sits beside
+                        // the declaration in lib/searchResultCard.ts.
+                        //
+                        // Do not wrap this value in an isolate element. That
+                        // element's direction is `auto` by definition, so it
+                        // re-runs the detection this line exists to override,
+                        // finds the leading RLM, and puts the `$` back on the
+                        // wrong side. Measured, and guard 13 asserts its
+                        // absence. The span needs no isolate of its own —
+                        // `[dir]` already computes `unicode-bidi: isolate`.
+                        //
+                        // The same `c.dir ?? 'auto'` is on the bounded branch
+                        // above so the two branches cannot drift, not because a
+                        // bounded column pins its direction — none does, and
+                        // `title`/`vendor` must keep `auto` (screenshot 9c).
+                        <span dir={c.dir ?? 'auto'}>{v}</span>
                       )}
                     </td>
                   );
