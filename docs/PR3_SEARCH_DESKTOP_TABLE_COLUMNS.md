@@ -243,8 +243,16 @@ fail shape names a literal string, that string is what would actually appear;
 seeing it is the failure, no interpretation needed.
 
 Setup: `/search`, language Arabic, after a query returning a table (a `list`
-intent, e.g. "الفواتير الأخيرة"). **Two widths — see 9a and 9b.** Items 1-8
-are checked on the 1280px shot.
+intent, e.g. "الفواتير الأخيرة"). **Two widths — see 9a, 9c and 9b.**
+
+**Order of work, so the two shots are taken once each.** Everything except 9b
+is answered at **1280px**: items 1-8, then 9a, then 9c. Only then resize to
+768px, where the three questions in 9b are the *only* ones to answer. Do not
+re-answer 1-8 at 768px: at that width the cells are clipped, so "no English
+word visible" would mean "not visible" rather than "not there" — a false pass.
+9c in particular cannot be answered at 768px, for the reason stated in 9c.
+
+Items 1-8 are checked on the 1280px shot.
 
 | # | PASS looks like | FAIL looks like |
 |---|---|---|
@@ -271,9 +279,69 @@ fixed rail (`Layout.tsx:99`) minus 128px of `xl:p-16` padding
 - **FAIL:** a horizontal scrollbar, or the last column clipped at the left
   edge.
 
-I expect this one may fail, and the reason is a defect reported below rather
-than a mistake in the claim. Report the result either way; do not adjust the
-window to make it pass.
+Report the result either way; do not adjust the window to make it pass.
+
+**What a failure here would and would not mean.** The two bounds that make
+this answerable — `maxCh: 24` on Name and `maxCh: 16` on Vendor — are
+arithmetic off `Layout.tsx`, and nothing in this repository can evaluate them.
+The mutation `maxCh: 24 → 40` passes every test in
+`searchTableColumns.test.tsx`. So **9a tests that arithmetic, not the change**:
+a scrollbar here means the two numbers are wrong, not that the six-column
+table is wrong. If it fails, the fix is to change those two numbers in
+`DESKTOP_COLUMNS` (`lib/searchResultCard.ts`) and nothing else — no column is
+added or removed, no direction is revisited, no test is relaxed. Report the
+number; do not change it yourself.
+
+This was written before the bound existed, when a scrollbar in the shot could
+not be attributed to anything in particular because no column had any bound at
+all. It can be attributed now. That is the only thing about 9a that changed.
+
+### 9c. Wide width — which end does the ellipsis eat?
+
+**1280px viewport — the same shot as 9a. Answer this before resizing.**
+
+The Name column is bounded at 24 characters and the Vendor column at 16, so a
+value longer than its bound is cut short and marked with an ellipsis `…`. This
+check asks **which end got cut**, and it is the whole reason the review exists:
+in an Arabic interface a Latin filename can lose its *beginning* rather than
+its end, and a reader is then shown a wrong string rather than a shortened one.
+Nothing else in this repository can observe this. `searchTableColumns.test.tsx`
+asserts the direction attribute, but the clipping itself is CSS and the test
+environment loads no CSS — deleting the `truncate` class leaves every test
+green. This screenshot is the only instrument that sees the actual behaviour.
+
+Find a cell in the **Name** column whose text is cut short and ends or begins
+with `…`. A filename such as
+`JPEG_20260615_222241_1286235000237534355.jpg` is 44 characters and will be
+cut. Then answer **A**, **B** or **C** — one letter:
+
+- **A — PASS.** The cell reads from its **beginning** and the `…` is at the
+  **far end** of the text: `JPEG_20260615_2222…`. The start of the name is
+  intact and you can tell what the file is.
+- **B — FAIL.** The cell begins with `…` and the **start of the name is
+  gone**: `…86235000237534355.jpg`. This is the failure this check was written
+  to catch. It is not "a bit cut off" — the reader is shown a different string
+  from the real one, and two different files whose names differ only at the
+  front become indistinguishable. Report B plainly; it fails the PR.
+- **C — UNANSWERABLE, which is not a pass.** No cell in the Name column is cut
+  at all: there is no `…` anywhere in that column. Write "C — nothing was
+  truncated" rather than "fine" or "pass". Nothing was observed, so nothing was
+  confirmed, and 9a is weakened by the same fact — its scrollbar answer was
+  produced by data that never exercised the bound.
+
+**Then the same three answers for the Vendor column**, if and only if a vendor
+value is cut there: **A** the vendor name reads from its beginning with the `…`
+at the far end; **B** it begins with `…` and the start of the vendor name is
+gone; **C** no vendor was cut, so there is nothing to answer. Vendor is
+answered separately from Name because the two columns carry different values
+from different sources, and one can be right while the other is wrong.
+
+**Why this cannot be answered at 768px.** At that width the table itself
+overflows its container, so the right or left edge of a cell can be cut off by
+the table's own edge. A cell truncated by the ellipsis and a cell sliced by the
+table edge look identical in the shot, and answer B would be indistinguishable
+from the table simply running out of room. The question is only meaningful
+where the whole cell is on screen.
 
 ### 9b. Narrow width — NOT a claim. An inspection with no pass condition.
 
@@ -491,13 +559,27 @@ Measured, not inferred: with the `dir` deleted, `rtlTruncation.test.ts` stays
 fully green and only guard 12 goes red. The mobile card is blind for the same
 reason (`{title}`, `{vendor}`).
 
-### What 9a should now report
+### What 9a should now report, and the check that was missing
 
-9a is unchanged and is still the measurement. What changed is that it is now
-**answerable**: before this commit no column had any bound, so a horizontal
-scrollbar in the shot could not be attributed to anything in particular. It can
-now. If 9a still shows a scrollbar, the two numbers in `DESKTOP_COLUMNS` are
-what to change, and nothing else.
+9a's pass condition is unchanged and is still the measurement. What changed is
+that it is now **answerable**: before this commit no column had any bound, so a
+horizontal scrollbar in the shot could not be attributed to anything in
+particular. It can now. If 9a still shows a scrollbar, the two numbers in
+`DESKTOP_COLUMNS` are what to change, and nothing else. Both of those facts now
+sit at 9a itself rather than only here, because that is where they are read.
+
+**9c is added, and it should have been added with the bound.** The amendment
+above records that `dir="auto"` is the decision this commit is about, and that
+two mutations survived: `maxCh: 24 → 40`, and deleting the `truncate` class.
+The second one is the reason 9c exists. Between them, the clipping behaviour
+this commit introduced has **no instrument in this repository at all** — guard
+12 asserts the `dir` attribute in a DOM with no CSS, `rtlTruncation.test.ts`
+scans the element and clears it because the content is `{v}`, and the mobile
+card is blind for the same reason. The screenshot is the only thing that can
+observe which end the ellipsis eats, and until now the review did not ask it
+to. Deciding the direction in the code and leaving the question unasked in the
+review is the same shape as #142 one level up: the direction was stated, and
+then never looked at.
 
 ## One pre-existing test was rewritten
 
