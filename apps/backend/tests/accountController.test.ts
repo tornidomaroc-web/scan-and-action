@@ -2,7 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../src/prismaClient', () => ({
   prisma: {
-    user: { findUnique: vi.fn() },
+    // findFirst backs the `!dbUser` identity-conflict guard: before treating a
+    // missing row as "already deleted", the controller checks whether this
+    // address is held by a DIFFERENT id. These tests are the no-holder case, so
+    // it resolves null by default (see accountController.identityConflict.test.ts
+    // for the conflict case).
+    user: { findUnique: vi.fn(), findFirst: vi.fn(async () => null) },
     document: { findMany: vi.fn() },
     queryLog: { deleteMany: vi.fn() },
     organization: { deleteMany: vi.fn() },

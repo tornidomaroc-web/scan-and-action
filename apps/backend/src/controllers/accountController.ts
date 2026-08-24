@@ -56,7 +56,38 @@ export class AccountController {
 
       // Idempotency: DB user already gone (e.g. retried call). Make sure the auth
       // identity is also gone, then report success.
+      //
+      // DEFENCE IN DEPTH — `!dbUser` means two different things and they must not
+      // be reported identically. "Already deleted" is one. "Your address is held
+      // by a row under a DIFFERENT id" is the other, and treating that as success
+      // would delete the caller's auth identity, leave the other row and all of
+      // its organization, documents and storage objects intact, keep the address
+      // locked so the next signup fails the same way — and return `ok: true`.
+      //
+      // The classifier in authMiddleware normally stops that request before it
+      // reaches this controller, so this guard should be unreachable. It is here
+      // because "should be unreachable" is exactly the assumption that decays:
+      // any future change that makes provisioning recover or adopt would route
+      // straight into the branch below and silently report a deletion that did
+      // not happen. Case-insensitive because `User.email` is stored as Supabase
+      // supplied it, while `email` above is normalised for the confirm compare.
       if (!dbUser) {
+        const holder = await prisma.user.findFirst({
+          where: { email: { equals: email, mode: 'insensitive' } },
+          select: { id: true },
+        });
+        if (holder && holder.id !== userId) {
+          console.error(
+            `[AccountController] IDENTITY_EMAIL_CONFLICT: caller ${userId} has no User row, ` +
+              `but this address is held by ${holder.id}. Refusing rather than reporting a ` +
+              `deletion that would not happen.`
+          );
+          return res.status(409).json({
+            error: 'IDENTITY_EMAIL_CONFLICT',
+            message:
+              'This account cannot be deleted automatically because its data belongs to a different identity. Contact support.',
+          });
+        }
         await deleteAuthUser(userId);
         return res.status(200).json({ ok: true, alreadyDeleted: true });
       }
