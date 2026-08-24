@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { prisma } from '../prismaClient';
 import { sendWelcomeEmailOnce } from '../services/email/welcomeEmail';
+import { formatErrorForLog } from '../redaction';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -172,7 +173,14 @@ export const authMiddleware = async (
 
     next();
   } catch (error: any) {
-    console.error('[AuthMiddleware] Unexpected error during authentication/provisioning:', error?.message || error);
+    // `error?.message` was the whole payload here, and for a Prisma known error
+    // the message can be whitespace-only while `code`/`meta` sit on the object —
+    // which is exactly how this line logged a bare label all day on 2026-08-24.
+    // The bounded projection reads the object, and collapses to one line so the
+    // label can never be separated from its content by a newline in the payload.
+    console.error(
+      `[AuthMiddleware] Unexpected error during authentication/provisioning: ${formatErrorForLog(error)}`
+    );
     return next(error);
   }
 };

@@ -77,8 +77,9 @@ export function scrubString(input: string): string {
  * key, or a payload echo that we never chose to log. Log a BOUNDED PROJECTION
  * instead — that is what this function produces.
  *
- * Rule 2 — the projection is bounded vendor metadata (name/code/status) plus the
- * message, and the message goes through scrubString.
+ * Rule 2 — the projection is bounded vendor metadata (name/code/status, plus the
+ * two allowlisted `meta` keys below) plus the message, and every free-text piece
+ * goes through scrubString.
  *
  * Rule 3 — be honest about the limit. scrubString catches emails, tokens, our
  * storage-path shape and common upload filenames. A filename with an unusual or
@@ -86,6 +87,44 @@ export function scrubString(input: string): string {
  * is the backstop; RULE 1 is what actually bounds the exposure, because the
  * fields we never print cannot leak.
  */
+/**
+ * `meta` keys worth projecting, and the ONLY ones read off it.
+ *
+ * WHY AN ALLOWLIST PLUS A VALUE BOUND, RATHER THAN A PER-CODE TABLE.
+ * Prisma types `meta` as `Record<string, unknown>` and the JS client never
+ * inspects it — it is an opaque pass-through from the query engine
+ * (`@prisma/client` 6.19.2, `client-engine-runtime/src/user-facing-error.ts`:
+ * `meta: Record<string, unknown>`, and `rethrowAsUserFacing` assigns
+ * `{ driverAdapterError: error }` — a whole error object). So nothing in the
+ * installed package tells us which codes put an identifier in a given key and
+ * which put a value, and a table written from documentation would be a claim we
+ * cannot check. We therefore bound the VALUE instead of trusting a code list:
+ * allowlisted key -> string / string[] only -> scrubString -> element and length
+ * caps. Anything else is dropped rather than guessed at.
+ */
+const META_KEYS = ['modelName', 'target'] as const;
+/** More entries than this is not a field list; drop it rather than print it. */
+const META_MAX_ITEMS = 10;
+/** Hard ceiling on the projected text, after joining and scrubbing. */
+const META_MAX_LEN = 200;
+
+/**
+ * Project one allowlisted `meta` value, or undefined if it is not the shape we
+ * expect. Strings only: a number, an object or a nested array is dropped, which
+ * is what keeps an unexpected payload out of the log without needing to know
+ * which vendor code produced it.
+ */
+function projectMetaValue(value: unknown): string | undefined {
+  const items = Array.isArray(value) ? value : [value];
+  if (items.length === 0 || items.length > META_MAX_ITEMS) return undefined;
+  if (!items.every((item) => typeof item === 'string')) return undefined;
+  const joined = scrubString((items as string[]).join(','));
+  if (!joined) return undefined;
+  return joined.length > META_MAX_LEN
+    ? `${joined.slice(0, META_MAX_LEN)}...[truncated]`
+    : joined;
+}
+
 export function formatErrorForLog(err: unknown): string {
   if (err === null || err === undefined) return 'unknown error';
 
@@ -99,7 +138,25 @@ export function formatErrorForLog(err: unknown): string {
       const v = e[key];
       if (typeof v === 'string' || typeof v === 'number') parts.push(`${key}=${v}`);
     }
-    const message = typeof e.message === 'string' ? scrubString(e.message) : undefined;
+    // Structured detail that `stack` does not carry. For a Prisma
+    // PrismaClientKnownRequestError the engine populates `code` and `meta` on the
+    // OBJECT; neither appears in the stack string, which is why an error whose
+    // message is empty still logs its own name and nothing else.
+    const meta = e.meta;
+    if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
+      for (const key of META_KEYS) {
+        const projected = projectMetaValue((meta as Record<string, unknown>)[key]);
+        if (projected) parts.push(`meta.${key}=${projected}`);
+      }
+    }
+    const scrubbed = typeof e.message === 'string' ? scrubString(e.message) : undefined;
+    // GUARD ON THE FIX, NOT THE FIX. What makes an error readable is `code` and
+    // `meta` above — this collapse only keeps the projection on ONE line. Two
+    // shapes make that matter: a Prisma message that is whitespace-only (which
+    // would otherwise emit a bare `message=\n` and split the record at the
+    // newline), and a multi-line vendor message (which would put the informative
+    // half in log rows that no longer carry this line's prefix).
+    const message = scrubbed ? scrubbed.replace(/\s+/g, ' ').trim() : undefined;
     if (message) parts.push(`message=${message}`);
     return parts.length > 0 ? parts.join(' ') : 'unspecified error';
   }
