@@ -23,6 +23,66 @@ const MAX_PROVISION_ATTEMPTS = 3;
 const isUniqueConstraintError = (err: unknown): boolean =>
   typeof err === 'object' && err !== null && (err as { code?: string }).code === 'P2002';
 
+/**
+ * WHICH unique constraint a P2002 hit, lowercased. `[]` when we cannot tell.
+ *
+ * Prisma types `meta` as `Record<string, unknown>` and never inspects it, so the
+ * shape is whatever the query engine sent. Observed in production on 2026-08-24
+ * (errorId d7ff1eba-967e-4ec8-a053-23c34790d790):
+ *
+ *     code=P2002 meta.modelName=User meta.target=email
+ *
+ * That rendering is ambiguous by construction — redaction.ts:118-121 joins a
+ * string and a one-element array identically — so BOTH spellings are accepted
+ * here and both are pinned in the tests. Postgres can also report the constraint
+ * NAME rather than the field list, hence `user_email_key`.
+ *
+ * Anything else returns `[]`, which the caller treats as "unknown" and handles
+ * exactly as this file did before. Unknown must never select the new branch.
+ */
+function uniqueConstraintTargets(err: unknown): string[] {
+  const meta = (err as { meta?: unknown } | null)?.meta;
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return [];
+  const target = (meta as { target?: unknown }).target;
+  const items = Array.isArray(target) ? target : [target];
+  if (!items.every((i) => typeof i === 'string')) return [];
+  return (items as string[]).map((i) => i.trim().toLowerCase()).filter(Boolean);
+}
+
+/** The two spellings that mean "the collision was on User.email". */
+const EMAIL_CONSTRAINT_NAMES = new Set(['email', 'user_email_key']);
+
+const collidedOnUserEmail = (err: unknown): boolean =>
+  uniqueConstraintTargets(err).some((t) => EMAIL_CONSTRAINT_NAMES.has(t));
+
+/**
+ * A live Supabase identity whose verified email is already held by a DIFFERENT
+ * `User.id`. Permanent: `ensureUser` keys on `id`, so the upsert misses forever
+ * and the create violates `User.email` forever. Retrying cannot help.
+ *
+ * WHY THIS REFUSES INSTEAD OF ADOPTING THE EXISTING ROW.
+ * Re-keying the upsert on email would make the address the identity. Everywhere
+ * else in this system the Supabase uuid is the identity and the email is the
+ * explicitly WEAKER fallback — resolveBillingOrg tries the id first and only then
+ * the email, and logs `[ALERT]` when that fallback is ambiguous. Adopting on
+ * email would silently attach a re-registered or reassigned address to the
+ * previous holder's Organization: their documents, their entities, their storage.
+ * Silent, undetectable, and strictly worse than the lockout it would fix.
+ *
+ * So: distinguish, refuse, name it. Recovery is an operator action against the
+ * orphaned row, never an automatic one taken on a request.
+ */
+export class IdentityEmailConflictError extends Error {
+  readonly status = 409;
+  constructor() {
+    // errorHandler returns `err.message` as the response `error` field for a
+    // non-500, so the message IS the machine code the client whitelist keys on
+    // (same contract as CONFIRMATION_REQUIRED / SHARED_WORKSPACE).
+    super('IDENTITY_EMAIL_CONFLICT');
+    this.name = 'IdentityEmailConflictError';
+  }
+}
+
 // Ensure the User row exists, returning it with memberships loaded.
 //
 // `prisma.user.upsert` is find-then-write and not atomic under concurrency: two
@@ -46,6 +106,25 @@ async function ensureUser(userId: string, email: string) {
       });
     } catch (error) {
       if (!isUniqueConstraintError(error)) throw error;
+
+      // ── The ONLY new branch in this file, and it lives strictly inside a catch
+      // that already required a P2002 — so it is unreachable for every account
+      // whose upsert succeeds, which is all of them.
+      //
+      // A collision on `id` is the concurrency race: the row exists now, so the
+      // retry takes the UPDATE path and recovers. A collision on `email` is a
+      // DIFFERENT row holding this address, which no number of retries can fix.
+      // Separating them is the whole change; conflating them would break the
+      // race recovery, which is what the existing race tests guard.
+      if (collidedOnUserEmail(error)) {
+        console.error(
+          `[AuthMiddleware] IDENTITY_EMAIL_CONFLICT: user ${userId} authenticated, but ` +
+            `User.email is held by a different id. targets=${JSON.stringify(uniqueConstraintTargets(error))}. ` +
+            `Not adopting the existing row — see IdentityEmailConflictError.`
+        );
+        throw new IdentityEmailConflictError();
+      }
+
       lastError = error;
       // Lost the insert race; loop and retry — the row exists now.
     }
