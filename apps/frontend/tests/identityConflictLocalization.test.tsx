@@ -258,9 +258,10 @@ describe('isIdentityConflict recognises the code and nothing else', () => {
 // ===========================================================================
 // DO NOT DELETE THIS SECTION. It is the ONLY guard on the root defect.
 // ===========================================================================
-// Every render test in this repository — the ones below, dashboardRestyle,
-// edgeLeakLocalization, and the eleven others that touch getStats — mocks the
-// documentService MODULE. They are therefore structurally blind to a regression
+// Thirteen test files in this repository touch getStats. ALL THIRTEEN — this
+// one included, and dashboardRestyle and edgeLeakLocalization among them —
+// `vi.mock('../src/services/documentService', ...)` at file scope, verified by
+// count rather than by impression. They are therefore structurally blind to a regression
 // inside it: the mock supplies whatever error the test names, so the question
 // this section asks (does getStats read the response body at all?) is one they
 // cannot pose.
