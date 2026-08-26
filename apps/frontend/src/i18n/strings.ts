@@ -221,6 +221,24 @@ export const strings = {
     deleteAccountSharedWorkspace: 'Your workspace has other members. Remove them, or contact support, before deleting your account.',
     deleteAccountRateLimited: 'Too many attempts. Please wait a while and try again.',
     deleteAccountConfirmRequired: 'Type your account email exactly to confirm.',
+    // 409 IDENTITY_EMAIL_CONFLICT on DELETE /api/account (accountController.ts:79-90).
+    // The SAME condition as accountLockedBody, deliberately NOT the same sentence.
+    // This one is read inside the confirmation dialog, by someone who has typed
+    // their email and pressed Permanently delete, with that button still enabled
+    // below the alert (DeleteAccountModal.tsx:140-144). So it names the DELETION,
+    // says it can still happen, and redirects — it must never say retrying is
+    // futile, which would be true but would sit directly above a live control that
+    // retries. Address last, no trailing punctuation, same closer as the other.
+    deleteAccountIdentityConflict: 'We could not delete this account automatically. Our team can finish it for you. Email support@scan-action.com',
+    // 409 IDENTITY_EMAIL_CONFLICT. Terminal by construction: the backend refuses
+    // rather than recovering (authMiddleware.ts:119-126, accountController.ts:79-90)
+    // and only an operator action clears it. The copy therefore denies BOTH the
+    // network diagnosis and the retry, and carries the support address as literal
+    // text — a mailto is unreliable in a native WebView with no mail account, and
+    // the legal screens are English-only prose. Address is the final token with no
+    // trailing punctuation, so no bidi control is needed to keep it intact in RTL.
+    accountLockedTitle: 'This account cannot be opened',
+    accountLockedBody: 'This is not a connection problem, and trying again will not help. Only our team can fix it. Please email support@scan-action.com',
     // App-crash fallback (Sentry.ErrorBoundary in main.tsx). Replaces the blank
     // white page a render throw used to leave behind.
     appCrashTitle: 'Something went wrong',
@@ -641,6 +659,24 @@ export const strings = {
     deleteAccountSharedWorkspace: 'Votre espace de travail compte d’autres membres. Supprimez-les, ou contactez le support, avant de supprimer votre compte.',
     deleteAccountRateLimited: 'Trop de tentatives. Veuillez patienter un moment et réessayer.',
     deleteAccountConfirmRequired: 'Saisissez exactement l’e-mail de votre compte pour confirmer.',
+    // 409 IDENTITY_EMAIL_CONFLICT on DELETE /api/account (accountController.ts:79-90).
+    // The SAME condition as accountLockedBody, deliberately NOT the same sentence.
+    // This one is read inside the confirmation dialog, by someone who has typed
+    // their email and pressed Permanently delete, with that button still enabled
+    // below the alert (DeleteAccountModal.tsx:140-144). So it names the DELETION,
+    // says it can still happen, and redirects — it must never say retrying is
+    // futile, which would be true but would sit directly above a live control that
+    // retries. Address last, no trailing punctuation, same closer as the other.
+    deleteAccountIdentityConflict: 'Nous n’avons pas pu supprimer ce compte automatiquement. Notre équipe peut le faire pour vous. Écrivez-nous à support@scan-action.com',
+    // 409 IDENTITY_EMAIL_CONFLICT. Terminal by construction: the backend refuses
+    // rather than recovering (authMiddleware.ts:119-126, accountController.ts:79-90)
+    // and only an operator action clears it. The copy therefore denies BOTH the
+    // network diagnosis and the retry, and carries the support address as literal
+    // text — a mailto is unreliable in a native WebView with no mail account, and
+    // the legal screens are English-only prose. Address is the final token with no
+    // trailing punctuation, so no bidi control is needed to keep it intact in RTL.
+    accountLockedTitle: 'Ce compte ne peut pas être ouvert',
+    accountLockedBody: 'Il ne s’agit pas d’un problème de connexion, et réessayer n’y changera rien. Seule notre équipe peut le corriger. Écrivez-nous à support@scan-action.com',
     appCrashTitle: 'Une erreur est survenue',
     appCrashBody: 'Cette page n’a pas pu s’afficher. Rechargez l’application pour continuer. Vos données enregistrées ne sont pas affectées.',
     appCrashReload: 'Recharger l’application',
@@ -1052,6 +1088,24 @@ export const strings = {
     deleteAccountSharedWorkspace: 'مساحة عملك تضم أعضاء آخرين. أزِلهم، أو تواصل مع الدعم، قبل حذف حسابك.',
     deleteAccountRateLimited: 'محاولات كثيرة جدًا. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.',
     deleteAccountConfirmRequired: 'اكتب بريد حسابك الإلكتروني بالضبط للتأكيد.',
+    // 409 IDENTITY_EMAIL_CONFLICT on DELETE /api/account (accountController.ts:79-90).
+    // The SAME condition as accountLockedBody, deliberately NOT the same sentence.
+    // This one is read inside the confirmation dialog, by someone who has typed
+    // their email and pressed Permanently delete, with that button still enabled
+    // below the alert (DeleteAccountModal.tsx:140-144). So it names the DELETION,
+    // says it can still happen, and redirects — it must never say retrying is
+    // futile, which would be true but would sit directly above a live control that
+    // retries. Address last, no trailing punctuation, same closer as the other.
+    deleteAccountIdentityConflict: 'لم نتمكن من حذف هذا الحساب تلقائيًا. يمكن لفريقنا إتمام الحذف نيابة عنك. راسلنا على support@scan-action.com',
+    // 409 IDENTITY_EMAIL_CONFLICT. Terminal by construction: the backend refuses
+    // rather than recovering (authMiddleware.ts:119-126, accountController.ts:79-90)
+    // and only an operator action clears it. The copy therefore denies BOTH the
+    // network diagnosis and the retry, and carries the support address as literal
+    // text — a mailto is unreliable in a native WebView with no mail account, and
+    // the legal screens are English-only prose. Address is the final token with no
+    // trailing punctuation, so no bidi control is needed to keep it intact in RTL.
+    accountLockedTitle: 'لا يمكن فتح هذا الحساب',
+    accountLockedBody: 'هذه ليست مشكلة اتصال، ولن تنجح إعادة المحاولة. فريقنا وحده يستطيع إصلاح هذا. راسلنا على support@scan-action.com',
     appCrashTitle: 'حدث خطأ غير متوقع',
     appCrashBody: 'تعذّر عرض هذه الصفحة. أعد تحميل التطبيق للمتابعة؛ بياناتك المحفوظة لم تتأثر.',
     appCrashReload: 'إعادة تحميل التطبيق',
