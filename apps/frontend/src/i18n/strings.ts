@@ -221,6 +221,15 @@ export const strings = {
     deleteAccountSharedWorkspace: 'Your workspace has other members. Remove them, or contact support, before deleting your account.',
     deleteAccountRateLimited: 'Too many attempts. Please wait a while and try again.',
     deleteAccountConfirmRequired: 'Type your account email exactly to confirm.',
+    // 409 IDENTITY_EMAIL_CONFLICT on DELETE /api/account (accountController.ts:79-90).
+    // The SAME condition as accountLockedBody, deliberately NOT the same sentence.
+    // This one is read inside the confirmation dialog, by someone who has typed
+    // their email and pressed Permanently delete, with that button still enabled
+    // below the alert (DeleteAccountModal.tsx:140-144). So it names the DELETION,
+    // says it can still happen, and redirects — it must never say retrying is
+    // futile, which would be true but would sit directly above a live control that
+    // retries. Address last, no trailing punctuation, same closer as the other.
+    deleteAccountIdentityConflict: 'We could not delete this account automatically. Our team can finish it for you. Email support@scan-action.com',
     // 409 IDENTITY_EMAIL_CONFLICT. Terminal by construction: the backend refuses
     // rather than recovering (authMiddleware.ts:119-126, accountController.ts:79-90)
     // and only an operator action clears it. The copy therefore denies BOTH the
@@ -650,6 +659,15 @@ export const strings = {
     deleteAccountSharedWorkspace: 'Votre espace de travail compte d’autres membres. Supprimez-les, ou contactez le support, avant de supprimer votre compte.',
     deleteAccountRateLimited: 'Trop de tentatives. Veuillez patienter un moment et réessayer.',
     deleteAccountConfirmRequired: 'Saisissez exactement l’e-mail de votre compte pour confirmer.',
+    // 409 IDENTITY_EMAIL_CONFLICT on DELETE /api/account (accountController.ts:79-90).
+    // The SAME condition as accountLockedBody, deliberately NOT the same sentence.
+    // This one is read inside the confirmation dialog, by someone who has typed
+    // their email and pressed Permanently delete, with that button still enabled
+    // below the alert (DeleteAccountModal.tsx:140-144). So it names the DELETION,
+    // says it can still happen, and redirects — it must never say retrying is
+    // futile, which would be true but would sit directly above a live control that
+    // retries. Address last, no trailing punctuation, same closer as the other.
+    deleteAccountIdentityConflict: 'Nous n’avons pas pu supprimer ce compte automatiquement. Notre équipe peut le faire pour vous. Écrivez-nous à support@scan-action.com',
     // 409 IDENTITY_EMAIL_CONFLICT. Terminal by construction: the backend refuses
     // rather than recovering (authMiddleware.ts:119-126, accountController.ts:79-90)
     // and only an operator action clears it. The copy therefore denies BOTH the
@@ -1070,6 +1088,15 @@ export const strings = {
     deleteAccountSharedWorkspace: 'مساحة عملك تضم أعضاء آخرين. أزِلهم، أو تواصل مع الدعم، قبل حذف حسابك.',
     deleteAccountRateLimited: 'محاولات كثيرة جدًا. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.',
     deleteAccountConfirmRequired: 'اكتب بريد حسابك الإلكتروني بالضبط للتأكيد.',
+    // 409 IDENTITY_EMAIL_CONFLICT on DELETE /api/account (accountController.ts:79-90).
+    // The SAME condition as accountLockedBody, deliberately NOT the same sentence.
+    // This one is read inside the confirmation dialog, by someone who has typed
+    // their email and pressed Permanently delete, with that button still enabled
+    // below the alert (DeleteAccountModal.tsx:140-144). So it names the DELETION,
+    // says it can still happen, and redirects — it must never say retrying is
+    // futile, which would be true but would sit directly above a live control that
+    // retries. Address last, no trailing punctuation, same closer as the other.
+    deleteAccountIdentityConflict: 'لم نتمكن من حذف هذا الحساب تلقائيًا. يمكن لفريقنا إتمام الحذف نيابة عنك. راسلنا على support@scan-action.com',
     // 409 IDENTITY_EMAIL_CONFLICT. Terminal by construction: the backend refuses
     // rather than recovering (authMiddleware.ts:119-126, accountController.ts:79-90)
     // and only an operator action clears it. The copy therefore denies BOTH the

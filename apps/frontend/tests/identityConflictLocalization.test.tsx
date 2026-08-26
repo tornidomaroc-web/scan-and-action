@@ -52,6 +52,20 @@ const AR_EXPECTED: Record<string, number[]> = {
     1604, 1609, 32, 115, 117, 112, 112, 111, 114, 116, 64, 115, 99, 97, 110, 45, 97, 99, 116, 105,
     111, 110, 46, 99, 111, 109,
   ],
+  // "لم نتمكن من حذف هذا الحساب تلقائيًا. يمكن لفريقنا إتمام الحذف نيابة عنك. راسلنا على support@scan-action.com"
+  // 1611 is the FATHATAN on تلقائيًا — the same tanween the catalog already
+  // carries in dashboardMetricsUnavailable's مؤقتًا. The closer راسلنا على is
+  // deliberately identical to accountLockedBody's, so the two messages for this
+  // one condition end the same way in the reader's language.
+  deleteAccountIdentityConflict: [
+    1604, 1605, 32, 1606, 1578, 1605, 1603, 1606, 32, 1605, 1606, 32, 1581, 1584, 1601, 32, 1607,
+    1584, 1575, 32, 1575, 1604, 1581, 1587, 1575, 1576, 32, 1578, 1604, 1602, 1575, 1574, 1610,
+    1611, 1575, 46, 32, 1610, 1605, 1603, 1606, 32, 1604, 1601, 1585, 1610, 1602, 1606, 1575, 32,
+    1573, 1578, 1605, 1575, 1605, 32, 1575, 1604, 1581, 1584, 1601, 32, 1606, 1610, 1575, 1576,
+    1577, 32, 1593, 1606, 1603, 46, 32, 1585, 1575, 1587, 1604, 1606, 1575, 32, 1593, 1604, 1609,
+    32, 115, 117, 112, 112, 111, 114, 116, 64, 115, 99, 97, 110, 45, 97, 99, 116, 105, 111, 110,
+    46, 99, 111, 109,
+  ],
 };
 
 const h = vi.hoisted(() => ({
@@ -85,7 +99,18 @@ import { translateAccountError } from '../src/lib/accountErrors';
 import { isIdentityConflict, IDENTITY_EMAIL_CONFLICT } from '../src/lib/identityConflict';
 
 const cps = (s: string) => [...s].map((c) => c.codePointAt(0)!);
-const NEW_KEYS = ['accountLockedTitle', 'accountLockedBody'] as const;
+const NEW_KEYS = [
+  'accountLockedTitle',
+  'accountLockedBody',
+  'deleteAccountIdentityConflict',
+] as const;
+// The two message bodies. Both carry the support address and both must refuse
+// the retry vocabulary — the title has neither, so it is excluded rather than
+// asserted vacuously.
+const BODY_KEYS = ['accountLockedBody', 'deleteAccountIdentityConflict'] as const;
+// The retry vocabulary, in all three locales. حاول is the
+// root the AR catalog uses for both tryAgain and المحاولة.
+const RETRY_PHRASE = /try(ing)? again|réessayer|حاول/i;
 const isCtrl = (p: number) =>
   (p >= 0x200b && p <= 0x200f) ||
   (p >= 0x202a && p <= 0x202e) ||
@@ -148,14 +173,41 @@ describe('AR lockout catalog — code-point exact (never trust the terminal)', (
     expect(strings.fr.accountLockedBody).toBe(
       'Il ne s’agit pas d’un problème de connexion, et réessayer n’y changera rien. Seule notre équipe peut le corriger. Écrivez-nous à support@scan-action.com'
     );
+    expect(strings.en.deleteAccountIdentityConflict).toBe(
+      'We could not delete this account automatically. Our team can finish it for you. Email support@scan-action.com'
+    );
+    expect(strings.fr.deleteAccountIdentityConflict).toBe(
+      'Nous n’avons pas pu supprimer ce compte automatiquement. Notre équipe peut le faire pour vous. Écrivez-nous à support@scan-action.com'
+    );
   });
 
   it('the support address is the FINAL token in every locale, with nothing after it', () => {
     // The one thing that keeps a Latin address intact at the end of an RTL line
     // WITHOUT a bidi control. A period appended here would be a neutral at the
     // boundary and would render on the wrong side of the address.
+    for (const key of BODY_KEYS) {
+      for (const lang of ['en', 'fr', 'ar'] as const) {
+        expect(strings[lang][key], `${lang}.${key}`).toMatch(/support@scan-action\.com$/);
+      }
+    }
+  });
+
+  it('NEITHER body tells the user to try again, in any locale', () => {
+    // Asserted rather than trusted to the wording. On the dashboard the retry
+    // affordance is removed, so "trying again will not help" is coherent there —
+    // but deleteAccountIdentityConflict renders above a still-enabled
+    // Permanently delete button, and the phrase must never migrate into it. The
+    // pattern covers all three locales' spellings.
+    // `try(ing)?` deliberately: the dashboard string says "trying again", which a
+    // bare /try again/ does NOT match. Verified by transposing the two strings —
+    // before this, EN passed by luck while FR and AR caught the swap.
     for (const lang of ['en', 'fr', 'ar'] as const) {
-      expect(strings[lang].accountLockedBody, `${lang} body`).toMatch(/support@scan-action\.com$/);
+      expect(strings[lang].deleteAccountIdentityConflict, `${lang} delete copy`).not.toMatch(
+        RETRY_PHRASE
+      );
+      // Positive control: the pattern must FIRE on the string that does say it,
+      // or the assertion above is vacuous in that locale.
+      expect(strings[lang].accountLockedBody, `${lang} control`).toMatch(RETRY_PHRASE);
     }
   });
 
@@ -202,6 +254,31 @@ describe('isIdentityConflict recognises the code and nothing else', () => {
 // ────────────────────────────────────────────────────────────────────────────
 // Unmocked service, stubbed fetch. This is the layer where the code used to be
 // destroyed, and the only layer no other test in the suite touches.
+//
+// ===========================================================================
+// DO NOT DELETE THIS SECTION. It is the ONLY guard on the root defect.
+// ===========================================================================
+// Every render test in this repository — the ones below, dashboardRestyle,
+// edgeLeakLocalization, and the eleven others that touch getStats — mocks the
+// documentService MODULE. They are therefore structurally blind to a regression
+// inside it: the mock supplies whatever error the test names, so the question
+// this section asks (does getStats read the response body at all?) is one they
+// cannot pose.
+//
+// Measured, not assumed. Reverting getStats to its original
+// `if (!res.ok) throw new Error('Failed to fetch document stats')` was run on
+// 2026-08-26 against the WHOLE frontend suite: 2501 of 2502 tests passed. The
+// single failure was in this section. Every AR render assertion in this file
+// stayed green, as did all 51 other test files. So restoring the exact defect
+// this PR exists to remove leaves the suite green everywhere a reviewer would
+// think to look, and red in one place only — here.
+//
+// That is the whole danger, and it is why the note is here rather than in the
+// pull request: deleting this section produces no failure anywhere, and the
+// original bug can then return in silence. A future reader who finds a
+// fetch-level test odd in a file of render tests is the person this paragraph
+// is addressed to.
+// ===========================================================================
 describe('documentService.getStats surfaces the server code (the root asymmetry)', () => {
   // importActual, NOT import: the file-level vi.mock above intercepts every
   // ordinary import of this path, so `await import(...)` would hand back the
@@ -394,20 +471,50 @@ describe('the lockout RENDERS its own copy and offers no retry', () => {
 // 5. DELETE PATH — the same code, a different transport.
 // ────────────────────────────────────────────────────────────────────────────
 describe('the delete path translates the code instead of telling the user to retry', () => {
-  it('maps IDENTITY_EMAIL_CONFLICT to the lockout body in all three locales', () => {
+  const t = (lang: 'en' | 'fr' | 'ar') =>
+    translateAccountError(IDENTITY_EMAIL_CONFLICT, strings[lang] as Record<string, string>);
+
+  it('maps IDENTITY_EMAIL_CONFLICT to its OWN string in all three locales', () => {
     for (const lang of ['en', 'fr', 'ar'] as const) {
-      expect(
-        translateAccountError(IDENTITY_EMAIL_CONFLICT, strings[lang] as Record<string, string>)
-      ).toBe(strings[lang].accountLockedBody);
+      expect(t(lang)).toBe(strings[lang].deleteAccountIdentityConflict);
+    }
+  });
+
+  it('does NOT reuse the dashboard lockout copy, which never names the deletion', () => {
+    for (const lang of ['en', 'fr', 'ar'] as const) {
+      expect(t(lang)).not.toBe(strings[lang].accountLockedBody);
+    }
+  });
+
+  it('the two strings cannot be transposed: the DASHBOARD still gets its own', () => {
+    // Both are correct for this one condition, so a swap would read plausibly on
+    // either screen and break neither. Pinning both directions is what makes the
+    // pair non-interchangeable.
+    for (const lang of ['en', 'fr', 'ar'] as const) {
+      expect(strings[lang].accountLockedBody).not.toBe(
+        strings[lang].deleteAccountIdentityConflict
+      );
     }
   });
 
   it('no longer falls through to "please try again", the one useless instruction', () => {
     for (const lang of ['en', 'fr', 'ar'] as const) {
-      expect(
-        translateAccountError(IDENTITY_EMAIL_CONFLICT, strings[lang] as Record<string, string>)
-      ).not.toBe(strings[lang].deleteAccountError);
+      expect(t(lang)).not.toBe(strings[lang].deleteAccountError);
     }
+  });
+
+  it('the copy the modal renders carries the address and refuses the retry phrase', () => {
+    // Read through the translator, not off the catalog: this is what
+    // DeleteAccountModal.tsx:142 actually puts in the DOM.
+    for (const lang of ['en', 'fr', 'ar'] as const) {
+      expect(t(lang)).toMatch(/support@scan-action\.com$/);
+      expect(t(lang)).not.toMatch(RETRY_PHRASE);
+    }
+  });
+
+  it('AR: the translated string is the approved code points, byte for byte', () => {
+    expect(cps(t('ar'))).toEqual(AR_EXPECTED.deleteAccountIdentityConflict);
+    expect(cps(t('ar')).filter(isCtrl)).toEqual([]);
   });
 
   it('the whitelist still absorbs everything else exactly as before', () => {

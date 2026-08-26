@@ -40,14 +40,16 @@ const CODE_TO_KEY: Record<string, string> = {
   // so the controller refuses rather than report a deletion that would not
   // happen (accountController.ts:79-90). See lib/identityConflict.ts.
   //
-  // MIS-SHAPED, DELIBERATELY, AND ONLY FOR NOW. accountLockedBody is written for
-  // the lockout screen: every clause of it is TRUE here, and it is strictly
-  // better than the deleteAccountError fallthrough it replaces ("Please try
-  // again", which is the one thing that cannot work). But it never names the
-  // deletion the user just asked for, and it sits above a still-enabled
-  // "Permanently delete" button. The delete path should get its own string in
-  // the deleteAccount* family; that needs approved Arabic and is not this PR.
-  [IDENTITY_EMAIL_CONFLICT]: 'accountLockedBody',
+  // Its OWN string, not the lockout screen's. Both are true for this condition,
+  // but they are read in different places: the dashboard's reader is looking at
+  // an empty screen, while this one has just typed their email, pressed
+  // Permanently delete, and is looking at an inline alert with that button still
+  // enabled beneath it (DeleteAccountModal.tsx:140-144). So this copy names the
+  // DELETION and says the team can finish it, and it must never carry the
+  // lockout's "trying again will not help" — true, but it would sit directly
+  // above a live control that tries again. The suite asserts the absence of that
+  // phrase in all three locales rather than trusting the wording to stay put.
+  [IDENTITY_EMAIL_CONFLICT]: 'deleteAccountIdentityConflict',
   // 409: user shares an org with other members. Rare today — the product only
   // creates solo orgs — but the copy must still tell them what to do about it.
   SHARED_WORKSPACE: 'deleteAccountSharedWorkspace',
