@@ -39,7 +39,16 @@ export const documentService = {
       method: 'GET',
       headers: await getAuthHeaders()
     });
-    if (!res.ok) throw new Error('Failed to fetch document stats');
+    // Read the body, exactly as getRecentActivity below already does (:50-53).
+    // Until this line, `res` was discarded on failure and every non-ok status
+    // became the same opaque literal — so a server code that the UI is supposed
+    // to act on (IDENTITY_EMAIL_CONFLICT) was destroyed at this boundary and the
+    // dashboard could only ever GUESS at the cause. The asymmetry with the
+    // sibling calls was the defect; this removes it rather than special-casing.
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch document stats');
+    }
     return res.json();
   },
 

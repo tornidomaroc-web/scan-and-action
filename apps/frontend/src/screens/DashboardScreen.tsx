@@ -19,6 +19,7 @@ import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
+import { isIdentityConflict } from '../lib/identityConflict';
 import { SectionHeading } from '../components/SectionHeading';
 import { AreaChart } from '../components/AreaChart';
 import { useIsDesktop } from '../hooks/useMediaQuery';
@@ -90,6 +91,11 @@ export const DashboardScreen = () => {
   const [period, setPeriod] = useState<'all' | 'month'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Terminal lockout (lib/identityConflict.ts). Kept SEPARATE from `error`
+  // rather than encoded into it: `error` is display text, and the two things
+  // this flag decides — which title, and whether a retry is offered at all —
+  // are not derivable from a translated sentence.
+  const [locked, setLocked] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [expanding, setExpanding] = useState(false);
   const isDesktop = useIsDesktop();
@@ -117,12 +123,22 @@ export const DashboardScreen = () => {
   const fetchData = async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
+      // The thrown value is KEPT, not just logged. Both .catch()es still return
+      // null so every downstream branch below is byte-identical to before — the
+      // only thing added is that the cause survives long enough to be read.
+      // Discarding it is why this screen reported a connection failure for a
+      // 409 it had been told the exact reason for.
+      let statsErr: unknown = null;
+      let activityErr: unknown = null;
+
       const statsTask = documentService.getStats().catch((err) => {
         console.error('[Dashboard] Stats fetch failed:', err);
+        statsErr = err;
         return null;
       });
       const activityTask = documentService.getRecentActivity().catch((err) => {
         console.error('[Dashboard] Activity fetch failed:', err);
+        activityErr = err;
         return null;
       });
 
@@ -131,7 +147,17 @@ export const DashboardScreen = () => {
       if (statsData) setStats(statsData);
       if (activityData) setRecentActivity(activityData);
 
-      if (!statsData && !activityData) {
+      // Either call is enough to prove the lockout: the middleware raises it
+      // before any route handler runs, so it is a property of the session, not
+      // of the endpoint. Checked FIRST because it is the only cause here that is
+      // known rather than inferred — the branches below infer from null alone
+      // and cannot tell a lockout from a dropped connection.
+      const lockedNow = isIdentityConflict(statsErr) || isIdentityConflict(activityErr);
+      setLocked(lockedNow);
+
+      if (lockedNow) {
+        setError(s.accountLockedBody);
+      } else if (!statsData && !activityData) {
         setError(s.dashboardConnectionError);
       } else if (!statsData) {
         setError(s.dashboardMetricsUnavailable);
@@ -139,6 +165,9 @@ export const DashboardScreen = () => {
         setError(null);
       }
     } catch (err: any) {
+      // A synchronous throw never reached either .catch(), so nothing was
+      // classified. Clear the flag rather than leaving a stale lock behind.
+      setLocked(false);
       setError(s.dashboardUnexpectedError);
     } finally {
       if (showLoading) setLoading(false);
@@ -173,7 +202,19 @@ export const DashboardScreen = () => {
   if (error && !stats.totalCount && recentActivity.length === 0) {
     return (
       <div className="mx-auto max-w-[1200px] py-12">
-        <ErrorState title={s.connectionError} message={error} onRetry={() => fetchData(true)} />
+        {/*
+          Locked: the title stops claiming a connection fault, and `onRetry` is
+          OMITTED so ErrorState renders no button (ErrorState.tsx:23 already
+          guards on the prop — this is a call-site change, not a component one).
+          A retry button under copy that says retrying will not help is a
+          contradiction the user is entitled to believe, and pressing it costs
+          two more requests that cannot succeed.
+        */}
+        <ErrorState
+          title={locked ? s.accountLockedTitle : s.connectionError}
+          message={error}
+          onRetry={locked ? undefined : () => fetchData(true)}
+        />
       </div>
     );
   }
