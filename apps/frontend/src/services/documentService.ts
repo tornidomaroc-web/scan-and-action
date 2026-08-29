@@ -20,7 +20,15 @@ export const documentService = {
       method: 'GET',
       headers: await getAuthHeaders()
     });
-    if (!res.ok) throw new Error('Failed to fetch review queue');
+    // Read the body, exactly as getStats above already does (:48-51). Until this
+    // line every non-ok status became the same opaque literal, so a server code
+    // the UI is supposed to act on (IDENTITY_EMAIL_CONFLICT) was destroyed here
+    // and ReviewQueueScreen could only ever offer a retry that cannot succeed.
+    // No downstream handler can classify what this line threw away.
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch review queue');
+    }
     return res.json();
   },
 
@@ -98,7 +106,13 @@ export const documentService = {
       method: 'GET',
       headers: await getAuthHeaders()
     });
-    if (!res.ok) throw new Error('Failed to export CSV');
+    // Same asymmetry as getReviewQueue above. The success path below reads a
+    // blob, but the failure path never reaches it, so reading JSON here cannot
+    // affect a successful export.
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to export CSV');
+    }
     
     const blob = await res.blob();
     const url = window.URL.createObjectURL(blob);

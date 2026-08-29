@@ -332,6 +332,91 @@ describe('documentService.getStats surfaces the server code (the root asymmetry)
   });
 });
 
+// ===========================================================================
+// 3b. THE SAME ASYMMETRY, IN THE TWO CALL SITES SECTION 3 DID NOT COVER.
+// ===========================================================================
+// DO NOT DELETE THIS SECTION EITHER. The banner above section 3 applies here
+// word for word, and was re-measured for these two sites rather than assumed:
+// reverting getReviewQueue and exportCsv to their original one-line throws was
+// run against the WHOLE frontend suite on 2026-08-29. The result is in the PR.
+//
+// Section 3 is scoped to getStats — all three of its assertions name it — so it
+// could not have caught these. getReviewQueue fed ReviewQueueScreen, which
+// offers a retry (ReviewQueueScreen.tsx:143) that cannot succeed for a lockout;
+// the code it needed to know that was destroyed one layer earlier.
+//
+// The load/respond helpers are duplicated from section 3 rather than hoisted
+// out of it. Hoisting would have edited the block whose own banner says its
+// deletion produces no failure anywhere, and two four-line helpers are a
+// cheaper price than touching that.
+// ===========================================================================
+describe('getReviewQueue and exportCsv surface the server code too', () => {
+  const load = async () =>
+    (
+      await vi.importActual<typeof import('../src/services/documentService')>(
+        '../src/services/documentService'
+      )
+    ).documentService;
+
+  const respond = (status: number, body: unknown) =>
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status, json: async () => body } as unknown as Response)
+    );
+
+  // A proxy 502 returns HTML, not JSON. `.catch(() => ({}))` must absorb it, or
+  // reading the body converts a clean failure into a different, unhandled one.
+  const respondNonJson = (status: number) =>
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status,
+        json: async () => {
+          throw new SyntaxError('Unexpected token < in JSON');
+        },
+      } as unknown as Response)
+    );
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('getReviewQueue: 409 WITH the code -> throws the code', async () => {
+    const svc = await load();
+    respond(409, { error: IDENTITY_EMAIL_CONFLICT, errorId: 'abc' });
+    await expect(svc.getReviewQueue()).rejects.toThrow(IDENTITY_EMAIL_CONFLICT);
+  });
+
+  it('getReviewQueue: a failure with NO code still throws the generic literal', async () => {
+    const svc = await load();
+    respond(500, {});
+    await expect(svc.getReviewQueue()).rejects.toThrow('Failed to fetch review queue');
+  });
+
+  it('getReviewQueue: a non-JSON body does not throw a parse error', async () => {
+    const svc = await load();
+    respondNonJson(502);
+    await expect(svc.getReviewQueue()).rejects.toThrow('Failed to fetch review queue');
+  });
+
+  it('exportCsv: 409 WITH the code -> throws the code', async () => {
+    const svc = await load();
+    respond(409, { error: IDENTITY_EMAIL_CONFLICT, errorId: 'abc' });
+    await expect(svc.exportCsv()).rejects.toThrow(IDENTITY_EMAIL_CONFLICT);
+  });
+
+  it('exportCsv: a failure with NO code still throws the generic literal', async () => {
+    const svc = await load();
+    respond(500, {});
+    await expect(svc.exportCsv()).rejects.toThrow('Failed to export CSV');
+  });
+
+  it('exportCsv: a non-JSON body does not throw a parse error', async () => {
+    const svc = await load();
+    respondNonJson(502);
+    await expect(svc.exportCsv()).rejects.toThrow('Failed to export CSV');
+  });
+});
+
 // ────────────────────────────────────────────────────────────────────────────
 // 4. RENDER — the real screen, the real ErrorState, the real i18n provider.
 // ────────────────────────────────────────────────────────────────────────────
