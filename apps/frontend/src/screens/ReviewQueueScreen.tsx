@@ -9,6 +9,7 @@ import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getVendor, getAmount, getStatus, getDocTypeLabel } from '../lib/searchResultCard';
 import { formatDateValue } from '../lib/formatCellValue';
+import { isIdentityConflict } from '../lib/identityConflict';
 
 // Review Queue, restyled onto the --sa-* token system (PR-D4).
 //  - Calm flat surfaces (rounded-card, quiet shadow), token colors only (no raw
@@ -72,16 +73,28 @@ export const ReviewQueueScreen = () => {
   const [loading, setLoading] = useState(true);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
+  // IDENTITY_EMAIL_CONFLICT is a property of the SESSION, not of this endpoint:
+  // authMiddleware raises it before any route handler runs. It is terminal —
+  // clearing it is an operator action against an orphaned row — so the screen
+  // must stop offering a retry that cannot succeed (lib/identityConflict.ts:15-18).
+  const [locked, setLocked] = useState(false);
   const { showToast } = useToast();
 
   const fetchQueue = async () => {
     setLoading(true);
     setErrorMsg('');
+    // Clear any previous lock rather than leaving a stale one behind.
+    setLocked(false);
     try {
       const data = await documentService.getReviewQueue();
       setDocs(data);
     } catch (err: any) {
-      setErrorMsg(s.queueFetchError);
+      // By EXACT code, never by status (lib/identityConflict.ts:20-22). A bare 409
+      // with no code — a proxy's conflict page, a future unrelated 409 — is NOT
+      // this condition and keeps the ordinary retryable treatment below.
+      const lockedNow = isIdentityConflict(err);
+      setLocked(lockedNow);
+      setErrorMsg(lockedNow ? s.accountLockedBody : s.queueFetchError);
     } finally {
       setLoading(false);
     }
@@ -110,7 +123,24 @@ export const ReviewQueueScreen = () => {
       onSuccess();
     } catch (error) {
       console.error('[ReviewQueue] Action failed:', error);
-      showToast(s.toastUpdateError, 'error');
+      // On a lockout the toast is SUPPRESSED and the screen switches instead.
+      // A toast vanishes after a few seconds; the condition is permanent, so a
+      // disappearing message invites the next tap — the exact harm this work
+      // exists to stop. accountLockedBody also ends in the support address,
+      // which is the only exit on native: text a user cannot re-read, select or
+      // copy is not an exit. And if the session is locked, this action is not
+      // the only thing broken — every path on this screen is, which is what the
+      // full-body ErrorState says and a toast does not.
+      //
+      // This is not a silent disappearance: setting errorMsg replaces the entire
+      // body below, so the list the user was looking at is gone and replaced.
+      // Every OTHER failure keeps its toast, unchanged.
+      if (isIdentityConflict(error)) {
+        setLocked(true);
+        setErrorMsg(s.accountLockedBody);
+      } else {
+        showToast(s.toastUpdateError, 'error');
+      }
     } finally {
       setActioningId(null);
     }
@@ -140,7 +170,15 @@ export const ReviewQueueScreen = () => {
       </div>
     );
   } else if (errorMsg) {
-    body = <ErrorState message={errorMsg} onRetry={fetchQueue} />;
+    // Locked: the title stops claiming an unspecified fault, and onRetry is
+    // omitted so ErrorState renders NO button at all (components/ErrorState.tsx:23).
+    // The non-locked branch is unchanged, title included (it renders the
+    // translated s.somethingWrong default).
+    body = locked ? (
+      <ErrorState title={s.accountLockedTitle} message={errorMsg} />
+    ) : (
+      <ErrorState message={errorMsg} onRetry={fetchQueue} />
+    );
   } else if (docs.length === 0) {
     body = (
       <div className="rounded-card border border-dashed border-line bg-surface py-16">
