@@ -135,6 +135,34 @@ Claims volunteered as extra diligence get the least scrutiny of anything
 written: nobody asked for them, so nobody checks them — including the author.
 Each of the four errors above was volunteered, not requested.
 
+### "Deployed" is a claim about the control plane, not about the process
+
+A deployment console reporting success says the platform believes it shipped a
+commit. It is not a reading from the process serving traffic, and a build that
+succeeded but never took traffic looks identical from the console.
+
+Ask the process instead:
+
+| Question | Call |
+|---|---|
+| What commit does the backend report? | `curl -sS https://<host>/api/version` |
+| What is `main` right now? | `gh api repos/<owner>/<repo>/commits/main --jq .sha` |
+
+Byte-compare the two. The route is public and mounted above the `/api` auth
+middleware, and reports `503 {"commit":null}` when the variable is absent, so a
+missing value is loud rather than a plausible string.
+
+**Two things will mislead you here.** An unknown `/api/*` path returns `401`,
+not `404`, because `authMiddleware` is mounted on the prefix — a status code
+alone cannot separate "route absent" from "no token", so read the body. And the
+reported value trails `main` for as long as the deploy takes: 85s and 68s from
+merge commit to first serve, on the two deploys measured on 2026-08-29. Those
+are two observations, not a bound — a longer wait is a slower deploy, not a
+fault. The point is only that a mismatch immediately after a merge is the
+expected state. Re-read before concluding anything from one.
+
+Recorded 2026-08-29.
+
 ## What belongs in this file
 
 A check that answers **confidently and wrongly, with no error to prompt a
