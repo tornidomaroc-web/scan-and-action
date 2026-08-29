@@ -163,6 +163,19 @@ expected state. Re-read before concluding anything from one.
 
 Recorded 2026-08-29.
 
+### A stale asset path answers 200, not 404
+
+Vercel serves the SPA fallback for any unmatched path, so an
+`assets/index-<hash>.js` URL noted before a deploy returns **HTTP 200 with
+`content-type: text/html`** afterwards, not a 404. Grepping that HTML for a JS
+token prints nothing — identical output to "the change is not deployed" — and
+there is no error status to prompt a second look. Measured after #152: the
+stale path returned 200, 2229 bytes, `x-vercel-cache: HIT`; the fresh path
+returned 737692 bytes of JS.
+
+Read the asset path from the freshly-served HTML on every check, and verify by
+size and content-type. A status-code guard passes cleanly and proves nothing.
+
 ## What belongs in this file
 
 A check that answers **confidently and wrongly, with no error to prompt a
