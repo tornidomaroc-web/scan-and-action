@@ -115,6 +115,25 @@ describe('GET /api/version', () => {
     // 200 with no Authorization header sent: the route is above the auth mount.
     expect(res.status).toBe(200);
 
+    // ...and the proof that the line above means anything. A response that does
+    // NOT challenge for credentials is evidence of placement only if something
+    // on the same path through the same app WOULD have challenged. Were
+    // authMiddleware inert here — unregistered, or short-circuited by some
+    // future test-environment branch — /api/version would answer 200 from BELOW
+    // the mount just as happily, and the assertion above would be vacuous while
+    // staying green. So a protected sibling is probed in the same boot, with no
+    // Authorization header either. Production answers exactly this way: an
+    // unknown /api/* path returned 401, not 404, when probed on 2026-08-29.
+    //
+    // The pattern generalises past this file: a negative observation is worth
+    // nothing without a nearby positive one through the same path. It is the
+    // same reason the live no-ETag reading on this route is only meaningful
+    // beside the 401s that DO carry an ETag through the same Railway edge — the
+    // absence is attributable to res.end() rather than to a stripping proxy
+    // only because the presence was observed alongside it.
+    const guarded = await fetch(`${base}/api/__no_such_route__`);
+    expect(guarded.status, 'the /api auth mount must be live in this same app instance').toBe(401);
+
     // Exactly the environment's value — not HEAD, not a constant, not a prefix.
     expect(await res.json()).toEqual({ commit: SYNTHETIC_SHA });
 
