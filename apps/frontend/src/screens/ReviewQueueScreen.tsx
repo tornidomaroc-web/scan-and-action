@@ -239,7 +239,15 @@ export const ReviewQueueScreen = () => {
                     )}
                   </div>
                   {amount && (
-                    <span className="flex-shrink-0 text-sm font-semibold tabular-nums text-ink" dir="ltr"><bdi>{amount}</bdi></span>
+                    // dir="ltr" with NO isolate. <bdi> is by definition an isolate
+                    // whose direction is auto, so it re-runs the detection this pin
+                    // exists to override, finds the leading U+200F in Intl's ar
+                    // currency output, and lands back on "$US 42.07". Measured in
+                    // Chrome (#145, f18bd1e); [dir=ltr] already computes
+                    // unicode-bidi: isolate, so no wrapper is needed to protect the
+                    // neighbours. `amount` is ALWAYS a currency string here
+                    // (getAmount), so a static dir is correct at this site.
+                    <span className="flex-shrink-0 text-sm font-semibold tabular-nums text-ink" dir="ltr">{amount}</span>
                   )}
                   <ChevronRight size={16} className="flex-shrink-0 text-ink-fainter rtl:-scale-x-100" />
                 </div>
@@ -327,7 +335,7 @@ export const ReviewQueueScreen = () => {
                     </td>
                     <td className="px-6 py-4 text-end align-top">
                       {amount ? (
-                        <span className="text-sm font-semibold tabular-nums text-ink" dir="ltr"><bdi>{amount}</bdi></span>
+                        <span className="text-sm font-semibold tabular-nums text-ink" dir="ltr">{amount}</span>
                       ) : (
                         <span className="text-sm text-ink-fainter" aria-label={s.notAvailable} title={s.notAvailable}>-</span>
                       )}

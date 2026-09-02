@@ -10,7 +10,7 @@ import { FixActionPanel } from '../components/FixActionPanel';
 import { useToast } from '../contexts/ToastContext';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
-import { getStatus, getDocTypeLabel, getEntityRoleLabel, formatFactValue } from '../lib/searchResultCard';
+import { getStatus, getDocTypeLabel, getEntityRoleLabel, formatFactValue, factValueDir } from '../lib/searchResultCard';
 import { formatDateValue } from '../lib/formatCellValue';
 import { isIdentityConflict } from '../lib/identityConflict';
 
@@ -336,7 +336,15 @@ export const DocumentDetailScreen = () => {
                         <span dir="ltr">{Math.round(fact.confidence * 100)}%</span> {s.match}
                       </span>
                     </div>
-                    <p className="break-words text-sm font-medium text-ink" dir="auto"><bdi>{factValue(fact)}</bdi></p>
+                    {/* Direction is DATA, not a property of this box: the same
+                        element renders an Arabic string value, a localized Arabic
+                        date, a placeholder, and an Intl currency string. Only the
+                        numeric branch is pinned ltr (searchResultCard.factValueDir,
+                        whose precedence mirrors formatFactValue's). A blanket
+                        dir="ltr" here would be actively wrong on Arabic prose.
+                        No <bdi>: it is an isolate with dir auto and would re-run
+                        the detection the pin exists to override. */}
+                    <p className="break-words text-sm font-medium text-ink" dir={factValueDir(fact)}>{factValue(fact)}</p>
                   </div>
                 ))}
               </div>
@@ -354,7 +362,7 @@ export const DocumentDetailScreen = () => {
                     {visibleFacts.map((fact: any, i: number) => (
                       <tr key={i} className="transition-colors hover:bg-surface-alt">
                         <td className="px-6 py-3.5 text-sm font-medium text-ink">{fieldLabel(fact.key)}</td>
-                        <td className="px-6 py-3.5 text-sm text-ink-secondary" dir="auto"><bdi>{factValue(fact)}</bdi></td>
+                        <td className="px-6 py-3.5 text-sm text-ink-secondary" dir={factValueDir(fact)}>{factValue(fact)}</td>
                         <td className="px-6 py-3.5">
                           <span className={`inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-label font-medium ${
                             fact.confidence > 0.9 ? 'text-success-text' : 'text-warning-text'

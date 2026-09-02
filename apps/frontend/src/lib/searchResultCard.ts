@@ -167,6 +167,48 @@ export const formatFactValue = (fact: any, s: Strings, language: string): string
   return s.notAvailable;
 };
 
+/**
+ * The DIRECTION of what formatFactValue just returned.
+ *
+ * Direction is DATA here, not a property of the container, because this one call
+ * site is polymorphic: the same element renders an Arabic vendor string, a
+ * localized Arabic date, a placeholder, AND an Intl currency string. A static
+ * dir on that element is wrong for three of those four.
+ *
+ * Only the NUMERIC branch needs pinning, and it needs it because Intl's ar/USD
+ * output is 200f 34 32 2e 30 37 a0 55 53 24 — it BEGINS with U+200F RLM (a
+ * strong RTL character) and ENDS with `$` (a neutral). dir="auto" resolves from
+ * the first strong character, finds the RLM, makes the box RTL, and the trailing
+ * neutral lands left of the `US` run: `$US 42.07` instead of `42.07 US$`.
+ *
+ * The precedence below MIRRORS formatFactValue's exactly and must keep doing so.
+ * If the two disagree, the direction is computed for a branch that did not
+ * produce the string — which is a worse bug than the one this fixes, because it
+ * would pin `ltr` onto Arabic prose.
+ *
+ * Measured in Chrome (PR #145, f18bd1e), by reading the on-screen x of every
+ * character, with the defect reproduced first as the positive control:
+ *
+ *   dir="auto"                ->  "$US 42.07"  WRONG
+ *   dir="ltr" + <bdi>         ->  "$US 42.07"  WRONG
+ *   <bdi> alone               ->  "$US 42.07"  WRONG
+ *   dir="ltr", no isolate     ->  "42.07 US$"  right
+ *
+ * <bdi> is BY DEFINITION an isolate whose direction is `auto`, so wrapping the
+ * value re-runs the very detection the pin exists to override. That is why the
+ * fix is `dir="ltr"` with NO isolate element, and why an added <bdi> is a
+ * regression even though it looks like an improvement.
+ */
+export const factValueDir = (fact: any): 'ltr' | 'auto' => {
+  // 1) A real string value wins in formatFactValue, so it wins here. It is
+  //    arbitrary document data and may be Arabic: it must stay auto.
+  if (fact?.valueString != null && String(fact.valueString) !== '') return 'auto';
+  // 2) The numeric branch — the only one that produces an Intl currency string.
+  if (fact?.valueNumber != null) return 'ltr';
+  // 3) A localized date, or the placeholder. Both can be Arabic: auto.
+  return 'auto';
+};
+
 const firstReadable = (row: any, language: string): string | null => {
   for (const [k, v] of Object.entries(row || {})) {
     if (k === 'id') continue;
