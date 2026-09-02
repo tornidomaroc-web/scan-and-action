@@ -7,6 +7,7 @@ import { EmptyState } from '../components/EmptyState';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getStatus } from '../lib/searchResultCard';
+import { isIdentityConflict } from '../lib/identityConflict';
 import { formatDateValue } from '../lib/formatCellValue';
 import { formatCount } from '../lib/formatNumber';
 
@@ -17,16 +18,36 @@ export const ActivityScreen = () => {
   const [activity, setActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // IDENTITY_EMAIL_CONFLICT is a property of the SESSION, not of this endpoint:
+  // authMiddleware raises it before any route handler runs. It is terminal —
+  // clearing it is an operator action against an orphaned row — so the screen
+  // must stop offering a retry that cannot succeed (lib/identityConflict.ts:15-18).
+  const [locked, setLocked] = useState(false);
 
   const fetchActivity = async () => {
     setLoading(true);
+    // Clear any previous lock rather than leaving a stale one behind.
+    setLocked(false);
     try {
       const data = await documentService.getAllActivity();
       setActivity(data);
       setError(null);
     } catch (err: any) {
+      // Logged on EVERY branch, the lockout included, and deliberately so.
+      // Not because the line is a durable trace — it is not: console breadcrumbs
+      // are off at the SDK (sentry.ts:57, `breadcrumbsIntegration({ console:
+      // false })`), so this never leaves the browser and dies with the tab.
+      // It is kept because suppressing it would mean ADDING a branch to buy
+      // nothing, and because a lockout on a plain read is the anomaly worth
+      // seeing in a live session with DevTools open. `err.message` here is the
+      // bare server code, so there is no PII in it either way.
       console.error('[Activity] Fetch failed:', err);
-      setError(s.failedActivity);
+      // By EXACT code, never by status (lib/identityConflict.ts:20-22). A bare 409
+      // with no code — a proxy's conflict page, a future unrelated 409 — is NOT
+      // this condition and keeps the ordinary retryable treatment below.
+      const lockedNow = isIdentityConflict(err);
+      setLocked(lockedNow);
+      setError(lockedNow ? s.accountLockedBody : s.failedActivity);
     } finally {
       setLoading(false);
     }
@@ -48,8 +69,15 @@ export const ActivityScreen = () => {
   if (error) {
     return (
       <div className="mx-auto max-w-[1200px] py-12">
-        {/* No title prop: ErrorState renders its translated default (s.somethingWrong). */}
-        <ErrorState message={error} onRetry={fetchActivity} />
+        {locked ? (
+          // onRetry omitted, so ErrorState renders NO button at all
+          // (components/ErrorState.tsx:24). Activity has ONE failure surface and
+          // no toast, so replacing the body is the whole adoption here.
+          <ErrorState title={s.accountLockedTitle} message={error} />
+        ) : (
+          // No title prop: ErrorState renders its translated default (s.somethingWrong).
+          <ErrorState message={error} onRetry={fetchActivity} />
+        )}
       </div>
     );
   }
