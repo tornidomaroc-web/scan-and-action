@@ -20,6 +20,21 @@ import { QueryResultDto } from '../types';
 import { searchService } from '../services/searchService';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
+import { isIdentityConflict } from '../lib/identityConflict';
+
+// A submit has THREE outcomes for its caller, not two: it succeeded, it failed
+// in a way worth relabelling, or it failed terminally and must be left alone.
+// A boolean forces the last two into one branch, and that collapse is exactly
+// what let handlePromptClick overwrite the lockout copy with s.autoRunFailed on
+// the autorun path — a screen telling a locked user to try again, above a live
+// retry button.
+//
+// Deliberately NOT read from the `locked` state in the caller: React state is
+// not updated synchronously within the tick, so `locked` read immediately after
+// `await submitQuery(...)` is the STALE value. That works in a hand test and
+// fails under timing. A ref would dodge it, but a ref introduced solely to
+// defeat state timing hides the design problem the return type should solve.
+type SubmitOutcome = 'ok' | 'error' | 'locked';
 
 interface SearchPrompt {
   id: string;
@@ -42,20 +57,37 @@ export const SearchScreen = () => {
   const [result, setResult] = useState<QueryResultDto | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  // IDENTITY_EMAIL_CONFLICT is a property of the SESSION, not of this endpoint:
+  // authMiddleware raises it before any route handler runs. It is terminal —
+  // clearing it is an operator action against an orphaned row — so the screen
+  // must stop offering a retry that cannot succeed (lib/identityConflict.ts:15-18).
+  const [locked, setLocked] = useState(false);
 
-  const submitQuery = async (searchStr: string) => {
-    if (!searchStr.trim()) return false;
+  const submitQuery = async (searchStr: string): Promise<SubmitOutcome> => {
+    // Behaviour-preserving: an empty query returned false before, so the autorun
+    // caller relabelled. It is unreachable from an autorun prompt (their queries
+    // are literals), and changing it is a behaviour change unrelated to this one.
+    if (!searchStr.trim()) return 'error';
     setLoading(true);
     setResult(null);
     setErrorMsg('');
+    setLocked(false);
 
     try {
       const payload = await searchService.executeQuery(searchStr, currentLanguage);
       setResult(payload);
-      return true;
+      return 'ok';
     } catch (err: any) {
+      // By EXACT code, never by status (lib/identityConflict.ts:20-22). A bare 409
+      // with no code — a proxy's conflict page, a future unrelated 409 — is NOT
+      // this condition and keeps the ordinary retryable treatment below.
+      if (isIdentityConflict(err)) {
+        setLocked(true);
+        setErrorMsg(s.accountLockedBody);
+        return 'locked';
+      }
       setErrorMsg(s.searchFailed);
-      return false;
+      return 'error';
     } finally {
       setLoading(false);
     }
@@ -70,13 +102,19 @@ export const SearchScreen = () => {
   const handlePromptClick = async (prompt: SearchPrompt) => {
     setQuery(prompt.display);
     setErrorMsg('');
+    setLocked(false);
 
     // Always maintain focus for immediate manual correction.
     inputRef.current?.focus();
 
     if (prompt.mode === 'autorun') {
-      const success = await submitQuery(prompt.query);
-      if (!success) {
+      const outcome = await submitQuery(prompt.query);
+      // ONLY 'error' relabels. 'locked' leaves the terminal copy in place —
+      // relabelling it restores the exact clobber this shape exists to remove —
+      // and 'ok' has nothing to say. A test that drives an autorun prompt into a
+      // lockout is the only thing that covers this line; see
+      // tests/searchLockout.test.tsx.
+      if (outcome === 'error') {
         setErrorMsg(s.autoRunFailed);
       }
     }
@@ -195,7 +233,14 @@ export const SearchScreen = () => {
           </div>
         )}
 
-        {errorMsg && <ErrorState message={errorMsg} onRetry={() => submitQuery(query)} />}
+        {errorMsg &&
+          (locked ? (
+            // onRetry omitted, so ErrorState renders NO button at all
+            // (components/ErrorState.tsx:23). The non-locked branch is unchanged.
+            <ErrorState title={s.accountLockedTitle} message={errorMsg} />
+          ) : (
+            <ErrorState message={errorMsg} onRetry={() => submitQuery(query)} />
+          ))}
 
         {!loading && !errorMsg && result && (
           <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
