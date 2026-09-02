@@ -12,6 +12,7 @@ import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getStatus, getDocTypeLabel, getEntityRoleLabel, formatFactValue } from '../lib/searchResultCard';
 import { formatDateValue } from '../lib/formatCellValue';
+import { isIdentityConflict } from '../lib/identityConflict';
 
 // Document detail, restyled onto the --sa-* token system (PR-D3).
 //  - Calm flat surfaces (rounded-card, quiet shadow) instead of the old
@@ -44,6 +45,11 @@ export const DocumentDetailScreen = () => {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [actioning, setActioning] = useState(false);
+  // IDENTITY_EMAIL_CONFLICT is a property of the SESSION, not of this endpoint:
+  // authMiddleware raises it before any route handler runs. It is terminal —
+  // clearing it is an operator action against an orphaned row — so the screen
+  // must stop offering a retry that cannot succeed (lib/identityConflict.ts:15-18).
+  const [locked, setLocked] = useState(false);
 
   // Same review actions as the queue, surfaced here so a mobile user who
   // tapped through to the detail can resolve the document in place.
@@ -56,7 +62,20 @@ export const DocumentDetailScreen = () => {
       navigate('/queue');
     } catch (error) {
       console.error('[DocumentDetail] Review action failed:', error);
-      showToast(s.toastUpdateError, 'error');
+      // On a lockout the toast is SUPPRESSED and the screen switches instead.
+      // This is the ACTION path (updateStatus, from an approve/reject tap) and
+      // is a separate surface from the load path below — which is why the
+      // ruling made for the queue's action toast applies here unchanged: a
+      // toast vanishes, the condition is permanent, and a disappearing message
+      // invites the next tap. Setting errorMsg replaces the whole document body
+      // via the early return at the render site, so this is a switch and not a
+      // silent disappearance. Every OTHER action failure keeps its toast.
+      if (isIdentityConflict(error)) {
+        setLocked(true);
+        setErrorMsg(s.accountLockedBody);
+      } else {
+        showToast(s.toastUpdateError, 'error');
+      }
     } finally {
       setActioning(false);
     }
@@ -64,6 +83,16 @@ export const DocumentDetailScreen = () => {
 
   const handleRefresh = () => {
     setLoading(true);
+    // Both are cleared together, and they MUST be: `locked` and `errorMsg` are
+    // one fact split across two variables. Clearing only `locked` on a
+    // documentId change would leave accountLockedBody in `errorMsg` and route it
+    // to the NON-locked branch below — rendering the lockout copy above a live
+    // retry, the exact harm this work exists to remove. (Clearing errorMsg also
+    // fixes a pre-existing staleness: navigating from a failed document to a
+    // healthy one kept the old ErrorState. That was unreachable before only
+    // because the sole retry re-booted the app.)
+    setErrorMsg('');
+    setLocked(false);
     documentService
       .getDocumentDetail(documentId!)
       .then(setDoc)
@@ -81,7 +110,14 @@ export const DocumentDetailScreen = () => {
       // that claims the document does not exist, which is false for a 401, a 500
       // or an offline phone, and :101 already uses it for the real not-found
       // case. The retry affordance below is unchanged.
-      .catch(() => setErrorMsg(s.somethingWrong))
+      // The catch bound NOTHING before this change: there was no `err` in scope
+      // to classify, so the signature has to change before any classification is
+      // possible here. By EXACT code, never by status (lib/identityConflict.ts:20-22).
+      .catch((err: unknown) => {
+        const lockedNow = isIdentityConflict(err);
+        setLocked(lockedNow);
+        setErrorMsg(lockedNow ? s.accountLockedBody : s.somethingWrong);
+      })
       .finally(() => setLoading(false));
   };
 
@@ -111,7 +147,25 @@ export const DocumentDetailScreen = () => {
 
   if (loading) return <DocumentDetailSkeleton />;
 
-  if (errorMsg) return <div className="mx-auto max-w-[1000px] py-12"><ErrorState title={s.errorTitle} message={errorMsg} onRetry={() => window.location.reload()} /></div>;
+  if (errorMsg)
+    return (
+      <div className="mx-auto max-w-[1000px] py-12">
+        {locked ? (
+          // onRetry omitted, so ErrorState renders NO button at all
+          // (components/ErrorState.tsx:24). That matters more here than on any
+          // other screen: this retry is window.location.reload(), which re-boots
+          // the app, re-runs provisioning and lands straight back in the same
+          // lockout. Removing the button breaks a LOOP, not a wasted request.
+          <ErrorState title={s.accountLockedTitle} message={errorMsg} />
+        ) : (
+          // Unchanged, reload included. The reload is a poor retry for ordinary
+          // errors too — handleRefresh would re-fetch without re-booting — but
+          // that is a separate defect with a different blast radius and is
+          // deliberately NOT bundled into this one.
+          <ErrorState title={s.errorTitle} message={errorMsg} onRetry={() => window.location.reload()} />
+        )}
+      </div>
+    );
   if (!doc) return <div className="mx-auto max-w-[1000px] py-12"><ErrorState title={s.errorTitle} message={s.docNotFound} /></div>;
 
   const isImageFile = typeof doc.signedFileUrl === 'string' && /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.originalFileName || '');
