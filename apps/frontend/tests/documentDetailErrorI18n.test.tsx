@@ -202,7 +202,25 @@ describe('DocumentDetailScreen source — no raw message render survives', () =>
   });
 
   it('routes the catch through the catalog', () => {
-    expect(SRC).toMatch(/\.catch\(\(\)\s*=>\s*setErrorMsg\(s\.somethingWrong\)\)/);
+    // The load catch now BINDS a value — it must, or the lockout could not be
+    // classified at all (#156) — so the old empty-arg `.catch(() => ...)` shape
+    // no longer holds. Pinning that literal was always a proxy; the INTENT is
+    // that nothing derived from the caught error reaches the rendered body.
+    //
+    // This is the stronger form of the same guard: it checks EVERY setErrorMsg
+    // call site rather than one line, and admits only a cleared string or a
+    // catalog key. `setErrorMsg(err.message)` — the leak this file exists to
+    // stop — fails it exactly as it failed the old shape.
+    const code = SRC.split(/\r?\n/)
+      .filter((l) => !l.trim().startsWith('//'))
+      .join('\n');
+    const args = [...code.matchAll(/setErrorMsg\(([^)]*)\)/g)].map((m) => m[1].trim());
+    expect(args.length, 'no setErrorMsg call site found at all').toBeGreaterThan(0);
+    for (const arg of args) {
+      expect(arg, `setErrorMsg(${arg}) is not a catalog key`).toMatch(
+        /^(''|s\.\w+|\w+\s*\?\s*s\.\w+\s*:\s*s\.\w+)$/
+      );
+    }
   });
 });
 
