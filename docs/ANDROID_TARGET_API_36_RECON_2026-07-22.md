@@ -304,11 +304,76 @@ path is already permissionless. API 36 forces no change here. Camera runtime req
 restrictions — usually the biggest migration cost — **do not apply to this app at all.** Processing polling
 is in-WebView (`ProcessingContext.tsx:168`), not a service.
 
-### (f) 16 KB page size — verify, low risk
+### (f) 16 KB page size — CORRECTED 2026-09-03. Real exposure, satisfied, unguarded.
 
-Play requires 16 KB page-size support for targetSdk 35+ on 64-bit devices. This app ships **no first-party
-native `.so`**; it is a WebView shell and Capacitor/Cordova are JVM. Exposure is only via transitive AARs,
-which Capacitor 8 handles. Verify the built AAB once; no action expected.
+**Corrected 2026-09-03, after #159 merged as `ca970b3`.** This section previously read, in full:
+
+> Play requires 16 KB page-size support for targetSdk 35+ on 64-bit devices. This app ships **no first-party
+> native `.so`**; it is a WebView shell and Capacitor/Cordova are JVM. Exposure is only via transitive AARs,
+> which Capacitor 8 handles. Verify the built AAB once; no action expected.
+
+That was accurate for Capacitor 7 and is false for Capacitor 8. It is recorded below as **two separate
+facts**, because they are two, and the second does not repair the first.
+
+#### Fact one — the assessment was WRONG
+
+Capacitor 8's camera plugin pulls CameraX, so the built APK now packages native libraries where Capacitor 7
+packaged **none**:
+
+```
+lib/arm64-v8a/libimage_processing_util_jni.so      29008
+lib/arm64-v8a/libsurface_util_jni.so                4832
+lib/armeabi-v7a/libimage_processing_util_jni.so    20380
+lib/armeabi-v7a/libsurface_util_jni.so              3440
+lib/x86/libimage_processing_util_jni.so            38292
+lib/x86/libsurface_util_jni.so                      3712
+lib/x86_64/libimage_processing_util_jni.so         48104
+lib/x86_64/libsurface_util_jni.so                   4928
+```
+
+"No first-party `.so`" is still literally true — these arrive transitively — but the conclusion drawn from
+it was not. The clause carrying the weight was **"which Capacitor 8 handles"**, and that was an assumption
+about a dependency's contents, written without ever building the thing. **No amount of reading found this.
+The first run of `:app:assembleDebug` found it**, in its packaging output.
+
+#### Fact two — the outcome is FINE
+
+Measured, not assumed. The ELF program headers of every 64-bit library in the APK were parsed directly, and
+every `PT_LOAD` segment reports `p_align 16384`:
+
+| Library | `PT_LOAD` p_align |
+|---|---|
+| `arm64-v8a/libimage_processing_util_jni.so` | 16384, 16384, 16384 |
+| `arm64-v8a/libsurface_util_jni.so` | 16384, 16384 |
+| `x86_64/libimage_processing_util_jni.so` | 16384, 16384, 16384 |
+| `x86_64/libsurface_util_jni.so` | 16384, 16384 |
+
+Play's 16 KB requirement is satisfied on the artifact built at `ca970b3`.
+
+#### Fact two does not repair fact one
+
+This is why the correction is longer than a line. A right answer reached by a wrong route holds only until
+the route is walked again. The route here was: reason about what a dependency ships, and record the
+conclusion as a finding. That route produced a false statement in six weeks, and it will produce another the
+next time a dependency changes. The alignment being correct today is luck plus Google's own build hygiene —
+neither of which this repository controls or observes.
+
+#### The operative consequence — real exposure, and no guard
+
+This app now packages native code, and **nothing in this repository would notice if the next library landed
+unaligned.**
+
+- **An alignment check cannot live in CI.** `ci.yml` has no `setup-java`, no Android SDK and no `gradlew`; by
+  its own comment it deliberately runs only `npx cap sync android`. CI never produces an APK, so it has no
+  artifact to inspect. This is not a gap that writing a test would close — there is nothing in CI to test.
+- **So it is a RELEASE-PROCEDURE item, not a test.** The check belongs beside the signing build, on the
+  machine that produces the AAB: parse the ELF program headers of every 64-bit `.so` in the artifact and
+  confirm `p_align >= 16384` before upload.
+
+That is the same shape this file already reached for the anti-steering gate (§3) and that PR3 reached for its
+screenshots: **when the only instrument is the built artifact, the guard is a procedure, not a suite.** A
+test asserting this would have to assert it about something CI does not build, which is how a guard comes to
+look like coverage while covering nothing.
 
 ---
 
