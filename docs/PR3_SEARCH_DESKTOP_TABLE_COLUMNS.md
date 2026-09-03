@@ -417,6 +417,12 @@ alone, and the chevron column takes ~40px more — so roughly 144px is left for
 all six columns' text. I expect **Q1 = yes** and **Q2 = 2 or 3**. If you
 report Q2 = 6, my arithmetic is wrong and that is worth knowing on its own.
 
+**ANSWERED 2026-09-03, and this prediction is FALSIFIED.** Q1 = no, Q2 = 6,
+Q3 = `الثقة`. Recorded as a falsification and not as a pass: 9b still
+has no pass condition and this answer does not give it one. The mechanism —
+the shortfall surfaced as row height rather than as a horizontal scrollbar —
+is at the end of the second round below, with the wrap it implies.
+
 ---
 
 ## Sequence
@@ -637,8 +643,14 @@ Taken by Abo Jad on the preview at `9dd91bb`, UI language Arabic, desktop at
 full window width. Query: `أظهر كل المستندات`, 26 rows returned. These are eye
 observations of a screen, recorded against the question each one answers.
 
-**The 768px inspection (9b) has not been taken.** Its three questions are still
-open and the prediction at 9b is still unfalsified.
+**The 768px inspection (9b) was not taken in this round.** It was taken on
+2026-09-03 and is answered in full at the end of the second round below.
+(Corrected 2026-09-03. This paragraph previously read "**The 768px inspection
+(9b) has not been taken.** Its three questions are still open and the
+prediction at 9b is still unfalsified." Both sentences were true when written
+and both are now false. Same inherited-wrong-claim class as 9d's pass literal
+above, and worse placed: this one sits in the document that carries the round,
+phrased as a present-tense finding, so a reader has no reason to look further.)
 
 | # | Answer | Result |
 |---|---|---|
@@ -652,7 +664,7 @@ open and the prediction at 9b is still unfalsified.
 | 8 | `99%`, `65%`, `0%` | PASS — never `0.99`, never bare `42`, never `4200%` |
 | 9a | No horizontal scrollbar; `الثقة` fully visible at the left edge; dates on one line | **PASS** |
 | 9c | **A**, on many rows and on **both** bounded columns | **PASS** |
-| 9b | not taken | open |
+| 9b | not taken in this round | answered 2026-09-03 — see the second round |
 
 **9a passed, so the `maxCh` arithmetic holds.** `24` and `16` are the right
 numbers at full width and are not to be changed. Recorded separately, as an
@@ -716,16 +728,146 @@ and not a missing-value fallback — it is the same class as F1 below: the
 extractor writing a value the UI cannot distinguish from a real one. Tracked
 separately, back-end side.
 
-**9b remains NOT TAKEN.** An attempt on 2026-09-03 reported the mobile card list
-rather than the table, which means the effective viewport was below the `md`
-breakpoint — a 768px *window* yields roughly a 753px viewport once the vertical
-scrollbar is subtracted. 9b is written against the viewport at exactly the
-breakpoint "at which the card layout stops and this table starts", so an
-observation of the card branch does not answer it. Its three forced answers
-(Q1 yes/no, Q2 an integer 0-6, Q3 a header name) are still open and the 424px /
-144px arithmetic is still unfalsified. Per this section's own reasoning, 9b
-cannot fail this PR: the six columns are a strict subset of the thirteen that
-shipped before, so the table is narrower at every width than what already ships.
+## 9b — ANSWERED 2026-09-03. Still an inspection, still no pass condition.
+
+Corrected 2026-09-03. This section previously opened "**9b remains NOT TAKEN**"
+and closed by recording its three answers as "still open and the 424px / 144px
+arithmetic is still unfalsified". Those were true when written and are now
+false, which is the class of stale claim this file exists to avoid.
+
+**The near-miss is kept, because it is how the shot is got wrong.** An earlier
+attempt that day reported the mobile card list rather than the table, which
+means the effective viewport sat below the `md` breakpoint — a 768px *window*
+yields roughly a 753px viewport once the vertical scrollbar is subtracted. 9b is
+written against the viewport at exactly the breakpoint "at which the card layout
+stops and this table starts", so an observation of the card branch does not
+answer it. The answers below are from a later attempt that reached the table.
+
+| Q | Forced answer | Result |
+|---|---|---|
+| Q1 | Horizontal scrollbar under the table? | **no** |
+| Q2 | How many of the six headers are **fully** readable? | **6** |
+| Q3 | Which header is the last fully readable one? | **`الثقة`**, the final column at the left edge |
+
+All six complete, none clipped: `الاسم` · `المورّد` · `المبلغ` · `الحالة` ·
+`التاريخ` · `الثقة`. Q3 being the sixth column is what Q2 = 6 predicts, and
+the left edge is where the sixth column sits in a mirrored table.
+
+**NO VERDICT ATTACHES TO THESE ANSWERS, and this correction must not be read as
+promoting them into one.** 9b is an inspection because "the columns are not
+cramped" is not a claim two readers answer the same way, and because the six
+columns are a strict subset of the thirteen that shipped before — the table is
+narrower at every width than what already ships, so nothing observable at 768px
+could have failed this PR. Favourable answers do not change that reasoning; they
+were never able to.
+
+**Which rendering these answers attach to, checked rather than assumed.** The
+second round was taken at `f18bd1e`; these answers were reported later the same
+day, with the PR head at `7b6ca34` (merged as `bf9c729`).
+`git diff --name-only f18bd1e 7b6ca34` lists exactly one file — this document —
+so the rendering is identical across the two and 9b attaches to the same build
+as the rest of the round. Checked because this file has already been caught once
+by a round whose answers did not carry: the August round at `9dd91bb` was
+invalidated when `f18bd1e` rewrote the rendering under review.
+
+### The 424px / 144px arithmetic is FALSIFIED, in the favourable direction
+
+The prediction was Q1 = yes and Q2 = 2 or 3, with its own condition attached:
+"If you report Q2 = 6, my arithmetic is wrong and that is worth knowing on its
+own." Q2 = 6. Recorded as a falsification, not as a pass.
+
+**Q1 and Q2 are ONE result, not two.** No scrollbar appeared because the
+shortfall was absorbed into **row height** rather than width. Two columns wrap
+to two lines rather than truncating: `التاريخ` renders the day and the year
+on separate lines (`24 يوليو` / `2026`), and `الحالة` does the same on the
+longer status (`تمت` / `المعالجة`). Row height grows; nothing is lost or
+clipped, and that is why all six headers stayed readable.
+
+The mechanism is `table-layout: auto` plus `white-space` at its default
+`normal` on every unbounded cell: a column whose content wants more width than
+the algorithm can give it takes a line break instead of forcing the table wider.
+
+Both halves of that are checked, not assumed, because the explanation collapses
+if either is overridden. The element is
+`<table className="w-full border-collapse text-start">` (`ResultTable.tsx:66`)
+— no `table-fixed`, and `grep -rn 'table-fixed|table-layout' apps/frontend/src`
+returns only the pre-existing comment at `ResultTable.tsx:117`, which already
+reasons "under `table-layout: auto`". So the CSS initial value stands. And
+`grep -n whitespace apps/frontend/src/components/ResultTable.tsx` returns
+nothing, so `white-space` is at its initial `normal` on every cell.
+
+**So the 144px text budget may well have been roughly right.** The wrong part
+was an assumption that was never written down — that a shortfall must surface
+as a horizontal scrollbar. It can surface on the other axis, and here it did.
+The arithmetic modelled one axis; the screen has two.
+
+**This reaches past 9b, into a live comment.** The `maxCh` note in
+`lib/searchResultCard.ts` says of the four unbounded columns: "None of them can
+widen a table, so bounding them would buy nothing." The conclusion is right and
+the reason given for it is incomplete. `date` and `status` cannot widen the
+table not because their formatted values are always short enough, but because
+they wrap rather than push. Same verdict, different mechanism, and the
+difference is the whole of what 9b bought.
+
+### The wrap is NEITHER intended NOR width-specific
+
+Recorded so it is not re-discovered as a surprise by someone who reads a
+two-line date cell as a defect.
+
+**Not intended.** The unbounded branch renders
+`<span dir={c.dir ?? 'auto'}>{v}</span>` inside a `<td>` carrying
+`px-5 py-3.5 text-start align-top`. No `whitespace-nowrap`, no width, no
+`maxCh`, no line clamp. Nothing in the component, in the `maxCh` and `dir`
+notes in `lib/searchResultCard.ts`, or in the 615-line guard at
+`tests/searchTableColumns.test.tsx` says these columns may wrap or must not —
+grepping that guard for `nowrap|whitespace|line-clamp|height|wrap` returns one
+hit, and it is the M5 mutation note about isolate elements. The `align-top`
+that makes the wrapped rows look tidy predates this PR: it is already on the
+`<td>` at `ResultTable.tsx:86` on `8af2e89`, so it is not this change
+anticipating variable row height.
+
+**Not width-specific.** This file had already seen the behaviour at another
+width and declined to have a view: the 9a note above records the date column
+wrapping to three lines (day / month / year) at a narrower window, with the
+sentence "That is a wrap, not an overflow, and no claim in this file covers
+it." Deliberately unclaimed is not the same as intended — the document declines
+to have a view, and the code has none to decline.
+
+### Does the unpinned wrap deserve its own queue item? NO
+
+The proposal was to queue it at the bottom as a cosmetic behaviour nobody has
+complained about. The placement is nearly right; the reason is not, and the
+reason is the part a later reader needs.
+
+**Both available pins are WORSE than the default, and this file has already
+rejected each of them for a neighbouring column.** There are exactly two:
+
+- `whitespace-nowrap` makes the full formatted string the column's minimum
+  content width, which widens the table past its container at 424px and
+  produces a horizontal scrollbar. That is defect D1's own mechanism — an
+  unbreakable minimum width pushing the table into a scroll — reintroduced
+  deliberately, on two more columns, to fix a behaviour that loses nothing.
+- `maxCh` clips with an ellipsis, which the `maxCh` note already refuses for
+  exactly these columns: an ellipsis on a formatted value "would put an
+  ellipsis where a reader would read it as data loss".
+
+So the absence of a pin is not the gap. Of the three behaviours available the
+default is the best one: lossless, the whole value stays readable, and it
+degrades on the axis that has room. A queue item to pin this would be a queue
+item to make the screen worse.
+
+**What was actually missing was this section, and it is now written.** The
+residual risk is real and is accepted: a longer status label or a narrower
+viewport takes a row to three lines and nothing in the repository notices. It
+is accepted because the failure mode is **lossless**. An unpinned wrap still
+shows the complete value; the failure modes this file does guard — an ellipsis
+eating a filename's head (9c), `$` landing on the wrong side of `US` (F2) —
+produce a WRONG string rather than a taller row. Buying an instrument for the
+benign axis, on a behaviour now eyeballed at three widths and reported as fine
+at all three, buys nothing.
+
+Tracking it anyway costs nothing at the bottom of a queue. It is not
+recommended, and no claim in this file is waiting on it.
 
 ## Two findings the checks did not cover
 
