@@ -352,8 +352,15 @@ Find a row in the **المبلغ** (Amount) column whose currency is **US dollar
 The symbol has two parts: the letters `US` and the sign `$`. This check asks
 only **which side the `$` is on**.
 
-- **A — PASS.** The letters come first and the sign follows them: `US$ 42.07`.
+- **A — PASS.** The letters come first and the sign follows them: `42.07 US$`.
   Read the two characters left to right: `U`, `S`, then `$`.
+  (Corrected 2026-09-03. This literal previously read `US$ 42.07`, which no
+  screen ever produces: pinning the cell `dir="ltr"` lays the whole run out
+  left-to-right, so the amount precedes the symbol. The check's discriminator
+  was always *which side the `$` is on* and is unchanged — but a later reader
+  comparing a correct screen against the old literal would have flagged a pass
+  as a failure, which is the inherited-wrong-claim class this file exists to
+  avoid.)
 - **B — FAIL.** The sign is on the **left of the letters**: `$US 42.07`. This is
   a wrong string, not an untidy one — the symbol has been taken apart and
   reassembled backwards by the page's text direction. Report B plainly; it
@@ -662,6 +669,63 @@ tail, in both scripts, on both columns. `dir="auto"` on the bounded box is
 confirmed correct by observation, which was the only instrument that could
 confirm it — and answer **C** was not reached, so the bound was genuinely
 exercised by the data.
+
+## Second round — 2026-09-03, taken at `f18bd1e`
+
+The August round was taken at `9dd91bb`. `f18bd1e` landed afterwards and rewrote
+the exact rendering under review, so those answers did not carry to the head and
+the round was re-taken in full. 1280px, Arabic, 26 results.
+
+Items 1-8, 9a and 9c: re-confirmed, all PASS, same shapes as August. 9c answered
+**A** again on many rows in both bounded columns, so the bound was exercised and
+9a's conditional weakening (recorded above) does not apply.
+
+**9d is ANSWERED and PASSES.** It is the check that failed in August as `$US`,
+became finding F2, and had never been re-verified after the fix. It now reads
+`42.07 US$`, `98.21 US$`, `1,234.00 US$`, `0.00 US$` — letters then sign, on
+every USD row. F2 is closed on a screen, which was the only instrument that
+could close it.
+
+**The blanket pin is confirmed safe across four currency shapes, on production
+data.** The `dir` in `DESKTOP_COLUMNS` is applied per column, not per row
+(`ResultTable.tsx:183`), so every currency in the amount cell is laid out
+left-to-right regardless of its script. All four observed shapes render with the
+symbol adjacent to and following the digits, nothing scrambled:
+
+| Shape | Example | Observed |
+|---|---|---|
+| Latin letters + trailing neutral | `US$` | `98.21 US$` |
+| All-letters code | `CHF` | `54.50 CHF` |
+| Bare symbol | `€`, `₹` | `90.50 €`, `290.00 ₹` |
+| **Arabic script** | `د.م.` | `128.23 د.م.` |
+
+The last row is the one that was at risk and is the reason this table exists.
+Arabic-script currency marks are all strong RTL; before the pin they rendered
+correctly *because* the cell was `dir="auto"` and the leading U+200F resolved the
+box RTL. The pin removes that, so MAD was the one family whose behaviour under
+the pin was unknown. It does not scramble. Note the second-order effect, recorded
+rather than treated as a defect: the pin also mirrors a MAD amount relative to
+its native RTL layout, which makes the column internally consistent — every
+amount now reads digits-then-symbol, whatever the currency.
+
+**One observation, not a check and not a blocker.** Two rows share a vendor and
+the amount `290.00`, one in `₹` and one in `US$`. `formatCurrency` renders a
+plain symbol-less number when the code is absent or invalid, so both rows carry
+an explicitly stored, valid, different currency. That is not a rendering fault
+and not a missing-value fallback — it is the same class as F1 below: the
+extractor writing a value the UI cannot distinguish from a real one. Tracked
+separately, back-end side.
+
+**9b remains NOT TAKEN.** An attempt on 2026-09-03 reported the mobile card list
+rather than the table, which means the effective viewport was below the `md`
+breakpoint — a 768px *window* yields roughly a 753px viewport once the vertical
+scrollbar is subtracted. 9b is written against the viewport at exactly the
+breakpoint "at which the card layout stops and this table starts", so an
+observation of the card branch does not answer it. Its three forced answers
+(Q1 yes/no, Q2 an integer 0-6, Q3 a header name) are still open and the 424px /
+144px arithmetic is still unfalsified. Per this section's own reasoning, 9b
+cannot fail this PR: the six columns are a strict subset of the thirteen that
+shipped before, so the table is narrower at every width than what already ships.
 
 ## Two findings the checks did not cover
 
