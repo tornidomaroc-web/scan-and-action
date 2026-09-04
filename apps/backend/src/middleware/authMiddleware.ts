@@ -123,6 +123,26 @@ export class IdentityEmailConflictError extends Error {
  * the client (lib/identityConflict.ts) and must stay reserved for the condition
  * only an operator can clear. This one is a different situation with a different
  * remedy — sign in with an address — so it must never borrow that code.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * IF YOU ARE HERE BECAUSE YOU ARE ENABLING AN EMAILLESS PROVIDER, READ THIS.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Phone auth, anonymous sign-in, or an OAuth provider configured without an
+ * email scope all make this class REACHABLE FOR THE FIRST TIME, and the client
+ * has no handling for it. `documentService` discards the HTTP status and throws
+ * `new Error(<server code>)`, so the screens classify by code alone;
+ * `isIdentityConflict` returns false for IDENTITY_EMAIL_MISSING and every
+ * adopted screen falls to its ordinary retryable branch. A user signing in that
+ * way sees a generic "could not load" on every screen and a retry button that
+ * can NEVER succeed, with nothing anywhere telling them the remedy.
+ *
+ * The copy was left undone deliberately, not overlooked: writing it for an
+ * unreachable path means guessing at the flow that makes it reachable. What it
+ * needs is a string and a branch that is NOT `isIdentityConflict` — that one is
+ * terminal and stays reserved. The better answer may be to refuse the sign-in
+ * CLIENT-SIDE before any request is made, which is only decidable once you know
+ * which provider you are adding. That decision is yours; this file only
+ * guarantees the database is never corrupted while you make it.
  */
 export class IdentityEmailMissingError extends Error {
   readonly status = 403;
