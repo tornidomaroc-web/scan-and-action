@@ -172,6 +172,27 @@ Parse ELF program headers of every 64-bit `.so`.
 
 ---
 
+## I — File chooser, the non-capture branch
+
+`CaptureSheet.tsx:119-135` declares **two** file inputs and only one carries
+`capture="environment"`. G2 exercises that one. The other —
+`accept="image/*,application/pdf"`, no `capture` — hands the WebView to whatever
+document picker the OEM installed; the same input appears again at
+`UploadModal.tsx:284`.
+
+### I1. A cloud-backed file from the OEM picker — **HW ONLY**
+A file that lives in Google Drive or Photos and has never been downloaded arrives
+as a `content://` URI the picker streams, not a local path. The emulator's AOSP
+DocumentsUI only ever offers local files, so it cannot produce that shape, and no
+composition argument reaches it either — the failure it would catch is a silent
+zero-byte upload, which looks identical to success everywhere except on the row.
+- **PASS:** the file arrives with a real size and the pipeline accepts it.
+- **FAIL:** nothing arrives; a zero-byte or unreadable blob; a spinner that never
+  settles. **A silent no-op is a FAIL, not a miss.**
+- **U:** no cloud-only file available, or Drive not signed in on the device.
+
+---
+
 ## Result table
 
 Filled in only after each check is run. `U` is not a pass.
@@ -192,10 +213,11 @@ Filled in only after each check is run. `U` is not a pass.
 | E1 | EMU | **U** — the app never reads the device locale. `LanguageContext.tsx:14` is `localStorage.getItem('lang') || 'en'`, and the switch is post-login. English on a fresh install is BY DESIGN, so this is not a FAIL. Unrelated to targetSdk 36. |
 | E2 | EMU | **U** — no session or data. |
 | F1 | EMU | **U** — no rows with amounts without a session. |
-| G1 | EMU | **U** — capture UI not reachable without a session. |
-| G2 | HW | **PENDING — HW.** Emulator camera is synthetic; cannot answer. |
-| G3 | HW | **PENDING — HW.** AVD is x86_64; arm64 CameraX `.so` never loaded. |
+| G1 | EMU | **NOT TAKEN** — 2026-09-04. A session existed and the device was in hand; the deny path was simply not exercised, because the capture was made directly. Per rule 2 this is not a pass. Still answerable on the emulator. |
+| G2 | HW | **PASS** — 2026-09-04, borrowed Samsung on API 36, Arabic UI, dark mode. The OEM camera opened from the WebView chooser, a receipt was captured, the file returned to the app as `JPEG_20260904_022045_50301…`, the upload started and the row reached a settled status. |
+| G3 | HW | **PASS** — 2026-09-04, same run. No native crash on the camera path on arm64. The build ships exactly two `.so` files per ABI — `libimage_processing_util_jni.so` and `libsurface_util_jni.so`, both CameraX — so this is total coverage of the native surface, not a sample of it. |
 | H1 | STATIC | **PASS** — signed AAB, every 64-bit `PT_LOAD` `p_align 16384` (32-bit ABIs also 16384). |
+| I1 | HW | **NOT TAKEN** — 2026-09-04. The device window closed with the camera branch answered and this one untouched. It is the only check on this sheet that no emulator run can later close. |
 
 
 ---
@@ -208,6 +230,122 @@ No check failed. Nine could not be reached, and per rule 2 not one of them is a 
 **Seven of the nine (A2, A3, A4, B3, E2, F1, G1) are blocked by the single missing
 input: an authenticated session.** One credential converts seven unanswered checks
 into answers and makes the opt-out ruling decidable.
+
+*Superseded in part by the hardware run below, which is dated separately. The
+tally above is left as the record of what 2026-09-03 established, not corrected
+after the fact.*
+
+
+---
+
+## Hardware pass — run 2026-09-04, borrowed Samsung, API 36, Arabic UI, dark mode
+
+The device was borrowed for one session and will not be available again. Reported
+from two photographs of the device plus the operator's account of what he saw.
+
+**Answered:** G2 and G3, the two checks the emulator could never reach.
+**Not taken:** G1, I1, and a real-device run of B3/B4. None of them became passes.
+
+### What the evidence supports
+
+The camera opened, a receipt was captured, the file returned to the app named
+`JPEG_20260904_022045_50301…`, the upload ran, and the row settled. That chain
+crosses the OEM camera intent, the WebView file chooser's `capture` branch, the
+upload pipeline, and both arm64 CameraX libraries. G2 and G3 are the two
+strongest results in this file, because they are the only ones that could not
+have been obtained any other way.
+
+### What it does not support
+
+**G1 was not run.** The permission was granted in the same gesture as the
+capture, so the DENY path was never entered. It is `NOT TAKEN`, not `PASS`, and
+it remains answerable on the emulator.
+
+**I1 was not run**, and this is the one that matters. It is the only check on the
+sheet that a later emulator run cannot close, and the device is gone.
+
+**B3 and B4 were not run on hardware.** The overlay level of the back chain is
+still untested anywhere. A second APK with the `<application>`-level opt-out
+removed was built and delivered for this purpose and was not installed.
+
+### The amber icon in the tray — read, not a defect
+
+An amber warning icon appeared beside the filename where a progress bar had been
+moments earlier. It corresponds to exactly one thing.
+
+`ProcessingTray.tsx:11-22` maps status to icon with no other branch:
+
+| Status | Icon |
+|---|---|
+| `PROCESSING` | blue spinner |
+| `COMPLETED` | **emerald** check |
+| `NEEDS_REVIEW` | **amber** alert |
+| anything else | **red** alert |
+
+So amber is `NEEDS_REVIEW` — not completed-with-warning, not partial extraction,
+not an error. It is a distinct terminal status, and the row stays tappable
+(`openable` covers `COMPLETED` and `NEEDS_REVIEW` alike) so the document opens
+for review.
+
+**It is the expected outcome, and very nearly the only possible one.**
+`persistence.ts:8` sets `CONFIDENCE_THRESHOLD = 0.98`. A document reaches
+`COMPLETED` only if *all* of the following hold (`persistence.ts:40-107`):
+
+- overall confidence ≥ 0.98, **and**
+- **every single extracted fact** ≥ 0.98 — one fact below it flips the whole
+  document, **and**
+- a `DATE` fact exists, **and**
+- an `AMOUNT` fact exists, **and**
+- at least two commercial anchors appear in the raw text, **and**
+- no template signal and no multi-document signal.
+
+For a handheld phone photograph of a receipt, every fact clearing 0.98 is close
+to unattainable. The gate says so in its own comment: *"We prevent 'Completed'
+status if core facts or commercial anchors are missing."* Amber is that gate
+working.
+
+**Why the human report said "completed".** The tray chip reads
+`processingCount > 0 ? processingChip : processingDone`, and `processingDone` is
+the literal string **"Processing complete"** (`strings.ts:21`). It is shown for
+any settled status, `NEEDS_REVIEW` included. So the app said "Processing
+complete" while the row's icon said `NEEDS_REVIEW`. Both are true in the
+product's own terms — processing did complete; the verdict is "a human should
+look". No defect, and no finding is filed for it.
+
+### The processing delay — mechanisms named, cause NOT determined
+
+The operator reported it took longer than expected. **This cannot be answered
+from here, and no cause is claimed.** What the code establishes:
+
+- **The upload path makes two to three sequential Gemini calls, not one.**
+  `isSingleDocument` is its own model call (`geminiAdapter.ts:50-59`,
+  `gemini-flash-latest`), then `extractFromImage`, and
+  `ingestionService.ts:55-77` retries the whole extraction once when the first
+  returns overall confidence < 0.6 (`MAX_ATTEMPTS = 2`).
+- **Nothing downscales the image.** `imagePreprocess.ts:22-24` sets
+  `canvas.width = img.width` and re-encodes at quality `0.95`. A full-resolution
+  phone JPEG can come back from that *larger* than it went in, and it is what
+  gets uploaded. The 2-second timeout at line 12 silently falls back to the
+  original, which on a real device may well be what happened.
+
+What that does **not** establish:
+
+- **Capacitor 8 is ruled out** as a cause of *processing* time. Extraction runs
+  entirely on the backend; the upgrade changed the shell.
+- **"CameraX produced a larger file" is a plausible mechanism, not a finding.**
+  It is testable: `ingestionService.ts:38-40` already logs
+  `targetFileBuffer.length` for every document. The backend log for this
+  document settles it. Nobody has read it.
+- **"Nothing at all" remains fully consistent with the evidence.** Two to three
+  model round trips on a real receipt is simply slow, and always was. Nothing in
+  this build changed it.
+
+**There is no baseline.** Every prior observation of this path used small local
+fixtures on an emulator or on web. This is the first time it has run against a
+real phone photograph, so "longer than expected" has nothing to be compared
+against. The expectation, not the build, may be the thing that is wrong.
+
+Recorded 2026-09-04.
 
 
 ---
