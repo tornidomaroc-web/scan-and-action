@@ -176,6 +176,32 @@ returned 737692 bytes of JS.
 Read the asset path from the freshly-served HTML on every check, and verify by
 size and content-type. A status-code guard passes cleanly and proves nothing.
 
+### A deny rule on a credential file is not a statement about what the app can reach
+
+Reading `apps/backend/.env` is blocked, and the refusal is well-formed:
+`blocked by a deny rule`. That sentence is about **one file and one reader**. It
+gets read as "there is no database access from this session" — a different and
+much larger claim, and a false one.
+
+The backend connects with that credential on every request, and the same
+connection is available without the credential ever becoming visible: run a
+query from the backend's own working directory, letting `dotenv` load the file
+and Prisma read `DATABASE_URL` out of the environment. Only rows come back.
+
+The trap is that the deny message is confident, quotable, and reads as a limit
+of *capability* rather than of *visibility*. On 2026-09-04 it stood unexamined
+as the stated reason a production check "could not" be run, and became a
+volunteered claim in a report; the check took one command once it was
+questioned.
+
+**Ask whether the application reaches it before reporting that you cannot.**
+
+And pair whatever you read this way with a positive control — a count proving
+you are talking to a populated production database. `0 rows` from an empty or
+misconfigured database is byte-identical to `0 rows` from the right one.
+
+Recorded 2026-09-04.
+
 ## What belongs in this file
 
 A check that answers **confidently and wrongly, with no error to prompt a
