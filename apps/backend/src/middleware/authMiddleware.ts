@@ -83,6 +83,57 @@ export class IdentityEmailConflictError extends Error {
   }
 }
 
+/**
+ * A live Supabase identity that carries NO email address at all.
+ *
+ * WHY THIS IS A REFUSAL AND NOT A DEFAULTED VALUE.
+ * `User.email` is `String @unique` and NOT NULL (schema.prisma:14). The line
+ * that used to read `user.email || ''` therefore wrote the empty string into a
+ * unique column, which means EXACTLY ONE account in the entire system may ever
+ * hold "no email". The first emailless identity is provisioned normally; the
+ * SECOND collides on `user_email_key`, is classified by `collidedOnUserEmail`
+ * below as an identity conflict, and is locked out permanently — as a brand-new
+ * user, with no orphaned row for an operator to point at, reading copy that
+ * tells them only support can help. Nothing about that is true or fixable.
+ *
+ * WHY NOT A SYNTHETIC PLACEHOLDER (e.g. `<uuid>@no-email.invalid`).
+ * It would collide with nothing and the account would work — which is the
+ * problem. `User.email` exists so two cold paths can find a row BY ADDRESS
+ * (resolveBillingOrg.ts:73, accountController.ts:75). A placeholder silently
+ * fills that column with something no human will ever type, so the account
+ * cannot be billed by the email fallback, cannot be found by the delete-account
+ * holder lookup, and cannot be reached — and nobody learns this until one of
+ * those paths is needed. It also leaves RESIDUE: rows carrying synthetic
+ * addresses that must be found and cleaned if the product later decides
+ * emailless accounts are not supported. A refusal leaves none.
+ *
+ * WHY NOT A NULLABLE COLUMN. Postgres treats NULLs as distinct in a unique
+ * index, so nullability genuinely solves the collision — but it is a migration,
+ * it changes the type at every read site, and it pre-commits the product to
+ * supporting emailless accounts. That is a decision to take deliberately when a
+ * provider that withholds addresses is actually enabled, not a side effect of
+ * closing this trap.
+ *
+ * So: refuse, name it, write nothing. This is UNREACHABLE today — the only auth
+ * surface is signInWithPassword / signUp (AuthScreen.tsx:82,85), which cannot
+ * produce an identity without an address. It is armed by phone auth, anonymous
+ * sign-in, or any OAuth provider configured without an email scope.
+ *
+ * DISTINCT FROM IdentityEmailConflictError ON PURPOSE. That code is TERMINAL on
+ * the client (lib/identityConflict.ts) and must stay reserved for the condition
+ * only an operator can clear. This one is a different situation with a different
+ * remedy — sign in with an address — so it must never borrow that code.
+ */
+export class IdentityEmailMissingError extends Error {
+  readonly status = 403;
+  constructor() {
+    // Same contract as above: errorHandler returns `err.message` as the response
+    // `error` field for a non-500, so the message IS the machine code.
+    super('IDENTITY_EMAIL_MISSING');
+    this.name = 'IdentityEmailMissingError';
+  }
+}
+
 // Ensure the User row exists, returning it with memberships loaded.
 //
 // `prisma.user.upsert` is find-then-write and not atomic under concurrency: two
@@ -212,6 +263,29 @@ export const authMiddleware = async (
 
     const userId = user.id;
     const email = user.email || '';
+
+    // Refuse BEFORE anything is written. `User.email` is unique and NOT NULL, so
+    // the empty string is a real, claimable value that exactly one row may hold —
+    // see IdentityEmailMissingError for why this refuses instead of defaulting.
+    //
+    // Emptiness is tested on the TRIMMED form so a whitespace-only address cannot
+    // slip past, but `email` itself is passed through UNTRIMMED below. That keeps
+    // the write byte-identical to today for every address that already works: a
+    // normalising trim would be a genuine value change on the next request, and a
+    // genuine change is the one thing that can make the update path collide.
+    //
+    // Returned via next() directly rather than thrown into the catch below: this
+    // is a deliberate refusal, and routing it through a handler whose log line
+    // says "Unexpected error during authentication/provisioning" would file a
+    // decision as a fault.
+    if (!email.trim()) {
+      console.error(
+        `[AuthMiddleware] IDENTITY_EMAIL_MISSING: identity ${userId} authenticated with no ` +
+          `email address. Refusing rather than writing '' into User.email, which is unique ` +
+          `and NOT NULL — see IdentityEmailMissingError. Nothing was written.`
+      );
+      return next(new IdentityEmailMissingError());
+    }
 
     // SaaS Flow: Ensure the user exists and has at least one Organization.
     const dbUser = await ensureUser(userId, email);
