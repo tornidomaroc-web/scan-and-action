@@ -28,6 +28,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 const h = vi.hoisted(() => ({
   getUser: vi.fn(),
   upsert: vi.fn(),
+  findUnique: vi.fn(),
   orgCreate: vi.fn(),
   membershipFindMany: vi.fn(),
   updateMany: vi.fn(),
@@ -40,7 +41,7 @@ vi.mock('@supabase/supabase-js', () => ({
 
 vi.mock('../prismaClient', () => {
   const prisma: any = {
-    user: { upsert: h.upsert, updateMany: h.updateMany },
+    user: { upsert: h.upsert, updateMany: h.updateMany, findUnique: h.findUnique },
     organization: { create: h.orgCreate },
     membership: { findMany: h.membershipFindMany },
   };
@@ -128,6 +129,7 @@ beforeEach(() => {
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
+  h.findUnique.mockResolvedValue(null); // no row: the CREATE path
   h.orgCreate.mockResolvedValue({ id: ORG_ID });
   h.membershipFindMany.mockResolvedValue([]);
   h.updateMany.mockResolvedValue({ count: 1 });
