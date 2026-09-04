@@ -122,6 +122,50 @@ and that its organization still holds no documents.
 **Row-level DML only. No DDL, no schema change, no Prisma migration.**
 `c521aa92` is not touched. The other three orphans are not touched.
 
-## Outcome
+## Outcome — executed 2026-09-05
 
-*(appended after execution — see below)*
+The filename carries 2026-09-04, the date the decision and this record were
+written. The statement itself ran just after midnight, on **2026-09-05**. The
+file is not renamed, because the name is already referenced from
+`LAUNCH_TODO.md` and a stale pointer is worse than a stale date.
+
+```
+AFFECTED ROWS: 1
+exactly 1 — committing
+COMMITTED
+```
+
+Run inside an interactive transaction that throws — and therefore rolls back —
+on any count other than 1. It did not have to.
+
+### Verified afterwards, read-only, eight checks
+
+| # | Check | Result |
+|---|---|---|
+| 1 | The parked row | `email = orphan-1e1c8482-…@parked.invalid`; `createdAt 2026-07-28` and `welcomeEmailSentAt` **preserved** |
+| 2 | **Global**: live identities whose address is held by a different app row | **1 → 0** |
+| 3 | `c521aa92` untouched | same address (length 27, `fe***@gmail.com`), same `created_at`, same `last_sign_in_at`, still confirmed |
+| 4 | Undo source intact | length still matches the recorded shape |
+| 5 | App row for `c521aa92` | **does not exist yet** |
+| 6 | The parked row's organization | unchanged — solo, FREE, 0 documents |
+| 7 | The other three orphans | untouched |
+| 8 | Totals | `User 31`, `auth.users 31`, `Document 338` — unchanged; nothing created, nothing destroyed |
+
+### What this does NOT prove
+
+**A free address is not a working account.** Check 5 is the honest limit:
+nobody has signed in, so no app row exists for `c521aa92` and no request has
+exercised the create path. What is proven is the **precondition** — the
+collision that refused them is gone, globally, and no other row can now trigger
+it. That the create path then succeeds follows from the unique constraint, but
+it follows by reasoning, not by observation.
+
+**The only proof of the unlock is their next sign-in**, and it is one query:
+
+```sql
+SELECT EXISTS(SELECT 1 FROM "User"
+               WHERE id = 'c521aa92-0f4d-4b82-821a-b9e8c0c6f7ae') AS unlocked;
+```
+
+`true` means they returned and were provisioned normally. Until then the
+correct statement is *"the obstacle is removed"*, never *"the user is fixed"*.
