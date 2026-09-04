@@ -188,6 +188,45 @@ async function ensureUser(userId: string, email: string) {
       // Separating them is the whole change; conflating them would break the
       // race recovery, which is what the existing race tests guard.
       if (collidedOnUserEmail(error)) {
+        // WHICH of the two email collisions is this? They are opposite situations
+        // that the constraint reports identically, and until this lookup the code
+        // treated both as the permanent one.
+        //
+        //   CREATE path — no row for this id. A live identity whose verified
+        //     address is held by a different User.id. Permanent: the upsert keys
+        //     on id so it misses forever, and the create violates User.email
+        //     forever. Refusing is correct and stays exactly as it was.
+        //
+        //   UPDATE path — the row EXISTS. A provisioned account, working until
+        //     this request, whose token email changed into an address another row
+        //     holds. Nothing about the caller's identity is in question and their
+        //     data is intact; only the email MIRROR cannot be updated. Refusing
+        //     here destroys a working session to protect an invariant that is not
+        //     under threat, and hands the user terminal copy telling them only
+        //     support can help — for a condition support has nothing to fix.
+        //
+        // Keyed on `id`, never on email. A lookup BY EMAIL is the first step of
+        // adopting the other row, which this file refuses on purpose (see
+        // IdentityEmailConflictError) and which an existing test guards.
+        const existing = await prisma.user.findUnique({
+          where: { id: userId },
+          include: { memberships: { include: { organization: true } } },
+        });
+
+        if (existing) {
+          // The holder's id is deliberately NOT named here. Finding it needs a
+          // read BY EMAIL — the one query this file will not make on a request.
+          // An operator can run it once, by hand, when a human is looking.
+          console.error(
+            `[AuthMiddleware][ALERT] IDENTITY_EMAIL_MIRROR_STALE: user ${userId} is provisioned ` +
+              `and their session continues, but their address is held by a different id, so ` +
+              `User.email was NOT updated and now trails the identity provider. ` +
+              `targets=${JSON.stringify(uniqueConstraintTargets(error))}. ` +
+              `Reads that resolve a row BY ADDRESS will miss this user until an operator clears it.`
+          );
+          return existing;
+        }
+
         console.error(
           `[AuthMiddleware] IDENTITY_EMAIL_CONFLICT: user ${userId} authenticated, but ` +
             `User.email is held by a different id. targets=${JSON.stringify(uniqueConstraintTargets(error))}. ` +

@@ -30,6 +30,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 const h = vi.hoisted(() => ({
   getUser: vi.fn(),
   upsert: vi.fn(),
+  // Added when ensureUser gained the UPDATE-path split: on a P2002 whose target
+  // is `email` it now asks whether the CALLER'S OWN row exists, keyed on id.
+  // Defaulted to null throughout this file, which is the CREATE path — the only
+  // one these tests are about, and the one whose refusal must not move.
+  findUnique: vi.fn(),
   orgCreate: vi.fn(),
   membershipFindMany: vi.fn(),
   updateMany: vi.fn(),
@@ -42,7 +47,7 @@ vi.mock('@supabase/supabase-js', () => ({
 
 vi.mock('../prismaClient', () => {
   const prisma: any = {
-    user: { upsert: h.upsert, updateMany: h.updateMany },
+    user: { upsert: h.upsert, updateMany: h.updateMany, findUnique: h.findUnique },
     organization: { create: h.orgCreate },
     membership: { findMany: h.membershipFindMany },
   };
@@ -90,6 +95,8 @@ beforeEach(() => {
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
   h.getUser.mockResolvedValue({ data: { user: { id: USER_ID, email: EMAIL } }, error: null });
+  // No row for this id: the CREATE path, which every test below is about.
+  h.findUnique.mockResolvedValue(null);
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -125,14 +132,25 @@ describe('ensureUser — an email collision is refused, not retried and not adop
     });
   }
 
-  it('never reads the other row — no lookup by email happens anywhere', async () => {
+  it('never reads the other row — every lookup is by id, none by email', async () => {
     h.upsert.mockRejectedValue(p2002(['email']));
     const { req, res, next } = makeReqRes();
     await authMiddleware(req, res, next);
     await flush();
-    // The mocked client exposes only upsert/updateMany on `user`. If the code had
-    // reached for findUnique/findFirst by email — the first step of adopting — it
-    // would throw "not a function" and this test would fail rather than pass.
+
+    // THIS TEST'S MECHANISM CHANGED, ITS POINT DID NOT. It used to rely on the
+    // mock exposing no `findUnique` at all, so any lookup threw "not a function".
+    // ensureUser now legitimately calls findUnique to tell the CREATE path from
+    // the UPDATE path, so absence is no longer available as the assertion — and
+    // absence would no longer mean what it used to. The invariant is asserted
+    // head-on instead, and it is a stronger statement than the old one:
+    // a lookup BY EMAIL is the first step of adopting the other row, and it must
+    // never happen on a request no matter how many lookups the function makes.
+    for (const call of h.findUnique.mock.calls) {
+      expect(call[0].where).toEqual({ id: USER_ID });
+      expect(call[0].where).not.toHaveProperty('email');
+    }
+    expect(h.findUnique).toHaveBeenCalledTimes(1);
     expect(next.mock.calls[0][0]).toBeInstanceOf(IdentityEmailConflictError);
   });
 });
