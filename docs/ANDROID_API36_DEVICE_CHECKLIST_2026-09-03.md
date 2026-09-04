@@ -471,6 +471,42 @@ never watched happening on a screen. **If the composition assumption is wrong,
 the failure mode is Play store removal.** That trade was taken knowingly on
 2026-09-03 and is recorded here so it is findable rather than inferred.
 
+### AMENDED 2026-09-04 — the modal cannot be opened on Android at all
+
+The paragraph above stands as written, but it is aimed at the wrong surface, and
+A3 is not merely unanswered — **it is unreachable on a device**, with or without
+a session.
+
+Every call site that opens the modal sits in the `else` of an
+`isNativePlatform()` check, and these are the only `setShowPaywall` setters in
+the codebase:
+
+| Site | Native branch | Web branch |
+|---|---|---|
+| `CaptureSheet.tsx:99-108` | `showToast(s.freePlanLimitReached)` | `setShowPaywall(true)` |
+| `UploadModal.tsx:75-79` | `showToast(s.freePlanSingleDoc)` | `setShowPaywall(true)` |
+| `UploadModal.tsx:171-178` | `showToast(s.freePlanLimitReached)` | `setShowPaywall(true)` |
+
+So no session, no upload limit and no amount of device time opens it. The native
+branch at `PaywallModal.tsx:123-148` is dead code on a phone.
+
+The file already reasons in layers, though it counts a different pair:
+`PaywallModal.tsx:62-66` calls the Paddle-SDK guard inside the effect *"the
+first"* line of defence and the native return branch *"a SECOND line of
+defence"*. **What the call sites add is a layer outside the component
+altogether, ahead of both** — the modal is never mounted on native in the first
+place.
+
+**This moves the risk rather than closing it.** The residual is no longer *"the
+modal might render a price on a device"* — it cannot render at all. It is *"a
+future caller opens `PaywallModal` on native without the `isNativePlatform()`
+guard"*, which is a change-review concern, not a device-test concern, and no
+hardware pass could ever have caught it. The `LAUNCH_TODO.md` anti-steering
+invariant is where that is actually guarded.
+
+Established by reading the call sites on 2026-09-04, while preparing the
+hardware pass. Nothing was run to produce it.
+
 ## The opt-out ruling is a STANDING DEFERRAL
 
 `android:enableOnBackInvokedCallback="false"` ships. **This is not an open loose
@@ -481,10 +517,18 @@ end and not an oversight.**
   conservative branch and costs nothing measurable (B1/B2 and B4 are
   indistinguishable). It buys back only predictive-back animations.
 - **What would settle it:** **B3 and a real B4** — the back chain exercised with
-  an overlay actually open, `PaywallModal` specifically, since it is the one
-  whose failure costs money. B4 as run reached only the chain's last level; the
+  an overlay actually open. B4 as run reached only the chain's last level; the
   levels that carry the risk (overlay close via `useBackDismiss`, and
   tab→dashboard) were never touched.
+- **CORRECTED 2026-09-04 — not with `PaywallModal`.** This line named
+  `PaywallModal` as the overlay to use. It cannot be opened on a device (see the
+  amendment above), so as written this prescribed a test nobody can run. Use any
+  of the five natively reachable `useBackDismiss` consumers instead —
+  `CaptureSheet`'s chooser (`CaptureSheet.tsx:47`) is the cheapest: one tap, no
+  risk, and the overlay a real user meets most. All six consumers share one
+  path, `useBackDismiss` → `overlayStack` → `closeTopOverlay()` at
+  `NativeBackButton.tsx:30`, so any of them exercises precedence level 1
+  identically.
 - **If it is ever to be REMOVED**, a session becomes necessary, and the right
   route is then the **service-role admin API** — `PUT /auth/v1/admin/users/{id}`
   with `{"email_confirm": true}` — because it needs no inbox and changes no
