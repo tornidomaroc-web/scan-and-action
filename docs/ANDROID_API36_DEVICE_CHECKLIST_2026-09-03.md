@@ -265,3 +265,98 @@ against two domains and getting `200` for one and `500` for the other.
 `B3` is still `U`, so the levels that carry the risk — overlay close, which
 `PaywallModal` depends on through `useBackDismiss` — are still untested. Nothing
 in this attempt reached them.
+
+
+---
+
+# THE RESIDUAL — read this before concluding anything is unfinished
+
+Recorded 2026-09-03, after the session attempt was abandoned. **Written for
+whoever opens this file in November and finds checks marked `U`.**
+
+## Nine `U`s are a decision, not a backlog
+
+They are not forgotten, not blocked on someone getting round to them, and not
+waiting on a fix. **The session that would close seven of them was abandoned
+deliberately, and this section is the reasoning, so that a later reader does not
+"helpfully" re-open a question that was closed on purpose.**
+
+## Why the session was abandoned
+
+Registration succeeded but returned no session: email confirmation is required
+(`400 email_not_confirmed`). Every route to a session was weighed and each was
+refused for a stated reason:
+
+| Route | Refused because |
+|---|---|
+| Confirm via the public disposable inbox | A workaround, not a measurement |
+| "Send password recovery" | Also requires opening that inbox — same wall |
+| Supabase dashboard "confirm user" | No such control exists in this console version |
+| SQL editor on `auth.users` | GoTrue owns that table; `confirmed_at` is generated in some versions. **Not certain it works, so not attempted** |
+| Service-role admin API | Would work, and is the right route *if this is ever needed* — see below |
+| **Turn off email confirmation temporarily** | **Refused. See below — this is the important one** |
+
+**Turning confirmation off was refused because of the forgetting, not the
+window.** Left off, "an account exists for address X" stops meaning "someone
+controls X", which is the assumption password recovery rests on. And **nothing in
+this repository watches that setting.** `password-policy-drift.yml` monitors the
+password minimum and nothing else about auth config; the setting is live config,
+so no commit would record it either. A toggle left off produces no error, no
+failing test and no red badge — the exact silent-failure shape this repo's
+doctrine exists to name, applied to a security setting rather than a check.
+Spending that on a decision being deferred conservatively is a bad trade.
+
+## Why abandoning it was safe: the composition argument
+
+The anti-steering suite is the product of two independent factors:
+
+- **(a) does the gate return true on the real artifact?** This was the untested
+  half — every test mocks `isNativePlatform()`. **A1 answered it**, on the real
+  APK, on Android 16, under Capacitor 8.
+- **(b) given the gate, do the branches behave?** ~20 assertions across
+  `PaywallModal`, `SettingsScreen`, `LandingRoute`, `UploadModal` ×2,
+  `CaptureSheet`, `DeleteAccountModal` ×7. Green, and thorough.
+
+A2, A3 and A4 are all **(b)-given-(a)**, calling the *same* pure delegation with
+no caching and no async. Running them on a device re-tests the well-covered half
+on a worse instrument. And **A1 is the strongest place (a) could have been
+tested**: it fires at mount during the `/` redirect — the earliest gate
+evaluation in the app's lifetime, and so the one most exposed to a
+bridge-initialisation race, which is the failure a Capacitor major would
+plausibly introduce.
+
+## The residual, stated as a risk and not as a reassurance
+
+**`PaywallModal`'s price-free render on a device is covered by an ARGUMENT, not
+an OBSERVATION.** The composition above is sound, but it is reasoning. It was
+never watched happening on a screen. **If the composition assumption is wrong,
+the failure mode is Play store removal.** That trade was taken knowingly on
+2026-09-03 and is recorded here so it is findable rather than inferred.
+
+## The opt-out ruling is a STANDING DEFERRAL
+
+`android:enableOnBackInvokedCallback="false"` ships. **This is not an open loose
+end and not an oversight.**
+
+- **What it means:** the back chain behaves at `targetSdk 36` exactly as it did
+  at 35 — the behaviour that has been shipping and working. Keeping it is the
+  conservative branch and costs nothing measurable (B1/B2 and B4 are
+  indistinguishable). It buys back only predictive-back animations.
+- **What would settle it:** **B3 and a real B4** — the back chain exercised with
+  an overlay actually open, `PaywallModal` specifically, since it is the one
+  whose failure costs money. B4 as run reached only the chain's last level; the
+  levels that carry the risk (overlay close via `useBackDismiss`, and
+  tab→dashboard) were never touched.
+- **If it is ever to be REMOVED**, a session becomes necessary, and the right
+  route is then the **service-role admin API** — `PUT /auth/v1/admin/users/{id}`
+  with `{"email_confirm": true}` — because it needs no inbox and changes no
+  production setting. Not the confirmation toggle.
+
+**Do not read a `PASS` on B4 as licence to delete the attribute.** It passed on
+the root screen only.
+
+## Queued, not pending
+
+The test account below is a **cleanup item on the queue alongside the orphan-row
+cleanup**, needing the console's Danger zone → Delete user. It is not urgent and
+it is not forgotten.
