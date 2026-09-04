@@ -71,6 +71,29 @@ const collidedOnUserEmail = (err: unknown): boolean =>
  *
  * So: distinguish, refuse, name it. Recovery is an operator action against the
  * orphaned row, never an automatic one taken on a request.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * HOW A ROW GETS INTO THIS STATE — the mechanism, not an incident report.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `User.email` is `@unique` and NOT NULL, and `ensureUser` keys on `id`.
+ * Therefore ANY removal of a Supabase auth identity that leaves its
+ * `public."User"` row behind POISONS THAT ADDRESS PERMANENTLY FOR ITS OWNER:
+ * the person re-registers, gets a new uuid, the upsert misses on `id`, and the
+ * create violates `User.email` forever. Because this middleware is mounted on
+ * the `/api` prefix (app.ts:92), every authenticated endpoint then fails for
+ * them — they can still log in, which makes it look like the product is broken
+ * rather than their account.
+ *
+ * This follows from the schema alone. It is true whatever removed the identity
+ * — a console, the admin API, a half-completed deletion — so no particular
+ * route is named here; naming one would state an inference as a cause.
+ *
+ * The app's own deletion path (`accountController.deleteAccount`) removes the
+ * app rows and THEN the identity, so it cannot produce this shape. USE IT. Any
+ * other route that deletes an identity must delete the `User` row too.
+ *
+ * Happened once, in production, to one real user: locked out 2026-08-24 through
+ * 2026-09-05. See docs/PRODUCTION_DATA_FIX_2026-09-04_ORPHAN_1e1c8482.md.
  */
 export class IdentityEmailConflictError extends Error {
   readonly status = 409;
