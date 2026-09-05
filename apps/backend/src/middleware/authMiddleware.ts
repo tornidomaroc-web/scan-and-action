@@ -92,8 +92,18 @@ const collidedOnUserEmail = (err: unknown): boolean =>
  * app rows and THEN the identity, so it cannot produce this shape. USE IT. Any
  * other route that deletes an identity must delete the `User` row too.
  *
- * Happened once, in production, to one real user: locked out 2026-08-24 through
- * 2026-09-05. See docs/PRODUCTION_DATA_FIX_2026-09-04_ORPHAN_1e1c8482.md.
+ * IT HAS HAPPENED ONCE, AND IT HAPPENED TO THE DEVELOPER. Not to a customer:
+ * the account was one of this project's own, registered and then removed during
+ * ordinary work on it, and its owner was locked out from 2026-08-24 to
+ * 2026-09-05 without recognising why. That is the part worth carrying. The
+ * person who knew this system best did it, and then could not read it from the
+ * symptom — because logging in still worked, so it looked like a broken product.
+ * "I would never do that" is not a defence against this one.
+ *
+ * THE ROUTE WAS NOT RECORDED AND IS NOT NAMED HERE. Any admin-side removal
+ * qualifies — a console, the admin API, a CLI, an abandoned script — and the
+ * consequence is identical for all of them, so naming one would narrow a rule
+ * that is not narrow. See docs/PRODUCTION_DATA_FIX_2026-09-04_ORPHAN_1e1c8482.md.
  */
 export class IdentityEmailConflictError extends Error {
   readonly status = 409;

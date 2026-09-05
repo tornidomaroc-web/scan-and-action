@@ -104,19 +104,30 @@ Earlier labels in this file were inconsistent (AdMob tagged "Phase C", RevenueCa
 - [x] **DONE 2026-09-04 — parked the address held by orphan app row `1e1c8482`, unblocking one locked-out user:** a real user re-registered on 2026-08-24 at an address a surviving `public."User"` row still held, and `User.email` is `@unique` NOT NULL — so `ensureUser` refused, and because `authMiddleware` is mounted on the `/api` prefix (`app.ts:92`) **every** authenticated endpoint failed for them for eleven days. The row's address was moved to `orphan-<uuid>@parked.invalid` (RFC 2606 `.invalid`, unregistrable, uuid-unique) under a guarded single-row UPDATE inside a rollback-on-mismatch transaction. **The old value is deliberately NOT recorded in this public repository** — it survives byte-identically on the live auth identity, and the one-statement undo plus the full pre-state are in `docs/PRODUCTION_DATA_FIX_2026-09-04_ORPHAN_1e1c8482.md`. **That undo is only available while that identity exists — do not delete it.** The other three orphan app rows were deliberately left alone: their addresses are on `.local` / `example.com`, which cannot receive a confirmation link, and confirmation is required, so none of them is armed.
 - [ ] **LOCAL DEV, WILL COST THE NEXT PERSON AN HOUR — the local `SUPABASE_SERVICE_ROLE_KEY` is a DISABLED legacy key:** Supabase disabled this project's legacy `anon` / `service_role` keys on **2026-06-12**, and the value in `apps/backend/.env` is one of them. Any call to the Supabase auth API from a local backend returns **`401 {"message":"Legacy API keys are disabled"}`**, so `authMiddleware`'s `supabase.auth.getUser` fails and **every** authenticated route 401s locally — which reads exactly like a bad token or a broken login rather than a dead key. **PRODUCTION IS UNAFFECTED, and that is proven rather than asserted:** a `User` row exists with `createdAt 2026-08-02` and document `c176c0d5-…` was created 2026-09-04, and both are written only *after* `supabase.auth.getUser` succeeds — so the deployed key worked well after the 2026-06-12 disablement. Either the local file is stale or Railway carries a new-format key; the Railway environment is not readable from here. **Fix:** replace the local value with a current publishable/secret key from the Supabase dashboard, or re-enable legacy keys there. Costs nothing until someone tries to run the backend locally against auth, at which point it costs them an hour.
 
-## STANDING CONSTRAINT — do not delete auth identity `c521aa92-0f4d-4b82-821a-b9e8c0c6f7ae`
+## Note — the parked row, and a constraint that turned out not to be one
 
-**Read this before touching any orphan row.** That identity is the ONLY place the
-original address of app row `1e1c8482-16bb-474c-89d0-5f3e65d1f186` still exists.
-The address was parked as `orphan-<uuid>@parked.invalid` on 2026-09-05 to unblock
-a locked-out user, and the old value was deliberately **not** committed to this
-repository because it is public and the address belongs to a real person.
-Deleting that identity destroys the undo permanently and silently — nothing will
-warn you. Full pre-state, reasoning and the one-statement recovery:
+The address of app row `1e1c8482-16bb-474c-89d0-5f3e65d1f186` was parked as
+`orphan-<uuid>@parked.invalid` on 2026-09-05 to unblock a locked-out account. The
+old value was deliberately **not** committed here, because this repository is
+public and an address belongs to its owner.
+
+**CORRECTED the same day.** An earlier version of this section was headed
+`STANDING CONSTRAINT` and said auth identity `c521aa92-…` must never be deleted
+because it was *"the ONLY place the original address survives"*. That was true of
+the **database** and false of the **world**: the account is one of this project's
+own, and its owner knows the address. **The undo does not depend on that row.**
+Deleting it would destroy nothing irrecoverable, and leaving a constraint
+standing on a justification that has evaporated is exactly the stale, overstated
+line this file keeps having to correct.
+
+What does still apply — once that identity has an app row again — is the general
+rule, which is about every identity and not about this one: **never remove an
+auth identity while leaving its `public."User"` row behind.** See
+`IdentityEmailConflictError` in `authMiddleware.ts` and §6 of
+`docs/FIRST_CUSTOMER_RUNBOOK.md`.
+
+Full pre-state, reasoning and the one-statement recovery:
 `docs/PRODUCTION_DATA_FIX_2026-09-04_ORPHAN_1e1c8482.md`.
-
-This is a constraint, not a task. There is nothing to do; there is something not
-to do.
 
 ## Play Console "set up your app" tasks — ALL COMPLETE (clock is now running)
 

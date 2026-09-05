@@ -226,6 +226,12 @@ the app rows and *then* the identity, so it cannot produce this shape. If an
 identity must be removed some other way, delete its `User` row in the same
 breath.
 
-**It has happened once**, to one real user, locked out 2026-08-24 → 2026-09-05.
+**It has happened once, and it happened to the developer** — not to a customer.
+The account was one of this project's own, registered and then removed during
+ordinary work on it, and its owner was locked out 2026-08-24 → 2026-09-05
+without recognising why, because logging in still worked. The route was not
+recorded, so none is named: a console, the admin API, a CLI and a half-finished
+script all produce it identically.
+
 The diagnosis, the fix and its one-statement undo are in
 `docs/PRODUCTION_DATA_FIX_2026-09-04_ORPHAN_1e1c8482.md`.

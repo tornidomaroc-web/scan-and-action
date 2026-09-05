@@ -35,11 +35,13 @@ UPDATE "User"
  WHERE id = '1e1c8482-16bb-474c-89d0-5f3e65d1f186';
 ```
 
-**The one durability caveat:** the undo is only available while
-`c521aa92-0f4d-4b82-821a-b9e8c0c6f7ae` exists in `auth.users`. That identity is
-the locked-out user's own live account, so there is no reason to delete it — but
-if it is ever deleted, this recovery path goes with it. **Do not delete that
-identity.**
+**Durability caveat, CORRECTED 2026-09-05.** This originally read: *the undo is
+only available while `c521aa92-…` exists, so do not delete that identity.* That
+was true of the database and false of the world. The account is one of this
+project's own and **its owner knows the address**, so the undo does not depend on
+the row. The statement above is kept because it is the cheapest recovery, not
+because it is the only one — and the identity is no longer treated as a standing
+constraint.
 
 ---
 
