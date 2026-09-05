@@ -71,6 +71,39 @@ const collidedOnUserEmail = (err: unknown): boolean =>
  *
  * So: distinguish, refuse, name it. Recovery is an operator action against the
  * orphaned row, never an automatic one taken on a request.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * HOW A ROW GETS INTO THIS STATE — the mechanism, not an incident report.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `User.email` is `@unique` and NOT NULL, and `ensureUser` keys on `id`.
+ * Therefore ANY removal of a Supabase auth identity that leaves its
+ * `public."User"` row behind POISONS THAT ADDRESS PERMANENTLY FOR ITS OWNER:
+ * the person re-registers, gets a new uuid, the upsert misses on `id`, and the
+ * create violates `User.email` forever. Because this middleware is mounted on
+ * the `/api` prefix (app.ts:92), every authenticated endpoint then fails for
+ * them — they can still log in, which makes it look like the product is broken
+ * rather than their account.
+ *
+ * This follows from the schema alone. It is true whatever removed the identity
+ * — a console, the admin API, a half-completed deletion — so no particular
+ * route is named here; naming one would state an inference as a cause.
+ *
+ * The app's own deletion path (`accountController.deleteAccount`) removes the
+ * app rows and THEN the identity, so it cannot produce this shape. USE IT. Any
+ * other route that deletes an identity must delete the `User` row too.
+ *
+ * IT HAS HAPPENED ONCE, AND IT HAPPENED TO THE DEVELOPER. Not to a customer:
+ * the account was one of this project's own, registered and then removed during
+ * ordinary work on it, and its owner was locked out from 2026-08-24 to
+ * 2026-09-05 without recognising why. That is the part worth carrying. The
+ * person who knew this system best did it, and then could not read it from the
+ * symptom — because logging in still worked, so it looked like a broken product.
+ * "I would never do that" is not a defence against this one.
+ *
+ * THE ROUTE WAS NOT RECORDED AND IS NOT NAMED HERE. Any admin-side removal
+ * qualifies — a console, the admin API, a CLI, an abandoned script — and the
+ * consequence is identical for all of them, so naming one would narrow a rule
+ * that is not narrow. See docs/PRODUCTION_DATA_FIX_2026-09-04_ORPHAN_1e1c8482.md.
  */
 export class IdentityEmailConflictError extends Error {
   readonly status = 409;

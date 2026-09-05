@@ -201,3 +201,37 @@ after they cancel** (the floor masks the downgrade). Always revert it.
 > yet there is **no** `-> Org ... [PADDLE ACTIVE]: plan FREE -> PRO (applied)`
 > line and the org stays FREE. That means resolution/entitlement is failing in
 > **code**, not config.
+
+
+---
+
+## 6. Never delete a Supabase auth identity on its own
+
+Not a triage step — a standing rule, because the damage is silent and lands on a
+real person weeks later.
+
+`User.email` is `@unique` and NOT NULL, and `ensureUser` keys on `id`. So **any
+removal of an auth identity that leaves its `public."User"` row behind poisons
+that address permanently for its owner.** They re-register, get a new uuid, the
+upsert misses on `id`, and the create violates `User.email` forever. Because
+`authMiddleware` is mounted on the `/api` prefix (`app.ts:92`), **every**
+authenticated endpoint then fails for them — while login still works, so it
+reads as a broken product rather than a broken account.
+
+This follows from the schema alone, so it holds whatever did the deleting. No
+particular route is blamed here.
+
+**Use the app's own deletion path.** `accountController.deleteAccount` removes
+the app rows and *then* the identity, so it cannot produce this shape. If an
+identity must be removed some other way, delete its `User` row in the same
+breath.
+
+**It has happened once, and it happened to the developer** — not to a customer.
+The account was one of this project's own, registered and then removed during
+ordinary work on it, and its owner was locked out 2026-08-24 → 2026-09-05
+without recognising why, because logging in still worked. The route was not
+recorded, so none is named: a console, the admin API, a CLI and a half-finished
+script all produce it identically.
+
+The diagnosis, the fix and its one-statement undo are in
+`docs/PRODUCTION_DATA_FIX_2026-09-04_ORPHAN_1e1c8482.md`.
