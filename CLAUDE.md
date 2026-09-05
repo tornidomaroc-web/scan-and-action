@@ -202,6 +202,57 @@ misconfigured database is byte-identical to `0 rows` from the right one.
 
 Recorded 2026-09-04.
 
+### The repository is not a record of what has been shipped
+
+`apps/frontend/android/app/build.gradle` states a versionCode. `LAUNCH_TODO.md`
+states which build is live. Both answer instantly, both look authoritative, and
+**neither is a reading from Play.**
+
+On 2026-09-05 they agreed with each other and were both wrong. The file held 4,
+the queue said Play held 4, and a report volunteered — unasked — that *"Play
+holds vc4"* and *"versionCode is the only engineering blocker."* Play held **5**:
+a bundle uploaded into a draft that no commit, tag, branch or artifact in this
+repository records. The only reason anyone looked was Play rejecting a second
+upload with *"Version code 5 has already been used."*
+
+**The trap generalises past Play.** A repository can only tell you what it
+contains. Anything describing a system *outside* it — what a store holds, what a
+process is serving, what a dashboard is configured with, what a database
+contains — is a claim about a remote, and the local file that appears to answer
+it is not evidence, however specific it looks. **Any claim of the form "X is done
+and sitting unshipped" needs a reading from the thing it would ship to.**
+
+| Question | The only thing that can answer it |
+|---|---|
+| What versionCodes does Play hold? | Play — every track, drafts included |
+| What commit is the backend serving? | `curl -sS https://<host>/api/version` |
+| What rows exist? | the database |
+| What is the auth provider configured to do? | the auth provider |
+
+One Play mechanic makes it bite harder: **uploading a bundle consumes its version
+code permanently**, across every track, including drafts never rolled out and
+releases later discarded. So a code can be spent by something nobody remembers
+doing, and this repository will never mention it.
+
+Recorded 2026-09-05.
+
+### `git log -S` answers a different question than the one you asked
+
+`git log -S"versionCode"` returned exactly **one** commit for a file whose
+versionCode had changed four times, and one commit reads like a complete history.
+The pickaxe matches commits that change the **number of occurrences** of a
+string, so `versionCode 1` → `versionCode 2` is invisible to it. There is no
+error and no warning; you get a short, clean, wrong answer to "when did this
+change?", and on 2026-09-05 it nearly became the stated premise of a claim about
+which versionCodes had ever existed.
+
+**Use `-G` for "which commits touched a line matching this", or read the value
+itself at each commit that touched the file** — `git log --reverse --pretty=%H --
+<path>`, then `git show <sha>:<path>` and extract. `-S` is for "when did this
+string appear or disappear", which is rarely the question.
+
+Recorded 2026-09-05.
+
 ## What belongs in this file
 
 A check that answers **confidently and wrongly, with no error to prompt a
