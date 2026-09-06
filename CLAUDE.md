@@ -253,6 +253,29 @@ string appear or disappear", which is rarely the question.
 
 Recorded 2026-09-05.
 
+### `String()` in a log-capture harness cannot see an object dump
+
+A test that captures `console.*` with `args.map(String).join(' ')` renders an
+object argument as `[object Object]` and nothing else. So
+`console.error('x:', err)` — the shape that serialises every enumerable field —
+is captured carrying none of them, and `not.toContain(secret)` passes. It passes
+just as happily against **unfixed** source, which is the one thing the test
+exists to catch.
+
+Node's `console.*` formats with `util.format` (`util.inspect` for objects), which
+prints those fields, nested ones included, across multiple lines.
+
+**Any test asserting on console output captures with `util.format`** — and
+asserts a positive marker the fixed code emits, not only the absence of the raw
+value.
+
+Found 2026-09-06 on `uploadController.ts:110`/`:127`, where `err.message || err`
+hands the whole error object to `console.error`. The existing
+`ingestionService.errorLog.test.ts` harness stringifies with `String()`; ported
+unchanged it would have reported that leak as already closed.
+
+Recorded 2026-09-06.
+
 ## What belongs in this file
 
 A check that answers **confidently and wrongly, with no error to prompt a
