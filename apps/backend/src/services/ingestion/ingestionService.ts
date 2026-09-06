@@ -1,4 +1,5 @@
 import { GeminiExtractionAdapter } from '../extraction/geminiAdapter';
+import { formatErrorForLog } from '../../redaction';
 import { PersistenceService } from './persistence';
 import { PrismaClient } from '@prisma/client';
 
@@ -59,7 +60,7 @@ export class IngestionService {
     if (!isSingleDoc) {
       console.warn(`[Background] Multi-document detected for ${documentId}. Aborting extraction.`);
       await this.persistenceService.markAsNeedsReview(documentId).catch(err => {
-        console.error(`[Background] Failed to mark ${documentId} as NEEDS_REVIEW:`, err.message);
+        console.error(`[Background] Failed to mark ${documentId} as NEEDS_REVIEW:`, formatErrorForLog(err));
       });
       return;
     }
@@ -82,7 +83,7 @@ export class IngestionService {
           console.warn(`[Background] Attempt ${attempt} returned low confidence. Retrying...`);
         }
       } catch (error: any) {
-        console.error(`[Background] Attempt ${attempt} failed with error: ${error.message}`);
+        console.error(`[Background] Attempt ${attempt} failed with error: ${formatErrorForLog(error)}`);
         if (attempt === MAX_ATTEMPTS) {
           console.error(`[Background] All ${MAX_ATTEMPTS} attempts failed for ${documentId}.`);
         } else {
@@ -108,9 +109,9 @@ export class IngestionService {
       console.log(`[Background] Persisting extraction result to document ${documentId}... elapsedMs=${elapsedMs()}`);
       await this.persistenceService.updateDocumentWithExtraction(documentId, userId, organizationId, fileUrl, originalFileName, extractionResult);
     } catch (persistError: any) {
-      console.error(`[CRITICAL] Persistence failed for ${documentId}. Forcing NEEDS_REVIEW. Error: ${persistError.message}`);
+      console.error(`[CRITICAL] Persistence failed for ${documentId}. Forcing NEEDS_REVIEW. Error: ${formatErrorForLog(persistError)}`);
       await this.persistenceService.markAsNeedsReview(documentId).catch(finalErr => {
-        console.error(`[FATAL] Even emergency fallback failed for ${documentId}:`, finalErr.message);
+        console.error(`[FATAL] Even emergency fallback failed for ${documentId}:`, formatErrorForLog(finalErr));
       });
     }
 
