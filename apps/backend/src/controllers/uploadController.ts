@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../prismaClient';
+import { formatErrorForLog } from '../redaction';
 import { IngestionService } from '../services/ingestion/ingestionService';
 import { uploadToSupabase } from '../services/storage/supabaseStorage';
 
@@ -107,7 +108,20 @@ export class UploadController {
         ingestionService
           .processUploadAsync(documentId, userId!, organizationId!, fileBuffer, mimeType, originalFileName, filePath)
           .catch(async (err: any) => {
-            console.error(`[Background] Extraction failed for ${documentId}:`, err.message || err);
+            // ERROR-OBJECT POLICY (redaction.ts:72-89). This read
+            // `err.message || err`, which handed the WHOLE error object to
+            // console.error whenever `message` was absent — the shape Rule 1
+            // forbids outright, because console.error serialises every
+            // enumerable field (a vendor error can carry a storage key or a
+            // payload echo nobody chose to log).
+            //
+            // The COMPARISON two lines below is deliberately NOT redacted.
+            // formatErrorForLog returns a bounded projection
+            // (`name=Error message=LIMIT_REACHED`), not the bare message, so
+            // routing that line through it would silently flip the limit
+            // branch to FAILED under a green suite. Redact the LOG, leave the
+            // COMPARISON reading `err.message`.
+            console.error(`[Background] Extraction failed for ${documentId}:`, formatErrorForLog(err));
 
             const isLimitReached = err.message === 'LIMIT_REACHED';
             const finalStatus = isLimitReached ? 'LIMIT_REACHED' : 'FAILED';
@@ -118,13 +132,13 @@ export class UploadController {
                 data: { status: finalStatus, processedAt: new Date() }
               });
             } catch (updateErr: any) {
-              console.error(`[Background] Could not set ${finalStatus} status for ${documentId}:`, updateErr.message);
+              console.error(`[Background] Could not set ${finalStatus} status for ${documentId}:`, formatErrorForLog(updateErr));
             }
           });
       });
 
     } catch (error: any) {
-      console.error('[UploadController] Error during upload flow:', error.message || error);
+      console.error('[UploadController] Error during upload flow:', formatErrorForLog(error));
       next(error);
     }
   }
