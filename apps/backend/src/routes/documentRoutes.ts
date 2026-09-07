@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { DocumentController } from '../controllers/documentController';
 import { UploadController } from '../controllers/uploadController';
-import { uploadIpLimiter, uploadOrgLimiter } from '../middleware/rateLimits';
+import { uploadIpLimiter, uploadOrgLimiter, reextractOrgLimiter } from '../middleware/rateLimits';
 
 const router = Router();
 
@@ -40,7 +40,10 @@ router.patch('/:id/status', DocumentController.updateStatus);
 router.post('/:id/action', DocumentController.applyFixAction);
 // Recover a FAILED document's content from the file already in storage. Charges
 // no scan; org-scoped by the same findFirst the sibling routes use.
-router.post('/:id/reextract', DocumentController.reextractDocument);
+// Rate-limited because it triggers a paid Gemini extraction: the controller's
+// conditional claim stops repeat hits on ONE document, the limiter stops a sweep
+// across many.
+router.post('/:id/reextract', reextractOrgLimiter, DocumentController.reextractDocument);
 router.post('/upload', uploadIpLimiter, uploadOrgLimiter, upload.single('file'), UploadController.uploadDocument);
 
 export default router;

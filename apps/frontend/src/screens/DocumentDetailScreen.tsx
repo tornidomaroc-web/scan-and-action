@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, CheckCircle, XCircle, FileText, Network, Sparkles, ListChecks } from 'lucide-react';
+import { ChevronLeft, CheckCircle, XCircle, FileText, Network, Sparkles, ListChecks, RefreshCw } from 'lucide-react';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
 import { SectionHeading } from '../components/SectionHeading';
@@ -13,6 +13,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { getStatus, getDocTypeLabel, getEntityRoleLabel, formatFactValue, factValueDir } from '../lib/searchResultCard';
 import { formatDateValue } from '../lib/formatCellValue';
 import { isIdentityConflict } from '../lib/identityConflict';
+import { isSourceFileUnavailable, isReextractionInProgress } from '../lib/reextractErrors';
 
 // Document detail, restyled onto the --sa-* token system (PR-D3).
 //  - Calm flat surfaces (rounded-card, quiet shadow) instead of the old
@@ -71,6 +72,39 @@ export const DocumentDetailScreen = () => {
       // via the early return at the render site, so this is a switch and not a
       // silent disappearance. Every OTHER action failure keeps its toast.
       if (isIdentityConflict(error)) {
+        setLocked(true);
+        setErrorMsg(s.accountLockedBody);
+      } else {
+        showToast(s.toastUpdateError, 'error');
+      }
+    } finally {
+      setActioning(false);
+    }
+  };
+
+  // Re-extraction: only reachable for a FAILED document (gate at the render
+  // site). It charges no scan — a FAILED row was never charged, because every
+  // writer of FAILED is reached only after the charge transaction rolled back —
+  // so this is a free retry, not a refund.
+  const handleReextract = async () => {
+    if (actioning) return;
+    setActioning(true);
+    try {
+      await documentService.reextract(documentId!);
+      showToast(s.reextractStarted, 'info');
+      handleRefresh();
+    } catch (error) {
+      console.error('[DocumentDetail] Re-extraction failed:', error);
+      // By EXACT code, never by status (lib/reextractErrors.ts). The two 409s
+      // ask for opposite things, so they must not share a toast: one sends the
+      // user to a re-upload, the other tells them to wait. Anything else —
+      // a 429 from the limiter, a bare proxy 409, a dropped socket — keeps the
+      // ordinary generic failure copy.
+      if (isSourceFileUnavailable(error)) {
+        showToast(s.reextractSourceUnavailable, 'error');
+      } else if (isReextractionInProgress(error)) {
+        showToast(s.reextractInProgress, 'info');
+      } else if (isIdentityConflict(error)) {
         setLocked(true);
         setErrorMsg(s.accountLockedBody);
       } else {
@@ -426,6 +460,26 @@ export const DocumentDetailScreen = () => {
 
       {/* Sticky review actions: bottom-20 clears the mobile tab bar; md:bottom-6
           sits above the viewport edge on desktop. */}
+      {/* A FAILED document reaches this screen already — getAllDocuments applies
+          no status filter, and the Activity row links straight here — but until
+          now it arrived with NO action at all. Same sticky container, one extra
+          branch: NEEDS_REVIEW keeps approve/reject, FAILED gets a single retry,
+          and every other status still shows no bar. */}
+      {doc.status === 'FAILED' && (
+        <div className="sticky bottom-20 z-40 mt-6 md:bottom-6">
+          <div className="flex gap-3 rounded-card border border-line bg-surface-raised/95 p-3 shadow-lg backdrop-blur">
+            <button
+              onClick={handleReextract}
+              disabled={actioning}
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-accent text-sm font-semibold text-white transition-colors active:scale-[0.99] disabled:opacity-50"
+            >
+              <RefreshCw size={18} />
+              {s.retryExtraction}
+            </button>
+          </div>
+        </div>
+      )}
+
       {doc.status === 'NEEDS_REVIEW' && (
         <div className="sticky bottom-20 z-40 mt-6 md:bottom-6">
           <div className="flex gap-3 rounded-card border border-line bg-surface-raised/95 p-3 shadow-lg backdrop-blur">

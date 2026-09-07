@@ -101,6 +101,30 @@ export const documentService = {
     return res.json();
   },
 
+  /**
+   * Re-run extraction over a FAILED document's stored file. Charges no scan.
+   *
+   * Throws the server's `code` rather than its prose, because the caller has to
+   * discriminate two 409s that mean opposite things (lib/reextractErrors.ts).
+   * That is the same convention the other services follow — throw the machine
+   * code, let the screen choose the localized sentence — and it is why the
+   * `code` field is preferred over `error` here. `error` is the fallback so an
+   * unexpected shape still surfaces something.
+   */
+  async reextract(id: string): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/documents/${id}/reextract`, {
+      method: 'POST',
+      headers: await getJsonHeaders()
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.code || errorData.error || 'Failed to re-extract document');
+    }
+
+    return res.json();
+  },
+
   async exportCsv(): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/documents/export.csv`, {
       method: 'GET',

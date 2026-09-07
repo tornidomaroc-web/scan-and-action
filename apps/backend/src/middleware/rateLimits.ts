@@ -42,6 +42,35 @@ export const uploadOrgLimiter = rateLimit({
 });
 
 /**
+ * Per-organization re-extraction limiter: 20 re-extractions / hour.
+ *
+ * Ships WITH its trigger. POST /documents/:id/reextract runs a paid Gemini
+ * extraction; before the retry button existed the route was unmetered but
+ * unreachable, since nothing in the app called it. The button is what makes an
+ * unmetered paid call reachable from a tap, so the brake lands in the same
+ * change rather than after it.
+ *
+ * The controller's conditional claim already stops repeat hits on the SAME
+ * document (the second caller loses the claim and gets 409). It does nothing
+ * about a sweep across MANY documents — that is this limiter's job.
+ *
+ * Much tighter than uploadOrgLimiter (120/hr) on purpose: re-extraction is a
+ * recovery action, not a workflow. A user salvaging a bad batch might touch a
+ * handful of documents; twenty in an hour is already generous, and the failed
+ * documents to spend it on are rare by construction.
+ *
+ * Same org key and same IPv6-safe IP fallback as uploadOrgLimiter.
+ */
+export const reextractOrgLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => req.user?.organizationId || ipKeyGenerator(req.ip || ''),
+  message: limitResponse('Too many re-extraction attempts for this workspace. Please try again later.')
+});
+
+/**
  * Per-IP search limiter: 120 searches / 15 min.
  * Search is keyword parsing + a few DB queries — cheap, but unmetered.
  * 120 allows brisk interactive use (8/min) while capping scripted abuse.
