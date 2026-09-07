@@ -47,3 +47,43 @@ export const uploadToSupabase = async (file: Express.Multer.File): Promise<strin
     console.log('[Storage] Upload successful.');
     return data.path;
 };
+
+/**
+ * Fetches a stored object back, for re-extraction.
+ *
+ * This is deliberately BOTH the fetch and the existence check. There is no
+ * separate "does this object exist" probe, because a separate probe would be a
+ * second round trip that can disagree with the fetch that follows it. A missing
+ * object errors here, definitively, before anything has been written.
+ *
+ * It also supplies the MIME type, which is the reason the caller cannot get by
+ * with the Document row alone: the model stores originalFileName and fileUrl but
+ * NO content type (schema.prisma:112-140), and the extraction pipeline needs one
+ * to decide how to hand the bytes to Gemini. The download response carries the
+ * contentType recorded at upload time, so it is the authoritative source.
+ */
+export const downloadFromSupabase = async (
+    filePath: string
+): Promise<{ buffer: Buffer; mimeType: string }> => {
+    console.log(`[Storage] Downloading object from bucket 'documents' for re-extraction`);
+    const { data, error } = await supabase.storage
+        .from('documents')
+        .download(filePath);
+
+    if (error || !data) {
+        // ERROR-OBJECT POLICY (redaction.ts), same reasoning as uploadToSupabase
+        // and getSignedFileUrl: the call is keyed by `filePath`, which embeds the
+        // sanitized original filename, so a vendor error echoing the key back
+        // would put a user's filename in stdout. Bounded projection only.
+        console.error('[Storage] Supabase download error:', formatErrorForLog(error));
+        throw new Error('Failed to download file from Supabase');
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    return {
+        buffer: Buffer.from(arrayBuffer),
+        // Blob.type is '' when the object was stored without a contentType.
+        // Fall back rather than passing an empty string down to the extractor.
+        mimeType: data.type || 'application/octet-stream',
+    };
+};

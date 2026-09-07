@@ -362,3 +362,96 @@ describe('the in-memory double actually models the conditional semantics', () =>
     expect(db.org().scanCount).toBe(0);
   });
 });
+
+// ===========================================================================
+// chargeScan = false — the re-extraction path.
+// ===========================================================================
+// A re-extraction re-runs the pipeline over a document the user ALREADY has.
+// It must not consume a scan. Note what this is NOT: it is not "the row is
+// already stamped so the gate skips it". A FAILED row is never stamped —
+// every writer of FAILED (persistence.markAsFailed, staleSweepService, the
+// uploadController background catch) is reached only AFTER the charge
+// transaction rolled back, so the charge never committed and scanChargedAt is
+// null. Left to itself the gate would see null, claim it, and charge. The
+// caller has to say "do not charge", explicitly, which is what this flag is.
+//
+// Consequence worth pinning: because no charge happens, scanChargedAt stays
+// NULL after a re-extraction. That keeps the invariant honest — the column
+// means "this document consumed a scan", and this document did not.
+// ===========================================================================
+const persistNoCharge = (svc: PersistenceService) =>
+  svc.updateDocumentWithExtraction(
+    DOC_ID,
+    USER_ID,
+    ORG_ID,
+    'org-1/receipt.jpg',
+    'receipt.jpg',
+    extraction,
+    false // chargeScan
+  );
+
+describe('updateDocumentWithExtraction with chargeScan=false — re-extraction never charges', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  it('does NOT increment scanCount on an UNSTAMPED row (the real FAILED-row case)', async () => {
+    const db = makeDb({ plan: 'FREE', scanCount: 3 });
+    expect(db.doc().scanChargedAt).toBeNull();
+
+    await persistNoCharge(makeService(db));
+
+    expect(db.org().scanCount).toBe(3);
+  });
+
+  it('leaves scanChargedAt NULL, so the column keeps meaning "consumed a scan"', async () => {
+    const db = makeDb({ plan: 'FREE', scanCount: 3 });
+
+    await persistNoCharge(makeService(db));
+
+    expect(db.doc().scanChargedAt).toBeNull();
+  });
+
+  it('does NOT increment scanCount on an ALREADY-STAMPED row either', async () => {
+    const db = makeDb({ plan: 'FREE', scanCount: 3 });
+    db.doc().scanChargedAt = new Date('2020-01-01T00:00:00.000Z');
+
+    await persistNoCharge(makeService(db));
+
+    expect(db.org().scanCount).toBe(3);
+    // and the original stamp is not disturbed
+    expect(db.doc().scanChargedAt).toEqual(new Date('2020-01-01T00:00:00.000Z'));
+  });
+
+  it('still writes the extraction — it is a no-op for the CHARGE only', async () => {
+    const db = makeDb({ plan: 'FREE', scanCount: 3 });
+
+    await persistNoCharge(makeService(db));
+
+    expect(db.doc().rawText).toBe(extraction.rawText);
+    expect(db.doc().processedAt).toBeInstanceOf(Date);
+  });
+
+  it('is NOT blocked by a FREE org already at its limit — no charge means no limit check', async () => {
+    // The whole point: a user who burned their last scan on a document that
+    // then FAILED must still be able to recover it. If the limit check ran,
+    // recovery would be impossible for exactly the users who need it most.
+    const db = makeDb({ plan: 'FREE', scanCount: 10 });
+
+    await expect(persistNoCharge(makeService(db))).resolves.toBeUndefined();
+
+    expect(db.org().scanCount).toBe(10);
+    expect(db.doc().rawText).toBe(extraction.rawText);
+  });
+
+  it('the default (omitted flag) still charges — this flag cannot silently disarm the upload path', async () => {
+    const db = makeDb({ plan: 'FREE', scanCount: 3 });
+
+    await persist(makeService(db)); // no flag passed
+
+    expect(db.org().scanCount).toBe(4);
+    expect(db.doc().scanChargedAt).toBeInstanceOf(Date);
+  });
+});

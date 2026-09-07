@@ -32,7 +32,21 @@ export class PersistenceService {
     organizationId: string,
     fileUrl: string,
     originalFileName: string,
-    extraction: GeminiExtractionResult
+    extraction: GeminiExtractionResult,
+    // Whether this run should consume one of the organization's scans.
+    //
+    // Defaults to TRUE so the upload path is unchanged and cannot be silently
+    // disarmed by a caller that forgets the argument. Only re-extraction passes
+    // false: it re-runs the pipeline over a document the user already has, and
+    // must not bill them a second time for it.
+    //
+    // Note this is NOT redundant with the scanChargedAt gate below. A FAILED row
+    // — the only kind re-extraction accepts — is never stamped, because every
+    // writer of FAILED (markAsFailed, staleSweepService, the uploadController
+    // background catch) is reached only after the charge transaction rolled
+    // back. Left to itself the gate would see null, claim it, and charge. The
+    // caller has to say so explicitly.
+    chargeScan: boolean = true
   ): Promise<void> {
     const rawConfidence = extraction.overallConfidence ?? 0;
     const normalizedOverallConfidence = rawConfidence > 1 ? rawConfidence / 100 : rawConfidence;
@@ -161,12 +175,20 @@ export class PersistenceService {
       // extraction write is unchanged, which is the property this must not
       // regress. Order matters: claim first, so a LIMIT_REACHED throw below
       // takes the stamp down with it and the document stays chargeable.
-      const scanCharge = await tx.document.updateMany({
-        where: { id: documentId, scanChargedAt: null },
-        data: { scanChargedAt: new Date() }
-      });
+      const scanCharge = chargeScan
+        ? await tx.document.updateMany({
+            where: { id: documentId, scanChargedAt: null },
+            data: { scanChargedAt: new Date() }
+          })
+        : { count: 0 };
 
-      if (scanCharge.count === 0) {
+      if (!chargeScan) {
+        // Re-extraction. scanChargedAt is deliberately left as it was — NULL for
+        // a FAILED row — because the column means "this document consumed a
+        // scan", and it did not. Stamping it here to make the gate idempotent
+        // would be recording a charge that never happened.
+        console.log(`[Persistence] Re-extraction of ${documentId}: charging skipped by caller.`);
+      } else if (scanCharge.count === 0) {
         console.log(`[Persistence] Document ${documentId} was already charged a scan; not charging again.`);
       } else {
         // Increment organization scanCount conditionally to enforce limit
