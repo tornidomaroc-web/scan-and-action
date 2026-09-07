@@ -57,6 +57,17 @@ const DOC_ID = 'doc-1';
 const ORG_ID = 'org-1';
 const USER_ID = 'user-1';
 
+// The REQUIRED columns of DocumentFact, read off schema.prisma:156-171.
+// `id` and `isReviewed` are excluded because they carry @default; valueString,
+// valueNumber, valueDate and currency are excluded because they are nullable.
+const DOCUMENT_FACT_REQUIRED = [
+  'documentId',
+  'factType',
+  'key',
+  'confidence',
+  'sourceSpan',
+] as const;
+
 function makeDb(initialOrg: Partial<OrgRow> = {}) {
   const state = {
     docs: new Map<string, DocRow>(),
@@ -132,7 +143,28 @@ function makeDb(initialOrg: Partial<OrgRow> = {}) {
         state.facts.find(
           (f) => f.documentId === where.documentId && f.key === where.key
         ) ?? null,
+      // Enforces the REQUIRED columns of DocumentFact (schema.prisma:156-171).
+      //
+      // Prisma rejects a create that omits a required field CLIENT-SIDE, before
+      // any query reaches Postgres — which is why such a failure never poisons
+      // the surrounding transaction and can pass unnoticed indefinitely. A
+      // double that stores whatever it is handed cannot model that, and this one
+      // did not: persistence.ts:435 has omitted `sourceSpan` since the feature
+      // shipped, and this suite stayed green the entire time.
       create: async ({ data }: any) => {
+        for (const field of DOCUMENT_FACT_REQUIRED) {
+          if (data[field] === undefined || data[field] === null) {
+            // Shaped like the real rejection, which reads:
+            //   Invalid `tx.documentFact.create()` invocation ...
+            //   Argument `sourceSpan` is missing.
+            const err: any = new Error(
+              'Invalid `tx.documentFact.create()` invocation. ' +
+                'Argument `' + field + '` is missing.'
+            );
+            err.name = 'PrismaClientValidationError';
+            throw err;
+          }
+        }
         state.facts.push({ ...data });
         return { ...data };
       },
@@ -346,6 +378,57 @@ describe('the in-memory double actually models the conditional semantics', () =>
     ).rejects.toMatchObject({ code: 'P2025' });
   });
 
+  // ---- the matched pair that proves the required-field check discriminates ----
+  //
+  // These two must be read together. An always-throwing validator fails the
+  // POSITIVE; an always-passing one fails the NEGATIVE. Neither can pass both,
+  // so passing both is evidence the check actually distinguishes a valid create
+  // from an invalid one, rather than being vacuous in either direction.
+
+  it('POSITIVE CONTROL: a create with all five required fields succeeds and LANDS in the store', async () => {
+    const db = makeDb();
+    const before = db.facts().length;
+
+    const created = await db.tx.documentFact.create({
+      data: {
+        documentId: DOC_ID,
+        factType: 'CATEGORY',
+        key: 'category',
+        valueString: 'Groceries',
+        confidence: 0.9,
+        sourceSpan: 'auto_categorization',
+        isReviewed: false,
+      },
+    });
+
+    expect(created.key).toBe('category');
+    expect(db.facts().length).toBe(before + 1);
+    expect(db.facts().find((f: any) => f.key === 'category')).toBeTruthy();
+  });
+
+  it.each(DOCUMENT_FACT_REQUIRED)(
+    'NEGATIVE CONTROL: a create omitting `%s` throws, naming that field',
+    async field => {
+      const db = makeDb();
+      const before = db.facts().length;
+
+      const data: Record<string, unknown> = {
+        documentId: DOC_ID,
+        factType: 'CATEGORY',
+        key: 'category',
+        confidence: 0.9,
+        sourceSpan: 'auto_categorization',
+      };
+      delete data[field];
+
+      await expect(db.tx.documentFact.create({ data })).rejects.toThrow(
+        new RegExp('`' + field + '` is missing')
+      );
+      // and nothing was stored on the way out
+      expect(db.facts().length).toBe(before);
+    }
+  );
+
   it('$transaction restores state when the callback throws', async () => {
     const db = makeDb();
 
@@ -453,5 +536,45 @@ describe('updateDocumentWithExtraction with chargeScan=false — re-extraction n
 
     expect(db.org().scanCount).toBe(4);
     expect(db.doc().scanChargedAt).toBeInstanceOf(Date);
+  });
+});
+
+// ===========================================================================
+// The auto-categorization fact must actually be WRITTEN.
+// ===========================================================================
+// categorizeAndSave (persistence.ts:435) is the only DocumentFact.create of the
+// five in this file that does not pass `sourceSpan`, which schema.prisma:167
+// declares required. Prisma rejects that CLIENT-SIDE, and the method's own
+// catch at :447-450 swallows the rejection and returns 'Other' — so the feature
+// fails silently on every document and the transaction commits regardless.
+//
+// This assertion is the red. It is only meaningful on a double that enforces
+// the schema's required fields: against the permissive double it passed while
+// the feature was completely inert, which is exactly the false green that let
+// this survive from day one.
+// ===========================================================================
+describe('auto-categorization persists a CATEGORY fact', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  it('writes a CATEGORY/category fact for the document', async () => {
+    const db = makeDb();
+    await persist(makeService(db));
+
+    const category = db.facts().find((f: any) => f.key === 'category');
+    expect(category, 'no CATEGORY fact was written').toBeTruthy();
+    expect(category.factType).toBe('CATEGORY');
+    expect(category.documentId).toBe(DOC_ID);
+  });
+
+  it('the CATEGORY fact carries a sourceSpan, like every other synthesized fact', async () => {
+    const db = makeDb();
+    await persist(makeService(db));
+
+    const category = db.facts().find((f: any) => f.key === 'category');
+    expect(category?.sourceSpan).toBeTruthy();
   });
 });

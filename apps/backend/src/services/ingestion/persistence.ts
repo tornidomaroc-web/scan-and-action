@@ -4,6 +4,7 @@ import { EntityResolutionService } from '../normalization/entityResolution';
 import { NormalizationService } from '../normalization/normalizationService';
 import { ExpenseCategorizationService } from '../expenseCategorizationService';
 import { RuleEngineService } from '../ruleEngineService';
+import { formatErrorForLog } from '../../redaction';
 
 const CONFIDENCE_THRESHOLD = 0.98; // Anything below this requires human review
 
@@ -439,13 +440,47 @@ export class PersistenceService {
           key: 'category',
           valueString: category,
           confidence: confidence,
+          // REQUIRED by schema.prisma:167 — its absence is what made this whole
+          // method inert. Prisma rejected the create CLIENT-SIDE ("Argument
+          // `sourceSpan` is missing"), so no query ever reached Postgres, the
+          // transaction was never poisoned, and the catch below swallowed it: no
+          // CATEGORY fact has ever been written and every document has been
+          // categorized 'Other' since the feature shipped.
+          //
+          // A sentinel, because a categorization has no natural span in the
+          // document. That is the settled convention here, not an invention —
+          // ':475/:489' use 'rule_engine', documentController.ts uses
+          // 'user_correction' (:420), 'user_justification' (:439),
+          // 'review_flow' (:457) and 'rule_engine_reval' (:491, :504), and
+          // geminiAdapter.ts:222/:232/:242 use descriptive spans of their own.
+          sourceSpan: 'auto_categorization',
           isReviewed: confidence >= CONFIDENCE_THRESHOLD
         }
       });
 
       return category;
     } catch (err) {
-      console.error(`[Persistence] Failed auto-categorization for ${documentId}:`, err);
+      // THE SWALLOW STAYS, deliberately. Categorization is a secondary
+      // enrichment; the extracted text, facts and entities are the primary
+      // artifact. This runs INSIDE the caller's $transaction, so rethrowing
+      // would roll the whole persist back — ingestionService would catch it and
+      // force NEEDS_REVIEW, leaving a row with rawText '' and confidence 0. That
+      // row is then content-dead: NEEDS_REVIEW is deliberately excluded from
+      // re-extraction v1, so the only recovery is re-uploading, which creates a
+      // new row and consumes a scan. Failing a whole document because an
+      // enrichment failed is a strictly worse outcome than shipping it
+      // uncategorized.
+      //
+      // What was actually wrong was the SILENCE, not the swallow: the line below
+      // handed the raw error object to console.error (against the ERROR-OBJECT
+      // POLICY in redaction.ts, the one #181/#182 enforced elsewhere) and said
+      // nothing about the consequence, so it read as noise for the entire life
+      // of the bug. It now names the outcome, so an inert categorizer is
+      // greppable rather than inferable.
+      console.error(
+        `[Persistence] Auto-categorization failed for ${documentId}; document will have NO category:`,
+        formatErrorForLog(err)
+      );
       return 'Other';
     }
   }
@@ -501,7 +536,15 @@ export class PersistenceService {
 
       console.log(`[Persistence] Rule evaluation complete for ${documentId}. Decision: ${result.decision}`);
     } catch (err) {
-      console.error(`[Persistence] Rule evaluation failed for ${documentId}:`, err);
+      // Same ERROR-OBJECT POLICY fix as the sibling catch above, and the same
+      // reasoning for keeping the swallow: this also runs inside the caller's
+      // transaction, so rethrowing would discard the extraction over a failed
+      // enrichment. Leaving one raw-error log beside a corrected one is how the
+      // policy erodes, so both are routed through formatErrorForLog.
+      console.error(
+        `[Persistence] Rule evaluation failed for ${documentId}; document will have NO decision fact:`,
+        formatErrorForLog(err)
+      );
     }
   }
 }
