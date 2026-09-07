@@ -157,7 +157,24 @@ export class PersistenceService {
       const category = await this.categorizeAndSave(tx, documentId, merchantFact, extraction.rawText, extraction.facts);
 
       // Part 2: Rule Engine Evaluation
-      const allFacts = [...extraction.facts, { key: 'category', valueString: category }];
+      //
+      // The keys handed to the rule engine MUST be the canonical ones, because
+      // resolveAmount (ruleEngineService.ts:90-99) matches 'manual_amount',
+      // 'TOTAL_AMOUNT' and 'amount' by exact string. `extraction.facts` carries
+      // the RAW adapter keys — geminiAdapter.ts:227 emits 'Total Amount' — and
+      // the canonical form is produced by normalizeFactKey when the row is
+      // WRITTEN (:118), which happens after this array used to be built from the
+      // raw values. So the engine was matching 'TOTAL_AMOUNT' against
+      // 'Total Amount' and never resolving an amount at all: measured at 201 of
+      // 201 ingestion decisions reporting "Missing amount", 54 of them on
+      // documents that demonstrably held one. The re-evaluation path
+      // (documentController.ts:466-476) always passed DB rows and was always
+      // correct — the same transform, applied here, makes the two agree.
+      const canonicalFacts = extraction.facts.map(f => ({
+        ...f,
+        key: this.normalizer.normalizeFactKey(f.key)
+      }));
+      const allFacts = [...canonicalFacts, { key: 'category', valueString: category }];
       await this.evaluateRulesAndSave(tx, documentId, organizationId, merchantFact, allFacts);
 
       // Claim the scan charge for THIS document, once and only once.
@@ -319,7 +336,13 @@ export class PersistenceService {
       const category2 = await this.categorizeAndSave(tx, doc.id, merchantFact2, extraction.rawText, extraction.facts);
 
       // Part 2: Rule Engine Evaluation
-      const allFacts2 = [...extraction.facts, { key: 'category', valueString: category2 }];
+      // Canonical keys, for the same reason as the sibling site above. Kept
+      // identical so the two paths cannot drift apart again.
+      const canonicalFacts2 = extraction.facts.map(f => ({
+        ...f,
+        key: this.normalizer.normalizeFactKey(f.key)
+      }));
+      const allFacts2 = [...canonicalFacts2, { key: 'category', valueString: category2 }];
       await this.evaluateRulesAndSave(tx, doc.id, organizationId, merchantFact2, allFacts2);
 
       // Same claim-then-charge gate as updateDocumentWithExtraction. Here the
