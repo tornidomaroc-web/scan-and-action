@@ -321,6 +321,29 @@ export class PersistenceService {
   }
 
   /**
+   * Terminal fallback for when markAsNeedsReview ITSELF failed.
+   *
+   * NEEDS_REVIEW is unreachable at that point by construction — the call that
+   * writes it is the call that just threw — and the row would otherwise be left
+   * in PROCESSING with nothing working on it, because processUploadAsync
+   * swallows the failure and resolves.
+   *
+   * This writes exactly what staleSweepService.ts writes for the same rows
+   * (status FAILED + processedAt), 15-20 minutes earlier. It is not a new
+   * state, it is the same state on time.
+   */
+  public async markAsFailed(documentId: string): Promise<void> {
+    console.warn(`[Persistence] Terminal fallback: Marking document ${documentId} as FAILED.`);
+    await this.prisma.document.update({
+      where: { id: documentId },
+      data: {
+        status: 'FAILED',
+        processedAt: new Date()
+      }
+    });
+  }
+
+  /**
    * Safe extension to add auto-categorization fact if it doesn't already exist.
    */
   private async categorizeAndSave(
