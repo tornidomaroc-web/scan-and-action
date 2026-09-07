@@ -140,8 +140,23 @@ export class RuleEngineService {
         id: { not: documentId },
         documentEntities: {
           some: {
-            role: 'VENDOR',
+            // 'VENDOR' is an entityType, NOT a role. types/schemas.ts:16-17
+            // documents the two axes: entityType is the enum
+            // ['VENDOR','CLIENT','PERSON','OTHER'], while role is free text for
+            // the part the entity plays in the document ('Issuer', 'Billed To',
+            // 'Attendee'). geminiAdapter.ts:240-241 emits entityType 'VENDOR'
+            // with role 'Issuer', and persistence.ts:143 stores the role
+            // upper-cased as 'ISSUER'.
+            //
+            // This filter used to read `role: 'VENDOR'`, a value that has never
+            // existed in that column: measured in production, all 156
+            // DocumentEntity rows hold role 'ISSUER' and none hold 'VENDOR'. So
+            // this lookup never matched and Rule D has never fired once.
+            //
+            // Keyed on entityType it now agrees with persistence.ts:156, which
+            // already picks the merchant that way. No stored row changes.
             entity: {
+              entityType: 'VENDOR',
               canonicalName: {
                 equals: canonicalMerchant,
                 mode: 'insensitive'
