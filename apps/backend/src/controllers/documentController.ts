@@ -472,7 +472,12 @@ export class DocumentController {
 
         if (updatedDoc) {
           const ruleEngine = new RuleEngineService(prisma);
-          const merchantName = updatedDoc.documentEntities.find(de => de.role === 'VENDOR')?.entity?.canonicalName || null;
+          // Same defect as checkDuplicate's, at the second of two call sites:
+          // 'VENDOR' is an entityType, not a role (types/schemas.ts:16-17). Every
+          // stored role is 'ISSUER' — 156 rows, zero 'VENDOR' — so this used to
+          // resolve null on every re-evaluation, which also left
+          // isFoodMerchant blind and reduced Rule B to its summary disjunct.
+          const merchantName = updatedDoc.documentEntities.find(de => de.entity?.entityType === 'VENDOR')?.entity?.canonicalName || null;
           const result = await ruleEngine.evaluate(documentId, organizationId, updatedDoc.facts, merchantName);
 
           await prisma.$transaction(async (tx) => {
