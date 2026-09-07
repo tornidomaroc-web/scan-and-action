@@ -2,8 +2,27 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../prismaClient';
 import { mapDocumentToDto, mapDocumentListToDto } from '../dto/documentDto';
 import { getSignedFileUrl } from '../services/storage/getSignedFileUrl';
+import { downloadFromSupabase } from '../services/storage/supabaseStorage';
+import { IngestionService } from '../services/ingestion/ingestionService';
+import { formatErrorForLog } from '../redaction';
 import { RuleEngineService } from '../services/ruleEngineService';
 import { computeDashboardAnalytics } from '../services/dashboardStatsService';
+
+const ingestionService = new IngestionService(prisma);
+
+// The ONLY source state a re-extraction may start from.
+//
+// A whitelist, not a blacklist, so a status added later is refused by default
+// rather than silently becoming re-extractable. Why each of the others is out:
+//   PROCESSING    — something is already writing this row; two writers, no lock.
+//   COMPLETED     — re-extraction would destroy reviewed data.
+//   NEEDS_REVIEW  — these carry user-edited facts that a re-extraction would
+//                   silently overwrite. Out of v1 by decision, not oversight.
+//   LIMIT_REACHED — the row exists BECAUSE the org was over quota
+//                   (uploadController.ts:127); re-running it for free would hand
+//                   back the scan the limit just refused.
+//   REJECTED      — a deliberate user decision; nothing to recover.
+const REEXTRACTABLE_STATUS = 'FAILED';
 
 export class DocumentController {
   public static async getDocumentDetail(req: Request, res: Response, next: NextFunction) {
@@ -196,6 +215,120 @@ export class DocumentController {
       return res.status(200).json(mapDocumentToDto(updated));
     } catch (error: any) {
       console.error('[DocumentController] FATAL: updateStatus execution failed:', error.message || error);
+      next(error);
+    }
+  }
+
+  /**
+   * POST /:id/reextract — re-run extraction over a FAILED document's stored
+   * file, without a re-upload and without consuming a scan.
+   *
+   * The file is already in Supabase storage at the row's fileUrl, so recovery
+   * needs no new bytes from the user. Before this endpoint the only route back
+   * was uploading the file again, which creates a NEW row and charges a scan.
+   *
+   * ORDER MATTERS and is the safety property:
+   *   1. findFirst scoped to { id, organizationId }  -> 404 on a miss. Same
+   *      shape as getDocumentDetail and updateStatus; org isolation comes from
+   *      the where clause, not from a role check (no endpoint here gates on
+   *      role, and this one does not become the first).
+   *   2. Source-state whitelist -> 409.
+   *   3. DOWNLOAD, which is both the fetch and the existence probe, BEFORE any
+   *      write. A missing object therefore leaves the row exactly as it was.
+   *   4. Only then, a CONDITIONAL claim of the row (where status is still
+   *      FAILED). Two concurrent callers cannot both win it, which matters
+   *      because facts are created rather than upserted — a double run would
+   *      append a duplicate set.
+   */
+  public static async reextractDocument(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const organizationId = req.user.organizationId;
+
+      const doc = await prisma.document.findFirst({
+        where: { id: id as string, organizationId: organizationId as string }
+      });
+
+      if (!doc) {
+        console.warn(`[DocumentController] Re-extraction target not found or not in org: ${id}`);
+        return res.status(404).json({ error: 'Document not found' });
+      }
+
+      if (doc.status !== REEXTRACTABLE_STATUS) {
+        console.warn(`[DocumentController] Re-extraction refused for ${id}: status is ${doc.status}`);
+        return res.status(409).json({
+          error: `Only a ${REEXTRACTABLE_STATUS} document can be re-extracted; this one is ${doc.status}.`,
+          code: 'INVALID_SOURCE_STATE'
+        });
+      }
+
+      // The existence probe. Deliberately before any write: if the object is
+      // gone, the row stays FAILED and no scan is consumed.
+      let file: { buffer: Buffer; mimeType: string };
+      try {
+        file = await downloadFromSupabase(doc.fileUrl);
+      } catch (downloadErr: any) {
+        // The storage layer already logged a bounded projection; this line adds
+        // the documentId, which is the handle that resolves back to the row.
+        console.error(
+          `[DocumentController] Re-extraction source unavailable for ${id}:`,
+          formatErrorForLog(downloadErr)
+        );
+        return res.status(409).json({
+          error: 'The stored file for this document is no longer available.',
+          code: 'SOURCE_FILE_UNAVAILABLE'
+        });
+      }
+
+      // Conditional claim — the lock. count 0 means the row moved out of FAILED
+      // between the read above and here, i.e. someone else got there first.
+      const claim = await prisma.document.updateMany({
+        where: {
+          id: id as string,
+          organizationId: organizationId as string,
+          status: REEXTRACTABLE_STATUS
+        },
+        data: { status: 'PROCESSING' }
+      });
+
+      if (claim.count === 0) {
+        console.warn(`[DocumentController] Re-extraction claim lost for ${id}; another run has it.`);
+        return res.status(409).json({
+          error: 'A re-extraction for this document is already in progress.',
+          code: 'REEXTRACTION_IN_PROGRESS'
+        });
+      }
+
+      console.log(`[DocumentController] Re-extracting ${id} (${file.mimeType}, ${file.buffer.length} bytes). No scan will be charged.`);
+      res.status(202).json({ documentId: doc.id, status: 'PROCESSING', reextracting: true });
+
+      // Fire-and-forget, after the response is written. Not wrapped in
+      // setImmediate (unlike uploadController): the download above already
+      // awaited, so the response is written at the same point in the event loop
+      // either way, and dispatching synchronously keeps the call observable
+      // without a scheduling tick. The try/catch guards a SYNCHRONOUS throw the
+      // way .catch guards a rejection — nothing here may touch `res` again.
+      try {
+        void ingestionService
+          .processUploadAsync(
+            doc.id,
+            doc.userId,
+            organizationId as string,
+            file.buffer,
+            file.mimeType,
+            doc.originalFileName,
+            doc.fileUrl,
+            { chargeScan: false }
+          )
+          .catch((err: any) => {
+            console.error(`[DocumentController] Background re-extraction failed for ${id}:`, formatErrorForLog(err));
+          });
+      } catch (dispatchErr: any) {
+        console.error(`[DocumentController] Could not dispatch re-extraction for ${id}:`, formatErrorForLog(dispatchErr));
+      }
+      return;
+    } catch (error: any) {
+      console.error('[DocumentController] FATAL: reextractDocument execution failed:', formatErrorForLog(error));
       next(error);
     }
   }

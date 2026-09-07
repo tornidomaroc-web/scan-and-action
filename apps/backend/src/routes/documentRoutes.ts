@@ -38,6 +38,9 @@ router.get('/all', DocumentController.getAllDocuments);
 router.get('/:id', DocumentController.getDocumentDetail);
 router.patch('/:id/status', DocumentController.updateStatus);
 router.post('/:id/action', DocumentController.applyFixAction);
+// Recover a FAILED document's content from the file already in storage. Charges
+// no scan; org-scoped by the same findFirst the sibling routes use.
+router.post('/:id/reextract', DocumentController.reextractDocument);
 router.post('/upload', uploadIpLimiter, uploadOrgLimiter, upload.single('file'), UploadController.uploadDocument);
 
 export default router;

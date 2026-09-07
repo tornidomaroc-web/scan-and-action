@@ -31,8 +31,15 @@ export class IngestionService {
     targetFileBuffer: Buffer,
     mimeType: string,
     originalFileName: string,
-    fileUrl: string
+    fileUrl: string,
+    // Re-extraction (documentController.reextractDocument) passes
+    // { chargeScan: false }: the pipeline runs identically, but the document
+    // must not consume a second scan. Default is to charge, so the upload path
+    // is unchanged and a caller that omits this cannot accidentally give scans
+    // away. Threaded straight through to updateDocumentWithExtraction.
+    opts: { chargeScan?: boolean } = {}
   ): Promise<void> {
+    const chargeScan = opts.chargeScan !== false;
     // The FILENAME is not logged (this used to interpolate `originalFileName`).
     // documentId is the handle every other line in this workflow already uses,
     // and it resolves to the row that holds the name if it is ever needed.
@@ -122,7 +129,7 @@ export class IngestionService {
 
     try {
       console.log(`[Background] Persisting extraction result to document ${documentId}... elapsedMs=${elapsedMs()}`);
-      await this.persistenceService.updateDocumentWithExtraction(documentId, userId, organizationId, fileUrl, originalFileName, extractionResult);
+      await this.persistenceService.updateDocumentWithExtraction(documentId, userId, organizationId, fileUrl, originalFileName, extractionResult, chargeScan);
     } catch (persistError: any) {
       console.error(`[CRITICAL] Persistence failed for ${documentId}. Forcing NEEDS_REVIEW. Error: ${formatErrorForLog(persistError)}`);
       await this.persistenceService.markAsNeedsReview(documentId).catch(async finalErr => {
