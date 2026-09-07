@@ -145,27 +145,52 @@ export class PersistenceService {
       const allFacts = [...extraction.facts, { key: 'category', valueString: category }];
       await this.evaluateRulesAndSave(tx, documentId, organizationId, merchantFact, allFacts);
 
-      // Increment organization scanCount conditionally to enforce limit
-      try {
-        await tx.organization.update({
-          where: { 
-            id: organizationId,
-            OR: [
-              { plan: { not: 'FREE' } },
-              { scanCount: { lt: 10 } }
-            ]
-          },
-          data: {
-            scanCount: { increment: 1 }
+      // Claim the scan charge for THIS document, once and only once.
+      //
+      // This method rewrites an existing stub, so it is re-runnable against the
+      // same documentId; before scanChargedAt existed, every re-run incremented
+      // the organization again because nothing on the row recorded that it had
+      // already paid. `updateMany` with `scanChargedAt: null` in the where is a
+      // single conditional UPDATE: it matches only an unstamped row, so a
+      // re-persist matches nothing and reports count 0. The row is locked by
+      // this transaction for the rest of it, so two concurrent persists of the
+      // same document cannot both claim.
+      //
+      // Both statements run on `tx`, so the stamp and the increment commit
+      // together or roll back together — the atomicity of the charge with the
+      // extraction write is unchanged, which is the property this must not
+      // regress. Order matters: claim first, so a LIMIT_REACHED throw below
+      // takes the stamp down with it and the document stays chargeable.
+      const scanCharge = await tx.document.updateMany({
+        where: { id: documentId, scanChargedAt: null },
+        data: { scanChargedAt: new Date() }
+      });
+
+      if (scanCharge.count === 0) {
+        console.log(`[Persistence] Document ${documentId} was already charged a scan; not charging again.`);
+      } else {
+        // Increment organization scanCount conditionally to enforce limit
+        try {
+          await tx.organization.update({
+            where: {
+              id: organizationId,
+              OR: [
+                { plan: { not: 'FREE' } },
+                { scanCount: { lt: 10 } }
+              ]
+            },
+            data: {
+              scanCount: { increment: 1 }
+            }
+          });
+        } catch (error: any) {
+          // P2025 is thrown if the where condition fails (limit reached or record missing)
+          if (error.code === 'P2025') {
+            console.warn(`[Persistence] Scan limit reached or Org missing for: ${organizationId}. Aborting update.`);
+            throw new Error('LIMIT_REACHED');
           }
-        });
-      } catch (error: any) {
-        // P2025 is thrown if the where condition fails (limit reached or record missing)
-        if (error.code === 'P2025') {
-          console.warn(`[Persistence] Scan limit reached or Org missing for: ${organizationId}. Aborting update.`);
-          throw new Error('LIMIT_REACHED');
+          throw error;
         }
-        throw error;
       }
 
       console.log(`[Persistence] Update transaction successful for ${documentId}. Status: ${documentStatus}`);
@@ -274,27 +299,43 @@ export class PersistenceService {
       const allFacts2 = [...extraction.facts, { key: 'category', valueString: category2 }];
       await this.evaluateRulesAndSave(tx, doc.id, organizationId, merchantFact2, allFacts2);
 
-      // Increment organization scanCount conditionally to enforce limit
-      try {
-        await tx.organization.update({
-          where: { 
-            id: organizationId,
-            OR: [
-              { plan: { not: 'FREE' } },
-              { scanCount: { lt: 10 } }
-            ]
-          },
-          data: {
-            scanCount: { increment: 1 }
+      // Same claim-then-charge gate as updateDocumentWithExtraction. Here the
+      // document was created a few statements ago inside this transaction, so
+      // the claim always matches and this is not a de-duplication in practice.
+      // It is kept identical on purpose: it makes "scanChargedAt is non-null iff
+      // this document has consumed a scan" true for EVERY row this codebase
+      // writes, so a document created down this path cannot later be re-persisted
+      // through the sibling method and charged a second time.
+      const scanCharge = await tx.document.updateMany({
+        where: { id: doc.id, scanChargedAt: null },
+        data: { scanChargedAt: new Date() }
+      });
+
+      if (scanCharge.count === 0) {
+        console.log(`[Persistence] Document ${doc.id} was already charged a scan; not charging again.`);
+      } else {
+        // Increment organization scanCount conditionally to enforce limit
+        try {
+          await tx.organization.update({
+            where: {
+              id: organizationId,
+              OR: [
+                { plan: { not: 'FREE' } },
+                { scanCount: { lt: 10 } }
+              ]
+            },
+            data: {
+              scanCount: { increment: 1 }
+            }
+          });
+        } catch (error: any) {
+          // P2025 is thrown if the where condition fails (limit reached or record missing)
+          if (error.code === 'P2025') {
+            console.warn(`[Persistence] Scan limit reached or Org missing for: ${organizationId}. Aborting update.`);
+            throw new Error('LIMIT_REACHED');
           }
-        });
-      } catch (error: any) {
-        // P2025 is thrown if the where condition fails (limit reached or record missing)
-        if (error.code === 'P2025') {
-          console.warn(`[Persistence] Scan limit reached or Org missing for: ${organizationId}. Aborting update.`);
-          throw new Error('LIMIT_REACHED');
+          throw error;
         }
-        throw error;
       }
 
       console.log(`[Persistence] Transaction successful.`);
