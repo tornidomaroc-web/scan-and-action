@@ -89,6 +89,10 @@ function makeService(overrides: {
 
   (service as any).persistenceService = {
     markAsNeedsReview: overrides.markAsNeedsReview ?? (async () => {}),
+    // Terminal fallback, reached only when markAsNeedsReview rejects. Stubbed
+    // so this double still models PersistenceService; these tests assert on the
+    // NEEDS_REVIEW-failure log line, not on what follows it.
+    markAsFailed: async () => {},
     updateDocumentWithExtraction: overrides.updateDocumentWithExtraction ?? (async () => {}),
   };
 

@@ -28,6 +28,7 @@ describe('IngestionService.processUploadAsync — multi-document → NEEDS_REVIE
   let isSingleDocument: ReturnType<typeof vi.fn>;
   let extractFromImage: ReturnType<typeof vi.fn>;
   let markAsNeedsReview: ReturnType<typeof vi.fn>;
+  let markAsFailed: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     // The constructor only console.warns without a Gemini key (geminiAdapter.ts:17),
@@ -36,8 +37,11 @@ describe('IngestionService.processUploadAsync — multi-document → NEEDS_REVIE
     isSingleDocument = vi.fn();
     extractFromImage = vi.fn();
     markAsNeedsReview = vi.fn().mockResolvedValue(undefined);
+    // markAsFailed is the terminal fallback reached only when markAsNeedsReview
+    // rejects. Stubbed so this double still models PersistenceService.
+    markAsFailed = vi.fn().mockResolvedValue(undefined);
     (svc as any).geminiAdapter = { isSingleDocument, extractFromImage };
-    (svc as any).persistenceService = { markAsNeedsReview };
+    (svc as any).persistenceService = { markAsNeedsReview, markAsFailed };
   });
 
   const run = () =>

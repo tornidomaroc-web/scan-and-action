@@ -59,8 +59,23 @@ export class IngestionService {
     const isSingleDoc = await this.validateSingleDocument(targetFileBuffer, mimeType);
     if (!isSingleDoc) {
       console.warn(`[Background] Multi-document detected for ${documentId}. Aborting extraction.`);
-      await this.persistenceService.markAsNeedsReview(documentId).catch(err => {
+      // If the NEEDS_REVIEW write itself fails, force FAILED rather than
+      // returning and leaving the row in PROCESSING. NEEDS_REVIEW is not
+      // reachable here — it is precisely the write that just threw — and this
+      // function is about to resolve, so nothing else will move the row until
+      // staleSweepService picks it up 15-20 minutes later. Same state, on time.
+      await this.persistenceService.markAsNeedsReview(documentId).catch(async err => {
         console.error(`[Background] Failed to mark ${documentId} as NEEDS_REVIEW:`, formatErrorForLog(err));
+        // try/catch, not .catch(): this must swallow a SYNCHRONOUS throw from
+        // the call as well as a rejected promise. Anything escaping this
+        // callback rejects processUploadAsync and would newly reach
+        // uploadController's .catch — a separate behaviour change. When both
+        // writes are gone, staleSweepService remains the backstop.
+        try {
+          await this.persistenceService.markAsFailed(documentId);
+        } catch (failErr) {
+          console.error(`[Background] Could not force ${documentId} to FAILED either:`, formatErrorForLog(failErr));
+        }
       });
       return;
     }
@@ -110,8 +125,14 @@ export class IngestionService {
       await this.persistenceService.updateDocumentWithExtraction(documentId, userId, organizationId, fileUrl, originalFileName, extractionResult);
     } catch (persistError: any) {
       console.error(`[CRITICAL] Persistence failed for ${documentId}. Forcing NEEDS_REVIEW. Error: ${formatErrorForLog(persistError)}`);
-      await this.persistenceService.markAsNeedsReview(documentId).catch(finalErr => {
+      await this.persistenceService.markAsNeedsReview(documentId).catch(async finalErr => {
         console.error(`[FATAL] Even emergency fallback failed for ${documentId}:`, formatErrorForLog(finalErr));
+        // Same reasoning as the multi-document site above, try/catch included.
+        try {
+          await this.persistenceService.markAsFailed(documentId);
+        } catch (failErr) {
+          console.error(`[Background] Could not force ${documentId} to FAILED either:`, formatErrorForLog(failErr));
+        }
       });
     }
 
