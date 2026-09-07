@@ -126,6 +126,20 @@ model Document {
   status            String
   uploadedAt        DateTime     @default(now())
   processedAt       DateTime?
+  // One-time scan-charge marker. null = this document has never consumed a scan
+  // from the organization's quota. It is set to the charge instant in the SAME
+  // transaction that increments Organization.scanCount, and that increment is
+  // conditional on it being null — so a SECOND persist on an already-charged
+  // document (a re-extraction of the same stub) rewrites the extraction fields
+  // but does NOT charge the org again.
+  //
+  // Nullable, no default, no backfill: every pre-existing row reads as NULL,
+  // i.e. "not charged under this mechanism". That is the safe direction — the
+  // first re-persist of an old document charges once and then self-marks,
+  // rather than the alternative of backfilling a guess and silently refunding
+  // scans that were genuinely consumed. Purely additive; nothing reads this
+  // column outside the charge gate in persistence.ts.
+  scanChargedAt     DateTime?
 
   facts            DocumentFact[]
   documentEntities DocumentEntity[]
