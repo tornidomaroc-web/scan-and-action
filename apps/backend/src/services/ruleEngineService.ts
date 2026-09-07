@@ -37,9 +37,21 @@ export class RuleEngineService {
     // 1. Resolve amount based on priority: manual_amount > TOTAL_AMOUNT > amount
     const amount = this.resolveAmount(facts);
 
-    // 2. Helper to extract category (already persisted as fact)
-    const categoryFact = facts.find(f => f.key === 'category');
-    const category = categoryFact?.valueString ?? null;
+    // 2. The `category` fact is deliberately NOT read here.
+    //
+    // Rule B used to accept `category === 'Food'` as a third way to flag a food
+    // expense. That borrowed the CATEGORIZER's definition of food to make a
+    // FLAGGING decision, and the two are not the same question: the categorizer
+    // answers "what kind of expense is this?" — where groceries genuinely are
+    // food — while this rule answers "should this be flagged as suspicious?",
+    // where isFoodMerchant (:154) deliberately EXCLUDES grocery "as per specific
+    // business requirements". The disjunct silently overrode that exclusion.
+    //
+    // It was inert while it lasted, because Rule B short-circuits on the amount
+    // and the ingestion path never resolved one. Fixing that mismatch is exactly
+    // what would have armed it, so the exclusion is honoured in the same change.
+    // The fast-food chains the disjunct legitimately covered were moved into
+    // isFoodMerchant instead — see the note there.
 
     const priority = { FLAGGED: 3, NEEDS_REVIEW: 2, APPROVED: 1 };
 
@@ -56,8 +68,8 @@ export class RuleEngineService {
       reasons.push('Amount exceeds threshold');
     }
 
-    // Rule B: category = "Food" OR merchant OR summary is food-related AND amount > 50 -> FLAGGED
-    if (amount !== null && amount > 50 && (category === 'Food' || this.isFoodMerchant(merchantName) || this.isFoodSummary(summary))) {
+    // Rule B: merchant OR summary is food-related AND amount > 50 -> FLAGGED
+    if (amount !== null && amount > 50 && (this.isFoodMerchant(merchantName) || this.isFoodSummary(summary))) {
       setDecision('FLAGGED');
       reasons.push('High food expense');
     }
@@ -158,7 +170,22 @@ export class RuleEngineService {
     const foodKeywords = [
       'starbucks', 'mcdonalds', 'restaurant', 'cafe', 'uber eats', 'grubhub',
       'deli', 'bakery', 'fast food', 'pizza', 'burger', 'taco', 'sushi',
-      'grill', 'pub', 'bar', 'bistro', 'steakhouse', 'ramen', 'cafeteria'
+      'grill', 'pub', 'bar', 'bistro', 'steakhouse', 'ramen', 'cafeteria',
+      // Moved here from the dropped `category === 'Food'` disjunct in Rule B.
+      // These three are in the categorizer's Food list but were absent here, so
+      // removing the disjunct without them would have LOST coverage rather than
+      // just honouring the grocery exclusion. Exactly three, not four: 'burger
+      // king' is already matched by 'burger' above — proven by the test for it
+      // passing against unmodified source, before these were added.
+      //
+      // 'grocery', 'supermarket' and 'walmart' are the other entries in that
+      // Food list and are deliberately NOT brought across: excluding them is the
+      // documented requirement this rule exists to honour (see the comment above).
+      //
+      // 'subway' is the sandwich chain. The categorizer already classes it as
+      // Food and not Transport, so this preserves the prior behaviour rather
+      // than introducing a new judgement about transit receipts.
+      'doordash', 'kfc', 'subway'
     ];
     // Accent- and word-boundary-aware: "Café" matches 'cafe', but 'bar' does NOT
     // match "Barber". See utils/textMatch (deferred item C).
