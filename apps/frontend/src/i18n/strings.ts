@@ -416,6 +416,15 @@ export const strings = {
     statusRejected: 'Rejected',
     statusProcessing: 'Processing',
     statusFailed: 'Failed',
+    // Re-extraction (POST /documents/:id/reextract). The two 409 codes ask the
+    // user for OPPOSITE things, so they must never share copy: one says the
+    // file is gone and re-uploading is the only path left, the other says a run
+    // is already under way and to do nothing. Telling the in-progress case to
+    // re-upload would create a second row and charge a scan.
+    retryExtraction: 'Retry extraction',
+    reextractStarted: 'Re-processing started.',
+    reextractSourceUnavailable: 'The original file is not available. Please upload the document again.',
+    reextractInProgress: 'This document is already being re-processed. Please wait.',
     insight: 'Insight',
     tip: 'Tip',
     emptyTitle: 'No documents yet',
@@ -838,6 +847,10 @@ export const strings = {
     statusRejected: 'Rejeté',
     statusProcessing: 'En cours',
     statusFailed: 'Échoué',
+    retryExtraction: 'Relancer l’extraction',
+    reextractStarted: 'Retraitement lancé.',
+    reextractSourceUnavailable: 'Le fichier d’origine n’est pas disponible. Veuillez importer le document à nouveau.',
+    reextractInProgress: 'Ce document est déjà en cours de retraitement. Veuillez patienter.',
     insight: 'Analyse',
     tip: 'Astuce',
     emptyTitle: 'Aucun document pour l’instant',
@@ -1273,6 +1286,15 @@ export const strings = {
     statusRejected: 'مرفوض',
     statusProcessing: 'قيد المعالجة',
     statusFailed: 'فشل',
+    // No filename, no id, no placeholder in either sentence: a Latin filename
+    // spliced into an Arabic sentence is the bidi break ruled out in #118
+    // (docs/AR_ENGLISH_LEAKS_RECON_2026-07-23.md, ruling D1). Both strings are
+    // asserted BY CODE POINT in tests/reextractErrorI18n.test.ts, because no
+    // terminal or diff viewer renders these in storage order.
+    retryExtraction: 'إعادة المعالجة',
+    reextractStarted: 'بدأت إعادة المعالجة.',
+    reextractSourceUnavailable: 'الملف الأصلي غير متاح. يرجى رفع المستند من جديد.',
+    reextractInProgress: 'تجري إعادة معالجة هذا المستند بالفعل. يرجى الانتظار.',
     insight: 'رؤية',
     tip: 'نصيحة',
     emptyTitle: 'لا توجد مستندات بعد',
