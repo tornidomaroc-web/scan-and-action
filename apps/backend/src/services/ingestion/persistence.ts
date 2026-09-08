@@ -408,6 +408,49 @@ export class PersistenceService {
   }
 
   /**
+   * Records that extraction failed, so a failed extraction is distinguishable
+   * from a genuinely blank document.
+   *
+   * Today they are identical in the database: both leave rawText '' and
+   * overallConfidence 0, and the only trace of a failure is a console.error in
+   * Railway stdout, which rotates and cannot be queried. 172 of 343 production
+   * documents (50.1%) carry that shape and nothing separates them.
+   *
+   * Written OUTSIDE the persist transaction on purpose: if the extraction write
+   * also rolls back, the record of the failure must still stand — otherwise the
+   * worst failures are the ones that leave the least evidence.
+   *
+   * `errorClass` is the error's constructor name, never its message. A vendor
+   * error can echo the storage key, which embeds the sanitized filename
+   * (redaction.ts ERROR-OBJECT POLICY), so nothing user-derived is persisted;
+   * the class plus the attempt count is enough to group failures.
+   */
+  public async recordExtractionFailure(
+    documentId: string,
+    errorClass: string,
+    attempts: number
+  ): Promise<void> {
+    // Replace rather than accumulate: DocumentFact carries no timestamp, so two
+    // rows would be indistinguishable. Same idiom as the rule-result facts.
+    await this.prisma.documentFact.deleteMany({
+      where: { documentId, key: 'extraction_error' }
+    });
+    await this.prisma.documentFact.create({
+      data: {
+        documentId,
+        factType: 'EXTRACTION_ERROR',
+        key: 'extraction_error',
+        valueString: errorClass,
+        valueNumber: attempts,
+        confidence: 1.0,
+        sourceSpan: 'extraction_failure',
+        isReviewed: false
+      }
+    });
+    console.warn(`[Persistence] Recorded extraction failure for ${documentId}: ${errorClass} after ${attempts} attempt(s).`);
+  }
+
+  /**
    * Terminal fallback for when markAsNeedsReview ITSELF failed.
    *
    * NEEDS_REVIEW is unreachable at that point by construction — the call that
