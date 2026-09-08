@@ -451,6 +451,57 @@ export class PersistenceService {
   }
 
   /**
+   * Records which A/B arm ran for this document, and what the vendor said the
+   * model actually was.
+   *
+   * NO SCHEMA CHANGE: this rides DocumentFact as a keyed row, exactly as
+   * extraction_error does (:436-450), for the same reasons — additive, no
+   * migration, and nothing outside the experiment reads it.
+   *
+   * Written for EVERY document that attempted extraction, success or failure.
+   * That is the point, not thoroughness: the metric is extraction-call success
+   * rate per arm, so a document that records nothing drops out of the
+   * denominator — and if only successes recorded, the better arm would lose
+   * more rows and the experiment would manufacture its own result.
+   *
+   * `sourceSpan` carries the arm because that is the column the existing
+   * provenance families already use ('extraction_failure', 'user_status_change')
+   * and because it stays readable when the resolved version does not.
+   *
+   * The requested id is stored EXPLICITLY rather than recomputed from the arm:
+   * GEMINI_PINNED_MODEL is overridable at runtime, so arm -> model is a stable
+   * mapping only until someone retunes it, and a record that cannot be re-read
+   * afterwards is not a record.
+   *
+   * Nothing user-derived is persisted — a model id and an arm, both drawn from
+   * closed vocabularies we control (redaction.ts ERROR-OBJECT POLICY).
+   */
+  public async recordExtractionModel(
+    documentId: string,
+    arm: string,
+    requestedModelId: string,
+    resolvedModelVersion: string | null
+  ): Promise<void> {
+    // Replace rather than accumulate: DocumentFact carries no timestamp, so two
+    // rows would be indistinguishable. Same idiom as extraction_error.
+    await this.prisma.documentFact.deleteMany({
+      where: { documentId, key: 'extraction_model' }
+    });
+    await this.prisma.documentFact.create({
+      data: {
+        documentId,
+        factType: 'EXTRACTION_MODEL',
+        key: 'extraction_model',
+        valueString: `${requestedModelId} -> ${resolvedModelVersion || 'unavailable'}`,
+        confidence: 1.0,
+        sourceSpan: arm,
+        isReviewed: false
+      }
+    });
+    console.log(`[Persistence] Recorded extraction model for ${documentId}: arm=${arm} requested=${requestedModelId} resolved=${resolvedModelVersion || 'unavailable'}`);
+  }
+
+  /**
    * Terminal fallback for when markAsNeedsReview ITSELF failed.
    *
    * NEEDS_REVIEW is unreachable at that point by construction — the call that

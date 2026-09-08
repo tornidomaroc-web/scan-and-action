@@ -41,6 +41,9 @@ function makeService(opts: { extractThrows?: Error; lowConfidence?: boolean } = 
   (svc as any).geminiAdapter = { isSingleDocument: vi.fn().mockResolvedValue(true), extractFromImage };
   (svc as any).persistenceService = {
     recordExtractionFailure, updateDocumentWithExtraction, markAsNeedsReview, markAsFailed,
+    // Written for every document that attempts extraction; stubbed because this
+    // file asserts on the extraction_error CAUSE, not on the arm record.
+    recordExtractionModel: vi.fn().mockResolvedValue(undefined),
   };
   return { svc, recordExtractionFailure, updateDocumentWithExtraction, extractFromImage };
 }
@@ -165,6 +168,7 @@ describe('the record carries the adapter cause when there is one', () => {
     };
     (svc as any).persistenceService = {
       recordExtractionFailure,
+      recordExtractionModel: vi.fn().mockResolvedValue(undefined),
       updateDocumentWithExtraction: vi.fn().mockResolvedValue(undefined),
       markAsNeedsReview: vi.fn().mockResolvedValue(undefined),
       markAsFailed: vi.fn().mockResolvedValue(undefined),

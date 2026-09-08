@@ -1,4 +1,5 @@
 import { GeminiExtractionAdapter } from '../extraction/geminiAdapter';
+import { resolveModelForDocument } from '../extraction/modelArm';
 import { formatErrorForLog } from '../../redaction';
 import { PersistenceService } from './persistence';
 import { PrismaClient } from '@prisma/client';
@@ -15,8 +16,15 @@ export class IngestionService {
   /**
    * Pre-check to ensure the image contains only one document.
    */
-  public async validateSingleDocument(buffer: Buffer, mimeType: string): Promise<boolean> {
-    return this.geminiAdapter.isSingleDocument(buffer, mimeType);
+  public async validateSingleDocument(
+    buffer: Buffer,
+    mimeType: string,
+    // The A/B arm's model, so the validation call runs in the same arm as the
+    // extraction call. Optional, defaulting to the adapter's alias, so this
+    // method's existing contract is unchanged.
+    modelId?: string
+  ): Promise<boolean> {
+    return this.geminiAdapter.isSingleDocument(buffer, mimeType, modelId);
   }
 
   /**
@@ -62,8 +70,18 @@ export class IngestionService {
       `[Background] Starting validation and extraction for document ${documentId} (${mimeType}, ${targetFileBuffer.length} bytes)... elapsedMs=0`
     );
 
+    // The A/B arm is resolved ONCE per document and drives both Gemini calls.
+    //
+    // Derived from the documentId rather than a counter, so it survives process
+    // restarts and concurrency, and — the property that matters after the run —
+    // can be recomputed from the id alone to audit the split against the
+    // database. Returns the alias arm for every document while
+    // GEMINI_AB_ENABLED is unset, so this is inert until switched on.
+    const { arm, modelId } = resolveModelForDocument(documentId);
+    console.log(`[Background] Model arm for ${documentId}: arm=${arm} model=${modelId}`);
+
     // Step 1: Validation Signal - Ensure single document (Async check)
-    const isSingleDoc = await this.validateSingleDocument(targetFileBuffer, mimeType);
+    const isSingleDoc = await this.validateSingleDocument(targetFileBuffer, mimeType, modelId);
     if (!isSingleDoc) {
       console.warn(`[Background] Multi-document detected for ${documentId}. Aborting extraction.`);
       // If the NEEDS_REVIEW write itself fails, force FAILED rather than
@@ -98,7 +116,7 @@ export class IngestionService {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
         console.log(`[Background] Attempt ${attempt}/${MAX_ATTEMPTS} for document ${documentId}... elapsedMs=${elapsedMs()}`);
-        extractionResult = await this.geminiAdapter.extractFromImage(targetFileBuffer, mimeType);
+        extractionResult = await this.geminiAdapter.extractFromImage(targetFileBuffer, mimeType, modelId);
 
         // If we got a reasonably complete extraction (confidence >= 0.6), break the loop
         if (extractionResult && extractionResult.overallConfidence >= 0.6) {
@@ -119,6 +137,24 @@ export class IngestionService {
         }
       }
     }
+
+    // Record the ARM unconditionally — success and failure alike — and outside
+    // the persist transaction, on the same principle as recordExtractionFailure.
+    //
+    // Unconditional is the whole point. The metric is extraction-call success
+    // rate per arm; a document that records no arm drops out of the denominator,
+    // and if only one outcome recorded, the arm that produced it would be
+    // systematically over- or under-counted. That bias would run in the exact
+    // direction that manufactures a result, so it is pinned by a test.
+    //
+    // `.catch` for the same reason as below: this runs detached in a
+    // setImmediate after the 202 was sent, and an experiment's bookkeeping must
+    // never become a new way for the pipeline to die.
+    await this.persistenceService
+      .recordExtractionModel(documentId, arm, modelId, (extractionResult as any)?.modelVersion ?? null)
+      .catch((err: any) =>
+        console.error(`[Background] Could not record extraction model for ${documentId}:`, formatErrorForLog(err))
+      );
 
     // Record the failure BEFORE persisting, and outside the persist transaction,
     // so the evidence survives even if the persist itself rolls back.

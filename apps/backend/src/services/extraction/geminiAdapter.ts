@@ -1,6 +1,41 @@
 import { GeminiExtractionSchema, GeminiExtractionResult } from '../../types/schemas';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { formatErrorForLog } from '../../redaction';
+import { ALIAS_MODEL } from './modelArm';
+
+/**
+ * Sentinel for "the response carried no usable resolved version".
+ *
+ * Absence has to be a READABLE value rather than undefined, because it is the
+ * expected case if the API turns out not to send `modelVersion` at all, and an
+ * undefined would be indistinguishable from "the record was never written".
+ */
+const MODEL_VERSION_UNAVAILABLE = 'unavailable';
+
+/**
+ * Reads the resolved model version off a generateContent response.
+ *
+ * The SDK provably does not strip it: generateContent does
+ *   const responseJson = await response.json();
+ *   const enhancedResponse = addHelpers(responseJson);
+ * (dist/index.js:866-873), and addHelpers MUTATES that parsed object in place
+ * and returns it (:478-495) — so every field the API sends survives to here.
+ *
+ * But GenerateContentResponse (generative-ai.d.ts:643-650) declares only
+ * candidates / promptFeedback / usageMetadata. `modelVersion` is UNDECLARED,
+ * and nothing has proven the live API populates it. Hence the cast, the typeof
+ * guard, and the sentinel: a non-string must not be recorded as if it were a
+ * version, and a missing one must not read as a pin that failed to take.
+ *
+ * This matters because ListModels cannot answer the question instead. It lists
+ * models/gemini-flash-latest with version "Gemini Flash Latest" — a
+ * placeholder, not a resolution (checked against this project 2026-09-08). The
+ * response is the only thing that can say what the alias actually points at.
+ */
+function readModelVersion(response: unknown): string {
+  const v = (response as { modelVersion?: unknown } | null | undefined)?.modelVersion;
+  return typeof v === 'string' && v.length > 0 ? v : MODEL_VERSION_UNAVAILABLE;
+}
 
 /**
  * GeminiExtractionAdapter
@@ -47,8 +82,17 @@ export class GeminiExtractionAdapter {
    * High-speed Vision Binary Check.
    * Minimal token usage to detect if an image contains multiple documents.
    */
-  public async isSingleDocument(fileBuffer: Buffer, mimeType: string): Promise<boolean> {
-    const modelId = "models/gemini-flash-latest";
+  public async isSingleDocument(
+    fileBuffer: Buffer,
+    mimeType: string,
+    // Injected by the A/B so the VALIDATION call runs in the same arm as the
+    // extraction call. Pinning only extraction would leave this one — one call
+    // per document, roughly a third of the volume — permanently on the alias,
+    // contaminating the arm it is supposed to measure. Defaults to the alias, so
+    // a caller that omits it behaves exactly as before.
+    injectedModelId?: string
+  ): Promise<boolean> {
+    const modelId = injectedModelId ?? ALIAS_MODEL;
 
     try {
       const model = this.genAI.getGenerativeModel({
@@ -129,9 +173,12 @@ export class GeminiExtractionAdapter {
    */
   public async extractFromImage(
     fileBuffer: Buffer,
-    mimeType: string
-  ): Promise<GeminiExtractionResult & { failureCause?: string }> {
-    const modelId = "models/gemini-flash-latest";
+    mimeType: string,
+    // See isSingleDocument. Defaults to the alias so every existing caller is
+    // unchanged; the A/B supplies the arm's model per document.
+    injectedModelId?: string
+  ): Promise<GeminiExtractionResult & { failureCause?: string; modelVersion?: string }> {
+    const modelId = injectedModelId ?? ALIAS_MODEL;
 
     try {
       const model = this.genAI.getGenerativeModel({
@@ -268,7 +315,14 @@ export class GeminiExtractionAdapter {
         });
       }
 
-      return GeminiExtractionSchema.parse(mappedResult);
+      // Additive, and OUTSIDE the schema parse on purpose: GeminiExtractionSchema
+      // describes the extraction, not the transport, and adding a field to it
+      // would change the shape every existing caller and test asserts on. Same
+      // treatment as failureCause.
+      return {
+        ...GeminiExtractionSchema.parse(mappedResult),
+        modelVersion: readModelVersion(result.response)
+      };
 
     } catch (error: any) {
       const errorMessage = error.message || 'Unknown error';
@@ -326,7 +380,12 @@ export class GeminiExtractionAdapter {
         // The one field that distinguishes this empty result from a genuinely
         // blank document. Without it the two are byte-identical downstream, and
         // that ambiguity is what made 172 production rows unreadable.
-        failureCause
+        failureCause,
+        // A failed call has no response, so there is no resolved version to
+        // read. Reported explicitly rather than omitted: the arm still has to
+        // be recorded for a failure, or the arm that fails more would lose
+        // fewer rows from the denominator and the comparison would be biased.
+        modelVersion: MODEL_VERSION_UNAVAILABLE
       };
     }
   }
