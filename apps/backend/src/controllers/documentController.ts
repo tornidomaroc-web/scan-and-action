@@ -206,9 +206,50 @@ export class DocumentController {
         return res.status(404).json({ error: 'Document not found or access denied' });
       }
 
-      const updated = await prisma.document.update({
-        where: { id: id as string },
-        data: { status }
+      // The status change and its provenance commit TOGETHER.
+      //
+      // This used to be a bare update with no record at all, and that
+      // invisibility is what stranded 62 production documents: they hold status
+      // COMPLETED with rawText '' and confidence 0, which the extraction path
+      // cannot produce (updateDocumentWithExtraction downgrades to NEEDS_REVIEW
+      // below 0.98 confidence, and an empty fallback has 0). updateStatus is the
+      // only writer of COMPLETED, yet not one of those rows shows it happened.
+      //
+      // `user_status_change` joins the user-authored sentinel family
+      // (`user_correction`, `user_justification`, `review_flow`) on purpose: the
+      // re-extraction rule keys on that prefix to decide whether a row holds
+      // anything a re-extraction would destroy. Without this marker a COMPLETED
+      // row is unclassifiable by that rule.
+      //
+      // NO GUARD is added here. Both callers already gate on NEEDS_REVIEW, so a
+      // source-state refusal would defend a path no client uses; and refusing an
+      // empty document would block the way users demonstrably clear their queue.
+      // Whether those approvals are deliberate is what this record makes
+      // measurable — a guard now would suppress the evidence for it.
+      const updated = await prisma.$transaction(async (tx) => {
+        const doc = await tx.document.update({
+          where: { id: id as string },
+          data: { status }
+        });
+
+        // Replace rather than accumulate: DocumentFact carries no timestamp, so
+        // two rows would be indistinguishable. Same idiom as applyFixAction.
+        await tx.documentFact.deleteMany({
+          where: { documentId: id as string, key: 'status_change' }
+        });
+        await tx.documentFact.create({
+          data: {
+            documentId: id as string,
+            factType: 'TEXT',
+            key: 'status_change',
+            valueString: status,
+            confidence: 1.0,
+            sourceSpan: 'user_status_change',
+            isReviewed: true
+          }
+        });
+
+        return doc;
       });
 
       console.log(`[DocumentController] Status updated successfully for ${id}`);

@@ -93,6 +93,12 @@ function makeService(overrides: {
     // so this double still models PersistenceService; these tests assert on the
     // NEEDS_REVIEW-failure log line, not on what follows it.
     markAsFailed: async () => {},
+    // Called when every extraction attempt fails or comes back under the 0.6
+    // confidence bar — which is exactly the situation the :85 test below sets
+    // up. Stubbed for the same reason as markAsFailed: this file asserts on the
+    // scrubbing of the ATTEMPT-failure log line, not on the failure record that
+    // now follows it.
+    recordExtractionFailure: async () => {},
     updateDocumentWithExtraction: overrides.updateDocumentWithExtraction ?? (async () => {}),
   };
 

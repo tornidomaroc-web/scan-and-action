@@ -89,6 +89,11 @@ export class IngestionService {
 
     let extractionResult;
     const MAX_ATTEMPTS = 2;
+    // The error CLASS of the last failure, never its message (redaction.ts
+    // ERROR-OBJECT POLICY). Stays null when the loop exhausts without throwing —
+    // the low-confidence path — which is its own kind of failure and is recorded
+    // under a distinct class so the two are separable later.
+    let lastErrorClass: string | null = null;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
@@ -105,6 +110,7 @@ export class IngestionService {
           console.warn(`[Background] Attempt ${attempt} returned low confidence. Retrying...`);
         }
       } catch (error: any) {
+        lastErrorClass = error?.constructor?.name || error?.name || 'UnknownError';
         console.error(`[Background] Attempt ${attempt} failed with error: ${formatErrorForLog(error)}`);
         if (attempt === MAX_ATTEMPTS) {
           console.error(`[Background] All ${MAX_ATTEMPTS} attempts failed for ${documentId}.`);
@@ -112,6 +118,26 @@ export class IngestionService {
           console.log(`[Background] Retrying extraction for ${documentId}...`);
         }
       }
+    }
+
+    // Record the failure BEFORE persisting, and outside the persist transaction,
+    // so the evidence survives even if the persist itself rolls back.
+    //
+    // Two distinct failures land here and both must be recorded, because the
+    // empty fallback below only fires for the first: every attempt THREW
+    // (extractionResult undefined), or every attempt returned below the 0.6
+    // confidence bar without throwing (extractionResult set but unusable). The
+    // second was previously invisible in every sense — no fallback, no marker,
+    // just a weak document indistinguishable from a genuinely poor scan.
+    const extractionFailed = !extractionResult || extractionResult.overallConfidence < 0.6;
+    if (extractionFailed) {
+      await this.persistenceService
+        .recordExtractionFailure(documentId, lastErrorClass ?? 'LowConfidence', MAX_ATTEMPTS)
+        .catch((err: any) =>
+          // Diagnostics must never become a new way for the pipeline to die:
+          // this runs detached in a setImmediate after the 202 was sent.
+          console.error(`[Background] Could not record extraction failure for ${documentId}:`, formatErrorForLog(err))
+        );
     }
 
     // Fallback to a safe empty result if everything failed
