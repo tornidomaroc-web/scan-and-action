@@ -106,7 +106,31 @@ export class GeminiExtractionAdapter {
     }
   }
 
-  public async extractFromImage(fileBuffer: Buffer, mimeType: string): Promise<GeminiExtractionResult> {
+  /**
+   * Returns the extraction, or — on failure — an EMPTY result carrying the
+   * `failureCause` this method already derives.
+   *
+   * It self-catches and RETURNS rather than throwing, which is deliberate (the
+   * caller must not have to handle vendor exceptions mid-pipeline) but had a
+   * cost: because it never throws, the caller's catch never runs, so the
+   * extraction_error record defaulted to 'LowConfidence' for every failure —
+   * asserting "the model succeeded and the document was poor" when the vendor
+   * call had actually failed. Confirmed on document 24c3ea41 (2026-09-08), a
+   * plain text file with a .jpg extension.
+   *
+   * `failureCause` is additive: every existing field of the empty result is
+   * unchanged, so a caller that ignores it behaves exactly as before.
+   *
+   * KNOWN LIMIT: the cause is derived by case-sensitive substring matching on
+   * the vendor's message (:253-257). The SDK wraps transport failures as
+   * "Error fetching from …", so a 429 quota error lands in OCR_FAILED. This
+   * separates "the vendor failed" from "the document was poor"; it does NOT
+   * separate one vendor failure from another.
+   */
+  public async extractFromImage(
+    fileBuffer: Buffer,
+    mimeType: string
+  ): Promise<GeminiExtractionResult & { failureCause?: string }> {
     const modelId = "models/gemini-flash-latest";
 
     try {
@@ -270,7 +294,11 @@ export class GeminiExtractionAdapter {
         summary: '',
         overallConfidence: 0.0,
         facts: [],
-        entities: []
+        entities: [],
+        // The one field that distinguishes this empty result from a genuinely
+        // blank document. Without it the two are byte-identical downstream, and
+        // that ambiguity is what made 172 production rows unreadable.
+        failureCause
       };
     }
   }
