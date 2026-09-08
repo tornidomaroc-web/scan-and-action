@@ -97,6 +97,10 @@ function makeService(overrides: Overrides) {
   (service as any).persistenceService = {
     markAsNeedsReview,
     markAsFailed,
+    // Reached on every path that attempts extraction. Stubbed: this file
+    // asserts on the terminal FAILED fallback, not on the arm record.
+    recordExtractionFailure: async () => {},
+    recordExtractionModel: async () => {},
     updateDocumentWithExtraction:
       overrides.updateDocumentWithExtraction ?? (async () => {}),
   };

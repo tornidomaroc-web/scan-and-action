@@ -99,6 +99,11 @@ function makeService(overrides: {
     // scrubbing of the ATTEMPT-failure log line, not on the failure record that
     // now follows it.
     recordExtractionFailure: async () => {},
+    // Written for EVERY document that attempts extraction, success or failure,
+    // so it is reached by every test in this file. Stubbed for the same reason
+    // as the two above: this file asserts on log-line scrubbing, not on the
+    // experiment's bookkeeping.
+    recordExtractionModel: async () => {},
     updateDocumentWithExtraction: overrides.updateDocumentWithExtraction ?? (async () => {}),
   };
 
