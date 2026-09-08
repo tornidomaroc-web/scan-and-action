@@ -76,7 +76,27 @@ describe('arm maps to a concrete model id', () => {
   });
 });
 
-describe('the experiment is OFF by default, so merging changes nothing', () => {
+// ============================================================================
+// THE DEFAULT INVERTED. This block previously asserted the opposite, and that
+// was correct then: an experiment must not change production, so OFF meant
+// everyone took the alias.
+//
+// The A/B settled it. n=10, interleaved through one 4-minute window:
+// pinned 6/6 succeeded, alias 0/4 — every alias call RATE_LIMITED. Complete
+// separation, Fisher 1/C(10,6) = 0.005. Pinned calls succeeded in the same
+// minutes alias calls were throttled, so the 429 binds PER MODEL, not per
+// project.
+//
+// That makes the old polarity actively dangerous: with the flag unset,
+// resolveModelForDocument returned 'ab_alias' for EVERY document, so removing
+// the variable would route 100% of traffic to the arm that failed 4 of 4. The
+// flag could express "split" or "alias everyone", and never "pin everyone" —
+// which is the state production actually wants.
+//
+// So OFF now means PINNED, and the alias survives only as the comparison arm
+// for a future A/B. Unset is now the safe state rather than the failing one.
+// ============================================================================
+describe('the PIN is the default; the alias is no longer the production fallback', () => {
   const saved = { ...process.env };
   beforeEach(() => {
     delete process.env.GEMINI_AB_ENABLED;
@@ -97,15 +117,24 @@ describe('the experiment is OFF by default, so merging changes nothing', () => {
     }
   });
 
-  it('with the experiment OFF, EVERY document gets the alias — production is untouched', () => {
+  it('with the experiment OFF, EVERY document gets the PINNED model', () => {
     const ids = Array.from({ length: 100 }, (_, i) =>
       `${i.toString(16).padStart(8, '0')}-1234-4abc-8def-0123456789ab`
     );
     for (const id of ids) {
       const { arm, modelId } = resolveModelForDocument(id);
-      expect(arm).toBe('ab_alias');
-      expect(modelId).toBe(ALIAS_MODEL);
+      expect(arm).toBe('ab_pinned');
+      expect(modelId).toBe(DEFAULT_PINNED_MODEL);
     }
+  });
+
+  it('the alias is UNREACHABLE through the production path when the flag is unset', () => {
+    const ids = Array.from({ length: 200 }, (_, i) =>
+      `${i.toString(16).padStart(8, '0')}-1234-4abc-8def-0123456789ab`
+    );
+    const models = new Set(ids.map(id => resolveModelForDocument(id).modelId));
+    expect(models.has(ALIAS_MODEL)).toBe(false);
+    expect([...models]).toEqual([DEFAULT_PINNED_MODEL]);
   });
 
   it('with the experiment ON, both arms appear', () => {
@@ -116,6 +145,20 @@ describe('the experiment is OFF by default, so merging changes nothing', () => {
     const arms = ids.map(id => resolveModelForDocument(id).arm);
     expect(arms).toContain('ab_pinned');
     expect(arms).toContain('ab_alias');
+  });
+
+  it('the alias REMAINS available as the comparison arm for the next A/B', () => {
+    // The flag is not meaningless after the inversion — it is correctly
+    // polarised. It still expresses "put half the traffic back on the alias",
+    // which is exactly how the next comparison runs.
+    expect(modelForArm('ab_alias')).toBe(ALIAS_MODEL);
+    process.env.GEMINI_AB_ENABLED = 'true';
+    const ids = Array.from({ length: 100 }, (_, i) =>
+      `${i.toString(16).padStart(8, '0')}-1234-4abc-8def-0123456789ab`
+    );
+    const models = new Set(ids.map(id => resolveModelForDocument(id).modelId));
+    expect(models.has(ALIAS_MODEL)).toBe(true);
+    expect(models.has(DEFAULT_PINNED_MODEL)).toBe(true);
   });
 
   it('the pinned target is overridable without a deploy, and the override is used', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { IngestionService } from './ingestionService';
-import { selectArm, modelForArm, ALIAS_MODEL } from '../extraction/modelArm';
+import { selectArm, modelForArm, ALIAS_MODEL, DEFAULT_PINNED_MODEL as PINNED_MODEL } from '../extraction/modelArm';
 
 // ============================================================================
 // The arm must reach BOTH Gemini calls, and must be RECORDED on both outcomes.
@@ -105,13 +105,16 @@ describe('the arm reaches BOTH Gemini calls', () => {
     }
   });
 
-  it('with the experiment OFF, both calls use the alias for every id', async () => {
+  it('with the experiment OFF, both calls use the PINNED model for every id', async () => {
+    // Inverted with the default. Before, unset routed 100% of production to the
+    // arm that failed 4 of 4 in the A/B; unset is now the safe state.
     process.env.GEMINI_AB_ENABLED = 'false';
     for (const id of IDS) {
       const { svc, isSingleDocument, extractFromImage } = makeService();
       await run(svc, id);
-      expect(extractFromImage.mock.calls[0][2]).toBe(ALIAS_MODEL);
-      expect(isSingleDocument.mock.calls[0][2]).toBe(ALIAS_MODEL);
+      expect(extractFromImage.mock.calls[0][2]).toBe(PINNED_MODEL);
+      expect(isSingleDocument.mock.calls[0][2]).toBe(PINNED_MODEL);
+      expect(extractFromImage.mock.calls[0][2]).not.toBe(ALIAS_MODEL);
     }
   });
 });
