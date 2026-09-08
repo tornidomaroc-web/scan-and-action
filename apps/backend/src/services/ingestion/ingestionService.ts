@@ -131,8 +131,22 @@ export class IngestionService {
     // just a weak document indistinguishable from a genuinely poor scan.
     const extractionFailed = !extractionResult || extractionResult.overallConfidence < 0.6;
     if (extractionFailed) {
+      // Precedence matters, and the first branch is the one that fires in
+      // production. The adapter self-catches and RETURNS its empty result with a
+      // `failureCause` (geminiAdapter.ts:249-280), so it never throws and
+      // `lastErrorClass` — captured in the catch above — is unreachable here.
+      // The repo's own test names that path ":85 ... (defensive: unreachable in
+      // production)". Reaching for it first is exactly why the first real
+      // failure recorded 'LowConfidence' when the adapter had already derived
+      // PARSE_ERROR.
+      //
+      // 'LowConfidence' survives as the LAST resort because it is still true for
+      // the case it names: the adapter succeeded, returned real text, and simply
+      // scored under the 0.6 bar. That is a poor document, not a vendor failure,
+      // and the two must not be collapsed.
+      const cause = extractionResult?.failureCause ?? lastErrorClass ?? 'LowConfidence';
       await this.persistenceService
-        .recordExtractionFailure(documentId, lastErrorClass ?? 'LowConfidence', MAX_ATTEMPTS)
+        .recordExtractionFailure(documentId, cause, MAX_ATTEMPTS)
         .catch((err: any) =>
           // Diagnostics must never become a new way for the pipeline to die:
           // this runs detached in a setImmediate after the 202 was sent.
@@ -140,7 +154,20 @@ export class IngestionService {
         );
     }
 
-    // Fallback to a safe empty result if everything failed
+    // Fallback to a safe empty result if everything failed.
+    //
+    // ⚠ THIS BRANCH IS UNREACHABLE IN PRODUCTION, and is kept only as a guard
+    // against a future adapter that throws. `extractFromImage` self-catches and
+    // RETURNS an empty result on every error path (geminiAdapter.ts:249-280), so
+    // `extractionResult` is always assigned and never undefined. The empty
+    // document you see in the database is the ADAPTER's empty result, not this
+    // one — and the two are byte-identical (`documentType: 'Unknown'`,
+    // rawText '', confidence 0), so they cannot be told apart after the fact.
+    //
+    // Do not read this branch as evidence of where empty documents come from.
+    // Assuming it was the source is what put the failure-class capture on the
+    // unreachable catch above, and cost a production failure recorded as
+    // 'LowConfidence' when the real cause had already been computed upstream.
     if (!extractionResult) {
       extractionResult = {
         detectedLanguage: 'en',

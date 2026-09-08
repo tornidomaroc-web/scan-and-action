@@ -130,3 +130,87 @@ describe('a failed extraction leaves a queryable record', () => {
     expect(updateDocumentWithExtraction).toHaveBeenCalledTimes(1);
   });
 });
+
+// ===========================================================================
+// The record must carry the adapter's REAL cause, not the LowConfidence default.
+// ===========================================================================
+// extractFromImage never throws — it self-catches and RETURNS an empty result
+// (geminiAdapter.ts:249-275). So the catch inside processUploadAsync is
+// unreachable in production (the repo's own :85 test says exactly that), and
+// `lastErrorClass` is never set. Every failure therefore fell through to
+// 'LowConfidence', which asserts the model succeeded on a poor document.
+//
+// Verified wrong on the first real production failure: document 24c3ea41
+// (2026-09-08) was a plain text file with a .jpg extension and recorded
+// errorClass='LowConfidence'. The adapter had computed PARSE_ERROR/OCR_FAILED
+// and thrown it away.
+//
+// 'LowConfidence' remains CORRECT for the case it actually names: the adapter
+// succeeded, returned a real result, and it scored under the 0.6 bar. That case
+// is pinned below so the fix does not erase a true signal while adding a new one.
+// ===========================================================================
+describe('the record carries the adapter cause when there is one', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  const withAdapterResult = (result: any) => {
+    const svc = new IngestionService({} as any);
+    const recordExtractionFailure = vi.fn().mockResolvedValue(undefined);
+    (svc as any).geminiAdapter = {
+      isSingleDocument: vi.fn().mockResolvedValue(true),
+      extractFromImage: vi.fn().mockResolvedValue(result),
+    };
+    (svc as any).persistenceService = {
+      recordExtractionFailure,
+      updateDocumentWithExtraction: vi.fn().mockResolvedValue(undefined),
+      markAsNeedsReview: vi.fn().mockResolvedValue(undefined),
+      markAsFailed: vi.fn().mockResolvedValue(undefined),
+    };
+    return { svc, recordExtractionFailure };
+  };
+
+  const EMPTY_WITH_CAUSE = (cause: string) => ({
+    detectedLanguage: 'en', documentType: 'Unknown', rawText: '', summary: '',
+    facts: [], entities: [], overallConfidence: 0.0, failureCause: cause,
+  });
+
+  it.each(['PARSE_ERROR', 'OCR_FAILED', 'INTERNAL_ERROR'])(
+    'records %s rather than the LowConfidence default',
+    async cause => {
+      const { svc, recordExtractionFailure } = withAdapterResult(EMPTY_WITH_CAUSE(cause));
+
+      await run(svc);
+
+      expect(recordExtractionFailure).toHaveBeenCalledTimes(1);
+      expect(recordExtractionFailure.mock.calls[0][1]).toBe(cause);
+    }
+  );
+
+  it('CONTROL: keeps LowConfidence when the adapter SUCCEEDED but scored low', async () => {
+    // No failureCause on the result: the model ran and returned real text that
+    // simply lacked a date and an amount. That is not a vendor failure and must
+    // not be relabelled as one.
+    const { svc, recordExtractionFailure } = withAdapterResult({
+      detectedLanguage: 'en', documentType: 'Receipt', rawText: 'some real text',
+      summary: 's', facts: [], entities: [], overallConfidence: 0.495,
+    });
+
+    await run(svc);
+
+    expect(recordExtractionFailure.mock.calls[0][1]).toBe('LowConfidence');
+  });
+
+  it('CONTROL: a good extraction still records nothing', async () => {
+    const { svc, recordExtractionFailure } = withAdapterResult({
+      detectedLanguage: 'en', documentType: 'Receipt', rawText: 'text',
+      summary: 's', facts: [], entities: [], overallConfidence: 0.99,
+    });
+
+    await run(svc);
+
+    expect(recordExtractionFailure).not.toHaveBeenCalled();
+  });
+});
