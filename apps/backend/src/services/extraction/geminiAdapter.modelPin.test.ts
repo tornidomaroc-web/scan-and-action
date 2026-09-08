@@ -81,10 +81,14 @@ describe('extractFromImage accepts an injected model id (geminiAdapter.ts:137)',
     expect(seen).not.toContain('models/gemini-flash-latest');
   });
 
-  it('falls back to the alias when no model id is injected', async () => {
+  it('falls back to the PINNED model — never the alias — when nothing is injected', async () => {
+    // Inverted deliberately. The A/B (n=10, interleaved, one window) came back
+    // pinned 6/6 vs alias 0/4, every alias call RATE_LIMITED, Fisher 0.005. An
+    // un-injected call is the production path, and it must not reach the alias.
     const { adapter, seen } = makeAdapter({ responseExtras: { modelVersion: 'whatever' } });
     await adapter.extractFromImage(Buffer.from('x'), 'image/jpeg');
-    expect(seen).toContain('models/gemini-flash-latest');
+    expect(seen).toContain('models/gemini-2.5-flash');
+    expect(seen).not.toContain('models/gemini-flash-latest');
   });
 });
 
@@ -102,7 +106,7 @@ describe('isSingleDocument accepts an injected model id (geminiAdapter.ts:51)', 
     expect(seen).toEqual(['models/gemini-2.5-flash']);
   });
 
-  it('falls back to the alias when no model id is injected', async () => {
+  it('falls back to the PINNED model for validation too', async () => {
     const adapter = new GeminiExtractionAdapter();
     const seen: string[] = [];
     (adapter as any).genAI = {
@@ -112,7 +116,7 @@ describe('isSingleDocument accepts an injected model id (geminiAdapter.ts:51)', 
       },
     };
     await adapter.isSingleDocument(Buffer.from('x'), 'image/jpeg');
-    expect(seen).toEqual(['models/gemini-flash-latest']);
+    expect(seen).toEqual(['models/gemini-2.5-flash']);
   });
 });
 

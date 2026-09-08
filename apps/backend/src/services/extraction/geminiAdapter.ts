@@ -1,7 +1,7 @@
 import { GeminiExtractionSchema, GeminiExtractionResult } from '../../types/schemas';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { formatErrorForLog } from '../../redaction';
-import { ALIAS_MODEL } from './modelArm';
+import { pinnedModelId } from './modelArm';
 
 /**
  * Sentinel for "the response carried no usable resolved version".
@@ -87,12 +87,13 @@ export class GeminiExtractionAdapter {
     mimeType: string,
     // Injected by the A/B so the VALIDATION call runs in the same arm as the
     // extraction call. Pinning only extraction would leave this one — one call
-    // per document, roughly a third of the volume — permanently on the alias,
-    // contaminating the arm it is supposed to measure. Defaults to the alias, so
-    // a caller that omits it behaves exactly as before.
+    // per document, roughly a third of the volume — in the wrong arm.
+    //
+    // Defaults to the PINNED model, not the alias: an un-injected call is the
+    // production path, and the alias is retired from it.
     injectedModelId?: string
   ): Promise<boolean> {
-    const modelId = injectedModelId ?? ALIAS_MODEL;
+    const modelId = injectedModelId ?? pinnedModelId();
 
     try {
       const model = this.genAI.getGenerativeModel({
@@ -174,11 +175,11 @@ export class GeminiExtractionAdapter {
   public async extractFromImage(
     fileBuffer: Buffer,
     mimeType: string,
-    // See isSingleDocument. Defaults to the alias so every existing caller is
-    // unchanged; the A/B supplies the arm's model per document.
+    // See isSingleDocument. Defaults to the PINNED model; the A/B supplies the
+    // arm's model per document when it is running.
     injectedModelId?: string
   ): Promise<GeminiExtractionResult & { failureCause?: string; modelVersion?: string }> {
-    const modelId = injectedModelId ?? ALIAS_MODEL;
+    const modelId = injectedModelId ?? pinnedModelId();
 
     try {
       const model = this.genAI.getGenerativeModel({

@@ -26,7 +26,16 @@
  * from the database afterwards rather than trusted.
  */
 
-/** The floating alias both call sites used unconditionally before this. */
+/**
+ * The floating alias. RETIRED FROM THE PRODUCTION PATH — it is reachable only
+ * as the comparison arm of a deliberate A/B, never as a default or a fallback.
+ *
+ * Retired on evidence, not on principle. The A/B ran n=10 interleaved through
+ * one four-minute window on 2026-09-08: pinned 6/6 succeeded, alias 0/4, and
+ * every single alias failure was RATE_LIMITED. Complete separation, Fisher
+ * 1/C(10,6) = 0.005. Because pinned calls succeeded in the same minutes alias
+ * calls were throttled, the 429 binds PER MODEL rather than per project.
+ */
 export const ALIAS_MODEL = 'models/gemini-flash-latest';
 
 /**
@@ -86,10 +95,31 @@ export function modelForArm(arm: Arm): string {
 }
 
 /**
- * The single entry point the pipeline uses. Returns the alias arm for every
- * document while the experiment is off.
+ * The single entry point the pipeline uses.
+ *
+ * THE POLARITY IS INVERTED FROM THE EXPERIMENT, AND THAT IS THE POINT. This
+ * previously returned the ALIAS arm whenever the flag was unset, which was
+ * correct for an experiment that must not disturb production — but it meant the
+ * flag could express "split" or "alias everyone" and never "pin everyone".
+ * After the A/B that made unsetting the variable the most dangerous action
+ * available: it would have routed 100% of traffic to the arm that failed 4 of 4.
+ *
+ * Now the default is PINNED. Unset is the safe steady state, and the flag
+ * survives with a precise meaning — "put roughly half the traffic back on the
+ * alias for a comparison" — which is how the next A/B runs.
+ *
+ * FAIL-CLOSED, DELIBERATELY. When this pinned version is eventually retired the
+ * API answers 404/400, which classifies as CLIENT_ERROR, and every extraction
+ * fails at once. That is the failure mode chosen over the alternative: the
+ * alias fails OPEN by silently moving to another model, which is what produced
+ * 173 empty documents from 2026-06-22 onward that nobody could explain. A loud
+ * uniform outage is diagnosable in one query against extraction_model; a silent
+ * drift is not diagnosable at all. Falling back to the alias on CLIENT_ERROR is
+ * rejected for the same reason — it would reintroduce the silent drift exactly
+ * when the system is already degraded, and make the arm record lie about which
+ * model actually served the call.
  */
 export function resolveModelForDocument(documentId: string): { arm: Arm; modelId: string } {
-  const arm: Arm = abEnabled() ? selectArm(documentId) : 'ab_alias';
+  const arm: Arm = abEnabled() ? selectArm(documentId) : 'ab_pinned';
   return { arm, modelId: modelForArm(arm) };
 }
