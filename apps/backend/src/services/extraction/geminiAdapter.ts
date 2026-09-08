@@ -274,7 +274,35 @@ export class GeminiExtractionAdapter {
       const errorMessage = error.message || 'Unknown error';
       let failureCause = 'INTERNAL_ERROR';
 
-      if (errorMessage.includes('parsing') || errorMessage.includes('JSON')) {
+      // The HTTP status FIRST, because it is the precise answer and the SDK
+      // already carries it: @google/generative-ai@0.24.1 declares
+      // GoogleGenerativeAIFetchError with `status?: number`
+      // (generative-ai.d.ts:835-839).
+      //
+      // Keyword matching alone got this wrong in the way that mattered most. The
+      // SDK wraps transport failures as "Error fetching from …", so a 429 matched
+      // 'fetch' and was labelled OCR_FAILED — asserting the model failed to read
+      // an image it never received. The Gemini console shows 429s clearly present
+      // (peaking near 40/day around late June / early July 2026), but its error
+      // chart is PROJECT-level — byte-identical when switching between keys — and
+      // both products share project gen-lang-client-0493028299. So the console
+      // can show presence and never attribution. Reading the status is what lets
+      // the record say 429 itself instead of it being inferred from a shared chart.
+      //
+      // Guarded on typeof: not every thrown value is an SDK error, and a
+      // non-numeric `status` must not be range-compared into a bogus bucket.
+      const status = typeof error?.status === 'number' ? error.status : null;
+
+      if (status === 429) {
+        failureCause = 'RATE_LIMITED';
+      } else if (status !== null && status >= 400 && status < 500) {
+        failureCause = 'CLIENT_ERROR';
+      } else if (status !== null && status >= 500 && status < 600) {
+        failureCause = 'VENDOR_ERROR';
+      } else if (errorMessage.includes('parsing') || errorMessage.includes('JSON')) {
+        // Keyword path RETAINED as the fallback for errors carrying no status —
+        // a JSON.parse failure on a 200 response has no status at all, and a
+        // status outside 4xx/5xx falls through here too.
         failureCause = 'PARSE_ERROR';
       } else if (errorMessage.includes('fetch') || errorMessage.includes('API') || errorMessage.includes('safety')) {
         failureCause = 'OCR_FAILED';
