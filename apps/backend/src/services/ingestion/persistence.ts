@@ -118,6 +118,42 @@ export class PersistenceService {
         }
       });
 
+      // THE OUTCOME MARKER. Read the success-rate block above
+      // recordDeliveryFailure before touching this.
+      //
+      // `extraction_error` is deleted ONLY by recordExtractionFailure, which
+      // fires ONLY on failure. So a SUCCESSFUL re-extraction leaves the previous
+      // failure's row exactly where it was, and the document ends up COMPLETED,
+      // full of content, still reading RATE_LIMITED. Measured on production
+      // 2026-09-09: 19 documents recovered through the re-extraction endpoint,
+      // every one of them keeping a stale error row.
+      //
+      // The row is NOT cleared. The failure genuinely happened, DocumentFact
+      // carries no timestamp, and that row is the only trace it ever did — the
+      // 2026-06-22 regime-change analysis rests on exactly that history.
+      // Instead the recovery is recorded alongside it, carrying the class the
+      // document failed with, so the pair reads "failed with X, then succeeded".
+      const priorFailure = await tx.documentFact.findFirst({
+        where: { documentId, key: 'extraction_error' }
+      });
+      if (priorFailure) {
+        // Replace rather than accumulate: same idiom as every other marker here.
+        await tx.documentFact.deleteMany({
+          where: { documentId, key: 'extraction_recovered' }
+        });
+        await tx.documentFact.create({
+          data: {
+            documentId,
+            factType: 'EXTRACTION_RECOVERED',
+            key: 'extraction_recovered',
+            valueString: priorFailure.valueString,
+            confidence: 1.0,
+            sourceSpan: 'extraction_recovery',
+            isReviewed: false,
+          }
+        });
+      }
+
       for (const rawFact of extraction.facts) {
         const canonicalKey = this.normalizer.normalizeFactKey(rawFact.key);
         const isReviewed = rawFact.confidence >= CONFIDENCE_THRESHOLD;
@@ -443,8 +479,17 @@ export class PersistenceService {
   ): Promise<void> {
     // Replace rather than accumulate: DocumentFact carries no timestamp, so two
     // rows would be indistinguishable. Same idiom as the rule-result facts.
+    //
+    // `extraction_recovered` goes WITH it, and that is load-bearing rather than
+    // tidy. DocumentFact has no timestamp, so if a recovered document failed
+    // again, an `extraction_recovered` row and an `extraction_error` row would
+    // both exist with NO WAY TO ORDER THEM — the pair would read "failed, and
+    // also recovered" with no answer to "which last?". Deleting the marker here
+    // makes that state unrepresentable: at most one of the two keys is ever
+    // present, so their meaning never depends on an ordering the table cannot
+    // express.
     await this.prisma.documentFact.deleteMany({
-      where: { documentId, key: 'extraction_error' }
+      where: { documentId, key: { in: ['extraction_error', 'extraction_recovered'] } }
     });
     await this.prisma.documentFact.create({
       data: {
@@ -466,12 +511,42 @@ export class PersistenceService {
    *
    * ═══ READ THIS BEFORE WRITING ANY SUCCESS-RATE QUERY ═══
    *
+   * ═══ THE PROXY THAT USED TO BE WRITTEN HERE WAS WRONG. ═══
+   *
+   * This block used to say: "extraction-call success — documents with no
+   * `extraction_error` row." **Do not use that.** It is a proxy, and since the
+   * re-extraction endpoint went live it is a BROKEN one, in the worst
+   * direction: the better recovery works, the more it understates.
+   *
+   * `extraction_error` is deleted only by recordExtractionFailure, which fires
+   * only on failure. A SUCCESSFUL re-extraction therefore leaves the previous
+   * failure's row untouched. Measured on production 2026-09-09: 19 documents
+   * were recovered — COMPLETED, 380-518 chars of rawText, confidence 0.99, a
+   * resolved amount and date, one entity each — and every one of them still
+   * carried its stale RATE_LIMITED or VENDOR_ERROR row. Counted by the old
+   * proxy, 19 fully recovered documents read as 19 failures.
+   *
+   * ═══ MEASURE THE COLUMNS, NOT THE ABSENCE OF A MARKER. ═══
+   *
    * There are TWO numbers and they are not the same. Report both:
    *
-   *   extraction-call success — documents with no `extraction_error` row.
-   *                             This measures THE VENDOR CALL.
-   *   DELIVERED               — documents that also have no `delivery_error`
-   *                             row. This measures WHAT THE USER GOT.
+   *   EXTRACTED  — `rawText != '' AND overallConfidence > 0`. Read straight off
+   *                the Document row. Always current, needs no ordering, and
+   *                cannot be desynchronised by a marker written elsewhere. This
+   *                is the direct measure of what the pipeline produced.
+   *   DELIVERED  — documents that also have no `delivery_error` row. This
+   *                measures WHAT THE USER GOT.
+   *
+   * Read the error keys as HISTORY, never as the current state:
+   *
+   *   extraction_error      this document's LAST vendor call failed, with this
+   *                         class. Absent once a later attempt succeeded.
+   *   extraction_recovered  this document failed with the class in valueString
+   *                         and a later extraction succeeded.
+   *
+   * The two are mutually exclusive by construction — recordExtractionFailure
+   * deletes the marker as it writes the failure — because DocumentFact has no
+   * timestamp and a pair of them could not be ordered.
    *
    * A single number is a lie, and it has already been told. On 2026-09-09 a
    * ten-document run reported "extraction_error = [], success 10/10, failures:
