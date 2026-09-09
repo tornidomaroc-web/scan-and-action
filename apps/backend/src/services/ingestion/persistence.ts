@@ -42,11 +42,19 @@ export class PersistenceService {
     // must not bill them a second time for it.
     //
     // Note this is NOT redundant with the scanChargedAt gate below. A FAILED row
-    // — the only kind re-extraction accepts — is never stamped, because every
-    // writer of FAILED (markAsFailed, staleSweepService, the uploadController
-    // background catch) is reached only after the charge transaction rolled
-    // back. Left to itself the gate would see null, claim it, and charge. The
-    // caller has to say so explicitly.
+    // is never stamped, because every writer of FAILED (markAsFailed,
+    // staleSweepService, the uploadController background catch) is reached only
+    // after the charge transaction rolled back. Left to itself the gate would
+    // see null, claim it, and charge. The caller has to say so explicitly.
+    //
+    // Re-extraction also accepts EMPTY NEEDS_REVIEW rows (documentController.ts
+    // REEXTRACTABLE_STATUS / CONDITIONALLY_REEXTRACTABLE_STATUS), and those are
+    // a different case: 21 of the 130 in production DO carry a scanChargedAt
+    // stamp, because they reached this method and paid on their first pass. That
+    // changes nothing here — chargeScan false skips the gate entirely, so a
+    // stamped row is not charged twice and an unstamped one is not charged at
+    // all — but it is why the gate cannot be relied on alone to mean "already
+    // paid, therefore safe to re-run for free".
     chargeScan: boolean = true
   ): Promise<void> {
     const rawConfidence = extraction.overallConfidence ?? 0;
@@ -201,10 +209,13 @@ export class PersistenceService {
         : { count: 0 };
 
       if (!chargeScan) {
-        // Re-extraction. scanChargedAt is deliberately left as it was — NULL for
-        // a FAILED row — because the column means "this document consumed a
-        // scan", and it did not. Stamping it here to make the gate idempotent
-        // would be recording a charge that never happened.
+        // Re-extraction. scanChargedAt is deliberately left EXACTLY as it was,
+        // in both directions, because the column means "this document consumed a
+        // scan" and a re-extraction changes that fact neither way. NULL on a
+        // FAILED row stays NULL — stamping it to make the gate idempotent would
+        // record a charge that never happened. A stamp on an empty NEEDS_REVIEW
+        // row stays stamped — clearing it would hand back a scan the row
+        // genuinely spent on its first pass, which is a refund, not a retry.
         console.log(`[Persistence] Re-extraction of ${documentId}: charging skipped by caller.`);
       } else if (scanCharge.count === 0) {
         console.log(`[Persistence] Document ${documentId} was already charged a scan; not charging again.`);
@@ -648,12 +659,15 @@ export class PersistenceService {
       // enrichment; the extracted text, facts and entities are the primary
       // artifact. This runs INSIDE the caller's $transaction, so rethrowing
       // would roll the whole persist back — ingestionService would catch it and
-      // force NEEDS_REVIEW, leaving a row with rawText '' and confidence 0. That
-      // row is then content-dead: NEEDS_REVIEW is deliberately excluded from
-      // re-extraction v1, so the only recovery is re-uploading, which creates a
-      // new row and consumes a scan. Failing a whole document because an
-      // enrichment failed is a strictly worse outcome than shipping it
-      // uncategorized.
+      // force NEEDS_REVIEW, leaving a row with rawText '' and confidence 0.
+      // That row USED to be content-dead, because NEEDS_REVIEW was excluded from
+      // re-extraction and re-uploading was the only way back — a new row and a
+      // fresh scan. It is no longer: that exact shape is what the re-extraction
+      // whitelist now admits (documentController.ts EMPTY_SHAPE), so such a row
+      // is recoverable in place for free. The swallow still stands on its
+      // original merit — failing a whole document because an enrichment failed
+      // is a strictly worse outcome than shipping it uncategorized — but the
+      // cost of the bad branch is now a recoverable row, not a dead one.
       //
       // What was actually wrong was the SILENCE, not the swallow: the line below
       // handed the raw error object to console.error (against the ERROR-OBJECT

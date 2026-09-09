@@ -10,19 +10,60 @@ import { computeDashboardAnalytics } from '../services/dashboardStatsService';
 
 const ingestionService = new IngestionService(prisma);
 
-// The ONLY source state a re-extraction may start from.
+// The source states a re-extraction may start from.
 //
 // A whitelist, not a blacklist, so a status added later is refused by default
-// rather than silently becoming re-extractable. Why each of the others is out:
+// rather than silently becoming re-extractable.
+//
+//   FAILED        — admitted UNCONDITIONALLY. Nothing was ever extracted onto
+//                   the row, so there is nothing on it to lose.
+//   NEEDS_REVIEW  — admitted ONLY in the empty shape below.
+//
+// Why each of the others is out:
 //   PROCESSING    — something is already writing this row; two writers, no lock.
 //   COMPLETED     — re-extraction would destroy reviewed data.
-//   NEEDS_REVIEW  — these carry user-edited facts that a re-extraction would
-//                   silently overwrite. Out of v1 by decision, not oversight.
 //   LIMIT_REACHED — the row exists BECAUSE the org was over quota
 //                   (uploadController.ts:127); re-running it for free would hand
 //                   back the scan the limit just refused.
 //   REJECTED      — a deliberate user decision; nothing to recover.
 const REEXTRACTABLE_STATUS = 'FAILED';
+const CONDITIONALLY_REEXTRACTABLE_STATUS = 'NEEDS_REVIEW';
+
+// NEEDS_REVIEW was excluded on the claim that "these carry user-edited facts
+// that a re-extraction would silently overwrite". The database says otherwise.
+// Measured 2026-09-09 (prisma count, production): 193 documents hold rawText ''
+// AND overallConfidence 0 — 130 NEEDS_REVIEW, 62 COMPLETED, 1 REJECTED — and
+// NOT ONE of them holds a fact whose sourceSpan starts with 'user_'. The same
+// query finds 11 such facts across 10 documents elsewhere, so that zero is a
+// real zero and not a query that cannot match. The exclusion was protecting
+// data that does not exist, while the rows it protected were unrecoverable by
+// any route except re-uploading — which mints a new row and charges a scan.
+//
+// A row in this shape holds NOTHING an extraction produced: rawText '' is the
+// empty-fallback write, and overallConfidence 0 is what accompanies it. Both
+// columns are NOT NULL (schema.prisma:120,124), so these are exact equality
+// tests with no null case to reason about.
+const EMPTY_SHAPE = { rawText: '', overallConfidence: 0 } as const;
+
+// A fact written by a user action rather than by the pipeline. The PREFIX is
+// the contract — not an enumerated list of the four spellings that exist today
+// ('user_correction', 'user_justification', 'user_status_change', and any
+// later sibling) — because an enumeration goes stale the moment a fifth is
+// added, and it fails OPEN: an unlisted user span would be admitted. This is
+// the same prefix updateStatus's own comment (:218-222) says the rule keys on.
+//
+// KNOWN GAP, deliberately left: 'review_flow' (:498) and 'rule_engine_reval'
+// (:537) are also written by a user action and do NOT carry the prefix.
+// Neither is a hole here. 'rule_engine_reval' is only ever written in the same
+// transaction as a 'user_' fact, so this clause already refuses it.
+// 'review_action'/'review_flow' can stand alone (applyFixAction validates
+// actionType nowhere, so an unrecognised one writes it by itself) — but
+// re-extraction never deletes that key, so nothing is lost. Measured: 0 rows
+// anywhere carry 'review_flow' without a 'user_' sibling.
+const USER_AUTHORED_SPAN_PREFIX = 'user_';
+const NO_USER_AUTHORED_FACT = {
+  facts: { none: { sourceSpan: { startsWith: USER_AUTHORED_SPAN_PREFIX } } },
+} as const;
 
 export class DocumentController {
   public static async getDocumentDetail(req: Request, res: Response, next: NextFunction) {
@@ -261,8 +302,8 @@ export class DocumentController {
   }
 
   /**
-   * POST /:id/reextract — re-run extraction over a FAILED document's stored
-   * file, without a re-upload and without consuming a scan.
+   * POST /:id/reextract — re-run extraction over a recoverable document's
+   * stored file, without a re-upload and without consuming a scan.
    *
    * The file is already in Supabase storage at the row's fileUrl, so recovery
    * needs no new bytes from the user. Before this endpoint the only route back
@@ -273,21 +314,47 @@ export class DocumentController {
    *      shape as getDocumentDetail and updateStatus; org isolation comes from
    *      the where clause, not from a role check (no endpoint here gates on
    *      role, and this one does not become the first).
-   *   2. Source-state whitelist -> 409.
+   *   2. Source-state whitelist -> 409 INVALID_SOURCE_STATE. FAILED passes
+   *      unconditionally; NEEDS_REVIEW passes only in the empty shape, and is
+   *      otherwise refused as DOCUMENT_HAS_CONTENT or DOCUMENT_HAS_USER_EDITS.
+   *      Three distinct codes because they ask the user for different things.
    *   3. DOWNLOAD, which is both the fetch and the existence probe, BEFORE any
    *      write. A missing object therefore leaves the row exactly as it was.
-   *   4. Only then, a CONDITIONAL claim of the row (where status is still
-   *      FAILED). Two concurrent callers cannot both win it, which matters
-   *      because facts are created rather than upserted — a double run would
-   *      append a duplicate set.
+   *   4. Only then, a CONDITIONAL claim of the row, carrying the WHOLE guard
+   *      and not merely the status. Two concurrent callers cannot both win it,
+   *      which matters because facts are created rather than upserted — a
+   *      double run would append a duplicate set.
+   *
+   * WHAT A RE-EXTRACTION ACTUALLY DESTROYS, since the whitelist is an answer to
+   * that question and the answer is not "everything". updateDocumentWithExtraction
+   * OVERWRITES the scalar columns (rawText, normalizedText, summary,
+   * overallConfidence, documentType, documentSubtype, detectedLanguage, status,
+   * processedAt) and APPENDS facts — it deletes none. The only fact keys any
+   * part of the re-extraction path deletes are 'decision' and 'decision_reason'
+   * (persistence.ts:686), plus the extraction_error / delivery_error /
+   * extraction_model markers. So the facts a user authors — 'manual_amount',
+   * 'justification_note', 'review_action', 'status_change' — SURVIVE a
+   * re-extraction. What an empty row loses is therefore nothing, and the guard
+   * only has to establish that the row is genuinely empty.
    */
   public static async reextractDocument(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
       const organizationId = req.user.organizationId;
 
+      // The include is BOUNDED: only user-authored spans, and only enough to
+      // know whether one exists. A NEEDS_REVIEW row can carry hundreds of facts
+      // (117 decision + 117 decision_reason rows sit on the empty set alone),
+      // and none of them are needed here.
       const doc = await prisma.document.findFirst({
-        where: { id: id as string, organizationId: organizationId as string }
+        where: { id: id as string, organizationId: organizationId as string },
+        include: {
+          facts: {
+            where: { sourceSpan: { startsWith: USER_AUTHORED_SPAN_PREFIX } },
+            select: { id: true },
+            take: 1
+          }
+        }
       });
 
       if (!doc) {
@@ -295,12 +362,36 @@ export class DocumentController {
         return res.status(404).json({ error: 'Document not found' });
       }
 
-      if (doc.status !== REEXTRACTABLE_STATUS) {
+      const isEmptyShape = doc.rawText === EMPTY_SHAPE.rawText
+        && doc.overallConfidence === EMPTY_SHAPE.overallConfidence;
+      const hasUserAuthoredFact = doc.facts.length > 0;
+
+      if (doc.status !== REEXTRACTABLE_STATUS && doc.status !== CONDITIONALLY_REEXTRACTABLE_STATUS) {
         console.warn(`[DocumentController] Re-extraction refused for ${id}: status is ${doc.status}`);
         return res.status(409).json({
-          error: `Only a ${REEXTRACTABLE_STATUS} document can be re-extracted; this one is ${doc.status}.`,
+          error: `Only a ${REEXTRACTABLE_STATUS} or empty ${CONDITIONALLY_REEXTRACTABLE_STATUS} document can be re-extracted; this one is ${doc.status}.`,
           code: 'INVALID_SOURCE_STATE'
         });
+      }
+
+      // The two extra conditions apply to NEEDS_REVIEW ONLY. FAILED is
+      // admitted exactly as before — this widening adds a state, it does not
+      // add conditions to the one that already worked.
+      if (doc.status === CONDITIONALLY_REEXTRACTABLE_STATUS) {
+        if (!isEmptyShape) {
+          console.warn(`[DocumentController] Re-extraction refused for ${id}: NEEDS_REVIEW row holds content.`);
+          return res.status(409).json({
+            error: 'This document has extracted content; re-extracting it would overwrite that content.',
+            code: 'DOCUMENT_HAS_CONTENT'
+          });
+        }
+        if (hasUserAuthoredFact) {
+          console.warn(`[DocumentController] Re-extraction refused for ${id}: row carries a user-authored fact.`);
+          return res.status(409).json({
+            error: 'This document carries edits made by a user; re-extracting it would overwrite them.',
+            code: 'DOCUMENT_HAS_USER_EDITS'
+          });
+        }
       }
 
       // The existence probe. Deliberately before any write: if the object is
@@ -321,13 +412,25 @@ export class DocumentController {
         });
       }
 
-      // Conditional claim — the lock. count 0 means the row moved out of FAILED
-      // between the read above and here, i.e. someone else got there first.
+      // Conditional claim — the lock. count 0 means the row moved out of the
+      // status we read between the read above and here, i.e. someone else got
+      // there first.
+      //
+      // THE WHOLE GUARD IS REPEATED HERE, not just the status. The read and the
+      // claim are two queries, and a user can submit a correction between them
+      // (POST /:id/action takes no lock and gates on no status). A guard
+      // evaluated only at read time is a TOCTOU that loses exactly the fact it
+      // exists to protect. Repeating it costs nothing — it is the same WHERE on
+      // an UPDATE that already had to run — and makes the fact clause
+      // authoritative at the instant the row is taken.
       const claim = await prisma.document.updateMany({
         where: {
           id: id as string,
           organizationId: organizationId as string,
-          status: REEXTRACTABLE_STATUS
+          status: doc.status,
+          ...(doc.status === CONDITIONALLY_REEXTRACTABLE_STATUS
+            ? { ...EMPTY_SHAPE, ...NO_USER_AUTHORED_FACT }
+            : {})
         },
         data: { status: 'PROCESSING' }
       });
