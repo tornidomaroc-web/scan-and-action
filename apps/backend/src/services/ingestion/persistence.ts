@@ -451,6 +451,73 @@ export class PersistenceService {
   }
 
   /**
+   * Records that a document was EXTRACTED SUCCESSFULLY AND THEN LOST.
+   *
+   * ═══ READ THIS BEFORE WRITING ANY SUCCESS-RATE QUERY ═══
+   *
+   * There are TWO numbers and they are not the same. Report both:
+   *
+   *   extraction-call success — documents with no `extraction_error` row.
+   *                             This measures THE VENDOR CALL.
+   *   DELIVERED               — documents that also have no `delivery_error`
+   *                             row. This measures WHAT THE USER GOT.
+   *
+   * A single number is a lie, and it has already been told. On 2026-09-09 a
+   * ten-document run reported "extraction_error = [], success 10/10, failures:
+   * NONE" while one document delivered nothing:
+   *
+   *   doc10-tilden-taxi.jpg, 01:53:03Z
+   *     documentType     'UNKNOWN'  <- the raw upload stub, not the adapter's
+   *                                    empty result ('UNKNOWN_DOCUMENT_TYPE')
+   *     scanChargedAt    null       <- the charge is claimed inside the tx
+   *     extraction_model present, reporting a real 'gemini-3.5-flash'
+   *     extraction_error ABSENT
+   *     category/decision ABSENT    <- everything written inside the tx
+   *
+   * Everything written OUTSIDE updateDocumentWithExtraction's transaction
+   * survived; everything written INSIDE it was gone. The model answered, the
+   * extraction was computed, the persist threw it away, and
+   * `recordExtractionFailure` never fired because it fires only when
+   * `!extractionResult || overallConfidence < 0.6` — and that extraction was
+   * fine. So the failure was invisible to every query built on
+   * `extraction_error`.
+   *
+   * SEPARATE KEY, DELIBERATELY. This does NOT reuse `extraction_error`. That key
+   * means "the vendor call failed", and folding a second meaning into one value
+   * is precisely the collapse that made 'LowConfidence' assert "the model
+   * succeeded and the document was poor" for every failure until #192. One key,
+   * one meaning. A document can legitimately carry BOTH rows — a vendor failure
+   * whose fallback write also failed — and those are two true facts.
+   *
+   * Written OUTSIDE the failed transaction, which is the only place it CAN be
+   * written: the transaction that would have carried it is the one that just
+   * rolled back.
+   *
+   * The error CLASS only, never the message — a persist error can echo a
+   * storage key, which embeds the sanitized filename (redaction.ts
+   * ERROR-OBJECT POLICY).
+   */
+  public async recordDeliveryFailure(documentId: string, errorClass: string): Promise<void> {
+    // Replace rather than accumulate: DocumentFact carries no timestamp, so two
+    // rows would be indistinguishable. Same idiom as extraction_error.
+    await this.prisma.documentFact.deleteMany({
+      where: { documentId, key: 'delivery_error' }
+    });
+    await this.prisma.documentFact.create({
+      data: {
+        documentId,
+        factType: 'DELIVERY_ERROR',
+        key: 'delivery_error',
+        valueString: errorClass,
+        confidence: 1.0,
+        sourceSpan: 'persist_failure',
+        isReviewed: false
+      }
+    });
+    console.warn(`[Persistence] Recorded DELIVERY failure for ${documentId}: ${errorClass} (extraction succeeded, persist did not).`);
+  }
+
+  /**
    * Records which A/B arm ran for this document, and what the vendor said the
    * model actually was.
    *

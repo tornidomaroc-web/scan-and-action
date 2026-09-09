@@ -101,6 +101,8 @@ function makeService(overrides: Overrides) {
     // asserts on the terminal FAILED fallback, not on the arm record.
     recordExtractionFailure: async () => {},
     recordExtractionModel: async () => {},
+    // Reached on the persist-failure path this file exercises directly.
+    recordDeliveryFailure: async () => {},
     updateDocumentWithExtraction:
       overrides.updateDocumentWithExtraction ?? (async () => {}),
   };

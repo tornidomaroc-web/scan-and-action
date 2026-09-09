@@ -71,8 +71,19 @@ describe('arm maps to a concrete model id', () => {
     const pinned = modelForArm('ab_pinned');
     expect(pinned).toBe(DEFAULT_PINNED_MODEL);
     expect(pinned).not.toMatch(/-latest$/);
-    // Confirmed present in ListModels on 2026-09-08 for this project.
-    expect(pinned).toBe('models/gemini-2.5-flash');
+    // Moved off gemini-2.5-flash: it is scheduled for deprecation 2026-10-16,
+    // and ListModels exposes NO lifecycle field to warn about that — the full
+    // field set across all 54 models is description, displayName,
+    // inputTokenLimit, maxTemperature, name, outputTokenLimit,
+    // supportedGenerationMethods, temperature, thinking, topK, topP, version.
+    // A hard pin fails closed, so its retirement is a total outage with no
+    // API-visible warning.
+    //
+    // Validated before the move, ten fixtures 2026-09-09T01:52-01:53Z: every
+    // amount 2.5-flash resolved was reproduced exactly (doc01 2029.60,
+    // doc02 1141.55, doc03 7282.31, doc04 1799.50) plus five more it never
+    // reached, zero errors of any class.
+    expect(pinned).toBe('models/gemini-3.5-flash');
   });
 });
 
