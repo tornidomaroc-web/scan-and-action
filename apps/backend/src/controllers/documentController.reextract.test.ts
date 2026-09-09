@@ -6,8 +6,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // ============================================================================
 // The file is already in Supabase storage at the row's fileUrl, so recovery
 // needs no new upload. Before this endpoint the only route back was uploading
-// the file again, which creates a NEW row and charges a scan
-// (LAUNCH_TODO.md:128).
+// the file again, which creates a NEW row and charges a scan — the item
+// "there is NO re-extraction path anywhere in the tree" in WORK-QUEUE.md,
+// closed 2026-09-09. Cited by TITLE, not by line number: a line number into a
+// living board rots the moment an item above it is edited, and does so
+// silently, which is the whole reason that board is a single file.
 //
 // THE SOURCE-STATE WHITELIST IS THE SAFETY PROPERTY, so it is tested as a
 // whitelist, not as a blacklist of the states we happen to have thought of.

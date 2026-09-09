@@ -1,7 +1,27 @@
-# Scan & Action — Store Launch Tracker
+# Scan & Action — Work Queue
 
-> Living checklist for the Google Play / Apple App Store launch. Tick items off as
-> they're completed. Keep this up to date across sessions so deferred steps are never lost.
+> **THIS IS THE ONLY BOARD. Renamed from `LAUNCH_TODO.md` on 2026-09-09** — the
+> launch happened (vc4 at 100% rollout, paying customers), so the old name
+> described a phase that is over and sent people looking for a queue file that
+> did not exist.
+>
+> **PRECEDENCE.** Where any other file in this repository disagrees with this one
+> about what is open, **this file wins.** There is exactly one other living
+> tracker, `docs/DASHBOARD_REDESIGN_PROGRESS.md`, and it is frozen as of
+> 2026-09-09 with a pointer back here; every other file in `docs/` is a **dated
+> snapshot**, written to become historical rather than stale, and none of them
+> claims to be current. `DEFERRED.md` has never existed — the deferred register
+> is the `## DEFERRED` section of this file, below.
+>
+> Living checklist for everything outstanding. Tick items off as they're
+> completed. Keep this up to date across sessions so deferred steps are never
+> lost.
+>
+> **CITE ITEMS BY QUOTED TITLE, NEVER BY LINE NUMBER.** A `WORK-QUEUE.md:128`
+> pointer in a source comment goes stale the moment any item above it is edited,
+> and it does so silently — there is no error, and the number still resolves to
+> *a* line. Every in-tree reference was converted to a quoted title on
+> 2026-09-09 for exactly this reason.
 
 > **THE RULE FOR THIS FILE — added 2026-09-05, after it produced five false claims
 > in three days and one of them cost a real upload attempt.**
@@ -85,7 +105,15 @@ Earlier labels in this file were inconsistent (AdMob tagged "Phase C", RevenueCa
 - **AdMob ads: DEFERRED** (not a numbered phase).
 - **RevenueCat native IAP: DORMANT / FUTURE** (iOS-driven; see the deferred item). Web subscriptions remain **Paddle-only** because the Morocco-based developer account cannot register as a Google Play merchant.
 
-## DEFERRED — to build/do DURING or AFTER the 14-day clock (before applying for production)
+## DEFERRED — deliberately not being built yet
+
+> **Premise updated 2026-09-09.** This section's heading used to read "to
+> build/do DURING or AFTER the 14-day clock (before applying for production)".
+> That clock is spent and production was applied for and granted — vc4 has been
+> at 100% rollout since ~2026-08-11 — so the deadline that ordered this list no
+> longer exists. The items below are still deferred; what changed is that
+> nothing external is now forcing their timing. **This is the deferred register.
+> There is no `DEFERRED.md` and there never has been.**
 
 - [ ] **ADS (deferred — not a numbered phase):** integrate AdMob. Show ads to FREE users only; PRO removes ads. iOS needs UMP consent + ATT (App Tracking Transparency). After building, you **MUST** update Play Console: flip the "Ads" declaration from No to Yes, and update the Data Safety form and Content rating to match.
 - [ ] **REAL IN-APP PURCHASE (RevenueCat — future / dormant, iOS-driven):** integrate RevenueCat for native subscriptions. It must **NOT** write `Organization.plan` directly — it must go through the shared entitlement service **`applyEntitlementChange`** (`apps/backend/src/services/entitlement/`), the SAME path the Paddle webhook already uses, which enforces a row-lock (`SELECT … FOR UPDATE`), an out-of-order event guard, and the invariant that it **never writes `planOverride`** (this is what protects ENTERPRISE deals and the review account from being clobbered by any billing event). Set RevenueCat `app_user_id = Supabase user.id`. Add a separate RevenueCat webhook endpoint with its own signature verification, and map each event to a per-source **ACTIVE/INACTIVE status** (never directly to a plan):
@@ -170,3 +198,32 @@ Full pre-state, reasoning and the one-statement recovery:
 - [x] Select countries/regions for the closed track (**177 countries, includes Pakistan**)
 - [x] Add testers to the closed track (created **"Scan Action Testers"** email list with **25 testers** from the Fiverr seller)
 - [x] Send the release to Google for review
+
+## QUEUED — migrated from session memory 2026-09-09
+
+> **Why these appear here now.** Every item below existed only in an assistant
+> session-memory file: invisible to the owner, invisible to any other session,
+> invisible to review, and with no expiry. That is a shadow backlog, and it was
+> discovered the hard way — the owner had been assuming a `WORK-QUEUE.md` existed
+> and carried them. It did not. Each item keeps the evidence that was actually
+> measured, the command that produced it, and an **expiry**: the condition under
+> which it should be picked up or struck out. An item whose expiry condition
+> cannot be stated does not belong on a board.
+>
+> **None of these has been acted on.** Sizing and ordering are the owner's call.
+
+- [ ] **`isSingleDocument` spends a Gemini call per document, on the same endpoint, and fails open.** `GeminiExtractionAdapter.isSingleDocument` (`geminiAdapter.ts:50`) makes its **own** `generateContent` call on the same model as extraction, and its catch returns `true`, so the pipeline continues regardless. Called once per document at `ingestionService.ts:66`. **Evidence:** per document the pipeline makes 1 validation call + up to 2 extraction attempts, so validation is roughly **a third of all Gemini call volume**; during the 2026-09-08 outage that was ~10 validation calls against an endpoint shedding load, and every 503 it absorbed bought nothing. Measured contrast in the same minutes, same alias, same images: extraction succeeded on **1 of 19 calls (~5%)**, validation on **at least 5 of 10** — the cheap call is far likelier to be served, so dropping it saves the *least* valuable third. **EXPIRY: the blocker is gone — this was held so it would not change two variables at once during the model-pin A/B, which finished in #194/#195/#196. It is actionable now.** Strike it out only if a later change removes the multi-document guard entirely, which is a product decision and not an observability one.
+
+- [ ] **UNCONFIRMED — `Organization` row-lock contention under fast-cadence uploads.** A hypothesis with a named mechanism, **not a finding**; nothing was changed on its account. `doc10-tilden-taxi.jpg` (2026-09-09T01:53:03Z) extracted successfully and its persist threw — the first persist failure ever observed here. **Evidence:** doc10 took **14.0s** against siblings at **8.1–10.5s**; it was the last of ten uploads at a **5-second cadence** (min 3, max 6), so up to ~3 background jobs overlapped. **Mechanism, unverified:** every persist takes a row lock on the SAME `Organization` row to increment `scanCount`, so concurrent persists serialise on it and an interactive transaction can exceed its default timeout. **Ruled OUT, not merely unlikely:** not `LIMIT_REACHED` — the org is PRO, so `plan: { not: FREE }` satisfies the charge condition and `PRO_DAILY_LIMIT` is 200 against a handful of uploads. **EXPIRY: the next fast-cadence run settles it** — `delivery_error` (PR #196) now records the error CLASS directly, and a transaction timeout has a distinctive class from a lock error. A dose-response (10 uploads at 5s, then 10 at 30s) discriminates: failures tracking cadence means contention is real; failures at both means it is not concurrency.
+
+- [ ] **Rule-engine coverage gaps — three, none sized.** **(1) 147 documents hold no amount fact at all.** Of 209 evaluated documents, 147 correctly reported "Missing amount" — **73%** — because extraction genuinely produced no `TOTAL_AMOUNT`/`manual_amount`/`amount`. That is an EXTRACTION COVERAGE question, not a rule-engine one, and the fact-key fix does nothing for it. **(2) 132 of 341 documents have no `decision` fact, but the real number is 20.** Sized 2026-09-07: 112 predate the first-ever evaluation (2026-04-01) and are not a failure; **20 fall inside the window where evaluation WAS running and were skipped anyway**. The two populations interleave, so this was intermittent, not a clean cutover. Zero documents since 2026-07-04 lack a decision, so **the rule engine is not failing on live traffic**. Plausible mechanism for the 93 that hold facts but no decision, undiagnosed: `evaluateRulesAndSave` swallows its own errors. **(3) Rule D is dead.** `checkDuplicate` (`ruleEngineService.ts:125-147`) queries `documentEntities.some({ role: 'VENDOR' })`, but every stored role is `ISSUER` — measured **156 rows ISSUER, zero VENDOR** — because the adapter emits `role: 'Issuer'` (`geminiAdapter.ts:238`) and persistence upper-cases it. The duplicate-expense rule has never matched anything. `documentController.ts` has the same lookup, so `merchantName` is null on the re-evaluation path too. **EXPIRY: size (2) first** — a document the rule engine never saw is invisible to every count taken so far, including the 209 denominator above. (3) is a one-line change whose only risk is that Rule D starts firing for the first time; treat its first week as new behaviour, not as a fix. Related: the duplicate rule ships with **no time window**, and that was deliberate — 30d moved the count 68→67 and the monthly false positive has zero instances.
+
+- [ ] **`UNKNOWN_DOCUMENT_TYPE` at 0.99 confidence — the classifier and the confidence score disagree.** Observed 2026-09-07 on the first document through post-#185 code: `status=NEEDS_REVIEW`, `overallConfidence=0.99`, `documentType=UNKNOWN_DOCUMENT_TYPE`, `rawText_length=472`, 4 facts, 1 entity. The extraction plainly worked, and 0.99 is **above** the 0.98 `CONFIDENCE_THRESHOLD`, so NEEDS_REVIEW came from the `isWeak` branch or a single sub-threshold fact. **Why it matters:** a status `groupBy` the same day returned COMPLETED=179, NEEDS_REVIEW=149, REJECTED=12 of 340 — **nearly half of all documents land in review**. If a meaningful share look like this one, the review queue is being fed by a classification gap rather than by doubtful scans, and the fix is in the type normaliser or `isWeak`, not the model. **Do not confuse this with the P2022 signature**, which is NEEDS_REVIEW with `rawText=''`, 0 facts and confidence 0 — the opposite shape. **EXPIRY: sample the `isWeak` inputs (`hasDate`, `hasAmount`, `hasAnchors`, template/multi-doc signals) across a batch of NEEDS_REVIEW rows BEFORE changing any threshold.** Moving a threshold without that sample is guessing at which of six predicates fired.
+
+- [ ] **`normalizeTextToEnglish` is a stub — `normalizedText` is not English.** `normalizationService.ts:58-68` returns `rawText` unchanged for English and the original text with a literal `[MOCK_TRANSLATED] ` prefix otherwise. No translation happens, in a column whose own comment says it exists "to ensure the `normalizedText` column is searchable in English." **Corroborated by bytes, not by reading the code:** production document `e7ae52df` (Arabic) measured `rawText_length=472`, `normalizedText_length=490` — a delta of exactly **18**, the length of `"[MOCK_TRANSLATED] "`. **Why it matters beyond tidiness:** on 2026-09-07 it nearly became the basis of a categorizer "fix" that fed it `normalizedText` instead of `rawText`, which would have changed nothing at all. **EXPIRY: void the moment real translation ships.** Until then, check whether search reads `normalizedText` — if it does, a leading `[MOCK_TRANSLATED] ` sits inside the searchable body of every non-English document.
+
+- [ ] **DELIBERATELY NOT WORTH FIXING YET — Latin-only category keywords.** `expenseCategorizationService.ts:10-30` holds an entirely Latin-script keyword table and `persistence.ts` passes `extraction.rawText`, the original-language text, so a non-Latin document can only match on an incidental Latin brand name and otherwise falls through to the documented no-match default `{ category: 'Other', confidence: 0.5 }`. **The number that decides it**, a read-only `groupBy` on `detectedLanguage` across all 341 documents: `en 317 (93.0%) | fr 9 (2.6%) | de 4 | he 3 | ar 2 (0.6%) | zh/id/it/pt/und/UNKNOWN 1 each` — **non-English = 24 (7.0%)**, no NULLs, buckets reconcile. Arabic is **2 documents**. The threshold was set *before* the number was read: ≥30% worth building, ≤10% not. 7.0% is below the floor. **Do not use the post-deploy sample as evidence of a changing mix** — it is n=1, a deliberate test upload, and reads as "100% non-English". **EXPIRY: revisit only if non-English share crosses ~30%, or if non-English users turn out to be disproportionately paying** — that second factor, not the raw count, is what should decide it.
+
+- [ ] **`Document` retains no input metadata — no MIME type, no file size, no page count.** `grep -nE "mime|size|fileSize" prisma/schema.prisma` returns **nothing**; the model keeps `originalFileName` and `fileUrl` and nothing else about the input. **What that cost, concretely:** on 2026-09-08, investigating why 172 of 343 documents (50.1%) held `rawText=''` with `overallConfidence=0`, four input-side axes were considered — file type, file size, language, organization — and **two were unanswerable, not inconclusive**: the columns do not exist. "Do PDFs fail more often than JPEGs?" cannot be asked at all. It also forces a workaround: the MIME type has to be recovered from the storage response at re-extraction time because the row does not carry it. **EXPIRY: no natural one — this stays open until a schema change is wanted for another reason and can carry it.** Both columns are additive and nullable and nothing in the product reads them, so the value is diagnostic only; this should ride along with another migration rather than justify its own.
+
+- [ ] **The migration FAILURE path has never been observed.** A *succeeding* migration on the Railway pre-deploy path was proven 2026-09-07 (#185): ledger and physical schema both confirmed, merge → serving 103s. **Still unproven:** that a *failing* migration fails the deploy and leaves the previous container serving. That is Railway's documented contract and has never been observed here, and the success path is not evidence for it — the two share no code. **Why it matters more than it looks:** the failure mode is not a red deploy, it is new code on an old schema, and here that is **quiet**. Measured against a throwaway: a missing column throws `P2022` inside the persist transaction, which rolls back; `ingestionService` catches it and calls `markAsNeedsReview`, which does not reference the new column and therefore **succeeds**. The user sees a 202, then a NEEDS_REVIEW row with `rawText=''`, 0 facts, confidence 0. **And nothing alerts** — `sendDiscordAlert` is wired only into `webhookController`, `Sentry.captureException` only into the Express error middleware, and the persist runs in a post-202 `setImmediate` that reaches neither. The sole signal is `[CRITICAL] Persistence failed` in Railway stdout. **Fastest recovery is a Railway rollback**, not `git revert` and not a manual `DROP COLUMN`: an added nullable column is backward compatible with the older client, so rolling the container back restores ingestion whether or not the migration ran. **EXPIRY: only a deliberate rehearsal closes this** — a migration designed to fail, on a throwaway first, then watched on a real deploy. Nothing short of that is evidence.

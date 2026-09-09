@@ -5,7 +5,7 @@
 
 This file is a **dated snapshot, not a tracker.** It is deliberately written to become *historical* rather than
 *stale*: when the state changes, write a new dated file. Of the 25 documents in `docs/`, 22 have exactly one commit
-and none of them are stale. The two that behaved as living trackers — `LAUNCH_TODO.md`, which says so in its own
+and none of them are stale. The two that behaved as living trackers — `LAUNCH_TODO.md` (renamed `WORK-QUEUE.md` 2026-09-09), which says so in its own
 words ("Keep this up to date across sessions"), and `DASHBOARD_REDESIGN_PROGRESS.md`, which was amended across 34
 commits — are the two that rotted. §7 records two items they still list as open that are in fact already closed.
 
@@ -333,7 +333,7 @@ to small drift; the counts themselves are not, and change the moment anyone open
 | Reading | Note |
 |---|---|
 | `DASHBOARD_REDESIGN_PROGRESS.md:1335` still lists all five RTL sites as open | Two are fixed (§7). Its last commit was 2026-07-18. |
-| `LAUNCH_TODO.md` still states "~9 days remain (~Jul 4 2026)" | A deadline 27 days past at the time of writing. Untouched since 2026-06-25. |
+| `LAUNCH_TODO.md` (now `WORK-QUEUE.md`) still states "~9 days remain (~Jul 4 2026)" | A deadline 27 days past at the time of writing. Untouched since 2026-06-25. |
 
 Both are file contents, not code, so an edit to either falsifies these rows without any behaviour changing. They are
 recorded because they are the evidence for why *this* file is dated and immutable rather than maintained.
