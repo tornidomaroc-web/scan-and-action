@@ -204,9 +204,9 @@ Recorded 2026-09-04.
 
 ### The repository is not a record of what has been shipped
 
-`apps/frontend/android/app/build.gradle` states a versionCode. `LAUNCH_TODO.md`
-states which build is live. Both answer instantly, both look authoritative, and
-**neither is a reading from Play.**
+`apps/frontend/android/app/build.gradle` states a versionCode. `WORK-QUEUE.md`
+(named `LAUNCH_TODO.md` until 2026-09-09) states which build is live. Both answer
+instantly, both look authoritative, and **neither is a reading from Play.**
 
 On 2026-09-05 they agreed with each other and were both wrong. The file held 4,
 the queue said Play held 4, and a report volunteered — unasked — that *"Play

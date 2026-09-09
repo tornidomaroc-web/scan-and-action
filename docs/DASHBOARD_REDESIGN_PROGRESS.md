@@ -1,7 +1,34 @@
 # Dashboard Redesign — Progress Tracker
 
-Single source of truth for the dashboard-redesign effort so no step is skipped or
-repeated across sessions. Update the checkboxes as PRs merge.
+> ## ⛔ FROZEN 2026-09-09. THIS FILE IS NO LONGER A TRACKER.
+>
+> **It is a dated snapshot of the dashboard-redesign effort as it stood at its
+> last edit, 2026-08-08 (`#142`). Do not tick boxes here. Do not read its 28 open
+> checkboxes as a current list of open work.**
+>
+> **`WORK-QUEUE.md` is the only board.** Where this file and `WORK-QUEUE.md`
+> disagree about what is open, **`WORK-QUEUE.md` wins.**
+>
+> **Why it was frozen, in its own repository's words.**
+> `OPEN_ITEMS_RECON_2026-07-31.md` had already diagnosed this exact file:
+> *"Of the 25 documents in `docs/`, 22 have exactly one commit and none of them
+> are stale. The two that behaved as living trackers — `LAUNCH_TODO.md` … and
+> `DASHBOARD_REDESIGN_PROGRESS.md`, which was amended across 34 commits — are the
+> two that rotted."* Its §7 recorded two items **this file still lists as open
+> that are in fact already closed**, and §3.2 recorded five RTL sites here that
+> had moved by two lines and lost two entries to fixes nobody wrote down.
+>
+> A living tracker rots silently; a dated snapshot becomes *historical* instead,
+> which is the pattern the rest of `docs/` already follows. That is the whole
+> reason for the freeze — not that the content is wrong, but that nothing about
+> reading it tells you how old it is.
+>
+> **If an item in here is still genuinely open, move it to `WORK-QUEUE.md` with
+> its evidence.** Leave the entry here as history.
+
+Historical record of the dashboard-redesign effort, written when it was the
+single source of truth for that work so no step was skipped or repeated across
+sessions. Checkbox state below reflects 2026-08-08, not today.
 
 ## Done (merged to `main`)
 
@@ -1430,7 +1457,7 @@ handling it actually needs.
       **`unicornapps.support@gmail.com`** holds **PRO via
       `Organization.planOverride = PRO`** (a manual entitlement floor) with **zero
       `Subscription` rows**, deliberately, so Google's reviewer sees PRO features.
-      **CRITICAL correction to the existing `LAUNCH_TODO` phrasing — this is NOT a
+      **CRITICAL correction to the existing `LAUNCH_TODO` (renamed `WORK-QUEUE.md` 2026-09-09) phrasing — this is NOT a
       single-column update.** `Organization.plan` is a **stored cache recomputed only
       on a billing event**, and this account has **no subscriptions**, so **nulling
       `planOverride` alone leaves `plan = PRO` frozen forever**. The reset must set

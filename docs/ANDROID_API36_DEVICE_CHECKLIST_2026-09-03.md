@@ -501,7 +501,7 @@ place.
 modal might render a price on a device"* — it cannot render at all. It is *"a
 future caller opens `PaywallModal` on native without the `isNativePlatform()`
 guard"*, which is a change-review concern, not a device-test concern, and no
-hardware pass could ever have caught it. The `LAUNCH_TODO.md` anti-steering
+hardware pass could ever have caught it. The `LAUNCH_TODO.md` (renamed `WORK-QUEUE.md` 2026-09-09) anti-steering
 invariant is where that is actually guarded.
 
 Established by reading the call sites on 2026-09-04, while preparing the

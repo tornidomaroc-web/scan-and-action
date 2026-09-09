@@ -6,7 +6,10 @@ import { format } from 'node:util';
 // sites in uploadController.ts: :110, :121, :127.
 // ============================================================================
 // LINE NUMBERS THROUGHOUT THIS FILE NAME THE SITES AS THEY STOOD BEFORE THIS
-// CHANGE, which is how LAUNCH_TODO.md:126 and #181 refer to them. The fix adds
+// CHANGE, which is how the WORK-QUEUE.md item "`uploadController.ts` now routes
+// its three error-log sites through `formatErrorForLog`" and #181 refer to
+// them. Cited by TITLE, not line number — a line number into a living board
+// rots silently. The fix adds
 // an import and a comment block, so the post-change positions are lower down
 // the file. The prefixes asserted below, not the numbers, are what bind a test
 // to its site.
@@ -64,8 +67,10 @@ import { format } from 'node:util';
 // ---------------------------------------------------------------------------
 // REACHABILITY, stated honestly per site. This CORRECTS the queue item.
 // ---------------------------------------------------------------------------
-// LAUNCH_TODO.md:126 says "Reachability is not in doubt here, unlike
-// ingestionService.ts:85". That is true of :127 and WRONG of :110 and :121.
+// The WORK-QUEUE.md item "`uploadController.ts` now routes its three error-log
+// sites through `formatErrorForLog`" says "Reachability is not in doubt here,
+// unlike ingestionService.ts:85". That is true of :127 and WRONG of :110
+// and :121.
 //
 //   :127 LIVE. The outer try wraps uploadToSupabase (which throws on a vendor
 //        error, supabaseStorage.ts:44, and on missing env, :9) plus three
@@ -321,7 +326,8 @@ describe('uploadController error logging goes through formatErrorForLog', () => 
   });
 
   it(':112 GUARD — the LIMIT_REACHED comparison still reads the bare message', async () => {
-    // Pins the trap named in LAUNCH_TODO.md:126. Routing :112 through
+    // Pins the trap named in the WORK-QUEUE.md item "`uploadController.ts` now
+    // routes its three error-log sites through `formatErrorForLog`". Routing :112 through
     // formatErrorForLog would make this read `name=Error message=LIMIT_REACHED`,
     // the comparison would go false, and the status would silently become
     // FAILED. This test passes BEFORE and AFTER this change by design — it is a

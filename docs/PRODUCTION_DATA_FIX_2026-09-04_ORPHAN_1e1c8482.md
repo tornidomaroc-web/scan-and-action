@@ -129,7 +129,7 @@ and that its organization still holds no documents.
 The filename carries 2026-09-04, the date the decision and this record were
 written. The statement itself ran just after midnight, on **2026-09-05**. The
 file is not renamed, because the name is already referenced from
-`LAUNCH_TODO.md` and a stale pointer is worse than a stale date.
+`LAUNCH_TODO.md` (renamed `WORK-QUEUE.md` 2026-09-09) and a stale pointer is worse than a stale date.
 
 ```
 AFFECTED ROWS: 1
