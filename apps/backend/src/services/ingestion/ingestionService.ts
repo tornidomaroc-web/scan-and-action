@@ -221,6 +221,32 @@ export class IngestionService {
       await this.persistenceService.updateDocumentWithExtraction(documentId, userId, organizationId, fileUrl, originalFileName, extractionResult, chargeScan);
     } catch (persistError: any) {
       console.error(`[CRITICAL] Persistence failed for ${documentId}. Forcing NEEDS_REVIEW. Error: ${formatErrorForLog(persistError)}`);
+
+      // Leave a QUERYABLE trace, because until now this path left none.
+      //
+      // The extraction may have been perfect — the vendor answered, the result
+      // was computed — and it was then thrown away by the rollback.
+      // recordExtractionFailure does NOT fire here, by design: it fires only
+      // when the extraction itself failed. So a lost-but-good extraction was
+      // invisible to every query built on extraction_error, and the watch query
+      // counted doc10 (2026-09-09T01:53:03Z) as a success while the user got an
+      // empty document.
+      //
+      // Its own key, not extraction_error — see recordDeliveryFailure for why
+      // overloading one key is the LowConfidence collapse on a different axis.
+      //
+      // The CLASS only, never the message: a persist error can echo a storage
+      // key, which embeds the sanitized filename (redaction.ts).
+      //
+      // .catch for the same reason as the other diagnostic writes — this runs
+      // detached in a setImmediate after the 202 was sent, and recording a
+      // failure must never become a new way to fail.
+      await this.persistenceService
+        .recordDeliveryFailure(documentId, persistError?.constructor?.name || persistError?.name || 'UnknownError')
+        .catch((err: any) =>
+          console.error(`[Background] Could not record delivery failure for ${documentId}:`, formatErrorForLog(err))
+        );
+
       await this.persistenceService.markAsNeedsReview(documentId).catch(async finalErr => {
         console.error(`[FATAL] Even emergency fallback failed for ${documentId}:`, formatErrorForLog(finalErr));
         // Same reasoning as the multi-document site above, try/catch included.

@@ -87,7 +87,7 @@ describe('extractFromImage accepts an injected model id (geminiAdapter.ts:137)',
     // un-injected call is the production path, and it must not reach the alias.
     const { adapter, seen } = makeAdapter({ responseExtras: { modelVersion: 'whatever' } });
     await adapter.extractFromImage(Buffer.from('x'), 'image/jpeg');
-    expect(seen).toContain('models/gemini-2.5-flash');
+    expect(seen).toContain('models/gemini-3.5-flash');
     expect(seen).not.toContain('models/gemini-flash-latest');
   });
 });
@@ -116,7 +116,7 @@ describe('isSingleDocument accepts an injected model id (geminiAdapter.ts:51)', 
       },
     };
     await adapter.isSingleDocument(Buffer.from('x'), 'image/jpeg');
-    expect(seen).toEqual(['models/gemini-2.5-flash']);
+    expect(seen).toEqual(['models/gemini-3.5-flash']);
   });
 });
 

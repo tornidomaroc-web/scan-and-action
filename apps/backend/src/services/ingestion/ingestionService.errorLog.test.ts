@@ -104,6 +104,9 @@ function makeService(overrides: {
     // as the two above: this file asserts on log-line scrubbing, not on the
     // experiment's bookkeeping.
     recordExtractionModel: async () => {},
+    // Reached only when updateDocumentWithExtraction throws. Stubbed for the
+    // same reason as its siblings: this file asserts on log-line scrubbing.
+    recordDeliveryFailure: async () => {},
     updateDocumentWithExtraction: overrides.updateDocumentWithExtraction ?? (async () => {}),
   };
 

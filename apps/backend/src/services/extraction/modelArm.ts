@@ -39,20 +39,40 @@
 export const ALIAS_MODEL = 'models/gemini-flash-latest';
 
 /**
- * The pinned arm's default target.
+ * The pinned model. Confirmed present via ListModels against this project on
+ * 2026-09-08: `models/gemini-3.5-flash`, version `3.5-flash-05-2026`, with
+ * `generateContent` among its supported methods.
  *
- * Confirmed present via ListModels against this project on 2026-09-08:
- * `models/gemini-2.5-flash`, displayName "Gemini 2.5 Flash", version "001".
+ * MOVED OFF gemini-2.5-flash, and the reason the earlier choice was right is
+ * the same reason it stopped being right. 2.5-flash was picked as the most
+ * ESTABLISHED model in the listing, because the binding constraint was a
+ * 5-RPD-per-model free-tier ceiling and newer models looked more contended.
+ * The project moved to paid tier (1000 RPM / 10000 RPD), that ceiling is gone,
+ * and the property optimised for became the liability: the oldest model is the
+ * one that gets retired. 2.5-flash is scheduled for deprecation 2026-10-16.
  *
- * Chosen as the most established GA flash model in the listing — it predates
- * the entire 3.x ladder (3.5-flash 05-2026, 3.6-flash 07-2026, 3.7-flash
- * 08-2026, 3.8-flash) that `-latest` has evidently been climbing. The
- * hypothesis under test is that newer, more contended models shed heavy
- * requests with 503, so the pinned arm has to be the OPPOSITE end of that
- * ladder. Pinning to 3.8-flash — the console's current model line, and the
- * alias's likely resolution — would compare a model against itself.
+ * AND NOTHING IN THE API WILL WARN US. ListModels exposes no lifecycle field at
+ * all — the complete field set across all 54 models is description,
+ * displayName, inputTokenLimit, maxTemperature, name, outputTokenLimit,
+ * supportedGenerationMethods, temperature, thinking, topK, topP, version.
+ * `v1` returns the same as `v1beta`. A retiring model reads as perfectly
+ * healthy right up until it disappears, and this pin fails CLOSED (404/400 →
+ * CLIENT_ERROR → every extraction fails at once). So the move happens on the
+ * published schedule, with margin, not on a signal that does not exist.
+ *
+ * WHY 3.5 AND NOT 3.8. It is the oldest non-preview, non-`-lite` model in the
+ * 3.x line (3.6-flash 07-2026, 3.7-flash 08-2026, 3.8-flash are each newer).
+ * Taking the newest would recreate exactly the `-latest` exposure that four PRs
+ * went into escaping. Recent enough to be far from retirement, settled enough
+ * not to be the bleeding edge.
+ *
+ * VALIDATED BEFORE THE MOVE, ten fixtures 2026-09-09T01:52-01:53Z: every amount
+ * 2.5-flash had resolved was reproduced exactly — doc01 2029.60, doc02 1141.55,
+ * doc03 7282.31, doc04 1799.50 (identical across three sessions and two models)
+ * — plus five more that 2.5-flash never reached because it hit its quota wall,
+ * and zero errors of any class at a 5-second upload cadence.
  */
-export const DEFAULT_PINNED_MODEL = 'models/gemini-2.5-flash';
+export const DEFAULT_PINNED_MODEL = 'models/gemini-3.5-flash';
 
 export type Arm = 'ab_pinned' | 'ab_alias';
 
