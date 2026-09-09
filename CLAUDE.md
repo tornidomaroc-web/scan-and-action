@@ -98,9 +98,19 @@ Recorded 2026-08-02, amended 2026-08-03.
   matches every file containing the letter *r* — which is very nearly all of
   them, and reads as "the whole tree is CRLF".
 
-One quote character separates those two spellings. Neither emits a warning, a
-non-zero exit, nor anything else that invites a second look, and both produce a
-tidy number that reads like a finding.
+- **A third spelling, same false positive, and the one that actually landed.**
+  `grep -c '\r'` — ordinary single quotes, no `$` — is a POSIX **BRE**, where
+  `\r` is not an escape sequence: it matches a literal `r`. So
+  `od -c FILE | grep -c '\r'` counts od output lines containing the **letter r**.
+  On 2026-09-09 that returned **1980** for a file holding **zero** carriage
+  returns, and the number was reported as "the working tree is CRLF". It is not;
+  these files are pure LF. The two spellings already recorded above did not cover
+  this one, and reading the command does not reveal it — `'\r'` looks exactly
+  like an escape to anyone who writes C, Python, or JavaScript.
+
+No quoting style is safe here: `$'\r'` strips, `$"\r"` matches *r*, `'\r'`
+matches *r*. None emits a warning, a non-zero exit, nor anything else that
+invites a second look, and each produces a tidy number that reads like a finding.
 
 **Measure the bytes instead.** The replacement is not "be careful with grep", it
 is a different instrument:
