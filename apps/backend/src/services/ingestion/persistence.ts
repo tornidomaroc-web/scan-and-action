@@ -55,8 +55,33 @@ export class PersistenceService {
     // stamped row is not charged twice and an unstamped one is not charged at
     // all — but it is why the gate cannot be relied on alone to mean "already
     // paid, therefore safe to re-run for free".
-    chargeScan: boolean = true
+    chargeScan: boolean = true,
+    // Is this run a RE-EXTRACTION of a document that already exists, or the
+    // FIRST pass over a fresh upload?
+    //
+    // THE CALLER HAS TO SAY. It cannot be read off the row, and the obvious
+    // inference is not merely imperfect — it is inverted on the happy path.
+    // uploadController.ts:83-96 creates every stub with `rawText: ''` and
+    // `overallConfidence: 0`, which is EXACTLY documentController's EMPTY_SHAPE
+    // (:46) — the shape that admits a row for re-extraction — and
+    // reextractDocument's claim (:461) moves the row to PROCESSING without
+    // clearing either column. So at the instant this method runs, a brand-new
+    // upload and an empty NEEDS_REVIEW row being re-extracted are identical in
+    // every column a gate could read. A shape-only gate stamps "Re-processed"
+    // on every document anyone uploads.
+    //
+    // `chargeScan` is not a stand-in either. It answers "should this consume a
+    // scan", and the two questions agree today only by coincidence of there
+    // being one free caller. The first free FIRST-PASS run anyone adds — a
+    // promo, an admin re-ingest, a retry after a vendor outage — would silently
+    // begin stamping a recovery badge on documents that never failed. Two
+    // meanings, two flags.
+    //
+    // Defaults to FALSE so a caller that forgets it cannot manufacture a badge.
+    // The only caller that sets it is documentController.ts:483-497.
+    opts: { isReextraction?: boolean } = {}
   ): Promise<void> {
+    const isReextraction = opts.isReextraction === true;
     const rawConfidence = extraction.overallConfidence ?? 0;
     const normalizedOverallConfidence = rawConfidence > 1 ? rawConfidence / 100 : rawConfidence;
 
@@ -98,6 +123,26 @@ export class PersistenceService {
 
     console.log(`[Persistence] Updating stub document ${documentId} with extraction results...`);
     await this.prisma.$transaction(async (tx) => {
+      // THE PRE-UPDATE SHAPE, read BEFORE the update below overwrites it.
+      //
+      // ⚠ THE ORDERING IS LOAD-BEARING. `tx.document.update` a few statements
+      // down rewrites rawText and overallConfidence. A read moved below it sees
+      // the NEW values, `wasEmptyShape` becomes false for every document
+      // forever, and the marker silently stops being written — no error, no
+      // failing test unless one pins the order. 'reads the PRE-update shape,
+      // not the row it just wrote' in persistence.recoveryMarker.test.ts is
+      // that pin; it fails if these two statements are swapped.
+      //
+      // Read ONLY on the re-extraction path. The upload path runs on every scan
+      // and already knows the answer — it is not a re-extraction — so it pays
+      // no query for this.
+      const before = isReextraction
+        ? await tx.document.findUnique({
+            where: { id: documentId },
+            select: { rawText: true, overallConfidence: true }
+          })
+        : null;
+
       const englishNormalizedText = this.normalizer.normalizeTextToEnglish(
         extraction.rawText,
         extraction.detectedLanguage
@@ -133,11 +178,57 @@ export class PersistenceService {
       // 2026-06-22 regime-change analysis rests on exactly that history.
       // Instead the recovery is recorded alongside it, carrying the class the
       // document failed with, so the pair reads "failed with X, then succeeded".
+      //
+      // THREE CONDITIONS, and each one closes a distinct way of lying to the
+      // user. `priorFailure` alone — which is what this used to be — fails the
+      // first two.
+      //
+      //   isReextraction — the document was re-processed AT ALL. Without it the
+      //     FIRST upload of a document whose extraction fails writes this
+      //     marker, because recordExtractionFailure runs BEFORE this method
+      //     (ingestionService.ts:176-197, then :228): `priorFailure` is already
+      //     sitting on the row on the very first pass. Measured 2026-09-10
+      //     against main 2a71211, real IngestionService and PersistenceService
+      //     over a fake db, adapter returning its empty result: the fresh
+      //     upload wrote extraction_model, extraction_error AND
+      //     extraction_recovered. That document then carries a "Re-processed"
+      //     badge and a notice reading "its details and amounts appear now",
+      //     holding neither.
+      //
+      //   extractionSucceeded — the notice's whole claim is that details and
+      //     amounts APPEAR NOW. A re-extraction that fails again leaves the row
+      //     exactly as empty as it was and would carry the same sentence. The
+      //     test is the EXTRACTED metric defined above recordDeliveryFailure —
+      //     the COLUMNS, not the absence of an error row — applied to the two
+      //     values this transaction is about to write.
+      //
+      //   priorFailure || wasEmptyShape — there was something to recover. The
+      //     first keeps the original trigger exactly as it was and carries the
+      //     class forward. The second is what admits the rows holding no class
+      //     at all: measured on production 2026-09-10, /reextract admits 110
+      //     documents and exactly ONE of them carries an extraction_error row.
+      //     Without this clause the other 109 recover with no badge, and their
+      //     amounts enter the user's totals with nothing saying why — the
+      //     20,644.74 movement described above, repeated silently.
+      //
+      // valueString is the recorded class or NULL, never a default: inventing
+      // one asserts a cause nobody recorded. documentDto.ts:31-33 maps null
+      // through as `{ failedWith: null }`, and neither render site reads the
+      // field (DocumentDetailScreen.tsx:282, ActivityScreen.tsx:152 both gate
+      // on the object's presence), so a classless recovery renders exactly like
+      // a classed one.
       const priorFailure = await tx.documentFact.findFirst({
         where: { documentId, key: 'extraction_error' }
       });
-      if (priorFailure) {
+      const wasEmptyShape = before !== null
+        && before.rawText === ''
+        && before.overallConfidence === 0;
+      const extractionSucceeded = (extraction.rawText ?? '') !== ''
+        && (extraction.overallConfidence ?? 0) > 0;
+
+      if (isReextraction && extractionSucceeded && (priorFailure !== null || wasEmptyShape)) {
         // Replace rather than accumulate: same idiom as every other marker here.
+        // This is also what keeps a second re-extraction from leaving two rows.
         await tx.documentFact.deleteMany({
           where: { documentId, key: 'extraction_recovered' }
         });
@@ -146,7 +237,7 @@ export class PersistenceService {
             documentId,
             factType: 'EXTRACTION_RECOVERED',
             key: 'extraction_recovered',
-            valueString: priorFailure.valueString,
+            valueString: priorFailure?.valueString ?? null,
             confidence: 1.0,
             sourceSpan: 'extraction_recovery',
             isReviewed: false,
