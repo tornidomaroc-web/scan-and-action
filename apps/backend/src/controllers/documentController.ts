@@ -197,6 +197,22 @@ export class DocumentController {
         where: {
           organizationId: (req as any).user.organizationId
         } as any,
+        // BOUNDED include, deliberately not `facts: true`. A list row needs to
+        // answer one question — was this document recovered after a failure? —
+        // and `facts: true` over 100 documents would ship every extracted fact
+        // to render one badge. This pulls at most ONE row per document.
+        //
+        // The list is where a user reconciling against an old total FINDS the
+        // changed documents; detail is where they read the explanation. Without
+        // this include a list row could never show the marker, because neither
+        // list endpoint included facts at all.
+        include: {
+          facts: {
+            where: { key: 'extraction_recovered' },
+            select: { key: true, valueString: true },
+            take: 1
+          }
+        },
         orderBy: { uploadedAt: 'desc' },
         take: 100 // Minimal v1 cap
       });
@@ -214,6 +230,16 @@ export class DocumentController {
           organizationId: req.user.organizationId,
           status: { in: ['COMPLETED', 'NEEDS_REVIEW'] }
         } as any,
+        // Same bounded include as getAllDocuments, for the same reason. Kept
+        // identical so the two list paths cannot drift into disagreeing about
+        // whether a row is marked.
+        include: {
+          facts: {
+            where: { key: 'extraction_recovered' },
+            select: { key: true, valueString: true },
+            take: 1
+          }
+        },
         orderBy: { uploadedAt: 'desc' },
         take: 10
       });
