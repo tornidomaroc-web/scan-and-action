@@ -65,6 +65,85 @@ const NO_USER_AUTHORED_FACT = {
   facts: { none: { sourceSpan: { startsWith: USER_AUTHORED_SPAN_PREFIX } } },
 } as const;
 
+// The documentType the UPLOAD STUB carries (uploadController.ts:89), and the
+// only value that survives to the database untouched.
+//
+// THIS IS A DISCRIMINATOR, NOT A TYPE. `normalizeDocumentType`
+// (normalizationService.ts:41-44) maps every unrecognised input to
+// 'UNKNOWN_DOCUMENT_TYPE' — 'unknown' is NOT a key of DOCUMENT_TYPE_MAP — so any
+// row that reached updateDocumentWithExtraction has had this column rewritten.
+// A row still reading plain 'UNKNOWN' therefore NEVER REACHED THE PERSIST.
+//
+// Today exactly one path produces that and returns before the persist: the
+// MULTI-DOCUMENT decline at ingestionService.ts:91-108, which calls
+// markAsNeedsReview and returns. Measured on production 2026-09-10: 10 of the
+// 110 admitted rows read 'UNKNOWN', all of them in accounts other than the
+// owner's, and none carries an extraction_model fact — consistent with an early
+// return before recordExtractionModel.
+//
+// WHY THEY ARE REFUSED. Re-extraction re-runs the same guard, but that guard is
+// isSingleDocument — a Gemini call, non-deterministic, and today on a different
+// model generation than the July 2026 judgment that set these rows aside. If it
+// flips, the pipeline writes ONE TOTAL_AMOUNT for an image holding SEVERAL
+// documents, and sum_expenses (queryExecutor.ts:59-69) sums TOTAL_AMOUNT with no
+// status filter — so a figure matching no real receipt lands in the user's total
+// immediately. The notice they would then read ("Extraction of this document
+// failed earlier") is also untrue for them: they were declined, not failed.
+//
+// The asymmetry decides it. Refusing one of these wrongly costs a recovery that
+// has been unavailable for two months anyway; admitting one wrongly puts a wrong
+// number in somebody's accounts. The right recovery for a multi-document image
+// is to upload its pages separately, which is what the refusal says.
+const STUB_DOCUMENT_TYPE = 'UNKNOWN';
+
+/**
+ * WHY a re-extraction of this row would be refused, or null if it is admitted.
+ *
+ * ONE function, used by BOTH the endpoint and the `reextractable` flag the
+ * detail response carries. That is the point: the button is rendered from the
+ * server's own answer, so it cannot appear on a row the server would refuse.
+ * Two copies of this predicate would drift the first time either moved.
+ */
+export function reextractionRefusal(
+  doc: { status: string; rawText: string; overallConfidence: number; documentType: string },
+  hasUserAuthoredFact: boolean
+): { code: string; error: string } | null {
+  if (doc.status !== REEXTRACTABLE_STATUS && doc.status !== CONDITIONALLY_REEXTRACTABLE_STATUS) {
+    return {
+      code: 'INVALID_SOURCE_STATE',
+      error: `Only a ${REEXTRACTABLE_STATUS} or empty ${CONDITIONALLY_REEXTRACTABLE_STATUS} document can be re-extracted; this one is ${doc.status}.`,
+    };
+  }
+
+  // The extra conditions apply to NEEDS_REVIEW ONLY. FAILED is admitted exactly
+  // as before — this adds states and conditions to the widening, never to the
+  // one that already worked.
+  if (doc.status === CONDITIONALLY_REEXTRACTABLE_STATUS) {
+    const isEmptyShape = doc.rawText === EMPTY_SHAPE.rawText
+      && doc.overallConfidence === EMPTY_SHAPE.overallConfidence;
+    if (!isEmptyShape) {
+      return {
+        code: 'DOCUMENT_HAS_CONTENT',
+        error: 'This document has extracted content; re-extracting it would overwrite that content.',
+      };
+    }
+    if (hasUserAuthoredFact) {
+      return {
+        code: 'DOCUMENT_HAS_USER_EDITS',
+        error: 'This document carries edits made by a user; re-extracting it would overwrite them.',
+      };
+    }
+    if (doc.documentType === STUB_DOCUMENT_TYPE) {
+      return {
+        code: 'DOCUMENT_NOT_SINGLE',
+        error: 'This image was set aside because it looked like more than one document; re-processing it would record one set of details for several.',
+      };
+    }
+  }
+
+  return null;
+}
+
 export class DocumentController {
   public static async getDocumentDetail(req: Request, res: Response, next: NextFunction) {
     try {
@@ -87,9 +166,27 @@ export class DocumentController {
 
       const signedFileUrl = await getSignedFileUrl(doc.fileUrl);
 
+      // WOULD THE RE-EXTRACTION ENDPOINT ACCEPT THIS ROW? Answered by the
+      // endpoint's own predicate, so the retry button is rendered from the
+      // server's decision rather than from a second copy of the rules that
+      // would drift the first time either side moved.
+      //
+      // DELIBERATELY NOT IN mapDocumentToDto, and this is the whole reason it
+      // sits here instead. The list endpoints (:211, :238) bound their `facts`
+      // include to the recovery marker alone, so `doc.facts.length` there means
+      // "has a recovery marker", NOT "has a user-authored fact" — the same
+      // identifier carrying a different meaning depending on the caller. Put
+      // this in the shared mapper and every list row with user edits would
+      // report itself re-extractable. THIS handler is the only one that loads
+      // facts in full, and it is the only screen with a button.
+      const hasUserAuthoredFact = doc.facts.some(
+        (f: any) => typeof f.sourceSpan === 'string' && f.sourceSpan.startsWith(USER_AUTHORED_SPAN_PREFIX)
+      );
+
       return res.status(200).json({
         ...mapDocumentToDto(doc),
-        signedFileUrl
+        signedFileUrl,
+        reextractable: reextractionRefusal(doc, hasUserAuthoredFact) === null
       });
     } catch (error) {
       next(error);
@@ -388,36 +485,15 @@ export class DocumentController {
         return res.status(404).json({ error: 'Document not found' });
       }
 
-      const isEmptyShape = doc.rawText === EMPTY_SHAPE.rawText
-        && doc.overallConfidence === EMPTY_SHAPE.overallConfidence;
       const hasUserAuthoredFact = doc.facts.length > 0;
 
-      if (doc.status !== REEXTRACTABLE_STATUS && doc.status !== CONDITIONALLY_REEXTRACTABLE_STATUS) {
-        console.warn(`[DocumentController] Re-extraction refused for ${id}: status is ${doc.status}`);
-        return res.status(409).json({
-          error: `Only a ${REEXTRACTABLE_STATUS} or empty ${CONDITIONALLY_REEXTRACTABLE_STATUS} document can be re-extracted; this one is ${doc.status}.`,
-          code: 'INVALID_SOURCE_STATE'
-        });
-      }
-
-      // The two extra conditions apply to NEEDS_REVIEW ONLY. FAILED is
-      // admitted exactly as before — this widening adds a state, it does not
-      // add conditions to the one that already worked.
-      if (doc.status === CONDITIONALLY_REEXTRACTABLE_STATUS) {
-        if (!isEmptyShape) {
-          console.warn(`[DocumentController] Re-extraction refused for ${id}: NEEDS_REVIEW row holds content.`);
-          return res.status(409).json({
-            error: 'This document has extracted content; re-extracting it would overwrite that content.',
-            code: 'DOCUMENT_HAS_CONTENT'
-          });
-        }
-        if (hasUserAuthoredFact) {
-          console.warn(`[DocumentController] Re-extraction refused for ${id}: row carries a user-authored fact.`);
-          return res.status(409).json({
-            error: 'This document carries edits made by a user; re-extracting it would overwrite them.',
-            code: 'DOCUMENT_HAS_USER_EDITS'
-          });
-        }
+      // The SAME predicate the detail response renders the button from. A
+      // refusal here means the button should not have been shown; the copy for
+      // each code exists because a direct call can still reach this.
+      const refusal = reextractionRefusal(doc, hasUserAuthoredFact);
+      if (refusal) {
+        console.warn(`[DocumentController] Re-extraction refused for ${id}: ${refusal.code}`);
+        return res.status(409).json({ error: refusal.error, code: refusal.code });
       }
 
       // The existence probe. Deliberately before any write: if the object is
@@ -454,8 +530,20 @@ export class DocumentController {
           id: id as string,
           organizationId: organizationId as string,
           status: doc.status,
+          // documentType is in here for the same reason the fact clause is: the
+          // whole guard is repeated at claim time, not just the parts that are
+          // cheap. Nothing rewrites documentType between the read and here
+          // today — only the persist does, and the persist cannot run on a row
+          // nothing has claimed — so this clause is belt to the read's braces
+          // rather than a live race. It stays because a guard that is only
+          // partially repeated is the shape that loses exactly the condition
+          // someone later adds.
           ...(doc.status === CONDITIONALLY_REEXTRACTABLE_STATUS
-            ? { ...EMPTY_SHAPE, ...NO_USER_AUTHORED_FACT }
+            ? {
+                ...EMPTY_SHAPE,
+                ...NO_USER_AUTHORED_FACT,
+                documentType: { not: STUB_DOCUMENT_TYPE },
+              }
             : {})
         },
         data: { status: 'PROCESSING' }

@@ -425,6 +425,9 @@ export const strings = {
     reextractStarted: 'Re-processing started.',
     reextractSourceUnavailable: 'The original file is not available. Please upload the document again.',
     reextractInProgress: 'This document is already being re-processed. Please wait.',
+    reextractHasContent: 'This document already has details, so there is nothing to re-process.',
+    reextractHasUserEdits: 'This document has your own edits. Re-processing would overwrite them, so it was not started.',
+    reextractNotSingle: 'This image looks like more than one document. Please upload each document separately.',
     // A document recovered by the re-extraction endpoint gains its amounts, and
     // sum_expenses groups TOTAL_AMOUNT facts with NO status filter — so those
     // amounts enter the user's expense total the moment they are written. On
@@ -859,6 +862,9 @@ export const strings = {
     reextractStarted: 'Retraitement lancé.',
     reextractSourceUnavailable: 'Le fichier d’origine n’est pas disponible. Veuillez importer le document à nouveau.',
     reextractInProgress: 'Ce document est déjà en cours de retraitement. Veuillez patienter.',
+    reextractHasContent: 'Ce document contient déjà des informations. Il n’y a rien à retraiter.',
+    reextractHasUserEdits: 'Ce document contient vos propres modifications. Le retraitement les écraserait, il n’a donc pas été lancé.',
+    reextractNotSingle: 'Cette image semble contenir plusieurs documents. Veuillez importer chaque document séparément.',
     reprocessedBadge: 'Retraité',
     reprocessedNotice: "L'extraction de ce document avait échoué. Il a été retraité le {date}, ses informations et ses montants apparaissent donc maintenant et sont comptés dans vos totaux.",
     insight: 'Analyse',
@@ -1305,6 +1311,9 @@ export const strings = {
     reextractStarted: 'بدأت إعادة المعالجة.',
     reextractSourceUnavailable: 'الملف الأصلي غير متاح. يرجى رفع المستند من جديد.',
     reextractInProgress: 'تجري إعادة معالجة هذا المستند بالفعل. يرجى الانتظار.',
+    reextractHasContent: 'يحتوي هذا المستند على معلومات بالفعل، فلا شيء لإعادة معالجته.',
+    reextractHasUserEdits: 'يحتوي هذا المستند على تعديلاتك الخاصة. إعادة المعالجة ستستبدلها، لذلك لم تبدأ.',
+    reextractNotSingle: 'يبدو أن هذه الصورة تحتوي على أكثر من مستند. يرجى رفع كل مستند على حدة.',
     reprocessedBadge: 'أُعيدت معالجته',
     reprocessedNotice: 'فشل استخراج هذا المستند سابقًا. تمت إعادة معالجته في {date}. تظهر مبالغه الآن ضمن إجمالياتك.',
     insight: 'رؤية',
