@@ -8,6 +8,30 @@ export const mapDocumentToDto = (doc: any) => ({
   overallConfidence: doc.overallConfidence,
   status: doc.status,
   uploadedAt: doc.uploadedAt,
+  // WHEN the extraction landed. Additive, no schema change — the column has
+  // always existed, it simply never reached the client. Explicitly `?? null`
+  // rather than left undefined, because the client distinguishes "never
+  // processed" (a PROCESSING stub) from "field not sent".
+  processedAt: doc.processedAt ?? null,
+  // Did this document FAIL and then get recovered? Derived here, not left to
+  // the client, so that document detail (which includes every fact) and the
+  // list endpoints (which include ONLY the bounded recovery fact) produce the
+  // same shape from the same mapper.
+  //
+  // Why it needs surfacing at all: a recovered document writes a TOTAL_AMOUNT
+  // fact, and `sum_expenses` (queryExecutor.ts:58-70) groups TOTAL_AMOUNT facts
+  // with NO status filter by default — so the amount enters the user's expense
+  // total the instant it is written. On 2026-09-09, 20 recovered documents moved
+  // one organisation's summable total by 20,644.74 with nothing in the product
+  // saying why. A financial figure that moves unexplained reads as a bug.
+  //
+  // The class is carried VERBATIM (`RATE_LIMITED`, `VENDOR_ERROR`, ...), never
+  // defaulted: `valueString` may legitimately be null, and inventing a class
+  // would be asserting a cause nobody recorded.
+  reprocessed: (() => {
+    const marker = doc.facts?.find((f: any) => f.key === 'extraction_recovered');
+    return marker ? { failedWith: marker.valueString ?? null } : null;
+  })(),
   facts: doc.facts?.map((f: any) => ({
     key: f.key,
     // Additive: expose factType exactly as the raw Prisma row does, so the

@@ -425,6 +425,14 @@ export const strings = {
     reextractStarted: 'Re-processing started.',
     reextractSourceUnavailable: 'The original file is not available. Please upload the document again.',
     reextractInProgress: 'This document is already being re-processed. Please wait.',
+    // A document recovered by the re-extraction endpoint gains its amounts, and
+    // sum_expenses groups TOTAL_AMOUNT facts with NO status filter — so those
+    // amounts enter the user's expense total the moment they are written. On
+    // 2026-09-09 that moved one organisation's summable total by 20,644.74 with
+    // nothing in the product explaining it. This copy is the explanation, so it
+    // must say BOTH that extraction previously failed and WHEN it was redone.
+    reprocessedBadge: 'Re-processed',
+    reprocessedNotice: 'Extraction of this document failed earlier. It was re-processed on {date}, so its details and amounts appear now and are counted in your totals.',
     insight: 'Insight',
     tip: 'Tip',
     emptyTitle: 'No documents yet',
@@ -851,6 +859,8 @@ export const strings = {
     reextractStarted: 'Retraitement lancé.',
     reextractSourceUnavailable: 'Le fichier d’origine n’est pas disponible. Veuillez importer le document à nouveau.',
     reextractInProgress: 'Ce document est déjà en cours de retraitement. Veuillez patienter.',
+    reprocessedBadge: 'Retraité',
+    reprocessedNotice: "L'extraction de ce document avait échoué. Il a été retraité le {date}, ses informations et ses montants apparaissent donc maintenant et sont comptés dans vos totaux.",
     insight: 'Analyse',
     tip: 'Astuce',
     emptyTitle: 'Aucun document pour l’instant',
@@ -1295,6 +1305,8 @@ export const strings = {
     reextractStarted: 'بدأت إعادة المعالجة.',
     reextractSourceUnavailable: 'الملف الأصلي غير متاح. يرجى رفع المستند من جديد.',
     reextractInProgress: 'تجري إعادة معالجة هذا المستند بالفعل. يرجى الانتظار.',
+    reprocessedBadge: 'أُعيدت معالجته',
+    reprocessedNotice: 'فشل استخراج هذا المستند سابقًا. تمت إعادة معالجته في {date}. تظهر مبالغه الآن ضمن إجمالياتك.',
     insight: 'رؤية',
     tip: 'نصيحة',
     emptyTitle: 'لا توجد مستندات بعد',

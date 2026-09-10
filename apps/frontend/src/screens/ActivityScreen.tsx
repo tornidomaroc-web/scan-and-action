@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, ArrowLeft, Activity, Loader2 } from 'lucide-react';
+import { FileText, ArrowLeft, Activity, Loader2, RefreshCw } from 'lucide-react';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
 import { EmptyState } from '../components/EmptyState';
@@ -145,6 +145,16 @@ export const ActivityScreen = () => {
                       <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">
                         {dateStr}
                       </p>
+                      {/* The LIST is where a user reconciling against an old
+                          total FINDS the documents whose amounts changed;
+                          detail is where they read why. Detail alone would make
+                          them open rows one at a time to stumble on it. */}
+                      {item.reprocessed && (
+                        <span className="mt-1 inline-flex max-w-full items-center gap-1 rounded-pill bg-accent-tint px-2 py-0.5 text-[11px] font-medium text-accent">
+                          <RefreshCw className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">{s.reprocessedBadge}</span>
+                        </span>
+                      )}
                     </div>
                   </div>
                   {status && (

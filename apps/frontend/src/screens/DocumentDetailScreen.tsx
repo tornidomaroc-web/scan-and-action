@@ -271,6 +271,33 @@ export const DocumentDetailScreen = () => {
           </div>
         </div>
 
+        {/* RE-PROCESSED NOTICE. Sits ABOVE the decision banner deliberately.
+            A document recovered by the re-extraction endpoint gains its amounts,
+            and sum_expenses groups TOTAL_AMOUNT facts with NO status filter — so
+            those amounts enter the user's expense total the moment they land. On
+            2026-09-09 that moved one organisation's summable total by 20,644.74
+            with nothing in the product saying why, and a money figure that moves
+            unexplained reads as a bug. This is the explanation, so it comes
+            before the decision the user is being asked to act on. */}
+        {doc.reprocessed && (
+          <div className="mb-6 flex items-start gap-3 rounded-card border border-line bg-surface-alt p-4">
+            <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-btn bg-accent-tint text-accent">
+              <RefreshCw size={15} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-label font-semibold text-ink">{s.reprocessedBadge}</p>
+              <p className="mt-1 text-sm leading-relaxed text-ink-secondary">
+                <bdi dir="auto">
+                  {s.reprocessedNotice.replace(
+                    '{date}',
+                    formatDateValue(doc.processedAt, language) ?? s.recently
+                  )}
+                </bdi>
+              </p>
+            </div>
+          </div>
+        )}
+
         <DecisionBanner decision={decision} reason={reason} />
 
         <FixActionPanel
