@@ -107,6 +107,12 @@ function failedDoc(overrides: Record<string, unknown> = {}) {
     organizationId: ORG,
     userId: 'user-1',
     status: 'FAILED',
+    // NOT NULL in the schema, and now read by the guard: a fixture omitting it
+    // would let the multi-document check compare against `undefined`, which
+    // production cannot produce. 'UNKNOWN_DOCUMENT_TYPE' is what the persist
+    // writes for an empty extraction; the bare stub value 'UNKNOWN' is the
+    // refusal case and is exercised in documentController.reextractGate.test.ts.
+    documentType: 'UNKNOWN_DOCUMENT_TYPE',
     fileUrl: 'uploads/1730000000000-receipt.jpg',
     originalFileName: 'receipt.jpg',
     scanChargedAt: null,

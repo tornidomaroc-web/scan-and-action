@@ -13,7 +13,13 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { getStatus, getDocTypeLabel, getEntityRoleLabel, formatFactValue, factValueDir } from '../lib/searchResultCard';
 import { formatDateValue } from '../lib/formatCellValue';
 import { isIdentityConflict } from '../lib/identityConflict';
-import { isSourceFileUnavailable, isReextractionInProgress } from '../lib/reextractErrors';
+import {
+  isSourceFileUnavailable,
+  isReextractionInProgress,
+  isDocumentHasContent,
+  isDocumentHasUserEdits,
+  isDocumentNotSingle,
+} from '../lib/reextractErrors';
 
 // Document detail, restyled onto the --sa-* token system (PR-D3).
 //  - Calm flat surfaces (rounded-card, quiet shadow) instead of the old
@@ -82,10 +88,15 @@ export const DocumentDetailScreen = () => {
     }
   };
 
-  // Re-extraction: only reachable for a FAILED document (gate at the render
-  // site). It charges no scan — a FAILED row was never charged, because every
-  // writer of FAILED is reached only after the charge transaction rolled back —
-  // so this is a free retry, not a refund.
+  // Re-extraction. The render gate is the SERVER's own answer (`doc.reextractable`,
+  // computed by documentController.reextractionRefusal), so the button appears
+  // on exactly the rows the endpoint would accept and on no others.
+  //
+  // It charges no scan. A FAILED row was never charged — every writer of FAILED
+  // is reached only after the charge transaction rolled back — and an empty
+  // NEEDS_REVIEW row keeps whatever scanChargedAt it already had, because
+  // persistence.ts leaves the column untouched in both directions when
+  // chargeScan is false. Free retry, never a refund.
   const handleReextract = async () => {
     if (actioning) return;
     setActioning(true);
@@ -104,6 +115,15 @@ export const DocumentDetailScreen = () => {
         showToast(s.reextractSourceUnavailable, 'error');
       } else if (isReextractionInProgress(error)) {
         showToast(s.reextractInProgress, 'info');
+      } else if (isDocumentHasUserEdits(error)) {
+        // Checked BEFORE hasContent: a row can be refused for either, and this
+        // is the one the user needs to hear — the refusal is protecting their
+        // own corrections, not reporting a fault.
+        showToast(s.reextractHasUserEdits, 'info');
+      } else if (isDocumentHasContent(error)) {
+        showToast(s.reextractHasContent, 'info');
+      } else if (isDocumentNotSingle(error)) {
+        showToast(s.reextractNotSingle, 'error');
       } else if (isIdentityConflict(error)) {
         setLocked(true);
         setErrorMsg(s.accountLockedBody);
@@ -487,11 +507,27 @@ export const DocumentDetailScreen = () => {
 
       {/* Sticky review actions: bottom-20 clears the mobile tab bar; md:bottom-6
           sits above the viewport edge on desktop. */}
-      {/* A FAILED document reaches this screen already — getAllDocuments applies
-          no status filter, and the Activity row links straight here — but until
-          now it arrived with NO action at all. Same sticky container, one extra
-          branch: NEEDS_REVIEW keeps approve/reject, FAILED gets a single retry,
-          and every other status still shows no bar. */}
+      {/* THE RENDER GATE IS `doc.reextractable`, WHICH THE SERVER COMPUTES.
+          documentController's getDocumentDetail runs the endpoint's own refusal
+          predicate and sends the answer, so this button appears on exactly the
+          rows POST /:id/reextract would accept. The alternative — restating the
+          rules here — is a second copy that drifts the first time either side
+          moves, and it cannot be written correctly anyway: the DTO carries no
+          rawText, so a client cannot tell an empty NEEDS_REVIEW row from one
+          holding content.
+
+          Until this change the gate was `status === 'FAILED'`, and production
+          held ZERO FAILED rows — so the button rendered for nobody and the
+          endpoint had never once run for a real user. The refusal copy below
+          exists because the codes were reachable from the server before they
+          were reachable from a tap.
+
+          THE FAILED BRANCH DELIBERATELY DOES NOT CONSULT `reextractable`. The
+          server admits FAILED unconditionally, so the flag is always true for
+          those rows and adding it here would buy nothing — while costing the
+          one thing that matters: a response served before this deploy, or from
+          a cache, carries no such field, and `undefined` would make the button
+          vanish from a path that already worked. Additive here means additive.  */}
       {doc.status === 'FAILED' && (
         <div className="sticky bottom-20 z-40 mt-6 md:bottom-6">
           <div className="flex gap-3 rounded-card border border-line bg-surface-raised/95 p-3 shadow-lg backdrop-blur">
@@ -509,23 +545,39 @@ export const DocumentDetailScreen = () => {
 
       {doc.status === 'NEEDS_REVIEW' && (
         <div className="sticky bottom-20 z-40 mt-6 md:bottom-6">
-          <div className="flex gap-3 rounded-card border border-line bg-surface-raised/95 p-3 shadow-lg backdrop-blur">
-            <button
-              onClick={() => handleReviewAction('approve')}
-              disabled={actioning}
-              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-success text-sm font-semibold text-white transition-colors active:scale-[0.99] disabled:opacity-50"
-            >
-              <CheckCircle size={18} />
-              {s.approve}
-            </button>
-            <button
-              onClick={() => handleReviewAction('reject')}
-              disabled={actioning}
-              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-danger text-sm font-semibold text-white transition-colors active:scale-[0.99] disabled:opacity-50"
-            >
-              <XCircle size={18} />
-              {s.reject}
-            </button>
+          <div className="flex flex-col gap-3 rounded-card border border-line bg-surface-raised/95 p-3 shadow-lg backdrop-blur">
+            {/* Its OWN row, full width, above approve/reject. Three buttons on
+                one line leaves ~120px each at 400px, which truncates the labels
+                in all three languages — Arabic worst. Stacking costs one row of
+                height on a bar that is already sticky. */}
+            {doc.reextractable && (
+              <button
+                onClick={handleReextract}
+                disabled={actioning}
+                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-btn border border-line bg-surface text-sm font-semibold text-ink transition-colors active:scale-[0.99] disabled:opacity-50"
+              >
+                <RefreshCw size={18} />
+                {s.retryExtraction}
+              </button>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleReviewAction('approve')}
+                disabled={actioning}
+                className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-success text-sm font-semibold text-white transition-colors active:scale-[0.99] disabled:opacity-50"
+              >
+                <CheckCircle size={18} />
+                {s.approve}
+              </button>
+              <button
+                onClick={() => handleReviewAction('reject')}
+                disabled={actioning}
+                className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-danger text-sm font-semibold text-white transition-colors active:scale-[0.99] disabled:opacity-50"
+              >
+                <XCircle size={18} />
+                {s.reject}
+              </button>
+            </div>
           </div>
         </div>
       )}
