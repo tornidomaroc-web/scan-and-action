@@ -488,7 +488,12 @@ export class DocumentController {
             file.mimeType,
             doc.originalFileName,
             doc.fileUrl,
-            { chargeScan: false }
+            // Both flags, deliberately. `chargeScan: false` is about billing;
+            // `isReextraction: true` is what lets persistence tell this run
+            // apart from a first upload, which it cannot do from the row —
+            // the stub uploadController writes carries the SAME empty shape
+            // this endpoint admits, and the claim above left it that way.
+            { chargeScan: false, isReextraction: true }
           )
           .catch((err: any) => {
             console.error(`[DocumentController] Background re-extraction failed for ${id}:`, formatErrorForLog(err));
