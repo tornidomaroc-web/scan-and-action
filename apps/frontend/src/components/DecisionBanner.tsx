@@ -6,6 +6,10 @@ import { useLanguage } from '../i18n/LanguageContext';
 type Props = {
   decision: 'APPROVED' | 'NEEDS_REVIEW' | 'FLAGGED' | null;
   reason?: string;
+  // The DOCUMENT LIFECYCLE status, which answers a different question from the
+  // decision and can legitimately disagree with it. Optional so existing call
+  // sites keep compiling; when absent the copy stays scoped but unqualified.
+  status?: string | null;
 };
 
 // The rule engine emits a FINITE, known set of reasons (ruleEngineService) and
@@ -40,10 +44,43 @@ export const translateDecisionReasons = (
 // visually distinct from the document lifecycle status: a large tinted banner
 // with an icon, never the small status dot. All copy comes from i18n (all three
 // locales), so it no longer falls back to hardcoded English for FLAGGED/APPROVED.
-export const DecisionBanner: React.FC<Props> = ({ decision, reason }) => {
+// ── WHAT "APPROVED" IS ENTITLED TO SAY ──────────────────────────────────────
+// The subtitle used to read "No issues detected." It is not a finding about the
+// document; it is the absence of a rule firing, and the rule engine
+// (ruleEngineService.ts) tests exactly four things:
+//
+//   A  amount > 500                                      -> NEEDS_REVIEW
+//   B  food merchant/summary AND amount > 50             -> FLAGGED
+//   C  amount missing entirely                           -> NEEDS_REVIEW
+//   D  same merchant + same amount on another document   -> FLAGGED
+//
+// All four turn on the amount. NONE of them checks whether the merchant, the
+// date, the total or the currency were read CORRECTLY — so "no issues detected"
+// claims a verification that never happened.
+//
+// It gets worse when the document is still NEEDS_REVIEW. Those are two
+// different questions with two different answers, and both can be true at once:
+// the decision asks "did an expense rule fire?", the status asks "was the
+// extraction confident enough to skip review?" (persistence.ts isWeak). On the
+// canary c176c0d5 — amount 84.80, under every threshold, no rule fired, but the
+// extraction was weak — a green "Approved / No issues detected" sat beside
+// "Needs review" with nothing explaining how both could hold. A user reading
+// that has to decide which one is lying.
+//
+// So the APPROVED subtitle is scoped in both cases, and when the document still
+// needs review it says so rather than leaving the reader to reconcile it. The
+// tint and icon are untouched: this change is about what the screen SAYS.
+const NEEDS_REVIEW_STATUS = 'NEEDS_REVIEW';
+
+export const DecisionBanner: React.FC<Props> = ({ decision, reason, status }) => {
   const s = useStrings();
   const { language } = useLanguage();
   if (!decision) return null;
+
+  const approvedSubtitle =
+    String(status || '').toUpperCase() === NEEDS_REVIEW_STATUS
+      ? s.decisionApprovedNeedsReviewDesc
+      : s.decisionApprovedDesc;
 
   const config = {
     FLAGGED: {
@@ -62,7 +99,7 @@ export const DecisionBanner: React.FC<Props> = ({ decision, reason }) => {
       tint: 'bg-success-tint border-success/30 text-success-text',
       icon: <CheckCircle size={20} />,
       title: s.statusApproved,
-      subtitle: s.decisionApprovedDesc,
+      subtitle: approvedSubtitle,
     },
   };
 

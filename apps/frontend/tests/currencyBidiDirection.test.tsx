@@ -70,7 +70,16 @@ let container: HTMLDivElement;
 let root: Root;
 
 const AMOUNT_FACT = { key: 'TOTAL_AMOUNT', valueNumber: 42.07, currency: 'USD', confidence: 0.97 };
-const ARABIC_FACT = { key: 'vendor', valueString: 'شركة الفواتير', confidence: 0.95 };
+// The key here used to be 'vendor', which no backend path has ever written —
+// it was invented to stand for "a fact with an Arabic STRING value", because
+// the detail table rendered any key at all. It no longer does: lib/detailFacts
+// is an allowlist that fails closed, so an invented key renders nowhere and
+// this file's subject (the DIRECTION of a string value) had nothing to measure.
+//
+// `justification_note` is the real, allowlisted, string-valued fact — free text
+// a user types during review (documentController.ts:699), which is exactly the
+// Arabic prose that must stay dir="auto". Same assertion, on a key that exists.
+const ARABIC_FACT = { key: 'justification_note', valueString: 'شركة الفواتير', confidence: 0.95 };
 
 // getAmount matches the fact key 'AMOUNT' exactly (searchResultCard.ts:81), so
 // the queue fixture must use that key, not the Detail table's TOTAL_AMOUNT.
