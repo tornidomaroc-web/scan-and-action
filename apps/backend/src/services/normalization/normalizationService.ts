@@ -1,10 +1,34 @@
 // Stubs/dictionaries for canonical mapping. In a real system, these might be 
 // fetched from the DB or a dedicated mapping service.
 
+// THE KEYS ARE THE EXTRACTION PROMPT'S OWN VOCABULARY, and nothing else may be
+// added here without reading it first.
+//
+// `normalizeDocumentType` is reached by exactly one value: whatever the model
+// put in `documentType`, passed through verbatim by geminiAdapter.ts:281. The
+// prompt pins that to three literals (geminiAdapter.ts:203, :209):
+//
+//     "documentType": "invoice" | "receipt" | "business_card"
+//
+// 'receipt' was missing, so every receipt in a receipt-scanning product was
+// stored as 'UNKNOWN_DOCUMENT_TYPE' — 323 of 385 rows on 2026-09-11, with
+// RECEIPT at 0 — and intentParser.ts:77, which filters on 'RECEIPT', matched
+// nothing for the life of the product.
+//
+// ⚠ THE REMAINING KEYS BELOW ARE DEAD, and are left only because removing them
+// is a separate change. The prompt instructs English literals, so 'facture',
+// 'فاتورة', 'carte de visite', 'بطاقة عمل', 'rendez-vous' and 'موعد' cannot be
+// produced by anything that calls this. Worse, 'business card' is spelled with
+// a SPACE while the prompt says 'business_card' with an UNDERSCORE — which is
+// why production holds 0 BUSINESS_CARD rows and reportController.ts:36's
+// 'recent_cards' report can never return one. That key was written from
+// imagination rather than from the prompt. Do not add more of them: if a new
+// spelling is wanted, change the PROMPT and add the key it then emits.
 const DOCUMENT_TYPE_MAP: Record<string, string> = {
   'facture': 'INVOICE',
   'invoice': 'INVOICE',
   'فاتورة': 'INVOICE',
+  'receipt': 'RECEIPT',
   'carte de visite': 'BUSINESS_CARD',
   'business card': 'BUSINESS_CARD',
   'بطاقة عمل': 'BUSINESS_CARD',

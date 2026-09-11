@@ -115,6 +115,11 @@ const CASES: Array<{ name: string; doc: any; refusedWith: string | null }> = [
     doc: row({ facts: [userFact] }), refusedWith: 'DOCUMENT_HAS_USER_EDITS' },
   { name: 'NEEDS_REVIEW declined as multi-document (stub documentType)',
     doc: row({ documentType: STUB }), refusedWith: 'DOCUMENT_NOT_SINGLE' },
+  // A type the normaliser can now produce. The guard keys on the STUB literal
+  // alone, so widening DOCUMENT_TYPE_MAP must not move any answer in this
+  // matrix — and a new persisted value must not be mistaken for the stub.
+  { name: 'NEEDS_REVIEW carrying a real persisted type (RECEIPT)',
+    doc: row({ documentType: 'RECEIPT' }), refusedWith: null },
   { name: 'COMPLETED', doc: row({ status: 'COMPLETED' }), refusedWith: 'INVALID_SOURCE_STATE' },
   { name: 'PROCESSING', doc: row({ status: 'PROCESSING' }), refusedWith: 'INVALID_SOURCE_STATE' },
   { name: 'LIMIT_REACHED', doc: row({ status: 'LIMIT_REACHED' }), refusedWith: 'INVALID_SOURCE_STATE' },
