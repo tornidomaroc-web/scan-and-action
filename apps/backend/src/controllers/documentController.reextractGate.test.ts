@@ -120,6 +120,12 @@ const CASES: Array<{ name: string; doc: any; refusedWith: string | null }> = [
   // matrix — and a new persisted value must not be mistaken for the stub.
   { name: 'NEEDS_REVIEW carrying a real persisted type (RECEIPT)',
     doc: row({ documentType: 'RECEIPT' }), refusedWith: null },
+  // Same property for the type the map gained next. BUSINESS_CARD is now a
+  // value ingestion can write (normalizationService.ts, 'business_card'), and
+  // this row must stay ADMITTED: the guard discriminates on the STUB literal
+  // 'UNKNOWN' alone, so no widening of DOCUMENT_TYPE_MAP may move a refusal.
+  { name: 'NEEDS_REVIEW carrying a real persisted type (BUSINESS_CARD)',
+    doc: row({ documentType: 'BUSINESS_CARD' }), refusedWith: null },
   { name: 'COMPLETED', doc: row({ status: 'COMPLETED' }), refusedWith: 'INVALID_SOURCE_STATE' },
   { name: 'PROCESSING', doc: row({ status: 'PROCESSING' }), refusedWith: 'INVALID_SOURCE_STATE' },
   { name: 'LIMIT_REACHED', doc: row({ status: 'LIMIT_REACHED' }), refusedWith: 'INVALID_SOURCE_STATE' },

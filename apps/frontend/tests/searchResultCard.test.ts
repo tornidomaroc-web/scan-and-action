@@ -118,6 +118,40 @@ describe('getDocTypeLabel', () => {
     // French parity.
     expect(getDocTypeLabel('INVOICE', strings.fr as any)).toBe(strings.fr.docTypeInvoice);
   });
+
+  // ── GUARD, green before the backend fix and after it ───────────────────────
+  // The backend can now store 'BUSINESS_CARD' (normalizationService.ts gained
+  // the prompt's 'business_card' key; before that, production held 0 such rows
+  // across all 386 documents, so this label had never once been rendered from
+  // real data). Nothing on this side needed to change — DOC_TYPE_LABEL_KEY and
+  // all three locales already carried it. THAT IS THE CLAIM BEING PINNED, and
+  // pinning it is the point: the assertion below is what makes "the frontend
+  // needs no change" a checked fact rather than something read off a map once.
+  //
+  // It is NOT evidence that the backend fix works — it passes identically
+  // against unpatched source. The red-on-unpatched proof lives in the backend,
+  // in normalizationService.test.ts and reportController.recentCards.test.ts.
+  it('translates BUSINESS_CARD in all three locales (the value ingestion now writes)', () => {
+    // The exact string the backend persists. Spelled once, here, on purpose:
+    // if ingestion ever writes a different spelling, this is the line to read.
+    const STORED = 'BUSINESS_CARD';
+
+    expect(getDocTypeLabel(STORED, strings.en as any)).toBe(strings.en.docTypeBusinessCard);
+    expect(getDocTypeLabel(STORED, strings.fr as any)).toBe(strings.fr.docTypeBusinessCard);
+    expect(getDocTypeLabel(STORED, strings.ar as any)).toBe(strings.ar.docTypeBusinessCard);
+
+    // Parity: a French or Arabic user reads their own label, not the English
+    // one and not the humanized enum "Business card" that would leak through
+    // getDocTypeLabel's fallback if a locale were missing the key.
+    expect(getDocTypeLabel(STORED, strings.fr as any)).not.toBe('Business card');
+    expect(getDocTypeLabel(STORED, strings.ar as any)).not.toBe('Business card');
+
+    // And it is no longer read as "Unknown", which is what every business card
+    // in production shows today via UNKNOWN_DOCUMENT_TYPE.
+    expect(getDocTypeLabel(STORED, strings.en as any)).not.toBe(strings.en.docTypeUnknown);
+    expect(getDocTypeLabel(STORED, strings.fr as any)).not.toBe(strings.fr.docTypeUnknown);
+    expect(getDocTypeLabel(STORED, strings.ar as any)).not.toBe(strings.ar.docTypeUnknown);
+  });
   it('humanizes an unknown / free-form type (never raw uppercase) and returns null when absent', () => {
     // Unknown enum -> humanized real value, not a guess, not raw uppercase.
     expect(getDocTypeLabel('PURCHASE_ORDER', strings.en as any)).toBe('Purchase order');
