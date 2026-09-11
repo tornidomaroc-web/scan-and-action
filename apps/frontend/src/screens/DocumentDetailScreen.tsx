@@ -13,6 +13,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { getStatus, getDocTypeLabel, getEntityRoleLabel, formatFactValue, factValueDir } from '../lib/searchResultCard';
 import { formatDateValue } from '../lib/formatCellValue';
 import { isIdentityConflict } from '../lib/identityConflict';
+import { visibleDetailFacts, detailFactLabel } from '../lib/detailFacts';
 import {
   isSourceFileUnavailable,
   isReextractionInProgress,
@@ -34,15 +35,12 @@ import {
 export const DocumentDetailScreen = () => {
   const s = useStrings();
   const { language } = useLanguage();
-  const fieldLabel = (key: string): string => {
-    const map: Record<string, string> = {
-      TRANSACTION_DATE: s.transactionDate,
-      TOTAL_AMOUNT: s.totalAmount,
-      decision: s.decisionField,
-      decision_reason: s.decisionReason,
-    };
-    return map[key] || key;
-  };
+  // The label for an Extracted-Facts row. Backed by the ALLOWLIST in
+  // lib/detailFacts, which is also what decides whether the row renders at all,
+  // so the two can never disagree. It has no raw-key fallback on purpose: the
+  // `map[key] || key` that used to live here is what rendered `extraction_model`
+  // and `extraction_recovered` to a user in an Arabic UI.
+  const fieldLabel = (key: string): string => detailFactLabel(key, s as any) ?? '';
   const { id: documentId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -238,13 +236,13 @@ export const DocumentDetailScreen = () => {
   // Intl-formats amounts, and renders dates human-readable instead of raw ISO.
   const factValue = (fact: any): string => formatFactValue(fact, s as any, language);
 
-  // The rule-engine decision + decision_reason are NOT extracted facts: they are
-  // rule outputs already surfaced by the DecisionBanner above. Filter them out of
-  // the Extracted Facts table so an Arabic user never sees a raw "NEEDS_REVIEW"
-  // enum or an untranslated English reason duplicated here.
-  const visibleFacts: any[] = (doc.facts || []).filter(
-    (f: any) => f.key !== 'decision' && f.key !== 'decision_reason'
-  );
+  // WHICH facts this table may show is an ALLOWLIST that fails closed — see
+  // lib/detailFacts for the production census behind it and the reason each key
+  // is in or out. This replaces a two-key DENYLIST whose default was "render it
+  // with its raw key", which is how `extraction_model`, `extraction_recovered`
+  // and `category` reached a user's screen. A fact key nobody has thought about
+  // yet now renders nowhere.
+  const visibleFacts: any[] = visibleDetailFacts(doc.facts, s as any);
 
   // Data-relationships layout: a few entities read best as wrapping cards; past a
   // handful they read better as a stacked list (one row each). Either way the full
@@ -318,7 +316,7 @@ export const DocumentDetailScreen = () => {
           </div>
         )}
 
-        <DecisionBanner decision={decision} reason={reason} />
+        <DecisionBanner decision={decision} reason={reason} status={doc.status} />
 
         <FixActionPanel
           documentId={doc.id}
