@@ -1338,7 +1338,7 @@ export const strings = {
     toastUpdateError: 'تعذّر تحديث هذا العنصر. يرجى المحاولة مرة أخرى.',
     previewUnavailable: 'المعاينة غير متاحة لهذا التنسيق.',
     openOriginalSource: 'فتح المصدر الأصلي',
-    decisionApprovedDesc: 'لم يتم تفعيل أي قاعدة للمصروفات. لم يتم التحقق من التفاصيل المستخرجة نفسها.',
+    decisionApprovedDesc: 'لم يتم تفعيل أي قاعدة للمصروفات. أما التفاصيل المستخرجة نفسها فلم تُفحص.',
     decisionApprovedNeedsReviewDesc: 'لم يتم تفعيل أي قاعدة للمصروفات، لكن هذا المستند ما زال بحاجة إلى مراجعة لأن الاستخراج كان غير مؤكد.',
     decisionFlaggedDesc: 'قد يكون هذا المصروف مشبوهاً أو مخالفاً لقاعدة.',
     fixMarkValid: 'وضع علامة صالح',
