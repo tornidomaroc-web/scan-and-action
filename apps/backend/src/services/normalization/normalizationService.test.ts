@@ -114,27 +114,56 @@ describe('the persisted value can never collide with the upload stub', () => {
   });
 });
 
-// ── DEFECT LEDGER, reported and deliberately NOT fixed in this change ────────
-// The prompt says "business_card" with an UNDERSCORE; the map holds
-// 'business card' with a SPACE. So the second of the three literals the model
-// is told to emit also falls through to UNKNOWN_DOCUMENT_TYPE, and production
-// holds 0 BUSINESS_CARD rows across all 385 documents — which in turn makes
-// reportController.ts:36 ('recent_cards', filtering documentType eq
-// 'BUSINESS_CARD') a report that can never return a row.
+// ── LEDGER ENTRY CLOSED — the underscore spelling now maps ──────────────────
+// THIS BLOCK IS THE SAME LEDGER ENTRY, UPDATED RATHER THAN DELETED, and the
+// history is the reason to keep it rather than start a fresh file.
 //
-// It is left alone because the scope of this change is receipts and nothing
-// else. WHEN THE FOLLOW-UP LANDS, THIS TEST GOES RED — flip the expectation to
-// 'BUSINESS_CARD' and delete this block. Going red on the fix is intended: it
-// forces whoever fixes it to notice this ledger rather than silently diverge.
-describe('KNOWN GAP — the underscore spelling is still unmapped', () => {
-  it('business_card (the prompt spelling) does NOT reach BUSINESS_CARD', () => {
-    expect(n.normalizeDocumentType('business_card')).toBe('UNKNOWN_DOCUMENT_TYPE');
+// It was written by #204 to record a defect that change deliberately did not
+// fix: the prompt says "business_card" with an UNDERSCORE, the map held
+// 'business card' with a SPACE, so the third of the three literals the model is
+// told to emit fell through to UNKNOWN_DOCUMENT_TYPE. It asserted the WRONG
+// behaviour on purpose, so that fixing the defect would turn it red and force
+// whoever did it to read the note. That is exactly what happened, and this is
+// the other half of that contract: the expectations below are flipped, and the
+// block stays so the next reader can see that a mapped 'business_card' is a
+// decision with a measurement behind it rather than a key someone assumed.
+//
+// Measured on production 2026-09-11 before the fix, all 386 rows:
+// `documentType = 'BUSINESS_CARD'` matched 0, while the same equality filter
+// returned 40 for INVOICE — a real zero, not a query that could not match.
+//
+// The second test is now the stronger one, and it is the guard worth keeping:
+// it does not name a spelling at all. It walks the three literals the prompt
+// defines and asserts NONE of them falls through. Add a fourth type to the
+// prompt without adding its key here and this goes red, which is the failure
+// mode that produced both halves of this bug.
+describe('every literal the extraction prompt names is mapped', () => {
+  it('business_card (the prompt spelling) reaches BUSINESS_CARD', () => {
+    expect(n.normalizeDocumentType('business_card')).toBe('BUSINESS_CARD');
   });
 
-  it('exactly one of the three prompt literals is still unmapped', () => {
+  // The lowercase/trim shapes a model actually produces, same as receipt above.
+  it.each(['Business_Card', 'BUSINESS_CARD', '  business_card  '])(
+    'maps %j to BUSINESS_CARD too',
+    (raw) => {
+      expect(n.normalizeDocumentType(raw)).toBe('BUSINESS_CARD');
+    }
+  );
+
+  it('NONE of the three prompt literals is unmapped', () => {
     const unmapped = PROMPT_LITERALS.filter(
       (lit) => n.normalizeDocumentType(lit) === 'UNKNOWN_DOCUMENT_TYPE'
     );
-    expect(unmapped).toEqual(['business_card']);
+    expect(unmapped).toEqual([]);
+  });
+
+  // The positive control for the test above. `toEqual([])` would also pass if
+  // PROMPT_LITERALS were empty or the filter were inverted; this proves the
+  // same predicate still separates a mapped literal from an unmapped string.
+  it('and the same check still reports a genuinely unmapped string', () => {
+    const unmapped = [...PROMPT_LITERALS, 'passport'].filter(
+      (lit) => n.normalizeDocumentType(lit) === 'UNKNOWN_DOCUMENT_TYPE'
+    );
+    expect(unmapped).toEqual(['passport']);
   });
 });

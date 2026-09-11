@@ -15,20 +15,30 @@
 // RECEIPT at 0 — and intentParser.ts:77, which filters on 'RECEIPT', matched
 // nothing for the life of the product.
 //
+// 'business_card' was the same defect one spelling over: the map held
+// 'business card' with a SPACE while the prompt says 'business_card' with an
+// UNDERSCORE, so the third prompt literal also fell through to
+// UNKNOWN_DOCUMENT_TYPE. Measured on production 2026-09-11, all 386 rows:
+// BUSINESS_CARD **0**, against INVOICE 40 through the identical equality
+// filter — so that zero was a real zero and not a query that could not match.
+// With all three literals now mapped, this function is a total function over
+// the vocabulary the prompt defines.
+//
 // ⚠ THE REMAINING KEYS BELOW ARE DEAD, and are left only because removing them
 // is a separate change. The prompt instructs English literals, so 'facture',
 // 'فاتورة', 'carte de visite', 'بطاقة عمل', 'rendez-vous' and 'موعد' cannot be
-// produced by anything that calls this. Worse, 'business card' is spelled with
-// a SPACE while the prompt says 'business_card' with an UNDERSCORE — which is
-// why production holds 0 BUSINESS_CARD rows and reportController.ts:36's
-// 'recent_cards' report can never return one. That key was written from
-// imagination rather than from the prompt. Do not add more of them: if a new
-// spelling is wanted, change the PROMPT and add the key it then emits.
+// produced by anything that calls this. 'business card' with a space stays for
+// the same reason, and for one more: deleting a key can only NARROW what maps,
+// never widen it. A model told to emit 'business_card' that emits 'Business
+// Card' anyway is caught by that key today, and this change is not the place to
+// give that up. Do not add more of them: if a new spelling is wanted, change the
+// PROMPT and add the key it then emits.
 const DOCUMENT_TYPE_MAP: Record<string, string> = {
   'facture': 'INVOICE',
   'invoice': 'INVOICE',
   'فاتورة': 'INVOICE',
   'receipt': 'RECEIPT',
+  'business_card': 'BUSINESS_CARD',
   'carte de visite': 'BUSINESS_CARD',
   'business card': 'BUSINESS_CARD',
   'بطاقة عمل': 'BUSINESS_CARD',
