@@ -157,18 +157,21 @@ describe('all-caps is removed from copy and kept on micro-labels', () => {
   });
 });
 
-// ── 5. REPORTED, NOT FIXED HERE ────────────────────────────────────────────
-// One `uppercase` remains on body copy: the pricing grid wrapper, which
-// uppercases the whole plan card including its feature list. It is not a
-// headline, a CTA label, a reassurance line or a section heading — the four
-// categories this change was scoped to — so it was deliberately left.
-// This test PINS that it is the only one, so the residue is a recorded fact
-// rather than something rediscovered later as an oversight.
-describe('KNOWN RESIDUE — one uppercase body-copy site is out of scope', () => {
-  it('exactly one non-micro-label uppercase survives, and it is the pricing grid', () => {
-    const lines = landingSrc.split('\n').filter((l) => l.includes('uppercase'));
+// ── 5. THE RESIDUE IS CLOSED ───────────────────────────────────────────────
+// #208 left exactly one `uppercase` on body copy — the pricing grid wrapper,
+// which capitalised the whole plan card including its feature list. It was out
+// of that change's four scoped categories, and this block pinned it as a
+// recorded fact rather than an oversight. The header PR closed it, so the
+// expectation flips from "exactly one survivor" to NONE. The block stays: it is
+// the same ledger entry, and keeping it is what shows the residue was paid off
+// rather than quietly forgotten.
+describe('no uppercase survives on body copy', () => {
+  it('every remaining `uppercase` is a text-[10px] micro-label in the product mock', () => {
+    const lines = landingSrc.split(String.fromCharCode(10)).filter((l) => l.includes('uppercase'));
     const notMicro = lines.filter((l) => !l.includes('text-[10px]'));
-    expect(notMicro).toHaveLength(1);
-    expect(notMicro[0]).toContain('grid sm:grid-cols-2');
+    expect(notMicro).toHaveLength(0);
+    // and the micro-labels are still there — the positive half, so this cannot
+    // pass by having stripped everything.
+    expect(lines.length).toBeGreaterThanOrEqual(3);
   });
 });

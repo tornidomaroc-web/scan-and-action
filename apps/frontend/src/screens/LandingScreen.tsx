@@ -1,10 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { PLAN_CATALOG } from '../lib/pricing';
+import { LandingHeader } from '../components/LandingHeader';
 
 export function LandingScreen() {
   return (
     <div className="bg-slate-50 min-h-screen">
+      <LandingHeader />
+
       {/* 1. Hero Section */}
       <div className="pt-24 pb-20 px-6 bg-white border-b border-slate-100 mb-12 overflow-hidden">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center text-center lg:text-left">
@@ -126,7 +129,7 @@ export function LandingScreen() {
       </div>
 
       {/* 3. How it Works Section */}
-      <div className="py-24 px-6 bg-white border-y border-slate-100">
+      <div id="how-it-works" className="scroll-mt-16 py-24 px-6 bg-white border-y border-slate-100">
         <div className="max-w-4xl mx-auto text-center space-y-16">
           <div className="space-y-4">
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 italic">How it works</h2>
@@ -169,14 +172,14 @@ export function LandingScreen() {
       </div>
 
       {/* 5. Pricing Section */}
-      <div className="py-24 px-6 bg-white border-y border-slate-100">
+      <div id="pricing" className="scroll-mt-16 py-24 px-6 bg-white border-y border-slate-100">
         <div className="max-w-4xl mx-auto space-y-16 text-center">
           <div className="space-y-4">
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 italic tracking-tight">Try it free. Upgrade when you need more.</h2>
             <p className="text-slate-500 font-bold tracking-wide text-sm">Simple, transparent, and fair.</p>
           </div>
           
-          <div className="grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto uppercase">
+          <div className="grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto">
             <div className="p-10 rounded-[32px] border-4 border-slate-50 bg-white text-left flex flex-col justify-between items-start space-y-8">
               <div className="space-y-2">
                 <h3 className="font-black text-slate-400 text-xl italic">Free</h3>
