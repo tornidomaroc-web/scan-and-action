@@ -12,7 +12,13 @@ export function LandingScreen() {
             {/* Two DELIBERATE lines. `block` on each span is what guarantees the break
                 falls where it was approved instead of wherever the column happens to run
                 out — the copy is not a sentence that may rewrap, it is two lines. */}
-            <h1 className="text-4xl sm:text-6xl font-black text-slate-900 tracking-tight leading-tight">
+            {/* 5xl, not 6xl, and this is measured rather than taste: in THIS column the
+                approved second line needs 698px at 60px and the hero column is 608px, so
+                it wrapped to a third line with "you." orphaned. 48px brings it to ~558px
+                and the two approved lines hold. The model gets 60px because its headline
+                column is 1180px — nearly double this one. 60px returns when the hero
+                becomes a single centred column, which is a layout change and a later PR. */}
+            <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight">
               <span className="block">Stop typing receipts.</span>
               <span className="block text-accent">Let AI read them for you.</span>
             </h1>

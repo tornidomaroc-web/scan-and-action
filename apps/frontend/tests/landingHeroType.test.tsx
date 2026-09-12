@@ -75,6 +75,12 @@ describe('the headline is sentence case, centred, and two deliberate lines', () 
     expect(lines).toEqual(['Stop typing receipts.', 'Let AI read them for you.']);
   });
 
+  // WHAT THIS FILE CANNOT CHECK, named so nobody assumes it does: jsdom has no
+  // text metrics, so the number of VISUAL lines is unmeasurable here. `block`
+  // guarantees the two lines are separate boxes; it does not stop either box
+  // wrapping internally. It did: at 60px the second line needed 698px against a
+  // 608px column and broke into two, orphaning "you.". That is why the headline
+  // is 5xl and not 6xl, and it was caught in a real browser, not here.
   it('both lines are `block`, so the break is where it was approved', () => {
     // Without this the second line rewraps wherever the column runs out, and
     // "two deliberate lines" becomes "whatever fits".
