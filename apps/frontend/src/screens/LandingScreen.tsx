@@ -8,18 +8,25 @@ export function LandingScreen() {
       {/* 1. Hero Section */}
       <div className="pt-24 pb-20 px-6 bg-white border-b border-slate-100 mb-12 overflow-hidden">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center text-center lg:text-left">
-          <div className="space-y-8 relative z-10 text-left">
-            <h1 className="text-4xl sm:text-6xl font-black text-slate-900 tracking-tight leading-tight uppercase">
-              Stop typing receipts. <span className="text-indigo-600">Let AI fix the data for you.</span>
+          <div className="space-y-8 relative z-10 text-center">
+            {/* Two DELIBERATE lines. `block` on each span is what guarantees the break
+                falls where it was approved instead of wherever the column happens to run
+                out — the copy is not a sentence that may rewrap, it is two lines. */}
+            <h1 className="text-4xl sm:text-6xl font-black text-slate-900 tracking-tight leading-tight">
+              <span className="block">Stop typing receipts.</span>
+              <span className="block text-accent">Let AI read them for you.</span>
             </h1>
             <p className="text-xl sm:text-2xl text-slate-600 max-w-2xl font-medium leading-relaxed">
               Upload receipts, get structured validated data, and review only what actually needs attention.
             </p>
-            <div className="flex flex-col items-center lg:items-start space-y-4 pt-4">
-              <Link to="/login" className="inline-block px-10 py-5 bg-indigo-600 text-white font-black text-xl rounded-2xl hover:bg-indigo-700 transition-all shadow-xl hover:shadow-indigo-500/20 active:scale-95 uppercase tracking-tight">
+            <div className="flex flex-col items-center space-y-4 pt-4">
+              {/* `text-base sm:text-xl` is what stops the label wrapping to two lines at
+                  430px, where it measured 91px tall. The label itself is unchanged: copy
+                  other than the headline is out of scope for this change. */}
+              <Link to="/login" className="inline-block px-10 py-5 bg-ink text-white font-black text-base sm:text-xl rounded-2xl hover:opacity-90 transition-all shadow-xl active:scale-95 tracking-tight">
                 Start Free with 10 Scans Included
               </Link>
-              <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">No credit card. Takes 30 seconds.</p>
+              <p className="text-slate-400 font-bold text-sm tracking-wide">No credit card. Takes 30 seconds.</p>
             </div>
           </div>
           
@@ -64,9 +71,9 @@ export function LandingScreen() {
                       </tr>
                       <tr>
                         <td className="px-4 py-3 text-sm font-bold text-slate-900">Amount</td>
-                        <td className="px-4 py-3 text-sm text-indigo-600 font-bold flex items-center gap-2">
+                        <td className="px-4 py-3 text-sm text-warning-text font-bold flex items-center gap-2">
                            Fix required
-                           <span className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse" />
+                           <span className="w-2 h-2 bg-warning rounded-full animate-pulse" />
                         </td>
                       </tr>
                     </tbody>
@@ -94,7 +101,7 @@ export function LandingScreen() {
       {/* 2. Problem Section */}
       <div className="py-24 px-6 bg-slate-50">
         <div className="max-w-4xl mx-auto space-y-12">
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-900 text-center uppercase">Still typing receipts manually?</h2>
+          <h2 className="text-3xl sm:text-4xl font-black text-slate-900 text-center">Still typing receipts manually?</h2>
           <div className="grid sm:grid-cols-3 gap-8">
             <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
               <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-xl">!</div>
@@ -116,22 +123,22 @@ export function LandingScreen() {
       <div className="py-24 px-6 bg-white border-y border-slate-100">
         <div className="max-w-4xl mx-auto text-center space-y-16">
           <div className="space-y-4">
-            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 uppercase italic">How it works</h2>
-            <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">You don’t review everything. Only what needs attention.</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 italic">How it works</h2>
+            <p className="text-slate-500 font-bold tracking-wide text-sm">You don’t review everything. Only what needs attention.</p>
           </div>
           
           <div className="grid sm:grid-cols-3 gap-12 sm:gap-4 relative">
             <div className="space-y-6 relative z-10">
-              <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-indigo-100">1</div>
-              <h3 className="text-xl font-black text-slate-900 uppercase leading-tight">Upload receipts</h3>
+              <div className="w-20 h-20 bg-accent-tint text-accent rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-accent-border">1</div>
+              <h3 className="text-xl font-black text-slate-900 leading-tight">Upload receipts</h3>
             </div>
             <div className="space-y-6 relative z-10">
-              <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-indigo-100">2</div>
-              <h3 className="text-xl font-black text-slate-900 uppercase leading-tight">AI extracts and fixes the data</h3>
+              <div className="w-20 h-20 bg-accent-tint text-accent rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-accent-border">2</div>
+              <h3 className="text-xl font-black text-slate-900 leading-tight">AI extracts and fixes the data</h3>
             </div>
             <div className="space-y-6 relative z-10">
-              <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-indigo-100">3</div>
-              <h3 className="text-xl font-black text-slate-900 uppercase leading-tight">You review only what matters</h3>
+              <div className="w-20 h-20 bg-accent-tint text-accent rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-accent-border">3</div>
+              <h3 className="text-xl font-black text-slate-900 leading-tight">You review only what matters</h3>
             </div>
           </div>
         </div>
@@ -141,15 +148,15 @@ export function LandingScreen() {
       <div className="py-24 px-6 bg-slate-50">
         <div className="max-w-5xl mx-auto grid sm:grid-cols-3 gap-8 text-center sm:text-left">
           <div className="space-y-4">
-            <h3 className="font-black text-slate-900 text-2xl uppercase leading-tight">Stop wasting hours on manual entry</h3>
+            <h3 className="font-black text-slate-900 text-2xl leading-tight">Stop wasting hours on manual entry</h3>
             <p className="text-slate-600 font-medium">Automatic recognition makes typing a thing of the past.</p>
           </div>
           <div className="space-y-4">
-            <h3 className="font-black text-slate-900 text-2xl uppercase leading-tight">Catch errors before they cost you</h3>
+            <h3 className="font-black text-slate-900 text-2xl leading-tight">Catch errors before they cost you</h3>
             <p className="text-slate-600 font-medium">Built-in validation rules flag suspicious data instantly.</p>
           </div>
           <div className="space-y-4">
-            <h3 className="font-black text-slate-900 text-2xl uppercase leading-tight">Get clean data you can actually use</h3>
+            <h3 className="font-black text-slate-900 text-2xl leading-tight">Get clean data you can actually use</h3>
             <p className="text-slate-600 font-medium">Export validated CSV data ready for your accounting tool.</p>
           </div>
         </div>
@@ -159,8 +166,8 @@ export function LandingScreen() {
       <div className="py-24 px-6 bg-white border-y border-slate-100">
         <div className="max-w-4xl mx-auto space-y-16 text-center">
           <div className="space-y-4">
-            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 uppercase italic tracking-tight">Try it free. Upgrade when you need more.</h2>
-            <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Simple, transparent, and fair.</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 italic tracking-tight">Try it free. Upgrade when you need more.</h2>
+            <p className="text-slate-500 font-bold tracking-wide text-sm">Simple, transparent, and fair.</p>
           </div>
           
           <div className="grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto uppercase">
@@ -177,10 +184,10 @@ export function LandingScreen() {
               <Link to="/login" className="w-full text-center py-4 bg-slate-100 text-slate-900 rounded-2xl font-black text-lg hover:bg-slate-200 transition-all">Start Free</Link>
             </div>
             
-            <div className="p-10 rounded-[32px] border-4 border-indigo-600 bg-white text-left flex flex-col justify-between items-start space-y-8 relative overflow-hidden">
-              <div className="absolute top-4 right-4 bg-indigo-600 text-white px-3 py-1 rounded-full text-[10px] font-black tracking-widest">MOST POPULAR</div>
+            <div className="p-10 rounded-[32px] border-4 border-accent bg-white text-left flex flex-col justify-between items-start space-y-8 relative overflow-hidden">
+              <div className="absolute top-4 right-4 bg-accent text-white px-3 py-1 rounded-full text-[10px] font-black tracking-widest">MOST POPULAR</div>
               <div className="space-y-2">
-                <h3 className="font-black text-indigo-600 text-xl italic">Pro</h3>
+                <h3 className="font-black text-accent text-xl italic">Pro</h3>
                 {/* Reads the SAME catalog entry the paywall charges from, so the
                     marketing price and the checkout price cannot drift apart in a
                     code change. Deliberately the declared amount and NOT a
@@ -200,7 +207,7 @@ export function LandingScreen() {
                 <li>✓ All core features</li>
                 <li>✓ Priority processing</li>
               </ul>
-              <Link to="/login" className="w-full text-center py-4 bg-indigo-600 text-white rounded-2xl font-black text-lg hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-500/20">Upgrade Now</Link>
+              <Link to="/login" className="w-full text-center py-4 bg-ink text-white rounded-2xl font-black text-lg hover:opacity-90 transition-all shadow-xl">Upgrade Now</Link>
             </div>
           </div>
         </div>
@@ -209,12 +216,12 @@ export function LandingScreen() {
       {/* 6. Final CTA Section */}
       <div className="py-32 px-6 bg-slate-900 text-center">
         <div className="max-w-3xl mx-auto space-y-10">
-          <h2 className="text-4xl sm:text-5xl font-black text-white uppercase leading-tight">Turn receipts into clean data in seconds</h2>
+          <h2 className="text-4xl sm:text-5xl font-black text-white leading-tight">Turn receipts into clean data in seconds</h2>
           <div className="space-y-6">
-            <Link to="/login" className="inline-block px-12 py-6 bg-indigo-600 text-white font-black text-2xl rounded-2xl hover:bg-indigo-700 transition-all shadow-2xl hover:shadow-indigo-500/40 active:scale-95 uppercase tracking-tight">
+            <Link to="/login" className="inline-block px-12 py-6 bg-ink text-white font-black text-2xl rounded-2xl hover:opacity-90 transition-all shadow-2xl active:scale-95 tracking-tight">
               Start Free with 10 Scans Included
             </Link>
-            <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">No credit card. Takes 30 seconds.</p>
+            <p className="text-slate-500 font-bold text-sm tracking-wide">No credit card. Takes 30 seconds.</p>
           </div>
         </div>
       </div>

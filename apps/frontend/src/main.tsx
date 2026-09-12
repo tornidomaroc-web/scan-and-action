@@ -17,6 +17,10 @@ import '@fontsource/inter/latin-400.css'
 import '@fontsource/inter/latin-500.css'
 import '@fontsource/inter/latin-600.css'
 import '@fontsource/inter/latin-700.css'
+// 900 is REQUESTED by the landing headline (`font-black`) and was never loaded, so
+// the browser synthesised it from 700 — a smeared fake bold. The face ships in the
+// already-installed @fontsource/inter package; this line is the whole fix.
+import '@fontsource/inter/latin-900.css'
 import '@fontsource/ibm-plex-sans-arabic/arabic-400.css'
 import '@fontsource/ibm-plex-sans-arabic/arabic-500.css'
 import '@fontsource/ibm-plex-sans-arabic/arabic-600.css'
