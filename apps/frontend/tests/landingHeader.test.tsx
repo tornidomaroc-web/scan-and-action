@@ -152,6 +152,18 @@ describe('the header is sticky, layered, and introduces no colour', () => {
     const filled = [...header().querySelectorAll('a')].find((a) => /Start free/.test(a.textContent || ''))!;
     expect(filled.className).toContain('bg-ink');
   });
+
+  it('the filled action pairs TWO TOKENS — never a token background with a literal foreground', () => {
+    // `bg-ink text-white` was 1.05:1 in dark mode: bg-ink inverts under .dark and
+    // text-white cannot. That is fine only on a route pinned light, and this
+    // header now mounts on four routes that are deliberately NOT pinned. The
+    // foreground must therefore invert with the background.
+    const filled = [...header().querySelectorAll('a')].find((a) => /Start free/.test(a.textContent || ''))!;
+    expect(filled.className).toContain('text-surface-raised');
+    for (const literal of ['text-white', 'text-black']) {
+      expect(filled.className, `${literal} cannot invert; pair a token instead`).not.toContain(literal);
+    }
+  });
 });
 
 describe('what the header does at phone width', () => {
@@ -169,14 +181,41 @@ describe('what the header does at phone width', () => {
   });
 });
 
-describe('the header is landing-only', () => {
-  it('exactly one file in src/ imports it, and it is LandingScreen', () => {
-    // It must not leak into the app shell: the authenticated screens have their
-    // own Sidebar and BottomTabBar, and a second header would fight both.
-    // The importer list is WALKED, not asserted from a literal — a hardcoded
-    // array here would make this test pass no matter what the tree contains.
-    const importers = filesMentioning('LandingHeader').filter((p) => p !== 'components/LandingHeader.tsx');
-    expect(importers).toEqual(['screens/LandingScreen.tsx']);
+describe('the header is unregistered-routes-only', () => {
+  // WIDENED DELIBERATELY in the legal-pages PR, from ['screens/LandingScreen.tsx']
+  // to the five unregistered screens. The list is still WALKED, not asserted from
+  // a literal — a hardcoded array would pass no matter what the tree contains —
+  // and the guard's real job is unchanged: the header must not reach the app
+  // shell, where Sidebar and BottomTabBar already own the chrome.
+  const UNREGISTERED = [
+    'screens/DeleteAccountInfo.tsx',
+    'screens/LandingScreen.tsx',
+    'screens/PrivacyPolicy.tsx',
+    'screens/RefundPolicy.tsx',
+    'screens/TermsOfService.tsx',
+  ];
+
+  it('exactly the five unregistered screens import it', () => {
+    const importers = filesMentioning('LandingHeader')
+      .filter((p) => p !== 'components/LandingHeader.tsx')
+      .sort();
+    expect(importers).toEqual([...UNREGISTERED].sort());
+  });
+
+  it('and NOT the app shell or any authenticated screen', () => {
+    // The positive assertion above already implies this, but only while the
+    // literal list stays correct. This states the invariant directly, so
+    // widening the list again cannot quietly re-admit the shell.
+    const AUTHENTICATED = [
+      'components/Layout.tsx', 'components/Sidebar.tsx', 'components/BottomTabBar.tsx',
+      'screens/DashboardScreen.tsx', 'screens/SettingsScreen.tsx', 'screens/SearchScreen.tsx',
+      'screens/ActivityScreen.tsx', 'screens/ReviewQueueScreen.tsx',
+      'screens/DocumentDetailScreen.tsx', 'screens/AuthScreen.tsx',
+    ];
+    const importers = filesMentioning('LandingHeader');
+    for (const p of AUTHENTICATED) {
+      expect(importers, `${p} must not mount the landing header`).not.toContain(p);
+    }
   });
 
   it('this page still mounts no portal and no overlay, so the ladder is untouched', () => {
