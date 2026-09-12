@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { AppLogo } from './AppLogo';
+import { BrandMark } from './BrandMark';
 
 // ============================================================================
 // THE LANDING HEADER.
@@ -12,12 +12,15 @@ import { AppLogo } from './AppLogo';
 // page read as a company rather than a deployed template.
 //
 // ── WHY THE LOGO IS THE MARK ONLY ──────────────────────────────────────────
-// `AppLogo`'s `showText` variant is built for a DARK surface: it renders the
-// wordmark in `text-white` with a `text-blue-500` ampersand. This header is
-// `bg-surface-raised` (#FFFFFF), so that variant would be invisible here, and
-// its blue is a colour outside the approved set. So the mark is reused as-is
-// (`showText={false}`) and the wordmark is set in `text-ink`, which is the
-// colour the rest of the product already uses for primary text.
+// The mark is `BrandMark`, which is the Play Store listing icon and the source
+// of all 26 Android launcher/splash assets. It carries its own gradient plate,
+// so it needs no variant for this surface or for the dark one. The wordmark is
+// set in `text-ink`, the colour the rest of the product already uses for
+// primary text — the mark ships no wordmark of its own, deliberately.
+//
+// `size={30}` is below `CUT_THRESHOLD_PX`, so this renders the SMALL CUT. That
+// is not incidental: the full master at 30px contains zero fully-opaque pixels
+// and its white renders #47749C. See the measurement table in BrandMark.tsx.
 //
 // ── COLOUR ─────────────────────────────────────────────────────────────────
 // Tokens only, and no new colour enters: `bg-surface-raised`, `border-line`,
@@ -46,7 +49,7 @@ export const LandingHeader: React.FC = () => (
     <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
       {/* Left: the mark, plus the wordmark in ink. */}
       <Link to="/" className="flex items-center gap-2.5" aria-label="Scan & Action home">
-        <AppLogo size={30} showText={false} />
+        <BrandMark size={30} />
         <span className="text-lg font-black tracking-tight text-ink">Scan&amp;Action</span>
       </Link>
 

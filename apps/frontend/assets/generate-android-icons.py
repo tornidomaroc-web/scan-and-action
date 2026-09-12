@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Generate every Android launcher + splash asset from the vector master.
+Generate every Android launcher + splash asset, AND the four web/PWA icons,
+from the vector master.
 
     python apps/frontend/assets/generate-android-icons.py
 
@@ -37,8 +38,25 @@ Geometry decisions (see docs/ICON_MASTER_REBUILD.md for the measurements):
       the canvas's SHORTER edge and centred, so the logo is the same physical size
       in portrait and landscape at every density.
       See SPLASH_MASTER_SCALE for the sizing and how it maps to "% of screen width".
+
+  web / PWA icons (public/icons, added with the "one mark, two weights" PR):
+      the whole 512 master mapped 1:1, same as the legacy launcher art before the
+      silhouette mask -- these surfaces are masked by the PLATFORM, not by us.
+      Every one is >= 180px, which is above the 48px floor below which the master
+      stops drawing (see BrandMark.tsx for the pixel counts); the favicon, which
+      is 16-32px, is NOT generated here -- it is the small cut, inline in
+      index.html and pinned to the component by brandMark.test.tsx.
+
+      All four are written WITHOUT an alpha channel. The master's plate covers
+      the canvas so there is nothing to keep, and iOS composites a transparent
+      apple-touch-icon onto BLACK, which is a silent, device-only defect.
+
+      icon-maskable-512 is checked against the maskable safe circle (the central
+      80%) on every run rather than assumed: the margin is 4.7px at 512, which is
+      1%, so it is exactly the kind of number that a later geometry tweak would
+      cross without anyone noticing. verify_maskable_safe_zone() raises.
 """
-import io, os, re, sys
+import io, math, os, re, sys
 from PIL import Image, ImageDraw
 
 try:
@@ -49,6 +67,7 @@ except ImportError:
 HERE = os.path.dirname(os.path.abspath(__file__))
 MASTER = os.path.join(HERE, "scan-action-mark.svg")
 RES = os.path.normpath(os.path.join(HERE, "..", "android", "app", "src", "main", "res"))
+PUBLIC_ICONS = os.path.normpath(os.path.join(HERE, "..", "public", "icons"))
 
 SRC = open(MASTER, encoding="utf-8").read()
 MARK_ONLY = re.sub(r'<g id="background">.*?</g>\s*', "", SRC, flags=re.S)
@@ -76,6 +95,19 @@ DENSITIES = {"mdpi": (108, 48), "hdpi": (162, 72), "xhdpi": (216, 96),
 SQUIRCLE_INSET = 20.0 / 192.0
 SQUIRCLE_RADIUS = 10.5 / 192.0
 CIRCLE_DIAM = 176.0 / 192.0
+
+# web / PWA: filename -> edge length. Referenced by public/manifest.webmanifest
+# ("any" x2 + "maskable") and by index.html's apple-touch-icon link. This PR
+# does not change the manifest: same paths, same sizes, new artwork.
+WEB_ICONS = {
+    "icon-192.png": 192,
+    "icon-512.png": 512,
+    "icon-maskable-512.png": 512,
+    "apple-touch-icon.png": 180,
+}
+MASKABLE_ICON = "icon-maskable-512.png"
+# The maskable spec's safe zone: the circle of diameter 80% of the icon.
+MASKABLE_SAFE_FRACTION = 0.40
 
 
 def render(svg, w, h):
@@ -105,11 +137,43 @@ def full_icon(size):
     return compose(SRC, size, size, sc, 0, 0)
 
 
-def write(img, relpath, rgb=False):
-    p = os.path.join(RES, relpath)
-    os.makedirs(os.path.dirname(p), exist_ok=True)
+def write_to(base, img, relpath, rgb=False):
+    p = os.path.join(base, relpath)
+    os.makedirs(os.path.dirname(p) or base, exist_ok=True)
     (img.convert("RGB") if rgb else img).save(p, "PNG", optimize=True)
     return p
+
+
+def write(img, relpath, rgb=False):
+    return write_to(RES, img, relpath, rgb)
+
+
+def verify_maskable_safe_zone(size):
+    """The mark's ink must sit inside the maskable safe circle. MEASURED on the
+    rendered raster, not derived from the master's own comments: render the mark
+    on transparency and find the furthest non-transparent pixel from centre.
+
+    At 512 this leaves 4.7px of margin (200.1 vs 204.8), i.e. 1%. That is small
+    enough that a future geometry change could cross it silently, and a clipped
+    maskable icon is invisible until it is on somebody's home screen."""
+    im = render(MARK_ONLY, size, size)
+    px = im.load()
+    c = (size - 1) / 2.0
+    worst = 0.0
+    for y in range(size):
+        for x in range(size):
+            if px[x, y][3] > 0:
+                r = math.hypot(x - c, y - c)
+                if r > worst:
+                    worst = r
+    safe = MASKABLE_SAFE_FRACTION * size
+    if worst > safe:
+        raise SystemExit(
+            f"{MASKABLE_ICON}: ink reaches r={worst:.1f}px, outside the maskable "
+            f"safe circle r={safe:.1f}px at {size}px. It would be clipped on a "
+            f"home screen. Shrink the master onto the maskable canvas."
+        )
+    return worst, safe
 
 
 def main():
@@ -168,6 +232,13 @@ def main():
         plate = Image.new("RGBA", (W, H), SPLASH_NAVY)
         made.append(write(Image.alpha_composite(plate, compose(MARK_ONLY, W, H, sc, tx, ty)),
                           rel, rgb=True))
+
+    # ---- web / PWA icons (public/icons) -----------------------------------
+    worst, safe = verify_maskable_safe_zone(WEB_ICONS[MASKABLE_ICON])
+    print(f"  maskable safe zone OK: ink r={worst:.1f}px inside r={safe:.1f}px "
+          f"({safe - worst:.1f}px margin)")
+    for name, size in WEB_ICONS.items():
+        made.append(write_to(PUBLIC_ICONS, full_icon(size), name, rgb=True))
 
     for p in made:
         print("  wrote", os.path.relpath(p, os.path.normpath(os.path.join(HERE, "..", "..", ".."))))
