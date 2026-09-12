@@ -1,57 +1,77 @@
 import React from 'react';
+import { LandingHeader } from '../components/LandingHeader';
 import { Eye } from 'lucide-react';
 
 const PrivacyPolicy: React.FC = () => {
+  // A visitor who taps a footer link lands here with no header, no logo and no
+  // way back — measured on production 2026-09-12: `document.querySelector('header')`
+  // and `a[href="/"]` both returned null on /privacy. `LandingHeader`'s home link
+  // is that way back.
+  //
+  // NOT PINNED, DELIBERATELY, and this is the opposite of the landing route. This
+  // page sets no background of its own: `body` paints it from `var(--background)`
+  // -> `--sa-surface`, which flips #F5F7FA -> #0F172A, and the page carries its own
+  // `dark:` variants. So it is ALREADY correct in dark mode, and the header agrees
+  // with it (measured: #1E293B header on #0F172A body = 1.22, no seam).
+  // `sa-pin-light` would hold the header at #FFFFFF while `body` stayed #0F172A —
+  // a 17.85 seam — and leave `dark:text-slate-200` firing on pinned white surfaces
+  // at 1.23:1. The pin is for a light-only page; this is not one.
+  //
+  // `showAnchors={false}`: `#how-it-works` and `#pricing` are landing-page sections
+  // and neither id exists here, so the anchors would scroll nowhere and say nothing.
   return (
-    <div className="max-w-4xl mx-auto px-6 py-20 font-sans text-slate-800 dark:text-slate-200">
-      <div className="flex items-center gap-4 mb-10">
-        <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl text-emerald-600">
-          <Eye size={32} />
+    <>
+      <LandingHeader showAnchors={false} />
+      <div className="max-w-4xl mx-auto px-6 py-20 font-sans text-slate-800 dark:text-slate-200">
+        <div className="flex items-center gap-4 mb-10">
+          <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl text-emerald-600">
+            <Eye size={32} />
+          </div>
+          <h1 className="text-4xl font-black tracking-tight italic uppercase">Privacy Policy</h1>
         </div>
-        <h1 className="text-4xl font-black tracking-tight italic uppercase">Privacy Policy</h1>
+
+        <div className="space-y-8 leading-relaxed">
+          <section>
+            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">1. Data Collected</h2>
+            <p>Scan & Action is a product operated by KnowFlow, which is responsible for the personal data described in this policy. We collect information you provide directly, such as account details and uploaded document images. We also collect metadata necessary for service improvement and security.</p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">2. How We Use Data</h2>
+            <p>Your data is used to process documents, provide AI-powered insights, manage your subscription, and communicate important service updates. We do not sell your personal data.</p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">3. Data Storage (Supabase)</h2>
+            <p>We use Supabase for secure data storage and authentication. All data is encrypted at rest and in transit using industry-standard protocols.</p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">4. Third Party Services</h2>
+            <p>Document analysis is performed via Google Gemini Vision API. Data shared with this provider is limited to the minimum required for extraction and is subject to their privacy policies. Payments are processed by Paddle.com, our Merchant of Record, which handles your payment details under its own privacy policy.</p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">5. User Rights</h2>
+            <p>You have the right to access, correct, or delete your personal data at any time. You can manage most data directly through your account dashboard.</p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">6. Account &amp; Data Deletion</h2>
+            <p>You can permanently delete your account at any time from Settings &rarr; Delete account inside the app, or from the web at <a href="/delete-account" className="text-blue-600 font-bold underline">www.scan-action.com/delete-account</a>. Deletion permanently removes your account, your workspace, and all documents, scans, extracted data, and reports it contains &mdash; from both our database and file storage &mdash; and deletes your authentication identity. This action cannot be undone. Deleting your account does not cancel an active subscription; cancel that separately via the App Store, Google Play, or the billing portal.</p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">7. Contact</h2>
+            <p>For any privacy-related inquiries, please contact us at support@scan-action.com.</p>
+          </section>
+
+          <footer className="pt-10 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-500">
+            Last updated: June 11, 2026 | Contact: support@scan-action.com
+          </footer>
+        </div>
       </div>
-
-      <div className="space-y-8 leading-relaxed">
-        <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">1. Data Collected</h2>
-          <p>Scan & Action is a product operated by KnowFlow, which is responsible for the personal data described in this policy. We collect information you provide directly, such as account details and uploaded document images. We also collect metadata necessary for service improvement and security.</p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">2. How We Use Data</h2>
-          <p>Your data is used to process documents, provide AI-powered insights, manage your subscription, and communicate important service updates. We do not sell your personal data.</p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">3. Data Storage (Supabase)</h2>
-          <p>We use Supabase for secure data storage and authentication. All data is encrypted at rest and in transit using industry-standard protocols.</p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">4. Third Party Services</h2>
-          <p>Document analysis is performed via Google Gemini Vision API. Data shared with this provider is limited to the minimum required for extraction and is subject to their privacy policies. Payments are processed by Paddle.com, our Merchant of Record, which handles your payment details under its own privacy policy.</p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">5. User Rights</h2>
-          <p>You have the right to access, correct, or delete your personal data at any time. You can manage most data directly through your account dashboard.</p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">6. Account &amp; Data Deletion</h2>
-          <p>You can permanently delete your account at any time from Settings &rarr; Delete account inside the app, or from the web at <a href="/delete-account" className="text-blue-600 font-bold underline">www.scan-action.com/delete-account</a>. Deletion permanently removes your account, your workspace, and all documents, scans, extracted data, and reports it contains &mdash; from both our database and file storage &mdash; and deletes your authentication identity. This action cannot be undone. Deleting your account does not cancel an active subscription; cancel that separately via the App Store, Google Play, or the billing portal.</p>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">7. Contact</h2>
-          <p>For any privacy-related inquiries, please contact us at support@scan-action.com.</p>
-        </section>
-
-        <footer className="pt-10 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-500">
-          Last updated: June 11, 2026 | Contact: support@scan-action.com
-        </footer>
-      </div>
-    </div>
+    </>
   );
 };
 
