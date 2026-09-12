@@ -79,7 +79,9 @@ describe('the header exists and carries what it should', () => {
     expect(logo).not.toBeNull();
     expect(logo.getAttribute('href')).toBe('/');
     expect(logo.getAttribute('aria-label')).toMatch(/home/i);
-    // the mark itself, reused from AppLogo
+    // the mark itself — an inline <svg> from BrandMark, never an <img>: the
+    // mark must not be a second network request that can 404 into the SPA
+    // fallback, and brandMark.test.tsx pins which CUT a size-30 call renders.
     expect(logo.querySelector('svg')).not.toBeNull();
   });
 

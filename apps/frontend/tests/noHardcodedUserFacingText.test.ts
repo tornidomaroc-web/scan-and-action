@@ -213,8 +213,10 @@ describe('structural sink guard — no bare string literals reach user-facing si
 // really "add Accept-Language detection for anonymous visitors", a product call.
 //
 // Making that guard green today would take five whole-file exclusions plus a
-// brand-token allowlist (AppLogo "Scan"/"Action"/"Intelligence OS", Layout
-// "Scan & Action"). That is a whitelist-driven guard — the same shape §5 rejects
+// brand-token allowlist (LandingHeader "Scan&Action", Layout "Scan & Action";
+// AppLogo's "Scan"/"Action"/"Intelligence OS" were in this list until the
+// component was deleted and its wordmark with it). That is a whitelist-driven
+// guard — the same shape §5 rejects
 // as a TRAP, just in different dress — so it is deliberately NOT built here.
 // It belongs in its own PR once the marketing/legal deferral is decided.
 //
