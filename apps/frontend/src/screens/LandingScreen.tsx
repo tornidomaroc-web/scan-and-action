@@ -5,7 +5,15 @@ import { LandingHeader } from '../components/LandingHeader';
 
 export function LandingScreen() {
   return (
-    <div className="bg-slate-50 min-h-screen">
+    // `sa-pin-light` (styles/tokens.css) holds this route's tokens at their light
+    // values for the whole subtree, LandingHeader included — custom properties
+    // inherit, so one class on this element covers every descendant. Without it
+    // the four primary CTAs render #FFFFFF on #F8FAFC (1.05:1) whenever the
+    // visitor's OS is in dark mode, because this page is hardcoded light
+    // everywhere except the tokens #208/#209 introduced. Do not replace this with
+    // `dark:` variants — that is the step-3 colour migration, and there is no
+    // designed dark frame to migrate to yet.
+    <div className="sa-pin-light bg-slate-50 min-h-screen">
       <LandingHeader />
 
       {/* 1. Hero Section */}

@@ -134,3 +134,55 @@
   --sa-danger-text: #FCA5A5;
   --sa-danger-tint: rgba(239, 68, 68, 0.12);
 }
+
+/* ===========================================================================
+   SINGLE-THEME ROUTE PIN — the marketing page is light, deliberately.
+   ===========================================================================
+   `.sa-pin-light` re-declares, for its subtree only, the light value of every
+   token the landing route uses whose value DIFFERS between `:root` and `.dark`.
+   It defines no new token, invents no colour, and changes neither block above.
+
+   WHY IT EXISTS. The landing route is a light-only page: eight of its nine
+   top-level sections are hardcoded palette (`bg-white`, `bg-slate-50`,
+   `bg-slate-900`) and it carries ZERO `dark:` variants. #208 and #209 then
+   introduced dark-aware tokens into it. The tokens obey `.dark`, which
+   index.html sets on <html> from prefers-color-scheme on EVERY route; the rest
+   of the page does not. Measured on production (d25691a) in a real browser:
+
+     header "Start free"   bg #F8FAFC on fg #FFFFFF   1.05:1   (light: 16.24:1)
+     hero CTA              bg #F8FAFC on fg #FFFFFF   1.05:1
+     "Upgrade Now"         bg #F8FAFC on fg #FFFFFF   1.05:1
+     final CTA             bg #F8FAFC on fg #FFFFFF   1.05:1
+     "Fix required" label  #FBBF24 on #FFFFFF         1.67:1   (light: 4.23:1)
+
+   `bg-ink` is the cause: tailwind.config.cjs emits the ink token as BOTH a text
+   and a background utility, so `bg-ink` paints the background with the primary
+   TEXT colour. Paired with a literal `text-white` it inverts into itself. The
+   one CTA that still reads in dark mode is the one that was never migrated
+   (`bg-slate-100 text-slate-900`, two literals) — the migrated buttons are the
+   broken ones.
+
+   WHY NOT `dark:` VARIANTS. Giving this page a real dark appearance means
+   editing eight section backgrounds and the 75 palette usages inside them, and
+   there is nothing designed to migrate TO: the `.dark` block above says its own
+   values are DERIVED, because the approved design provided light frames only.
+   That work is the step-3 colour migration.
+
+   WHEN TO DELETE THIS. The moment a dark design frame for the marketing page
+   exists. Until then this class is what makes the code state, once, what the
+   page already is.
+
+   DRIFT: every value below is byte-copied from `:root`, and the set is exactly
+   the differing tokens the route reaches. `landingLightPin.test.ts` recomputes
+   both from source and fails on any mismatch — do not edit either by hand.
+   =========================================================================== */
+.sa-pin-light {
+  --sa-accent-tint: #EEEDFE;
+  --sa-accent-border: #E4E2FB;
+  --sa-surface-raised: #FFFFFF;
+  --sa-line: #E9EBF0;
+  --sa-ink: #1A1F36;
+  --sa-ink-secondary: #5A6273;
+  --sa-warning: #E0A33E;
+  --sa-warning-text: #B26A0A;
+}
