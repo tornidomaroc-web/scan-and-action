@@ -40,7 +40,7 @@ export function LandingScreen() {
               {/* `text-base sm:text-xl` is what stops the label wrapping to two lines at
                   430px, where it measured 91px tall. The label itself is unchanged: copy
                   other than the headline is out of scope for this change. */}
-              <Link to="/login" className="inline-block px-10 py-5 bg-ink text-white font-black text-base sm:text-xl rounded-2xl hover:opacity-90 transition-all shadow-xl active:scale-95 tracking-tight">
+              <Link to="/login" className="inline-block px-10 py-5 bg-ink text-surface-raised font-black text-base sm:text-xl rounded-2xl hover:opacity-90 transition-all shadow-xl active:scale-95 tracking-tight">
                 Start Free with 10 Scans Included
               </Link>
               <p className="text-slate-400 font-bold text-sm tracking-wide">No credit card. Takes 30 seconds.</p>
@@ -88,9 +88,9 @@ export function LandingScreen() {
                       </tr>
                       <tr>
                         <td className="px-4 py-3 text-sm font-bold text-slate-900">Amount</td>
-                        <td className="px-4 py-3 text-sm text-warning-text font-bold flex items-center gap-2">
+                        <td className="px-4 py-3 text-sm text-amber-800 font-bold flex items-center gap-2">
                            Fix required
-                           <span className="w-2 h-2 bg-warning rounded-full animate-pulse" />
+                           <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
                         </td>
                       </tr>
                     </tbody>
@@ -224,7 +224,7 @@ export function LandingScreen() {
                 <li>✓ All core features</li>
                 <li>✓ Priority processing</li>
               </ul>
-              <Link to="/login" className="w-full text-center py-4 bg-ink text-white rounded-2xl font-black text-lg hover:opacity-90 transition-all shadow-xl">Upgrade Now</Link>
+              <Link to="/login" className="w-full text-center py-4 bg-ink text-surface-raised rounded-2xl font-black text-lg hover:opacity-90 transition-all shadow-xl">Upgrade Now</Link>
             </div>
           </div>
         </div>
@@ -235,7 +235,7 @@ export function LandingScreen() {
         <div className="max-w-3xl mx-auto space-y-10">
           <h2 className="text-4xl sm:text-5xl font-black text-white leading-tight">Turn receipts into clean data in seconds</h2>
           <div className="space-y-6">
-            <Link to="/login" className="inline-block px-12 py-6 bg-ink text-white font-black text-2xl rounded-2xl hover:opacity-90 transition-all shadow-2xl active:scale-95 tracking-tight">
+            <Link to="/login" className="inline-block px-12 py-6 bg-ink text-surface-raised font-black text-2xl rounded-2xl hover:opacity-90 transition-all shadow-2xl active:scale-95 tracking-tight">
               Start Free with 10 Scans Included
             </Link>
             <p className="text-slate-500 font-bold text-sm tracking-wide">No credit card. Takes 30 seconds.</p>
