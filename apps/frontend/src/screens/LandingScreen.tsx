@@ -202,7 +202,7 @@ export function LandingScreen() {
             </div>
             
             <div className="p-10 rounded-[32px] border-4 border-accent bg-white text-left flex flex-col justify-between items-start space-y-8 relative overflow-hidden">
-              <div className="absolute top-4 right-4 bg-accent text-white px-3 py-1 rounded-full text-[10px] font-black tracking-widest">MOST POPULAR</div>
+              <div className="absolute top-4 right-4 bg-accent text-surface-raised px-3 py-1 rounded-full text-[10px] font-black tracking-widest">MOST POPULAR</div>
               <div className="space-y-2">
                 <h3 className="font-black text-accent text-xl italic">Pro</h3>
                 {/* Reads the SAME catalog entry the paywall charges from, so the

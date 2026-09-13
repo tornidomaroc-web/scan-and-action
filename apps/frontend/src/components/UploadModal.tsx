@@ -254,7 +254,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
             <div className="mb-6">
               <button
                 onClick={() => cameraInputRef.current?.click()}
-                className="w-full bg-accent hover:bg-accent-hover text-white py-4 rounded-btn font-semibold shadow-card flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+                className="w-full bg-accent hover:bg-accent-hover text-surface-raised py-4 rounded-btn font-semibold shadow-card flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
               >
                 <Camera size={24} />
                 {s.scanWithCamera}
@@ -399,7 +399,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                              </button>
                              <button
                                onClick={resetToIdle}
-                               className="py-3 text-sm font-semibold rounded-btn bg-accent hover:bg-accent-hover text-white shadow-card transition-colors"
+                               className="py-3 text-sm font-semibold rounded-btn bg-accent hover:bg-accent-hover text-surface-raised shadow-card transition-colors"
                              >
                                {s.manageFiles}
                              </button>
@@ -415,7 +415,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                           </button>
                           <button
                             onClick={resetToIdle}
-                            className="py-3 text-sm font-semibold rounded-btn bg-accent hover:bg-accent-hover text-white transition-colors"
+                            className="py-3 text-sm font-semibold rounded-btn bg-accent hover:bg-accent-hover text-surface-raised transition-colors"
                           >
                             {s.manageFiles}
                           </button>
@@ -435,7 +435,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                   <button
                     onClick={startUpload}
                     data-testid="start-extraction"
-                    className="w-full py-3 text-base font-semibold rounded-btn bg-accent hover:bg-accent-hover text-white transition-colors"
+                    className="w-full py-3 text-base font-semibold rounded-btn bg-accent hover:bg-accent-hover text-surface-raised transition-colors"
                   >
                     {s.startExtraction.replace('{n}', String(files.length))}
                   </button>

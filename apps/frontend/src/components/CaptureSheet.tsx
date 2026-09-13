@@ -168,7 +168,7 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
                     setChooserOpen(false);
                     cameraInputRef.current?.click();
                   }}
-                  className="w-full min-h-[56px] flex items-center gap-4 p-4 rounded-btn bg-accent hover:bg-accent-hover text-white font-semibold text-section shadow-card transition-all active:scale-[0.98]"
+                  className="w-full min-h-[56px] flex items-center gap-4 p-4 rounded-btn bg-accent hover:bg-accent-hover text-surface-raised font-semibold text-section shadow-card transition-all active:scale-[0.98]"
                 >
                   <Camera size={22} strokeWidth={2.5} />
                   {s.takePhoto}
@@ -243,7 +243,7 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
                 <button
                   onClick={handleExtract}
                   disabled={uploading}
-                  className="flex-1 min-h-[48px] rounded-btn bg-accent hover:bg-accent-hover text-white font-semibold text-section shadow-card transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="flex-1 min-h-[48px] rounded-btn bg-accent hover:bg-accent-hover text-surface-raised font-semibold text-section shadow-card transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {uploading ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
                   {uploading ? s.uploading : s.extract}

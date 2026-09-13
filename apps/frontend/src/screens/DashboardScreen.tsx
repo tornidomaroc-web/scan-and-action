@@ -290,14 +290,14 @@ export const DashboardScreen = () => {
             <button
               onClick={() => setPeriod('all')}
               aria-pressed={period === 'all'}
-              className={`rounded-[calc(var(--sa-radius-btn)-2px)] px-3 py-1.5 transition-colors ${period === 'all' ? 'bg-accent text-white' : 'text-ink-tertiary hover:text-ink'}`}
+              className={`rounded-[calc(var(--sa-radius-btn)-2px)] px-3 py-1.5 transition-colors ${period === 'all' ? 'bg-accent text-surface-raised' : 'text-ink-tertiary hover:text-ink'}`}
             >
               {s.allTime}
             </button>
             <button
               onClick={() => setPeriod('month')}
               aria-pressed={period === 'month'}
-              className={`rounded-[calc(var(--sa-radius-btn)-2px)] px-3 py-1.5 transition-colors ${period === 'month' ? 'bg-accent text-white' : 'text-ink-tertiary hover:text-ink'}`}
+              className={`rounded-[calc(var(--sa-radius-btn)-2px)] px-3 py-1.5 transition-colors ${period === 'month' ? 'bg-accent text-surface-raised' : 'text-ink-tertiary hover:text-ink'}`}
             >
               {s.thisMonth}
             </button>
@@ -412,12 +412,17 @@ export const DashboardScreen = () => {
             onClick={onNewScan}
             className="flex items-center gap-3 rounded-card border border-accent bg-accent p-4 text-start shadow-card transition-colors hover:bg-accent-hover"
           >
-            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-btn bg-white/15 text-white">
-              <ScanLine size={19} />
+              {/* The colour sits on the ICON, not on this span: `bg-white/15` is a literal,
+                  but it is TRANSLUCENT over `bg-accent`, so the effective backdrop flips with
+                  the theme and the pairing the ratchet would flag here is not a real one.
+                  Keeping them in separate class strings says that, rather than pinning a
+                  false positive into KNOWN where it would read as a deferred defect. */}
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-btn bg-white/15">
+              <ScanLine size={19} className="text-surface-raised" />
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-semibold text-white">{s.newScan}</span>
-              <span className="block text-xs text-white/80">{s.uploadData}</span>
+              <span className="block text-sm font-semibold text-surface-raised">{s.newScan}</span>
+              <span className="block text-xs text-surface-raised opacity-80">{s.uploadData}</span>
             </span>
           </button>
 
@@ -483,7 +488,7 @@ export const DashboardScreen = () => {
               <p className="mt-1 max-w-xs text-sm text-ink-muted">{s.emptyBody}</p>
               <button
                 onClick={onNewScan}
-                className="mt-5 inline-flex items-center gap-2 rounded-btn bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-accent-hover"
+                className="mt-5 inline-flex items-center gap-2 rounded-btn bg-accent px-5 py-2.5 text-sm font-semibold text-surface-raised shadow-card transition-colors hover:bg-accent-hover"
               >
                 <ScanLine size={16} />
                 {s.newScan}

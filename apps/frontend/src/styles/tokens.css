@@ -100,7 +100,7 @@
    (slate-based surfaces) while keeping the indigo accent. Revisit if a dark
    design frame is produced. */
 .dark {
-  --sa-accent: #635BFF;
+  --sa-accent: #A7A1FF;
   --sa-accent-hover: #6F67FF;
   --sa-accent-text: #A7A1FF;
   --sa-accent-tint: rgba(99, 91, 255, 0.16);
@@ -194,6 +194,7 @@
    both from source and fails on any mismatch — do not edit either by hand.
    =========================================================================== */
 .sa-pin-light {
+  --sa-accent: #635BFF;
   --sa-accent-tint: #EEEDFE;
   --sa-accent-border: #E4E2FB;
   --sa-surface-raised: #FFFFFF;
