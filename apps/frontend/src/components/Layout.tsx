@@ -81,13 +81,13 @@ export const Layout: React.FC = () => {
       <header className="flex md:hidden items-center justify-between px-6 pb-4 pt-[max(1rem,env(safe-area-inset-top))] bg-surface-raised border-b border-line sticky top-0 z-[60] shadow-card">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-accent rounded-btn flex items-center justify-center shadow-card">
-            <Camera size={18} className="text-white" />
+            <Camera size={18} className="text-surface-raised" />
           </div>
           <span className="font-bold text-ink tracking-tight">Scan & Action</span>
         </div>
         <button
           onClick={handleNewScan}
-          className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-btn text-sm font-bold shadow-card transition-all active:scale-95 flex items-center gap-2"
+          className="bg-accent hover:bg-accent-hover text-surface-raised px-4 py-2 rounded-btn text-sm font-bold shadow-card transition-all active:scale-95 flex items-center gap-2"
         >
           <Camera size={16} />
           {s.scanReceipt}

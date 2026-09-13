@@ -103,7 +103,7 @@ export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, 
             <button
               onClick={() => handleAction('amount_corrected')}
               disabled={loading}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-btn bg-accent px-6 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-btn bg-accent px-6 text-sm font-semibold text-surface-raised transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {loading ? s.fixProcessing : s.saveCorrection}
             </button>

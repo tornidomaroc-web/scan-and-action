@@ -375,7 +375,7 @@ export const DocumentDetailScreen = () => {
                     href={doc.signedFileUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-btn bg-accent px-6 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-btn bg-accent px-6 text-sm font-semibold text-surface-raised transition-colors hover:bg-accent-hover"
                   >
                     {s.openOriginalSource}
                   </a>
@@ -532,7 +532,7 @@ export const DocumentDetailScreen = () => {
             <button
               onClick={handleReextract}
               disabled={actioning}
-              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-accent text-sm font-semibold text-white transition-colors active:scale-[0.99] disabled:opacity-50"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-accent text-sm font-semibold text-surface-raised transition-colors active:scale-[0.99] disabled:opacity-50"
             >
               <RefreshCw size={18} />
               {s.retryExtraction}
