@@ -172,8 +172,25 @@
    exists. Until then this class is what makes the code state, once, what the
    page already is.
 
+   SHRUNK FROM EIGHT TO SIX. `--sa-warning` and `--sa-warning-text` were pinned
+   because the hero mock consumed them. They no longer do: that mock is a PICTURE
+   of the product, built from palette literals (`bg-amber-50`, `text-amber-800`,
+   `bg-amber-400`), and two of its elements had been tokenised by accident — which
+   is exactly why they flipped with the app's theme while the picture around them
+   did not. They are literals again, so the route reaches neither token and the
+   pin no longer declares them.
+
+   WHY THE OTHER SIX STAY, measured on production with the CTA fix applied and the
+   pin removed, dark mode, transitions disabled:
+     hero CTA     button #F8FAFC on its bg-white section = SHAPE 1.05
+     Upgrade Now  button #F8FAFC on its bg-white section = SHAPE 1.05
+   The foreground fix makes the TEXT legible (13.98:1) but the BUTTON stops
+   existing as an object, because the sections under it are `bg-white` literals
+   that cannot flip. The pin is what keeps those two buttons visible. It goes when
+   step 3 migrates those sections, not before.
+
    DRIFT: every value below is byte-copied from `:root`, and the set is exactly
-   the differing tokens the route reaches. `landingLightPin.test.ts` recomputes
+   the differing tokens the route reaches. `landingLightPin.test.tsx` recomputes
    both from source and fails on any mismatch — do not edit either by hand.
    =========================================================================== */
 .sa-pin-light {
@@ -183,6 +200,4 @@
   --sa-line: #E9EBF0;
   --sa-ink: #1A1F36;
   --sa-ink-secondary: #5A6273;
-  --sa-warning: #E0A33E;
-  --sa-warning-text: #B26A0A;
 }
