@@ -207,7 +207,7 @@ describe('the page has one container width and one vertical rhythm', () => {
     expect(pad).toEqual(['24', '16', '16', '16', '24']);
   });
 
-  it("every section's own container is the 1280 one, bar the closing measure", () => {
+  it("every section's own container is the 1280 one, with NO exception", () => {
     const widths = sections().map((s) => {
       const c = s.firstElementChild as HTMLElement;
       expect(c.className, 'a section stopped centring its container').toContain('mx-auto');
@@ -215,12 +215,35 @@ describe('the page has one container width and one vertical rhythm', () => {
       expect(m, 'a container declares more than one width').toHaveLength(1);
       return m[0];
     });
-    // The last is the closing CTA: one centred headline and one button, so its
-    // width is a MEASURE on a line of text, not a content edge to align. The
-    // reasoning is recorded at the element. An unexplained third width fails.
+    // This list had a `max-w-3xl` on the closing CTA until a browser reading
+    // showed the narrow measure was not protecting that headline from a long
+    // line — it was orphaning the single word "seconds" onto a second line.
+    // Widening it removed the last section-level exception, so the expectation
+    // is now uniform and any new exception fails here rather than passing as a
+    // judgement call recorded only in a comment.
     expect(widths).toEqual([
-      'max-w-7xl', 'max-w-7xl', 'max-w-7xl', 'max-w-7xl', 'max-w-3xl',
+      'max-w-7xl', 'max-w-7xl', 'max-w-7xl', 'max-w-7xl', 'max-w-7xl',
     ]);
+  });
+
+  it('the two inset rows share ONE measure, so the page has two widths not three', () => {
+    // The step row and the pricing pair are the only things on the page that
+    // are not full-width inside their section. Both are `max-w-3xl` (768), so
+    // at a 1280 viewport they land on the same axis. Derived by FINDING the
+    // inset rows rather than naming them: any element inside a section that
+    // declares a max-width other than the container's is an inset row, so a
+    // third measure appearing anywhere fails this.
+    const insets = sections().flatMap((s) => {
+      const container = s.firstElementChild as HTMLElement;
+      return [...container.querySelectorAll<HTMLElement>('[class*="max-w-"]')]
+        .map((el) => (el.className.match(/\bmax-w-[a-z0-9]+\b/) ?? [''])[0])
+        .filter(Boolean);
+    });
+    // the hero subhead's max-w-2xl is a TEXT measure on a paragraph, not a row
+    const rows = insets.filter((w) => w !== 'max-w-2xl');
+    expect(rows.length, 'the scan found no inset rows at all — it is broken').toBeGreaterThan(0);
+    expect([...new Set(rows)]).toEqual(['max-w-3xl']);
+    expect(rows).toHaveLength(2);
   });
 
   it('and no section leaves a margin that would expose the wrapper between bands', () => {

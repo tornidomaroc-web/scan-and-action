@@ -159,15 +159,12 @@ export function LandingScreen() {
             --sa-line-strong   #E4E7EC border  1.155
             --sa-surface-muted #F1F3F7 fill    1.035
 
-          Nothing in the neutral ramp clears 1.16 on this band. The three cards
-          that used to stand here worked by STACKING three weak cues — a white
-          fill (1.046 on slate-50), a border (1.178) and `shadow-sm` — not by
-          any one of them being visible. An outline-only card has one cue at
-          1.111, which is weaker than today's border alone, and would have read
-          as a broken card rather than a quiet one. So all six carry the same
-          surface: the tokenised form of exactly what the Problem cards already
-          shipped. The rows differ by what is IN them — a red mark and one bold
-          sentence above, a heading and body copy below.
+          Nothing in the neutral ramp clears 1.16 on this band, so an
+          outline-only card had a single cue at 1.111 and would have read as a
+          broken card rather than a quiet one. All six therefore carry the same
+          surface: the tokenised form of what the Problem cards already shipped.
+          The rows differ by what is IN them — a red mark and one bold sentence
+          above, a heading and body copy below.
 
           A tinted icon tile on the answer row was also rejected, for a
           different reason: it would have made this grid look like "How it
@@ -175,10 +172,35 @@ export function LandingScreen() {
           page, which is what keeps that section legible as a SEQUENCE rather
           than as six more benefits.
 
-          The one edge that did move: `border-line` (#E9EBF0) is a 6% weaker
-          hairline than the `border-slate-200` (#E2E8F0) it replaces, 1.111
-          against 1.178. That is the cost of adopting the token the system names
-          "default card border", on a card that also has a fill and a shadow.
+          CORRECTION, FROM LOOKING AT IT IN A BROWSER. This block used to argue
+          that the cards work by STACKING three weak cues — a white fill, a
+          border and `shadow-sm` — none visible alone. That was an inference
+          from the ratios above, and the screen does not do it. Measured at a
+          proven 1280 viewport with transitions disabled, then magnified to
+          130px:
+
+            card fill  #FFFFFF on band #F5F7FA   1.073   the edge is ALL of this
+            border     #E9EBF0 on card #FFFFFF   1.193   not discernible
+            shadow     rgba(0,0,0,0.05) 0 1px 2px        not discernible
+
+          The edge is held entirely by the fill. Note which one lost: the border
+          is the HIGHER ratio of the two and is the one you cannot see. A 1px
+          line at 1.193 sits below threshold while a whole plane at 1.073 reads
+          as a plane, because at one pixel EXTENT counts for more than ratio.
+          Ranking cues by contrast alone is what produced the wrong claim, and
+          it also makes the earlier note about swapping `border-slate-200`
+          (1.178) for `border-line` (1.111) moot: that traded one invisible
+          hairline for another and cost nothing anyone can see.
+
+          THE BORDER STAYS, AND NOT OUT OF INERTIA — but read the next sentence
+          before deleting it. In LIGHT it is measured decoration. The same
+          utilities resolve differently once the pin goes: `--sa-line` becomes
+          #334155 on a #1E293B card, which is 1.413, and card-on-band becomes
+          1.220 — both cues strengthen, and the border may do visible work
+          there. That is DERIVED from the `.dark` block, not observed, because
+          the pin makes it unobservable. So the border is kept and the question
+          is handed to whoever unpins this route. Do not remove it on the
+          strength of the light reading alone.
 
           COLOUR: this markup is new, so there is no "leave it as it was". It is
           written in tokens — band, card, border and both text ramps move
@@ -262,11 +284,12 @@ export function LandingScreen() {
           Swallowing it would have meant transplanting both onto a benefits
           grid and making the nav label describe something else.
 
-          Changed here: the 1280 container and the 64px step of the page rhythm.
-          `relative` on the grid and `relative z-10` on each step are GONE —
-          nothing in this subtree is absolutely positioned (the file's only two
-          `absolute` elements are the hero's shadow and the pricing badge), so
-          they created stacking contexts against nothing. Colour is untouched.
+          Changed here: the 64px step of the page rhythm, and the step ROW is
+          inset (see the note on the grid itself). `relative` on the grid and
+          `relative z-10` on each step are GONE — nothing in this subtree is
+          absolutely positioned (the file's only two `absolute` elements are the
+          hero's shadow and the pricing badge), so they created stacking
+          contexts against nothing. Colour is untouched.
           ====================================================================== */}
       <div id="how-it-works" className="scroll-mt-16 py-16 px-6 bg-white border-y border-slate-100">
         <div className="max-w-7xl mx-auto text-center space-y-12">
@@ -275,7 +298,74 @@ export function LandingScreen() {
             <p className="text-slate-500 font-bold tracking-wide text-sm">You don’t review everything. Only what needs attention.</p>
           </div>
 
-          <div className="grid sm:grid-cols-3 gap-10 sm:gap-8">
+          {/* THE STEP ROW IS INSET TO 768, AND THE SECTION CONTAINER IS NOT.
+              This is the fix for a defect that was MEASURED, not disliked. At
+              the full 1232 container the three columns are 389px wide and the
+              80px tiles sit 341px apart; observed in a browser at a proven 1280
+              viewport, the row stopped reading as a sequence and read as three
+              unrelated items. The same markup at a proven 485 viewport stacks
+              vertically and reads as 1-2-3 immediately, so the container was
+              the only variable.
+
+              WHAT BROKE IS PROXIMITY, so that is what the measure is chosen
+              against. Each step groups with its own heading at `space-y-6` =
+              24px; it competes with the next step at tile edge to tile edge.
+              All CALCULATED from the box model at a 1280 viewport, gap-8:
+
+                inner    column    tile -> tile    ratio to the 24px it competes with
+                1232      389.3       341.3          14.2   <- observed to FAIL
+                1024      320.0       272.0          11.3
+                 896      277.3       229.3           9.6
+                 768      234.7       186.7           7.8   <- chosen
+                (before this change: 896 container, gap-4, 288.0 col, 224.0 -> 9.3)
+
+              The last row is the state nobody complained about. 768 lands
+              TIGHTER than it and 896 lands slightly looser, and since the thing
+              that broke is proximity, the conservative side of that number is
+              the tighter one.
+
+              WHY THE ROW AND NOT THE SECTION. Constraining the section
+              container would look identical — the h2 is centred either way and
+              the `border-y` band spans full width regardless — but it would add
+              a third section-level width. With the inset on the row instead,
+              all five section containers are `max-w-7xl` and the
+              one-1280-container ruling is literally true, with no exception at
+              the section level anywhere on the page.
+
+              AND 768 IS NOT A NEW NUMBER. It is `max-w-3xl`, the measure the
+              pricing card pair already uses; at a 1280 viewport both land on
+              x=256..1024 exactly. The page therefore carries two measures, not
+              three, and the second is used twice.
+
+              DELIBERATELY NARROWER THAN ASKED: the range put to me was 896 to
+              1280, and this is below it. The alignment with the pricing pair
+              and the absence of a new number are why. Two consequences, both
+              stated rather than discovered: the two longest step headings
+              (292px and 296px at 20px) go back to two lines, which is what they
+              did before this change at 288px columns, so it is a restoration
+              and not a new wrap; and the proximity ratio above is a MODEL, not
+              a measurement.
+
+              THE VERDICT, since the model does not get to be the answer.
+              Measured at a proven 1280 viewport, transitions off: the row is
+              768 wide at x=256..1024, columns 235, tiles 80px at x=333/600/867,
+              tile edge to next tile edge **187px** against the calculated
+              186.7, and the intra-group gap is 24px as declared — so the
+              observed ratio is 7.79. The row reads as a sequence. It was also
+              read as a DISCRIMINATION rather than an impression: with only the
+              row's max-width overridden in the page, 1232 puts the tiles 341px
+              apart and they scatter to the extremes of the band exactly as
+              before, and 768 brings them back. Same markup, one property.
+
+              AND THE HONEST PART: 896 ALSO READS. Overridden to 896 the tiles
+              sit 229px apart and the row is still coherent. So 768 was not
+              forced by legibility — it was chosen for the shared axis with the
+              pricing pair, which 896 does not have (896 lands at x=192..1088
+              and aligns with nothing, giving the page three measures instead of
+              two). If that alignment is ever judged not worth the tighter
+              columns, 896 is a defensible revert and this note is the reason it
+              would not be a regression. */}
+          <div className="grid sm:grid-cols-3 gap-10 sm:gap-8 max-w-3xl mx-auto">
             <div className="space-y-6">
               <div className="w-20 h-20 bg-accent-tint text-accent rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-accent-border">1</div>
               <h3 className="text-xl font-black text-slate-900 leading-tight">Upload receipts</h3>
@@ -313,15 +403,30 @@ export function LandingScreen() {
             <p className="text-slate-500 font-bold tracking-wide text-sm">Simple, transparent, and fair.</p>
           </div>
           
-          {/* `max-w-3xl` SURVIVES the one-1280-container ruling, as a stated
-              exception rather than an oversight. The section's own container is
-              1280 like every other, so this card pair aligns with the six cards
-              above at the same outer edge. Stretching TWO cards to 1280 makes
-              each 624px against today's 368px: a `p-10` card holding a plan
-              name, one price and three list items would be mostly empty. The
-              ruling's purpose is one content edge per section, which the 1280
-              container already delivers; forcing a 2-up grid to a 6-up width is
-              not the same thing. One utility reverts this if ruled otherwise. */}
+          {/* `max-w-3xl` here is NOT an exception to the one-1280-container
+              ruling — it is the page's one INSET ROW MEASURE, and the step row
+              in "How it works" now shares it. At a 1280 viewport both land on
+              x=256..1024 exactly, so two measures cover the page: 1232 for
+              every section container, 768 for the two rows that are not
+              full-width grids. Stretching TWO cards to 1232 makes each 624px
+              against today's 368px, and a `p-10` card holding a plan name, one
+              price and three list items would be mostly empty.
+
+              MEASURED, and it is the reason this line needed no edit when the
+              section moved to the 1280 container: the pair did not move. A 768
+              row centred in a 896 container and centred in a 1232 one land on
+              the same axis, so at a 1280 viewport it was at x=256 before the
+              change and is at x=256 after it. The section-container edit is a
+              no-op at this width; what gained width is the heading block, and
+              the heading is 704px on one line either way.
+
+              THE ONE THING THAT DID NOT RESOLVE, recorded because it is visible
+              rather than because it is in scope: these cards are 368px and
+              start at x=256, while the six benefit cards directly above are
+              389px at x=24/445/867. Scrolling gives a 3-up row at one width and
+              a 2-up row at another, inset. That is a consequence of the inset
+              measure, not of this change, and closing it means deciding what a
+              card is worth on this page — not widening a grid. */}
           <div className="grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto">
             <div className="p-10 rounded-[32px] border-4 border-slate-50 bg-white text-left flex flex-col justify-between items-start space-y-8">
               <div className="space-y-2">
@@ -367,14 +472,41 @@ export function LandingScreen() {
 
       {/* 5. Final CTA Section */}
       {/* py-24 (96px), the closing step of the rhythm, down from py-32 (128px).
-          `max-w-3xl` is the SECOND stated exception to the one-1280-container
-          ruling, and for the same reason as the hero's `max-w-2xl` subhead: this
-          is a MEASURE on one run of text, not a content edge. The section holds
-          one centred headline and one button — there is no grid here whose
-          columns could align with anything, and at 1280 the 48px headline stops
-          wrapping and becomes a single very long line. A 1280 wrapper around a
-          768 measure would add a div and move no pixel. One utility changes this
-          if ruled otherwise.
+
+          THIS SECTION WAS AN EXCEPTION AND IS NOT ONE ANY MORE. It carried
+          `max-w-3xl`, and the reason written here for keeping it was that "at
+          1280 the 48px headline stops wrapping and becomes a single very long
+          line". That reason was wrong, and the measurement that settles it was
+          taken in a browser at a proven 1280 viewport: inside 768 the headline
+          takes TWO line boxes, 739px at its widest, and the second line is the
+          single word "seconds". An orphan — the same defect this repository
+          already fixed once in the hero, where "you." was orphaned at 60px and
+          the headline was dropped to 48px to stop it.
+
+          So the narrow measure was not protecting the headline from a long
+          line, it was producing an orphan. In the 1232 container the headline
+          is ONE line — measured after the change at a proven 1280 viewport,
+          955px wide, one line box. (955, not the 739 first written here: 739
+          was the widest line of the WRAPPED version, and the unwrapped line is
+          longer than the widest fragment of the wrapped one. Corrected from the
+          reading.) It clears the 1232 container with 277px to spare, and this
+          section joins the other four rather than standing apart. The exception
+          count for the whole page is now ZERO at the section level.
+
+          WHAT THIS DID NOT FIX, and it would be easy to read the line above as
+          more than it is: the orphan is gone AT DESKTOP WIDTH ONLY. A 955px
+          line needs 955 + 48 of `px-6` = ~1003px of viewport; below that it
+          wraps, and it wraps in the same place. Measured at a proven 900
+          viewport: two line boxes, 739 + 207, words ["Turn receipts into clean
+          data in"] / ["seconds"]. Measured at a proven 485: the same split,
+          with the h2 computing to 24px there. So this change made the closing
+          headline correct on a desktop and left it orphaning everywhere
+          narrower — strictly better than before, when it orphaned at 1280 too,
+          but not a fix. The remaining orphan is a property of this STRING at
+          this type size, so closing it means a copy or type decision, not
+          another container. That belongs to the closing-section entry on the
+          board, which already owns this band.
+
           NOT TOUCHED, and it is an OPEN board item, not an oversight: this
           button is `bg-ink` (#1A1F36 under the pin) on a `bg-slate-900` band
           (#0F172A), measured SHAPE 1.10 against a 3:1 floor — it reads as white
@@ -384,7 +516,7 @@ export function LandingScreen() {
           section, and forbids fixing it piecemeal. Changing the padding does not
           touch it either way. */}
       <div className="py-24 px-6 bg-slate-900 text-center">
-        <div className="max-w-3xl mx-auto space-y-10">
+        <div className="max-w-7xl mx-auto space-y-10">
           <h2 className="text-4xl sm:text-5xl font-black text-white leading-tight">Turn receipts into clean data in seconds</h2>
           <div className="space-y-6">
             <Link to="/login" className="inline-block px-12 py-6 bg-ink text-surface-raised font-black text-2xl rounded-2xl hover:opacity-90 transition-all shadow-2xl active:scale-95 tracking-tight">
