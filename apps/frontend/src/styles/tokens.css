@@ -172,16 +172,26 @@
    exists. Until then this class is what makes the code state, once, what the
    page already is.
 
-   SHRUNK FROM EIGHT TO SIX. `--sa-warning` and `--sa-warning-text` were pinned
-   because the hero mock consumed them. They no longer do: that mock is a PICTURE
-   of the product, built from palette literals (`bg-amber-50`, `text-amber-800`,
-   `bg-amber-400`), and two of its elements had been tokenised by accident — which
-   is exactly why they flipped with the app's theme while the picture around them
-   did not. They are literals again, so the route reaches neither token and the
-   pin no longer declares them.
+   THE COUNT IS NOT FIXED, AND THIS PROSE HAS ALREADY BEEN WRONG ABOUT IT. Do
+   not read a number here as current. `landingLightPin.test.tsx` recomputes the
+   required set from the route's source on every run, so the DECLARATIONS below
+   are the only statement of the count that cannot drift; this paragraph is
+   history. The trail: eight, then six when #214 de-tokenised the hero mock,
+   then seven when #219 unfroze `--sa-accent`, then EIGHT again with
+   `--sa-surface`, which the rebuilt section 2 reaches through `bg-surface`. The
+   two sentences that said "six" while seven were declared are rewritten here
+   for that reason and not as tidying.
 
-   WHY THE OTHER SIX STAY, measured on production with the CTA fix applied and the
-   pin removed, dark mode, transitions disabled:
+   WHY #214's TWO WENT. `--sa-warning` and `--sa-warning-text` were pinned
+   because the hero mock consumed them. It no longer does: that mock is a
+   PICTURE of the product, built from palette literals (`bg-amber-50`,
+   `text-amber-800`, `bg-amber-400`), and two of its elements had been tokenised
+   by accident — which is exactly why they flipped with the app's theme while the
+   picture around them did not. They are literals again, so the route reaches
+   neither token and the pin no longer declares them.
+
+   WHY THE CTA TOKENS STAY, measured on production with the CTA fix applied and
+   the pin removed, dark mode, transitions disabled:
      hero CTA     button #F8FAFC on its bg-white section = SHAPE 1.05
      Upgrade Now  button #F8FAFC on its bg-white section = SHAPE 1.05
    The foreground fix makes the TEXT legible (13.98:1) but the BUTTON stops
@@ -197,6 +207,7 @@
   --sa-accent: #635BFF;
   --sa-accent-tint: #EEEDFE;
   --sa-accent-border: #E4E2FB;
+  --sa-surface: #F5F7FA;
   --sa-surface-raised: #FFFFFF;
   --sa-line: #E9EBF0;
   --sa-ink: #1A1F36;

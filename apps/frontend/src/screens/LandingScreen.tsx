@@ -17,7 +17,18 @@ export function LandingScreen() {
       <LandingHeader />
 
       {/* 1. Hero Section */}
-      <div className="pt-24 pb-20 px-6 bg-white border-b border-slate-100 mb-12 overflow-hidden">
+      {/* py-24 (96px) is the OPENING step of the two-step rhythm this page now
+          keeps: 96px for the hero and the closing CTA, 64px for everything
+          between them. It replaces `pt-24 pb-20`, which was asymmetric for no
+          recorded reason.
+          `mb-12` is GONE, and not only for the rhythm: it exposed 48px of the
+          page wrapper's `bg-slate-50` (#F8FAFC) directly above section 2, whose
+          band is now the `--sa-surface` token (#F5F7FA). Two greys 3 bytes apart
+          meeting on a seam reads as a mistake rather than a choice — the same
+          objection landingHeroType.test.tsx records against two near-identical
+          indigos. With the margin removed the sections are contiguous and the
+          wrapper's colour is visible only behind the footer. */}
+      <div className="py-24 px-6 bg-white border-b border-slate-100 overflow-hidden">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center text-center lg:text-left">
           <div className="space-y-8 relative z-10 text-center">
             {/* Two DELIBERATE lines. `block` on each span is what guarantees the break
@@ -115,45 +126,255 @@ export function LandingScreen() {
         </div>
       </div>
 
-      {/* 2. Problem Section */}
-      <div className="py-24 px-6 bg-slate-50">
-        <div className="max-w-4xl mx-auto space-y-12">
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-900 text-center">Still typing receipts manually?</h2>
+      {/* ======================================================================
+          2. THE COST, AND THE ANSWER UNDER IT — one grid, six cards.
+          ======================================================================
+          This ONE section replaces the two that used to sit either side of
+          "How it works": the Problem section (three cards) and the Value
+          section (three bare headings). 3 + 3 = the six cards.
+
+          NO COPY IS NEW. Every string below is byte-identical to one that was
+          already on this page, in those two sections. The h2 is the Problem
+          section's own heading — the Value section never had one, which is why
+          a whole band of the page used to open on nothing.
+
+          WHY THE COLUMNS PAIR, and this is the finding the merge surfaced: the
+          six items were never six ideas. They are three costs and three
+          answers, stated twice —
+            "typing every receipt by hand"      <-> "stop wasting hours on manual entry"
+            "missing amounts break your reports" <-> "clean data you can actually use"
+            "mistakes only after it's too late"  <-> "catch errors before they cost you"
+          Laid out as six peers the duplication reads as padding. Laid out as
+          three columns, cost above answer, it reads as the argument. The Value
+          items are therefore in the order 1, 3, 2 relative to the section that
+          held them: a REORDERING of existing copy, not a rewrite.
+
+          WHAT TELLS THE TWO ROWS APART IS THEIR CONTENT, AND THAT IS FORCED BY
+          ARITHMETIC RATHER THAN CHOSEN. The first build gave the cost row an
+          outline and no fill, so that the answer row could be the only raised
+          surface. Then the neutrals were measured against this band (#F5F7FA):
+
+            --sa-surface-raised #FFFFFF fill   1.073      floor for a UI edge: 3
+            --sa-line          #E9EBF0 border  1.111
+            --sa-line-strong   #E4E7EC border  1.155
+            --sa-surface-muted #F1F3F7 fill    1.035
+
+          Nothing in the neutral ramp clears 1.16 on this band, so an
+          outline-only card had a single cue at 1.111 and would have read as a
+          broken card rather than a quiet one. All six therefore carry the same
+          surface: the tokenised form of what the Problem cards already shipped.
+          The rows differ by what is IN them — a red mark and one bold sentence
+          above, a heading and body copy below.
+
+          A tinted icon tile on the answer row was also rejected, for a
+          different reason: it would have made this grid look like "How it
+          works", whose accent numerals are now the only accent tiles on the
+          page, which is what keeps that section legible as a SEQUENCE rather
+          than as six more benefits.
+
+          CORRECTION, FROM LOOKING AT IT IN A BROWSER. This block used to argue
+          that the cards work by STACKING three weak cues — a white fill, a
+          border and `shadow-sm` — none visible alone. That was an inference
+          from the ratios above, and the screen does not do it. Measured at a
+          proven 1280 viewport with transitions disabled, then magnified to
+          130px:
+
+            card fill  #FFFFFF on band #F5F7FA   1.073   the edge is ALL of this
+            border     #E9EBF0 on card #FFFFFF   1.193   not discernible
+            shadow     rgba(0,0,0,0.05) 0 1px 2px        not discernible
+
+          The edge is held entirely by the fill. Note which one lost: the border
+          is the HIGHER ratio of the two and is the one you cannot see. A 1px
+          line at 1.193 sits below threshold while a whole plane at 1.073 reads
+          as a plane, because at one pixel EXTENT counts for more than ratio.
+          Ranking cues by contrast alone is what produced the wrong claim, and
+          it also makes the earlier note about swapping `border-slate-200`
+          (1.178) for `border-line` (1.111) moot: that traded one invisible
+          hairline for another and cost nothing anyone can see.
+
+          THE BORDER STAYS, AND NOT OUT OF INERTIA — but read the next sentence
+          before deleting it. In LIGHT it is measured decoration. The same
+          utilities resolve differently once the pin goes: `--sa-line` becomes
+          #334155 on a #1E293B card, which is 1.413, and card-on-band becomes
+          1.220 — both cues strengthen, and the border may do visible work
+          there. That is DERIVED from the `.dark` block, not observed, because
+          the pin makes it unobservable. So the border is kept and the question
+          is handed to whoever unpins this route. Do not remove it on the
+          strength of the light reading alone.
+
+          COLOUR: this markup is new, so there is no "leave it as it was". It is
+          written in tokens — band, card, border and both text ramps move
+          together — which is the direction WORK-QUEUE's step-3 entry measured as
+          the only safe one (backgrounds alone strand the foregrounds at 1.00:1).
+          The one literal island is the `!` tile, kept as the existing approved
+          ornament rather than pressed onto `--sa-danger-*`, which is an error
+          state and not an editorial mark.
+          UNVERIFIED, AND SAY SO: `.sa-pin-light` holds all of these tokens at
+          their light values, so this section looks correct in dark mode whether
+          that reasoning is right or wrong. What is verified is the pairing
+          (tokenLiteralPairing), the pinned set (landingLightPin) and the light
+          rendering. The dark reading is owed when the pin comes off.
+          ====================================================================== */}
+      <div className="py-16 px-6 bg-surface">
+        <div className="max-w-7xl mx-auto space-y-12">
+          <h2 className="text-3xl sm:text-4xl font-black text-ink text-center">Still typing receipts manually?</h2>
           <div className="grid sm:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            {/* Row 1 - the cost: a red mark and one bold sentence. */}
+            <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-4">
               <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-xl">!</div>
-              <p className="font-bold text-slate-800 text-lg leading-snug">You’re still typing every receipt by hand</p>
+              <p className="font-bold text-ink text-lg leading-snug">You’re still typing every receipt by hand</p>
             </div>
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-4">
               <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-xl">!</div>
-              <p className="font-bold text-slate-800 text-lg leading-snug">Receipts with missing amounts break your reports</p>
+              <p className="font-bold text-ink text-lg leading-snug">Receipts with missing amounts break your reports</p>
             </div>
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-4">
               <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-xl">!</div>
-              <p className="font-bold text-slate-800 text-lg leading-snug">You find mistakes only after it’s too late</p>
+              <p className="font-bold text-ink text-lg leading-snug">You find mistakes only after it’s too late</p>
+            </div>
+
+            {/* Row 2 - the answer, in the column of the cost it answers. */}
+            <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-3">
+              <h3 className="font-black text-ink text-2xl leading-tight">Stop wasting hours on manual entry</h3>
+              <p className="text-ink-secondary font-medium">Automatic recognition makes typing a thing of the past.</p>
+            </div>
+            <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-3">
+              <h3 className="font-black text-ink text-2xl leading-tight">Get clean data you can actually use</h3>
+              <p className="text-ink-secondary font-medium">Export validated CSV data ready for your accounting tool.</p>
+            </div>
+            <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-3">
+              <h3 className="font-black text-ink text-2xl leading-tight">Catch errors before they cost you</h3>
+              <p className="text-ink-secondary font-medium">Built-in validation rules flag suspicious data instantly.</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. How it Works Section */}
-      <div id="how-it-works" className="scroll-mt-16 py-24 px-6 bg-white border-y border-slate-100">
-        <div className="max-w-4xl mx-auto text-center space-y-16">
+      {/* ======================================================================
+          3. HOW IT WORKS — a numbered sequence, and deliberately NOT cards.
+          ======================================================================
+          This section was proposed for the six-card grid above and RULED OUT,
+          on two measurements taken against this file rather than remembered:
+
+            * the grid's job is to convert literal colour utilities into tokens.
+              Measured on ce03bee, the commit the ruling was made against: the
+              two sections the grid swallowed were the only two on the page at
+              0% tokenised (Problem 0 tokens / 17 literals, Value 0 / 7), while
+              THIS section was the most tokenised at 9 / 7 = 56%, holding 9 of
+              that file's 20 token utilities in 25 lines. Rewriting the
+              most-migrated section to gain page length spends the change on
+              the wrong surface. Those are readings of a file that no longer
+              exists in that form, kept because they are the REASON; the ratio
+              that is still live is this section's own 9 / 7, and re-deriving
+              any of it means counting utilities against the config, never
+              trusting the numbers in this comment.
+            * three items plus three items is six. Adding these three makes
+              nine, which is not a six-card grid — it forces either nine cards
+              or a selection that drops copy.
+
+          And the shape carries the argument: 1-2-3 IS the claim that the
+          product is simple. As cards among six others the steps lose their
+          number and their order and read as three more benefits. The accent
+          numerals below are now the only accent tiles on the page, which is
+          what keeps this readable as a sequence.
+
+          The id and `scroll-mt-16` stay on THIS div: landingHeader.test.tsx
+          asserts `#how-it-works` resolves to a real element and carries a
+          scroll-mt, and the header's label promises this section by name.
+          Swallowing it would have meant transplanting both onto a benefits
+          grid and making the nav label describe something else.
+
+          Changed here: the 64px step of the page rhythm, and the step ROW is
+          inset (see the note on the grid itself). `relative` on the grid and
+          `relative z-10` on each step are GONE — nothing in this subtree is
+          absolutely positioned (the file's only two `absolute` elements are the
+          hero's shadow and the pricing badge), so they created stacking
+          contexts against nothing. Colour is untouched.
+          ====================================================================== */}
+      <div id="how-it-works" className="scroll-mt-16 py-16 px-6 bg-white border-y border-slate-100">
+        <div className="max-w-7xl mx-auto text-center space-y-12">
           <div className="space-y-4">
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 italic">How it works</h2>
             <p className="text-slate-500 font-bold tracking-wide text-sm">You don’t review everything. Only what needs attention.</p>
           </div>
-          
-          <div className="grid sm:grid-cols-3 gap-12 sm:gap-4 relative">
-            <div className="space-y-6 relative z-10">
+
+          {/* THE STEP ROW IS INSET TO 768, AND THE SECTION CONTAINER IS NOT.
+              This is the fix for a defect that was MEASURED, not disliked. At
+              the full 1232 container the three columns are 389px wide and the
+              80px tiles sit 341px apart; observed in a browser at a proven 1280
+              viewport, the row stopped reading as a sequence and read as three
+              unrelated items. The same markup at a proven 485 viewport stacks
+              vertically and reads as 1-2-3 immediately, so the container was
+              the only variable.
+
+              WHAT BROKE IS PROXIMITY, so that is what the measure is chosen
+              against. Each step groups with its own heading at `space-y-6` =
+              24px; it competes with the next step at tile edge to tile edge.
+              All CALCULATED from the box model at a 1280 viewport, gap-8:
+
+                inner    column    tile -> tile    ratio to the 24px it competes with
+                1232      389.3       341.3          14.2   <- observed to FAIL
+                1024      320.0       272.0          11.3
+                 896      277.3       229.3           9.6
+                 768      234.7       186.7           7.8   <- chosen
+                (before this change: 896 container, gap-4, 288.0 col, 224.0 -> 9.3)
+
+              The last row is the state nobody complained about. 768 lands
+              TIGHTER than it and 896 lands slightly looser, and since the thing
+              that broke is proximity, the conservative side of that number is
+              the tighter one.
+
+              WHY THE ROW AND NOT THE SECTION. Constraining the section
+              container would look identical — the h2 is centred either way and
+              the `border-y` band spans full width regardless — but it would add
+              a third section-level width. With the inset on the row instead,
+              all five section containers are `max-w-7xl` and the
+              one-1280-container ruling is literally true, with no exception at
+              the section level anywhere on the page.
+
+              AND 768 IS NOT A NEW NUMBER. It is `max-w-3xl`, the measure the
+              pricing card pair already uses; at a 1280 viewport both land on
+              x=256..1024 exactly. The page therefore carries two measures, not
+              three, and the second is used twice.
+
+              DELIBERATELY NARROWER THAN ASKED: the range put to me was 896 to
+              1280, and this is below it. The alignment with the pricing pair
+              and the absence of a new number are why. Two consequences, both
+              stated rather than discovered: the two longest step headings
+              (292px and 296px at 20px) go back to two lines, which is what they
+              did before this change at 288px columns, so it is a restoration
+              and not a new wrap; and the proximity ratio above is a MODEL, not
+              a measurement.
+
+              THE VERDICT, since the model does not get to be the answer.
+              Measured at a proven 1280 viewport, transitions off: the row is
+              768 wide at x=256..1024, columns 235, tiles 80px at x=333/600/867,
+              tile edge to next tile edge **187px** against the calculated
+              186.7, and the intra-group gap is 24px as declared — so the
+              observed ratio is 7.79. The row reads as a sequence. It was also
+              read as a DISCRIMINATION rather than an impression: with only the
+              row's max-width overridden in the page, 1232 puts the tiles 341px
+              apart and they scatter to the extremes of the band exactly as
+              before, and 768 brings them back. Same markup, one property.
+
+              AND THE HONEST PART: 896 ALSO READS. Overridden to 896 the tiles
+              sit 229px apart and the row is still coherent. So 768 was not
+              forced by legibility — it was chosen for the shared axis with the
+              pricing pair, which 896 does not have (896 lands at x=192..1088
+              and aligns with nothing, giving the page three measures instead of
+              two). If that alignment is ever judged not worth the tighter
+              columns, 896 is a defensible revert and this note is the reason it
+              would not be a regression. */}
+          <div className="grid sm:grid-cols-3 gap-10 sm:gap-8 max-w-3xl mx-auto">
+            <div className="space-y-6">
               <div className="w-20 h-20 bg-accent-tint text-accent rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-accent-border">1</div>
               <h3 className="text-xl font-black text-slate-900 leading-tight">Upload receipts</h3>
             </div>
-            <div className="space-y-6 relative z-10">
+            <div className="space-y-6">
               <div className="w-20 h-20 bg-accent-tint text-accent rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-accent-border">2</div>
               <h3 className="text-xl font-black text-slate-900 leading-tight">AI extracts and fixes the data</h3>
             </div>
-            <div className="space-y-6 relative z-10">
+            <div className="space-y-6">
               <div className="w-20 h-20 bg-accent-tint text-accent rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-accent-border">3</div>
               <h3 className="text-xl font-black text-slate-900 leading-tight">You review only what matters</h3>
             </div>
@@ -161,32 +382,51 @@ export function LandingScreen() {
         </div>
       </div>
 
-      {/* 4. Value Section */}
-      <div className="py-24 px-6 bg-slate-50">
-        <div className="max-w-5xl mx-auto grid sm:grid-cols-3 gap-8 text-center sm:text-left">
-          <div className="space-y-4">
-            <h3 className="font-black text-slate-900 text-2xl leading-tight">Stop wasting hours on manual entry</h3>
-            <p className="text-slate-600 font-medium">Automatic recognition makes typing a thing of the past.</p>
-          </div>
-          <div className="space-y-4">
-            <h3 className="font-black text-slate-900 text-2xl leading-tight">Catch errors before they cost you</h3>
-            <p className="text-slate-600 font-medium">Built-in validation rules flag suspicious data instantly.</p>
-          </div>
-          <div className="space-y-4">
-            <h3 className="font-black text-slate-900 text-2xl leading-tight">Get clean data you can actually use</h3>
-            <p className="text-slate-600 font-medium">Export validated CSV data ready for your accounting tool.</p>
-          </div>
-        </div>
-      </div>
+      {/* The Value Section stood here, between "How it works" and Pricing: three
+          bare h3 + p pairs on a slate-50 band, with NO heading of its own. Its
+          six strings are now the answer row of section 2, paired with the cost
+          each one answers. Nothing was dropped and nothing was rewritten.
+          CONSEQUENCE, named rather than discovered later: the page used to
+          alternate white / grey / white / grey / white / dark across six
+          sections. Five sections cannot alternate, so "How it works" and
+          Pricing are now adjacent whites, separated by the `border-y
+          border-slate-100` hairlines they already carried. Making Pricing the
+          grey band would restore the alternation in one utility, and is NOT
+          done here: this change moves geometry on the sections it did not
+          rebuild, never their colour, so that step 3 stays one migration. */}
 
-      {/* 5. Pricing Section */}
-      <div id="pricing" className="scroll-mt-16 py-24 px-6 bg-white border-y border-slate-100">
-        <div className="max-w-4xl mx-auto space-y-16 text-center">
+      {/* 4. Pricing Section */}
+      <div id="pricing" className="scroll-mt-16 py-16 px-6 bg-white border-y border-slate-100">
+        <div className="max-w-7xl mx-auto space-y-16 text-center">
           <div className="space-y-4">
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 italic tracking-tight">Try it free. Upgrade when you need more.</h2>
             <p className="text-slate-500 font-bold tracking-wide text-sm">Simple, transparent, and fair.</p>
           </div>
           
+          {/* `max-w-3xl` here is NOT an exception to the one-1280-container
+              ruling — it is the page's one INSET ROW MEASURE, and the step row
+              in "How it works" now shares it. At a 1280 viewport both land on
+              x=256..1024 exactly, so two measures cover the page: 1232 for
+              every section container, 768 for the two rows that are not
+              full-width grids. Stretching TWO cards to 1232 makes each 624px
+              against today's 368px, and a `p-10` card holding a plan name, one
+              price and three list items would be mostly empty.
+
+              MEASURED, and it is the reason this line needed no edit when the
+              section moved to the 1280 container: the pair did not move. A 768
+              row centred in a 896 container and centred in a 1232 one land on
+              the same axis, so at a 1280 viewport it was at x=256 before the
+              change and is at x=256 after it. The section-container edit is a
+              no-op at this width; what gained width is the heading block, and
+              the heading is 704px on one line either way.
+
+              THE ONE THING THAT DID NOT RESOLVE, recorded because it is visible
+              rather than because it is in scope: these cards are 368px and
+              start at x=256, while the six benefit cards directly above are
+              389px at x=24/445/867. Scrolling gives a 3-up row at one width and
+              a 2-up row at another, inset. That is a consequence of the inset
+              measure, not of this change, and closing it means deciding what a
+              card is worth on this page — not widening a grid. */}
           <div className="grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto">
             <div className="p-10 rounded-[32px] border-4 border-slate-50 bg-white text-left flex flex-col justify-between items-start space-y-8">
               <div className="space-y-2">
@@ -230,9 +470,53 @@ export function LandingScreen() {
         </div>
       </div>
 
-      {/* 6. Final CTA Section */}
-      <div className="py-32 px-6 bg-slate-900 text-center">
-        <div className="max-w-3xl mx-auto space-y-10">
+      {/* 5. Final CTA Section */}
+      {/* py-24 (96px), the closing step of the rhythm, down from py-32 (128px).
+
+          THIS SECTION WAS AN EXCEPTION AND IS NOT ONE ANY MORE. It carried
+          `max-w-3xl`, and the reason written here for keeping it was that "at
+          1280 the 48px headline stops wrapping and becomes a single very long
+          line". That reason was wrong, and the measurement that settles it was
+          taken in a browser at a proven 1280 viewport: inside 768 the headline
+          takes TWO line boxes, 739px at its widest, and the second line is the
+          single word "seconds". An orphan — the same defect this repository
+          already fixed once in the hero, where "you." was orphaned at 60px and
+          the headline was dropped to 48px to stop it.
+
+          So the narrow measure was not protecting the headline from a long
+          line, it was producing an orphan. In the 1232 container the headline
+          is ONE line — measured after the change at a proven 1280 viewport,
+          955px wide, one line box. (955, not the 739 first written here: 739
+          was the widest line of the WRAPPED version, and the unwrapped line is
+          longer than the widest fragment of the wrapped one. Corrected from the
+          reading.) It clears the 1232 container with 277px to spare, and this
+          section joins the other four rather than standing apart. The exception
+          count for the whole page is now ZERO at the section level.
+
+          WHAT THIS DID NOT FIX, and it would be easy to read the line above as
+          more than it is: the orphan is gone AT DESKTOP WIDTH ONLY. A 955px
+          line needs 955 + 48 of `px-6` = ~1003px of viewport; below that it
+          wraps, and it wraps in the same place. Measured at a proven 900
+          viewport: two line boxes, 739 + 207, words ["Turn receipts into clean
+          data in"] / ["seconds"]. Measured at a proven 485: the same split,
+          with the h2 computing to 24px there. So this change made the closing
+          headline correct on a desktop and left it orphaning everywhere
+          narrower — strictly better than before, when it orphaned at 1280 too,
+          but not a fix. The remaining orphan is a property of this STRING at
+          this type size, so closing it means a copy or type decision, not
+          another container. That belongs to the closing-section entry on the
+          board, which already owns this band.
+
+          NOT TOUCHED, and it is an OPEN board item, not an oversight: this
+          button is `bg-ink` (#1A1F36 under the pin) on a `bg-slate-900` band
+          (#0F172A), measured SHAPE 1.10 against a 3:1 floor — it reads as white
+          text floating on the band. Its label is fine at 16.24:1; the affordance
+          is what is missing. The board's entry rules that a different fill, a
+          different band, or dropping the band are decisions about this closing
+          section, and forbids fixing it piecemeal. Changing the padding does not
+          touch it either way. */}
+      <div className="py-24 px-6 bg-slate-900 text-center">
+        <div className="max-w-7xl mx-auto space-y-10">
           <h2 className="text-4xl sm:text-5xl font-black text-white leading-tight">Turn receipts into clean data in seconds</h2>
           <div className="space-y-6">
             <Link to="/login" className="inline-block px-12 py-6 bg-ink text-surface-raised font-black text-2xl rounded-2xl hover:opacity-90 transition-all shadow-2xl active:scale-95 tracking-tight">
