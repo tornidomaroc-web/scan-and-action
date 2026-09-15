@@ -17,7 +17,18 @@ export function LandingScreen() {
       <LandingHeader />
 
       {/* 1. Hero Section */}
-      <div className="pt-24 pb-20 px-6 bg-white border-b border-slate-100 mb-12 overflow-hidden">
+      {/* py-24 (96px) is the OPENING step of the two-step rhythm this page now
+          keeps: 96px for the hero and the closing CTA, 64px for everything
+          between them. It replaces `pt-24 pb-20`, which was asymmetric for no
+          recorded reason.
+          `mb-12` is GONE, and not only for the rhythm: it exposed 48px of the
+          page wrapper's `bg-slate-50` (#F8FAFC) directly above section 2, whose
+          band is now the `--sa-surface` token (#F5F7FA). Two greys 3 bytes apart
+          meeting on a seam reads as a mistake rather than a choice — the same
+          objection landingHeroType.test.tsx records against two near-identical
+          indigos. With the margin removed the sections are contiguous and the
+          wrapper's colour is visible only behind the footer. */}
+      <div className="py-24 px-6 bg-white border-b border-slate-100 overflow-hidden">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center text-center lg:text-left">
           <div className="space-y-8 relative z-10 text-center">
             {/* Two DELIBERATE lines. `block` on each span is what guarantees the break
@@ -115,45 +126,165 @@ export function LandingScreen() {
         </div>
       </div>
 
-      {/* 2. Problem Section */}
-      <div className="py-24 px-6 bg-slate-50">
-        <div className="max-w-4xl mx-auto space-y-12">
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-900 text-center">Still typing receipts manually?</h2>
+      {/* ======================================================================
+          2. THE COST, AND THE ANSWER UNDER IT — one grid, six cards.
+          ======================================================================
+          This ONE section replaces the two that used to sit either side of
+          "How it works": the Problem section (three cards) and the Value
+          section (three bare headings). 3 + 3 = the six cards.
+
+          NO COPY IS NEW. Every string below is byte-identical to one that was
+          already on this page, in those two sections. The h2 is the Problem
+          section's own heading — the Value section never had one, which is why
+          a whole band of the page used to open on nothing.
+
+          WHY THE COLUMNS PAIR, and this is the finding the merge surfaced: the
+          six items were never six ideas. They are three costs and three
+          answers, stated twice —
+            "typing every receipt by hand"      <-> "stop wasting hours on manual entry"
+            "missing amounts break your reports" <-> "clean data you can actually use"
+            "mistakes only after it's too late"  <-> "catch errors before they cost you"
+          Laid out as six peers the duplication reads as padding. Laid out as
+          three columns, cost above answer, it reads as the argument. The Value
+          items are therefore in the order 1, 3, 2 relative to the section that
+          held them: a REORDERING of existing copy, not a rewrite.
+
+          WHAT TELLS THE TWO ROWS APART IS THEIR CONTENT, AND THAT IS FORCED BY
+          ARITHMETIC RATHER THAN CHOSEN. The first build gave the cost row an
+          outline and no fill, so that the answer row could be the only raised
+          surface. Then the neutrals were measured against this band (#F5F7FA):
+
+            --sa-surface-raised #FFFFFF fill   1.073      floor for a UI edge: 3
+            --sa-line          #E9EBF0 border  1.111
+            --sa-line-strong   #E4E7EC border  1.155
+            --sa-surface-muted #F1F3F7 fill    1.035
+
+          Nothing in the neutral ramp clears 1.16 on this band. The three cards
+          that used to stand here worked by STACKING three weak cues — a white
+          fill (1.046 on slate-50), a border (1.178) and `shadow-sm` — not by
+          any one of them being visible. An outline-only card has one cue at
+          1.111, which is weaker than today's border alone, and would have read
+          as a broken card rather than a quiet one. So all six carry the same
+          surface: the tokenised form of exactly what the Problem cards already
+          shipped. The rows differ by what is IN them — a red mark and one bold
+          sentence above, a heading and body copy below.
+
+          A tinted icon tile on the answer row was also rejected, for a
+          different reason: it would have made this grid look like "How it
+          works", whose accent numerals are now the only accent tiles on the
+          page, which is what keeps that section legible as a SEQUENCE rather
+          than as six more benefits.
+
+          The one edge that did move: `border-line` (#E9EBF0) is a 6% weaker
+          hairline than the `border-slate-200` (#E2E8F0) it replaces, 1.111
+          against 1.178. That is the cost of adopting the token the system names
+          "default card border", on a card that also has a fill and a shadow.
+
+          COLOUR: this markup is new, so there is no "leave it as it was". It is
+          written in tokens — band, card, border and both text ramps move
+          together — which is the direction WORK-QUEUE's step-3 entry measured as
+          the only safe one (backgrounds alone strand the foregrounds at 1.00:1).
+          The one literal island is the `!` tile, kept as the existing approved
+          ornament rather than pressed onto `--sa-danger-*`, which is an error
+          state and not an editorial mark.
+          UNVERIFIED, AND SAY SO: `.sa-pin-light` holds all of these tokens at
+          their light values, so this section looks correct in dark mode whether
+          that reasoning is right or wrong. What is verified is the pairing
+          (tokenLiteralPairing), the pinned set (landingLightPin) and the light
+          rendering. The dark reading is owed when the pin comes off.
+          ====================================================================== */}
+      <div className="py-16 px-6 bg-surface">
+        <div className="max-w-7xl mx-auto space-y-12">
+          <h2 className="text-3xl sm:text-4xl font-black text-ink text-center">Still typing receipts manually?</h2>
           <div className="grid sm:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            {/* Row 1 - the cost: a red mark and one bold sentence. */}
+            <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-4">
               <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-xl">!</div>
-              <p className="font-bold text-slate-800 text-lg leading-snug">You’re still typing every receipt by hand</p>
+              <p className="font-bold text-ink text-lg leading-snug">You’re still typing every receipt by hand</p>
             </div>
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-4">
               <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-xl">!</div>
-              <p className="font-bold text-slate-800 text-lg leading-snug">Receipts with missing amounts break your reports</p>
+              <p className="font-bold text-ink text-lg leading-snug">Receipts with missing amounts break your reports</p>
             </div>
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-4">
               <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-xl">!</div>
-              <p className="font-bold text-slate-800 text-lg leading-snug">You find mistakes only after it’s too late</p>
+              <p className="font-bold text-ink text-lg leading-snug">You find mistakes only after it’s too late</p>
+            </div>
+
+            {/* Row 2 - the answer, in the column of the cost it answers. */}
+            <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-3">
+              <h3 className="font-black text-ink text-2xl leading-tight">Stop wasting hours on manual entry</h3>
+              <p className="text-ink-secondary font-medium">Automatic recognition makes typing a thing of the past.</p>
+            </div>
+            <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-3">
+              <h3 className="font-black text-ink text-2xl leading-tight">Get clean data you can actually use</h3>
+              <p className="text-ink-secondary font-medium">Export validated CSV data ready for your accounting tool.</p>
+            </div>
+            <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-3">
+              <h3 className="font-black text-ink text-2xl leading-tight">Catch errors before they cost you</h3>
+              <p className="text-ink-secondary font-medium">Built-in validation rules flag suspicious data instantly.</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. How it Works Section */}
-      <div id="how-it-works" className="scroll-mt-16 py-24 px-6 bg-white border-y border-slate-100">
-        <div className="max-w-4xl mx-auto text-center space-y-16">
+      {/* ======================================================================
+          3. HOW IT WORKS — a numbered sequence, and deliberately NOT cards.
+          ======================================================================
+          This section was proposed for the six-card grid above and RULED OUT,
+          on two measurements taken against this file rather than remembered:
+
+            * the grid's job is to convert literal colour utilities into tokens.
+              Measured on ce03bee, the commit the ruling was made against: the
+              two sections the grid swallowed were the only two on the page at
+              0% tokenised (Problem 0 tokens / 17 literals, Value 0 / 7), while
+              THIS section was the most tokenised at 9 / 7 = 56%, holding 9 of
+              that file's 20 token utilities in 25 lines. Rewriting the
+              most-migrated section to gain page length spends the change on
+              the wrong surface. Those are readings of a file that no longer
+              exists in that form, kept because they are the REASON; the ratio
+              that is still live is this section's own 9 / 7, and re-deriving
+              any of it means counting utilities against the config, never
+              trusting the numbers in this comment.
+            * three items plus three items is six. Adding these three makes
+              nine, which is not a six-card grid — it forces either nine cards
+              or a selection that drops copy.
+
+          And the shape carries the argument: 1-2-3 IS the claim that the
+          product is simple. As cards among six others the steps lose their
+          number and their order and read as three more benefits. The accent
+          numerals below are now the only accent tiles on the page, which is
+          what keeps this readable as a sequence.
+
+          The id and `scroll-mt-16` stay on THIS div: landingHeader.test.tsx
+          asserts `#how-it-works` resolves to a real element and carries a
+          scroll-mt, and the header's label promises this section by name.
+          Swallowing it would have meant transplanting both onto a benefits
+          grid and making the nav label describe something else.
+
+          Changed here: the 1280 container and the 64px step of the page rhythm.
+          `relative` on the grid and `relative z-10` on each step are GONE —
+          nothing in this subtree is absolutely positioned (the file's only two
+          `absolute` elements are the hero's shadow and the pricing badge), so
+          they created stacking contexts against nothing. Colour is untouched.
+          ====================================================================== */}
+      <div id="how-it-works" className="scroll-mt-16 py-16 px-6 bg-white border-y border-slate-100">
+        <div className="max-w-7xl mx-auto text-center space-y-12">
           <div className="space-y-4">
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 italic">How it works</h2>
             <p className="text-slate-500 font-bold tracking-wide text-sm">You don’t review everything. Only what needs attention.</p>
           </div>
-          
-          <div className="grid sm:grid-cols-3 gap-12 sm:gap-4 relative">
-            <div className="space-y-6 relative z-10">
+
+          <div className="grid sm:grid-cols-3 gap-10 sm:gap-8">
+            <div className="space-y-6">
               <div className="w-20 h-20 bg-accent-tint text-accent rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-accent-border">1</div>
               <h3 className="text-xl font-black text-slate-900 leading-tight">Upload receipts</h3>
             </div>
-            <div className="space-y-6 relative z-10">
+            <div className="space-y-6">
               <div className="w-20 h-20 bg-accent-tint text-accent rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-accent-border">2</div>
               <h3 className="text-xl font-black text-slate-900 leading-tight">AI extracts and fixes the data</h3>
             </div>
-            <div className="space-y-6 relative z-10">
+            <div className="space-y-6">
               <div className="w-20 h-20 bg-accent-tint text-accent rounded-3xl flex items-center justify-center mx-auto text-3xl font-black shadow-inner border border-accent-border">3</div>
               <h3 className="text-xl font-black text-slate-900 leading-tight">You review only what matters</h3>
             </div>
@@ -161,32 +292,36 @@ export function LandingScreen() {
         </div>
       </div>
 
-      {/* 4. Value Section */}
-      <div className="py-24 px-6 bg-slate-50">
-        <div className="max-w-5xl mx-auto grid sm:grid-cols-3 gap-8 text-center sm:text-left">
-          <div className="space-y-4">
-            <h3 className="font-black text-slate-900 text-2xl leading-tight">Stop wasting hours on manual entry</h3>
-            <p className="text-slate-600 font-medium">Automatic recognition makes typing a thing of the past.</p>
-          </div>
-          <div className="space-y-4">
-            <h3 className="font-black text-slate-900 text-2xl leading-tight">Catch errors before they cost you</h3>
-            <p className="text-slate-600 font-medium">Built-in validation rules flag suspicious data instantly.</p>
-          </div>
-          <div className="space-y-4">
-            <h3 className="font-black text-slate-900 text-2xl leading-tight">Get clean data you can actually use</h3>
-            <p className="text-slate-600 font-medium">Export validated CSV data ready for your accounting tool.</p>
-          </div>
-        </div>
-      </div>
+      {/* The Value Section stood here, between "How it works" and Pricing: three
+          bare h3 + p pairs on a slate-50 band, with NO heading of its own. Its
+          six strings are now the answer row of section 2, paired with the cost
+          each one answers. Nothing was dropped and nothing was rewritten.
+          CONSEQUENCE, named rather than discovered later: the page used to
+          alternate white / grey / white / grey / white / dark across six
+          sections. Five sections cannot alternate, so "How it works" and
+          Pricing are now adjacent whites, separated by the `border-y
+          border-slate-100` hairlines they already carried. Making Pricing the
+          grey band would restore the alternation in one utility, and is NOT
+          done here: this change moves geometry on the sections it did not
+          rebuild, never their colour, so that step 3 stays one migration. */}
 
-      {/* 5. Pricing Section */}
-      <div id="pricing" className="scroll-mt-16 py-24 px-6 bg-white border-y border-slate-100">
-        <div className="max-w-4xl mx-auto space-y-16 text-center">
+      {/* 4. Pricing Section */}
+      <div id="pricing" className="scroll-mt-16 py-16 px-6 bg-white border-y border-slate-100">
+        <div className="max-w-7xl mx-auto space-y-16 text-center">
           <div className="space-y-4">
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 italic tracking-tight">Try it free. Upgrade when you need more.</h2>
             <p className="text-slate-500 font-bold tracking-wide text-sm">Simple, transparent, and fair.</p>
           </div>
           
+          {/* `max-w-3xl` SURVIVES the one-1280-container ruling, as a stated
+              exception rather than an oversight. The section's own container is
+              1280 like every other, so this card pair aligns with the six cards
+              above at the same outer edge. Stretching TWO cards to 1280 makes
+              each 624px against today's 368px: a `p-10` card holding a plan
+              name, one price and three list items would be mostly empty. The
+              ruling's purpose is one content edge per section, which the 1280
+              container already delivers; forcing a 2-up grid to a 6-up width is
+              not the same thing. One utility reverts this if ruled otherwise. */}
           <div className="grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto">
             <div className="p-10 rounded-[32px] border-4 border-slate-50 bg-white text-left flex flex-col justify-between items-start space-y-8">
               <div className="space-y-2">
@@ -230,8 +365,25 @@ export function LandingScreen() {
         </div>
       </div>
 
-      {/* 6. Final CTA Section */}
-      <div className="py-32 px-6 bg-slate-900 text-center">
+      {/* 5. Final CTA Section */}
+      {/* py-24 (96px), the closing step of the rhythm, down from py-32 (128px).
+          `max-w-3xl` is the SECOND stated exception to the one-1280-container
+          ruling, and for the same reason as the hero's `max-w-2xl` subhead: this
+          is a MEASURE on one run of text, not a content edge. The section holds
+          one centred headline and one button — there is no grid here whose
+          columns could align with anything, and at 1280 the 48px headline stops
+          wrapping and becomes a single very long line. A 1280 wrapper around a
+          768 measure would add a div and move no pixel. One utility changes this
+          if ruled otherwise.
+          NOT TOUCHED, and it is an OPEN board item, not an oversight: this
+          button is `bg-ink` (#1A1F36 under the pin) on a `bg-slate-900` band
+          (#0F172A), measured SHAPE 1.10 against a 3:1 floor — it reads as white
+          text floating on the band. Its label is fine at 16.24:1; the affordance
+          is what is missing. The board's entry rules that a different fill, a
+          different band, or dropping the band are decisions about this closing
+          section, and forbids fixing it piecemeal. Changing the padding does not
+          touch it either way. */}
+      <div className="py-24 px-6 bg-slate-900 text-center">
         <div className="max-w-3xl mx-auto space-y-10">
           <h2 className="text-4xl sm:text-5xl font-black text-white leading-tight">Turn receipts into clean data in seconds</h2>
           <div className="space-y-6">
