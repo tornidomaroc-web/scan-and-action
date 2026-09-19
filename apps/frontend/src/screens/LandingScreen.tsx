@@ -294,7 +294,7 @@ export function LandingScreen() {
       <div id="how-it-works" className="scroll-mt-16 py-16 px-6 bg-white border-y border-slate-100">
         <div className="max-w-7xl mx-auto text-center space-y-12">
           <div className="space-y-4">
-            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 italic">How it works</h2>
+            <h2 className="text-3xl sm:text-4xl font-black text-slate-900">How it works</h2>
             <p className="text-slate-500 font-bold tracking-wide text-sm">You don’t review everything. Only what needs attention.</p>
           </div>
 
@@ -399,7 +399,7 @@ export function LandingScreen() {
       <div id="pricing" className="scroll-mt-16 py-16 px-6 bg-white border-y border-slate-100">
         <div className="max-w-7xl mx-auto space-y-16 text-center">
           <div className="space-y-4">
-            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 italic tracking-tight">Try it free. Upgrade when you need more.</h2>
+            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Try it free. Upgrade when you need more.</h2>
             <p className="text-slate-500 font-bold tracking-wide text-sm">Simple, transparent, and fair.</p>
           </div>
           
@@ -430,10 +430,10 @@ export function LandingScreen() {
           <div className="grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto">
             <div className="p-10 rounded-[32px] border-4 border-slate-50 bg-white text-left flex flex-col justify-between items-start space-y-8">
               <div className="space-y-2">
-                <h3 className="font-black text-slate-400 text-xl italic">Free</h3>
-                <div className="text-5xl font-black text-slate-900 italic">$0</div>
+                <h3 className="font-black text-slate-400 text-xl">Free</h3>
+                <div className="text-5xl font-black text-slate-900">$0</div>
               </div>
-              <ul className="space-y-3 font-bold text-slate-600 text-sm italic">
+              <ul className="space-y-3 font-bold text-slate-600 text-sm">
                 <li>✓ 10 Scans Included</li>
                 <li>✓ All core features</li>
                 <li>✓ Free forever</li>
@@ -444,7 +444,7 @@ export function LandingScreen() {
             <div className="p-10 rounded-[32px] border-4 border-accent bg-white text-left flex flex-col justify-between items-start space-y-8 relative overflow-hidden">
               <div className="absolute top-4 right-4 bg-accent text-surface-raised px-3 py-1 rounded-full text-[10px] font-black tracking-widest">MOST POPULAR</div>
               <div className="space-y-2">
-                <h3 className="font-black text-accent text-xl italic">Pro</h3>
+                <h3 className="font-black text-accent text-xl">Pro</h3>
                 {/* Reads the SAME catalog entry the paywall charges from, so the
                     marketing price and the checkout price cannot drift apart in a
                     code change. Deliberately the declared amount and NOT a
@@ -454,12 +454,12 @@ export function LandingScreen() {
                     "/" redirect ever regressed — put a payment SDK inside the Play
                     build. The transactional price the customer actually acts on is
                     the paywall's, which IS previewed. */}
-                <div className="text-5xl font-black text-slate-900 italic">
+                <div className="text-5xl font-black text-slate-900">
                   {PLAN_CATALOG.monthly.fallbackFormatted}
                   <span className="text-2xl opacity-40">{PLAN_CATALOG.monthly.periodSuffix}</span>
                 </div>
               </div>
-              <ul className="space-y-3 font-bold text-slate-900 text-sm italic">
+              <ul className="space-y-3 font-bold text-slate-900 text-sm">
                 <li>✓ Unlimited scans</li>
                 <li>✓ All core features</li>
                 <li>✓ Priority processing</li>
@@ -527,7 +527,22 @@ export function LandingScreen() {
         </div>
       </div>
 
-      <footer style={{ textAlign: 'center', padding: '24px', color: '#666', fontSize: '13px' }}>
+      {/* The footer has no background of its own: its band is the page
+          wrapper's `bg-slate-50` (#F8FAFC), and its three links take this
+          colour by inheritance (preflight sets `a { color: inherit }`).
+          CALCULATED (WCAG, values from tokens.css) on that band, for 13px
+          text against a 4.5 floor — a derivation, not a browser reading:
+
+            #666 (replaced)        5.49
+            --sa-ink-secondary     5.85   <- nearest to #666 by luminance, already pinned
+            --sa-ink-tertiary      4.54   not pinned, so it would grow the pin
+            --sa-ink-muted         3.11   BELOW the floor, despite being the "captions" step
+
+          PIN-DEPENDENT, and the guard cannot see it: this is a flipping token
+          over a literal band that sits on an ANCESTOR, so tokenLiteralPairing
+          (one className at a time) passes it. Unpinned in dark it would read
+          #CBD5E1 on #F8FAFC = 1.42. Step 3 moves this band with its text. */}
+      <footer className="text-ink-secondary" style={{ textAlign: 'center', padding: '24px', fontSize: '13px' }}>
         <Link to="/terms">Terms of Service</Link>
         {" · "}
         <Link to="/privacy">Privacy Policy</Link>
