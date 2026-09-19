@@ -69,6 +69,64 @@ a job in `ci.yml` and editing the ruleset's context are one change.
 
 Recorded 2026-09-19.
 
+### Being on `main` is not evidence that CI ever ran on a commit
+
+Required checks gate the **tip** of a pull request, and CI runs on the **tip**
+of each push. A commit that reaches `main` *behind* a tip is never checked by
+anyone. That means the earlier commits of a multi-commit push, and every commit
+but the last of a rebase-merged PR. Nothing marks such a commit. It has an
+author, a message and a parent like its neighbours, and `git log`,
+`git bisect` and "revert to the last good commit" all treat it as one more
+verified step.
+
+"Every commit on `main` passed the required checks" was never a rule. It was a
+side effect of squash merging: a squashed PR lands as exactly one commit, and
+that commit is always a tip. The first rebase merge (#226) ended it without a
+sound. Its first two commits, `1a053267` and `29de3a32`, carry **zero**
+check-runs, while every other commit since 2026-07-10 carries some (2 to 18 on
+the first-parent line). The 13 commits pushed together on 2026-06-10, the day
+CI was added, carry zero for the same reason.
+
+**So squash is the default here, and a rebase merge is taken only when a commit
+boundary carries meaning,** as #226's rename did, to keep `git log --follow`
+working. When one is taken, the commits behind its tip are unverified. Before
+bisecting through, reverting to or building from any commit, ask:
+
+```
+gh api "repos/{owner}/{repo}/commits/<sha>/check-runs?per_page=1" --jq .total_count
+```
+
+`0` means CI never ran on that tree. For the required contexts by name, use the
+instrument above with `commits/main/` replaced by `commits/<sha>/`.
+
+**Two things a commit's subject line no longer tells you after a rebase.**
+
+- **Which PR a commit came from.** A squash subject ends `(#NNN)`; a rebased
+  commit keeps its branch subject and has no number. Ask
+  `gh api repos/{owner}/{repo}/commits/<sha>/pulls --jq '.[].number'`.
+- **Which commits on `main` a PR owns, which is what reverting it means.** Two
+  answers look right and are wrong. `pulls/<n>/commits` returns the *branch*
+  commits, which a rebase or a squash never put on `main`. And
+  `merge_commit_sha~<commits>` is right for a rebase, but for a squash it
+  reaches into the previous PR: #225 reports `commits=2`, landed one, and that
+  range includes #224's commit. Walk the history instead:
+
+```
+prrange() {   # the commits on main that PR $1 put there, newest first
+  m=$(gh api "repos/{owner}/{repo}/pulls/$1" --jq .merge_commit_sha) || return 1
+  [ "$(git rev-list --parents -n1 "$m" | wc -w)" -gt 2 ] && { echo "merge commit: git revert -m 1 $m"; return; }
+  while [ "$(gh api "repos/{owner}/{repo}/commits/$m/pulls" --jq "any(.[]; .number == $1)")" = true ]; do
+    echo "$m"; m=$(git rev-parse "$m^"); done
+}
+```
+
+It returned 3 commits for #226 (rebase), 1 for #225 (squash), and the merge
+commit with `-m 1` for #83 (merge commit); a PR number that does not exist
+stops at a 404. Revert everything it prints, not `merge_commit_sha` alone,
+which undoes only the last commit of a rebased PR.
+
+Recorded 2026-09-19.
+
 ### A scheduled workflow that stopped running looks exactly like one that passes
 
 GitHub disables `schedule` triggers in a repository with no activity for **60
