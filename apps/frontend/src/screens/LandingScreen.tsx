@@ -439,12 +439,24 @@ export function LandingScreen() {
                 line box 49px against the Free card's 48, not the badge.
                 The Free card has no badge; it takes `gap-8` so the two cards
                 stay one pattern. */}
+            {/* WEIGHTS: list `font-medium` 500 < plan name `font-bold` 700 <
+                price `font-black` 900, so the price is the heaviest thing in the
+                card. Measured in a browser at 1280: all three steps hold. BELOW
+                768 the app-wide "Mobile type scale (<md)" rule in index.css turns
+                `font-black` into 700, so on phones the price TIES the name, and
+                only list < name survives (measured at 485, 390 and 360). That
+                rule is a board item, not something to patch from here.
+                THE FREE NAME is `text-slate-500`, 4.76 on white, and its floor
+                is 4.5, NOT the 3 that large text gets: the same rule shrinks
+                `text-xl` to 18px, and 18px bold is below the 18.66px large-text
+                line. slate-400 measured 2.56; slate-600 is the Free list's own
+                colour. landingPlanNameContrast.test.tsx holds this pair. */}
             <div className="p-10 rounded-[32px] border-4 border-slate-50 bg-white text-left flex flex-col justify-between items-start gap-8">
               <div className="space-y-2">
-                <h3 className="font-black text-slate-400 text-xl">Free</h3>
+                <h3 className="font-bold text-slate-500 text-xl">Free</h3>
                 <div className="text-5xl font-black text-slate-900">$0</div>
               </div>
-              <ul className="space-y-3 font-bold text-slate-600 text-sm">
+              <ul className="space-y-3 font-medium text-slate-600 text-sm">
                 <li>✓ 10 Scans Included</li>
                 <li>✓ All core features</li>
                 <li>✓ Free forever</li>
@@ -455,7 +467,7 @@ export function LandingScreen() {
             <div className="p-10 rounded-[32px] border-4 border-accent bg-white text-left flex flex-col justify-between items-start gap-8 relative overflow-hidden">
               <div className="absolute top-4 right-4 bg-accent text-surface-raised px-3 py-1 rounded-full text-[10px] font-black tracking-widest">MOST POPULAR</div>
               <div className="space-y-2">
-                <h3 className="font-black text-accent text-xl">Pro</h3>
+                <h3 className="font-bold text-accent text-xl">Pro</h3>
                 {/* Reads the SAME catalog entry the paywall charges from, so the
                     marketing price and the checkout price cannot drift apart in a
                     code change. Deliberately the declared amount and NOT a
@@ -470,7 +482,7 @@ export function LandingScreen() {
                   <span className="text-2xl opacity-40">{PLAN_CATALOG.monthly.periodSuffix}</span>
                 </div>
               </div>
-              <ul className="space-y-3 font-bold text-slate-900 text-sm">
+              <ul className="space-y-3 font-medium text-slate-900 text-sm">
                 <li>✓ Unlimited scans</li>
                 <li>✓ All core features</li>
                 <li>✓ Priority processing</li>
