@@ -54,10 +54,17 @@ export function LandingScreen() {
               <Link to="/login" className="inline-block px-10 py-5 bg-ink text-surface-raised font-black text-base sm:text-xl rounded-2xl hover:opacity-90 transition-all shadow-xl active:scale-95 tracking-tight">
                 Start Free with 10 Scans Included
               </Link>
-              <p className="text-slate-400 font-bold text-sm tracking-wide">No credit card. Takes 30 seconds.</p>
+              {/* `text-slate-500`, 4.76 on this white band; `text-slate-400` read
+                  2.56. Floor 4.5 at every width: 14px bold is not large text,
+                  and the mobile type rule does not resize `text-sm`. Measured
+                  in a browser at 1280, 485, 390 and 360;
+                  landingTextContrast.test.tsx holds the pair. The closing band
+                  repeats this sentence on a DARK band, a different pair that
+                  fails the other way; it is a board item, not fixed here. */}
+              <p className="text-slate-500 font-bold text-sm tracking-wide">No credit card. Takes 30 seconds.</p>
             </div>
           </div>
-          
+
           {/* Faithful Product Preview (In-Code) */}
           <div className="relative">
             <div className="bg-white rounded-[32px] border border-slate-200 shadow-2xl overflow-hidden p-6 sm:p-8 space-y-6 text-left">
