@@ -428,7 +428,18 @@ export function LandingScreen() {
               measure, not of this change, and closing it means deciding what a
               card is worth on this page — not widening a grid. */}
           <div className="grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto">
-            <div className="p-10 rounded-[32px] border-4 border-slate-50 bg-white text-left flex flex-col justify-between items-start space-y-8">
+            {/* `gap-8`, NOT `space-y-8`, on both cards. `space-y-*` puts its
+                margin on every child after the first, and it counts the Pro
+                card's absolutely positioned badge as that first child — so the
+                Pro card's content sat 32px below the Free card's. `gap` ignores
+                out-of-flow children. Measured in a browser before and after at
+                1280, 485, 390 and 360: plan name and price now match exactly.
+                The list matches exactly below 768 and sits 0.5px apart at 1280.
+                That half pixel is the Pro price's `/mo` span, which makes its
+                line box 49px against the Free card's 48, not the badge.
+                The Free card has no badge; it takes `gap-8` so the two cards
+                stay one pattern. */}
+            <div className="p-10 rounded-[32px] border-4 border-slate-50 bg-white text-left flex flex-col justify-between items-start gap-8">
               <div className="space-y-2">
                 <h3 className="font-black text-slate-400 text-xl">Free</h3>
                 <div className="text-5xl font-black text-slate-900">$0</div>
@@ -441,7 +452,7 @@ export function LandingScreen() {
               <Link to="/login" className="w-full text-center py-4 bg-slate-100 text-slate-900 rounded-2xl font-black text-lg hover:bg-slate-200 transition-all">Start Free</Link>
             </div>
             
-            <div className="p-10 rounded-[32px] border-4 border-accent bg-white text-left flex flex-col justify-between items-start space-y-8 relative overflow-hidden">
+            <div className="p-10 rounded-[32px] border-4 border-accent bg-white text-left flex flex-col justify-between items-start gap-8 relative overflow-hidden">
               <div className="absolute top-4 right-4 bg-accent text-surface-raised px-3 py-1 rounded-full text-[10px] font-black tracking-widest">MOST POPULAR</div>
               <div className="space-y-2">
                 <h3 className="font-black text-accent text-xl">Pro</h3>
