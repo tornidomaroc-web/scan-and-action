@@ -35,6 +35,40 @@ false claim that required status checks were unenforced, when in fact they
 would have blocked the merge. The 404 is well-formed, quotable and confident,
 and nothing about it prompts a second look. That is the whole danger.
 
+### A required check name that looks right can match nothing
+
+A required status check matches a check-run's name **byte for byte**. The job
+names in `.github/workflows/ci.yml` spell their dash as U+2014 EM DASH (bytes
+`e2 80 94`), which renders like an ASCII hyphen in every editor, terminal and
+GitHub page. Retype one anywhere (a job rename, a ruleset re-created by hand,
+a sweep enforcing this repository's no-em-dash copy rule) and the required
+context stops matching: the job still runs and goes green under its new name,
+the required context waits for a check that never reports, every merge
+blocks, and nothing turns red. Both ways of reading the name mislead: by eye
+the two strings are the same, and a `grep` for the typed name says it is absent.
+
+**Compare bytes against what actually reported**, in Git Bash from inside the
+checkout (`gh` fills `{owner}/{repo}` from it, and outside it every call fails
+and prints nothing):
+
+```
+export LC_ALL=C
+req() { gh api repos/{owner}/{repo}/rules/branches/main --jq '.[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context' | sort -u; }
+got() { gh api --paginate repos/{owner}/{repo}/commits/main/check-runs --jq '.check_runs[].name' | sort -u; }
+comm -23 <(req) <(got)                                     # the check
+comm -23 <(req | sed 's/\xE2\x80\x94/-/' | sort -u) <(got)  # the control
+```
+
+The check prints nothing when every required context has a matching
+check-run on `main`, whatever the ruleset requires at the time. A broken
+pipeline also prints nothing, so the control has to print one line per
+required context; zero lines from the control means the check proved nothing.
+
+Copy a context name out of the check-runs API rather than typing it. Renaming
+a job in `ci.yml` and editing the ruleset's context are one change.
+
+Recorded 2026-09-19.
+
 ### A scheduled workflow that stopped running looks exactly like one that passes
 
 GitHub disables `schedule` triggers in a repository with no activity for **60
