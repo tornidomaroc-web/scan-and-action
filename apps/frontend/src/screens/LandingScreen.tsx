@@ -527,7 +527,22 @@ export function LandingScreen() {
         </div>
       </div>
 
-      <footer style={{ textAlign: 'center', padding: '24px', color: '#666', fontSize: '13px' }}>
+      {/* The footer has no background of its own: its band is the page
+          wrapper's `bg-slate-50` (#F8FAFC), and its three links take this
+          colour by inheritance (preflight sets `a { color: inherit }`).
+          CALCULATED (WCAG, values from tokens.css) on that band, for 13px
+          text against a 4.5 floor — a derivation, not a browser reading:
+
+            #666 (replaced)        5.49
+            --sa-ink-secondary     5.85   <- nearest to #666 by luminance, already pinned
+            --sa-ink-tertiary      4.54   not pinned, so it would grow the pin
+            --sa-ink-muted         3.11   BELOW the floor, despite being the "captions" step
+
+          PIN-DEPENDENT, and the guard cannot see it: this is a flipping token
+          over a literal band that sits on an ANCESTOR, so tokenLiteralPairing
+          (one className at a time) passes it. Unpinned in dark it would read
+          #CBD5E1 on #F8FAFC = 1.42. Step 3 moves this band with its text. */}
+      <footer className="text-ink-secondary" style={{ textAlign: 'center', padding: '24px', fontSize: '13px' }}>
         <Link to="/terms">Terms of Service</Link>
         {" · "}
         <Link to="/privacy">Privacy Policy</Link>
