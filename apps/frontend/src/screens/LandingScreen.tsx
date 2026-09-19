@@ -450,7 +450,7 @@ export function LandingScreen() {
                 is 4.5, NOT the 3 that large text gets: the same rule shrinks
                 `text-xl` to 18px, and 18px bold is below the 18.66px large-text
                 line. slate-400 measured 2.56; slate-600 is the Free list's own
-                colour. landingPlanNameContrast.test.tsx holds this pair. */}
+                colour. landingTextContrast.test.tsx holds this pair. */}
             <div className="p-10 rounded-[32px] border-4 border-slate-50 bg-white text-left flex flex-col justify-between items-start gap-8">
               <div className="space-y-2">
                 <h3 className="font-bold text-slate-500 text-xl">Free</h3>
