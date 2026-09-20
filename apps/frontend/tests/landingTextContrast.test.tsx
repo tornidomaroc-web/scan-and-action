@@ -12,28 +12,43 @@ import { LandingScreen } from '../src/screens/LandingScreen';
 // ============================================================================
 // LANDING TEXT THAT WAS FIXED FOR CONTRAST KEEPS CLEARING ITS FLOOR.
 // ============================================================================
-// Held here: the two pricing-card plan names, and the hero's reassurance line
-// under the main button ("No credit card. Takes 30 seconds.").
+// Held here: the two pricing-card plan names, the hero's reassurance line, the
+// `/mo` price suffix, and the five texts inside the hero mock that were below
+// their floor at every width.
 //
 // WHAT THIS CAN HOLD HONESTLY. jsdom has no layout, so nothing here can say
 // whether anything lines up or how a weight reads. A colour PAIR is not a
-// layout fact: an element's text utility and the background utility of its
-// nearest painted ancestor both resolve from source, through Tailwind's own
-// palette and the pinned token values, with no stylesheet involved.
+// layout fact: an element's colour, size, weight and the backgrounds above it
+// all resolve from source, through Tailwind's own palette, the pinned token
+// values and the `@media (max-width: 767px)` block in index.css, with no
+// stylesheet involved.
 //
-// WHAT IT CANNOT SEE, stated so a green run is not read as more: opacity (so it
-// asserts none is on the path), inline styles, and any cascade override of the
-// colour utilities themselves. The figures were read off the rendered page at
-// 1280, 485, 390 and 360 — Free name 4.76, Pro name 4.70, hero line 4.76, each
-// replacing a slate-400 that read 2.56 — and this file only keeps the pairs from
-// drifting.
+// WHAT IT STILL CANNOT SEE, stated so a green run is not read as more:
+//   * inline `style` attributes. The footer sets `fontSize: '13px'` that way and
+//     is therefore not holdable here; the browser sweep is what reads it.
+//   * RESPONSIVE SIZE VARIANTS. `sm:text-5xl` emits `.sm\:text-5xl`, and the
+//     mobile type rule overrides `.text-5xl`, a different selector, so it never
+//     applies to the variant. Measured in a browser: the h1 is 48px at a proven
+//     700 viewport, not the 28px this file's model would predict. Nothing in
+//     HELD carries a `sm:text-*`, and nothing may be added that does.
+//   * any cascade override of the colour utilities themselves.
 //
-// THE FLOOR IS DERIVED, NOT TYPED, because it has already been wrong once. A
-// plan name is `text-xl`: 20px bold on desktop, large text, floor 3. Below 768
-// the "Mobile type scale (<md)" rule in index.css shrinks it to 18px, below the
-// 18.66px large-text line, so on a phone its floor is 4.5. The hero line is
-// `text-sm`, 14px at every width (that rule does not resize it), so its floor is
-// 4.5 everywhere. Each element is held to the stricter of its two floors.
+// OPACITY IS COMPOSITED NOW, AND THAT IS THE POINT OF THIS REVISION. This file
+// used to REFUSE opacity: it asserted that no held path carried an `opacity-*`
+// utility, and treated that refusal as safety. It is not safety, it is a blind
+// spot, and it is the one the `/mo` suffix shipped through. `text-2xl
+// opacity-40` carries NO colour utility at all, so tokenLiteralPairing had
+// nothing to inspect either; the pair was invisible to the whole repository
+// until a browser measured it at 2.55 against a floor of 3. The fold below
+// walks the full ancestor chain, multiplies every `opacity-*` on it, and
+// composites both the backgrounds and the text at that product, exactly as the
+// browser does. A future `opacity-*` on a held path now moves the RATIO instead
+// of tripping a refusal.
+//
+// THE FLOOR IS DERIVED, NOT TYPED, because it has already been wrong once. Both
+// the size and the WEIGHT are re-read per regime out of index.css: below 768 that
+// block shrinks `.text-6xl` through `.text-xl` and turns `.font-black` into 700.
+// Each element is held to the stricter of its desktop and phone floors.
 // ============================================================================
 
 const CWD = process.cwd(); // vitest runs with cwd = apps/frontend
@@ -45,6 +60,7 @@ const defaultTheme = req(req.resolve('tailwindcss/defaultTheme', { paths: [CWD] 
 const config = req(join(CWD, 'tailwind.config.cjs'));
 const TOKENS = readFileSync(join(CWD, 'src', 'styles', 'tokens.css'), 'utf8');
 const INDEX_CSS = readFileSync(join(CWD, 'src', 'index.css'), 'utf8');
+const MOBILE_BLOCK = INDEX_CSS.slice(INDEX_CSS.indexOf('@media (max-width: 767px)'));
 
 function block(selector: string): Record<string, string> {
   const i = TOKENS.indexOf(selector + ' {');
@@ -76,151 +92,368 @@ function resolve(utility: string): string {
   throw new Error(`cannot resolve colour utility "${utility}"`);
 }
 
-function contrast(a: string, b: string): number {
-  const lum = (h: string) => {
-    let x = h.replace('#', '');
-    if (x.length === 3) x = x.split('').map((c) => c + c).join('');
-    const [r, g, bl] = [0, 2, 4].map((i) => {
-      const c = parseInt(x.slice(i, i + 2), 16) / 255;
-      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+interface Rgb { r: number; g: number; b: number }
+
+function rgb(hex: string): Rgb {
+  let x = hex.replace('#', '');
+  if (x.length === 3) x = x.split('').map((c) => c + c).join('');
+  return { r: parseInt(x.slice(0, 2), 16), g: parseInt(x.slice(2, 4), 16), b: parseInt(x.slice(4, 6), 16) };
+}
+
+/** Paint `c` onto `base` at alpha `a`. The whole of the opacity model. */
+function over(base: Rgb, c: Rgb, a: number): Rgb {
+  return { r: c.r * a + base.r * (1 - a), g: c.g * a + base.g * (1 - a), b: c.b * a + base.b * (1 - a) };
+}
+
+function contrast(a: Rgb, b: Rgb): number {
+  const lum = (c: Rgb) => {
+    const ch = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * ch(c.r) + 0.7152 * ch(c.g) + 0.0722 * ch(c.b);
   };
   const [x, y] = [lum(a), lum(b)];
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
 
-/** Rendered px of a `text-*` size utility, desktop (Tailwind default) and below 768 (index.css). */
+/** A class name as index.css would have to spell it, then escaped for RegExp. */
+function cssSelectorRe(utility: string): string {
+  const asWritten = '.' + utility.replace(/[[\]().]/g, (c) => '\\' + c);
+  return asWritten.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Rendered px of a `text-*` size utility, desktop (Tailwind) and below 768 (index.css). */
 function sizes(utility: string): { desktop: number; phone: number } {
   const key = utility.replace(/^text-/, '');
-  const desktop = parseFloat(defaultTheme.fontSize[key][0]) * 16;
-  const mobile = INDEX_CSS.slice(INDEX_CSS.indexOf('@media (max-width: 767px)'));
-  const m = mobile.match(new RegExp(`\\.text-${key}\\s*\\{\\s*font-size:\\s*([\\d.]+)rem`));
-  return { desktop, phone: m ? parseFloat(m[1]) * 16 : desktop };
+  const arbitrary = key.match(/^\[([\d.]+)(px|rem)\]$/);
+  const desktop = arbitrary
+    ? parseFloat(arbitrary[1]) * (arbitrary[2] === 'rem' ? 16 : 1)
+    : parseFloat(defaultTheme.fontSize[key][0]) * 16;
+  const m = MOBILE_BLOCK.match(new RegExp(cssSelectorRe(utility) + '\\s*\\{\\s*font-size:\\s*([\\d.]+)(rem|px)'));
+  return { desktop, phone: m ? parseFloat(m[1]) * (m[2] === 'rem' ? 16 : 1) : desktop };
 }
 
 const WEIGHT: Record<string, number> = { 'font-medium': 500, 'font-semibold': 600, 'font-bold': 700, 'font-black': 900 };
+
+/** Numeric weight of a `font-*` utility, desktop and below 768. */
+function weights(utility: string): { desktop: number; phone: number } {
+  const desktop = WEIGHT[utility];
+  const m = MOBILE_BLOCK.match(new RegExp(cssSelectorRe(utility) + '\\s*\\{\\s*font-weight:\\s*(\\d+)'));
+  return { desktop, phone: m ? Number(m[1]) : desktop };
+}
+
 /** WCAG: large text is >= 24px, or >= 18.66px (14pt) at bold. */
 const floorFor = (px: number, weight: number) => (px >= 24 || (px >= 18.66 && weight >= 700) ? 3 : 4.5);
 
-interface Inspected { label: string; fg: string[]; size: string; weight: string; bg?: string; opacity: string[]; inDarkBand: boolean }
+const SIZE_RE = /^text-(xs|sm|base|lg|xl|\dxl|\[[\d.]+(px|rem)\])$/;
+const COLOUR_RE = /^text-(?!xs|sm|base|lg|xl|\d?xl|left|center|right)[a-z]/;
 
-/** An element's own colour, size and weight, and the background of its nearest ancestor that paints one. */
+const classesOf = (el: Element) =>
+  (typeof el.className === 'string' ? el.className : '').split(/\s+/).filter(Boolean);
+
+function chainOf(el: Element): Element[] {
+  const out: Element[] = [];
+  for (let e: Element | null = el; e; e = e.parentElement) out.unshift(e);
+  return out;
+}
+
+interface Inspected {
+  label: string;
+  el: Element;
+  fg: string[];
+  fgFrom: 'self' | 'inherited';
+  size?: string;
+  weight?: string;
+  bg?: string;
+  opacities: string[];
+  unresolvedBg: string[];
+  inDarkBand: boolean;
+}
+
+/**
+ * An element's colour, size and weight, taking the first one found walking up
+ * (which is what inheritance does), plus every `opacity-*` on the path and the
+ * backgrounds above it.
+ */
 function inspect(label: string, el: Element): Inspected {
-  const classes = el.className.split(/\s+/);
-  const fg = classes.filter((c) => /^text-(?!xs|sm|base|lg|xl|\d?xl|left|center|right)[a-z]/.test(c));
-  const size = classes.find((c) => /^text-(xs|sm|base|lg|xl|\dxl)$/.test(c))!;
-  const weight = classes.find((c) => c in WEIGHT)!;
-  const opacity: string[] = [];
+  const own = classesOf(el);
+  let fg = own.filter((c) => COLOUR_RE.test(c));
+  let fgFrom: 'self' | 'inherited' = 'self';
+  let size = own.find((c) => SIZE_RE.test(c));
+  let weight = own.find((c) => c in WEIGHT);
+  const opacities: string[] = [];
+  const unresolvedBg: string[] = [];
   let bg: string | undefined;
-  for (let e: Element | null = el; e && !bg; e = e.parentElement) {
-    const cls = e.className.split(/\s+/);
-    opacity.push(...cls.filter((c) => /^opacity-/.test(c)));
-    bg = cls.find((c) => /^bg-[a-z]/.test(c));
+
+  for (const e of chainOf(el).reverse()) {
+    const cls = classesOf(e);
+    if (e !== el) {
+      if (fg.length === 0) { const f = cls.filter((c) => COLOUR_RE.test(c)); if (f.length) { fg = f; fgFrom = 'inherited'; } }
+      if (!size) size = cls.find((c) => SIZE_RE.test(c));
+      if (!weight) weight = cls.find((c) => c in WEIGHT);
+    }
+    opacities.push(...cls.filter((c) => /^opacity-\d+$/.test(c)));
+    if (!bg) bg = cls.find((c) => /^bg-[a-z]/.test(c));
   }
-  return { label, fg, size, weight, bg, opacity, inDarkBand: !!el.closest('.bg-slate-900') };
+  return { label, el, fg, fgFrom, size, weight, bg, opacities, unresolvedBg, inDarkBand: !!el.closest('.bg-slate-900') };
+}
+
+/**
+ * The composited background under an element and the opacity product applied to
+ * it, folded from the document root downwards exactly as the browser paints:
+ * every background contributes at the running opacity product, and the text is
+ * then painted at the same product.
+ */
+function paint(n: Inspected): { bg: Rgb; product: number } {
+  let bg: Rgb = { r: 255, g: 255, b: 255 };
+  let product = 1;
+  for (const e of chainOf(n.el)) {
+    for (const c of classesOf(e)) {
+      const m = c.match(/^opacity-(\d+)$/);
+      if (m) product *= Number(m[1]) / 100;
+    }
+    const bgu = classesOf(e).find((c) => /^bg-[a-z]/.test(c));
+    if (bgu) {
+      try { bg = over(bg, rgb(resolve(bgu)), product); }
+      catch { n.unresolvedBg.push(bgu); }
+    }
+  }
+  return { bg, product };
+}
+
+function ratioAndFloor(n: Inspected) {
+  const s = sizes(n.size!);
+  const w = weights(n.weight!);
+  const { bg, product } = paint(n);
+  const text = over(bg, rgb(resolve(n.fg[0])), product);
+  return {
+    ratio: contrast(text, bg),
+    floor: Math.max(floorFor(s.desktop, w.desktop), floorFor(s.phone, w.phone)),
+    desktopPx: s.desktop, phonePx: s.phone,
+    desktopWeight: w.desktop, phoneWeight: w.phone,
+    product,
+  };
 }
 
 const SENTENCE = 'No credit card. Takes 30 seconds.';
+
+/** The hero mock's card: located by walking UP from its own heading. */
+function mockRoot(container: Element): Element {
+  const h3 = [...container.querySelectorAll('h3')].find((h) => h.textContent?.trim() === 'Starbucks Receipt');
+  expect(h3, 'the hero mock heading was not found').toBeDefined();
+  for (let e: Element | null = h3!; e; e = e.parentElement) {
+    if (classesOf(e).some((c) => c === 'rounded-[32px]')) return e;
+  }
+  throw new Error('the hero mock card was not found above its heading');
+}
+
+/** The one element inside `root` whose own text is exactly `text`. */
+function only(root: Element, selector: string, text: string, label: string): Element {
+  const hits = [...root.querySelectorAll(selector)].filter((e) => e.textContent?.trim() === text);
+  expect(hits, `${label}: expected exactly one "${text}"`).toHaveLength(1);
+  return hits[0];
+}
 
 function render() {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
   flushSync(() => root.render(<MemoryRouter><LandingScreen /></MemoryRouter>));
-  const names = [...container.querySelectorAll('#pricing .grid > div')].map((card) => {
-    const h3 = card.querySelector('h3')!;
-    return inspect(h3.textContent!, h3);
-  });
+
+  const cards = [...container.querySelectorAll('#pricing .grid > div')];
+  const names = cards.map((card) => { const h3 = card.querySelector('h3')!; return inspect(h3.textContent!, h3); });
+
+  // The `/mo` suffix: the span inside the Pro card's price, reached through the
+  // card whose NAME is Pro, never through a class string that two cards share.
+  const pro = cards.find((c) => c.querySelector('h3')?.textContent?.trim() === 'Pro')!;
+  const priceDiv = [...pro.querySelectorAll('div')].find((d) => classesOf(d).includes('text-5xl'))!;
+  const moSpan = priceDiv.querySelector('span')!;
+  const mo = inspect('/mo', moSpan);
+
   const withSentence = [...container.querySelectorAll('p')].filter((p) => p.textContent?.trim() === SENTENCE);
   // The HERO copy is the one in the headline's own column, located through the
   // h1 so the closing band's copy of the same sentence can never stand in for it.
   const heroColumn = container.querySelector('h1')!.parentElement!;
   const hero = withSentence.filter((p) => heroColumn.contains(p)).map((p) => inspect('hero line', p));
   const twin = withSentence.filter((p) => p.closest('.bg-slate-900')).map((p) => inspect('closing-band line', p));
+
+  const mock = mockRoot(container);
+  const ths = [...mock.querySelectorAll('th')];
+  const mockup = [
+    inspect('AI Extraction', only(mock, 'p', 'AI Extraction', 'mock eyebrow')),
+    inspect('Needs Review', only(mock, 'div', 'Needs Review', 'mock status chip')),
+    inspect('! badge', only(mock, 'div', '!', 'mock decision badge')),
+    inspect('Label', ths[0]),
+    inspect('Value', ths[1]),
+  ];
+
+  const tiles = [...container.querySelectorAll('.bg-red-50')].map((t, i) => inspect(`red ! tile ${i + 1}`, t));
+
   root.unmount();
   container.remove();
-  return { names, hero, twin, sentenceCount: withSentence.length };
+  return { names, mo, hero, twin, mockup, tiles, thCount: ths.length, sentenceCount: withSentence.length };
 }
 
 const page = render();
-const HELD: Inspected[] = [...page.names, ...page.hero];
+const HELD: Inspected[] = [...page.names, page.mo, ...page.hero, ...page.mockup];
 
-function ratioAndFloor(n: Inspected) {
-  const { desktop, phone } = sizes(n.size);
-  const w = WEIGHT[n.weight];
-  return { ratio: contrast(resolve(n.fg[0]), resolve(n.bg!)), floor: Math.max(floorFor(desktop, w), floorFor(phone, w)), desktop, phone, w };
-}
-
-describe('fixed landing text holds its contrast floor at every width', () => {
-  it('finds exactly what it holds: both plan names and ONE hero line', () => {
+describe('the sweep found what it holds', () => {
+  it('finds both plan names, ONE hero line, the /mo suffix and the five mock texts', () => {
     expect(page.names.map((n) => n.label)).toEqual(['Free', 'Pro']);
     expect(page.hero, 'the hero reassurance line was not found in the headline column').toHaveLength(1);
     expect(page.hero[0].inDarkBand, 'the hero line resolved inside the dark closing band').toBe(false);
+    expect(page.mo.el.textContent, 'the /mo span is empty, so the catalog suffix moved').toBeTruthy();
+    expect(page.thCount, 'the mock table no longer has exactly two headers').toBe(2);
+    expect(page.mockup.map((n) => n.label)).toEqual(['AI Extraction', 'Needs Review', '! badge', 'Label', 'Value']);
+    expect(HELD).toHaveLength(9);
   });
 
-  it('each held element has one colour, one size, one weight and a painted background', () => {
+  it('every held element resolves a colour, a size, a weight and a background', () => {
     for (const n of HELD) {
       expect(n.fg, `${n.label}: expected exactly one text colour utility`).toHaveLength(1);
-      expect(n.size, `${n.label}: no text size utility`).toBeDefined();
-      expect(n.weight, `${n.label}: no weight utility`).toBeDefined();
+      expect(n.size, `${n.label}: no text size utility on it or any ancestor`).toBeDefined();
+      expect(n.weight, `${n.label}: no weight utility on it or any ancestor`).toBeDefined();
       expect(n.bg, `${n.label}: no background utility on it or any ancestor`).toBeDefined();
     }
   });
 
-  it('nothing on any held path applies opacity, which this file cannot see through', () => {
-    for (const n of HELD) expect(n.opacity, n.label).toEqual([]);
+  it('no held element carries a `sm:` size variant, which this file cannot model', () => {
+    // `sm:text-5xl` emits `.sm\:text-5xl` and escapes the index.css override of
+    // `.text-5xl` entirely. Measured in a browser: 48px at a proven 700 viewport.
+    for (const n of HELD) {
+      for (const e of chainOf(n.el)) {
+        expect(classesOf(e).filter((c) => /^(sm|md|lg|xl):text-(xs|sm|base|lg|xl|\dxl)$/.test(c)),
+          `${n.label}: a responsive size variant is on its path`).toEqual([]);
+      }
+    }
   });
 
-  it.each(['Free', 'Pro', 'hero line'])('%s clears the stricter of its desktop and phone floors', (which) => {
-    const n = HELD.find((x) => x.label === which)!;
-    const { ratio, floor, phone, w } = ratioAndFloor(n);
-    expect(ratio, `${which}: ${n.fg[0]} on ${n.bg} at ${phone}px/${w}`).toBeGreaterThanOrEqual(floor);
+  it('every background on every held path resolves to a colour', () => {
+    for (const n of HELD) { ratioAndFloor(n); expect(n.unresolvedBg, n.label).toEqual([]); }
   });
 
+  it.each(['Free', 'Pro', 'hero line', '/mo', 'AI Extraction', 'Needs Review', '! badge', 'Label', 'Value'])(
+    '%s clears the stricter of its desktop and phone floors', (which) => {
+      const n = HELD.find((x) => x.label === which)!;
+      const r = ratioAndFloor(n);
+      expect(r.ratio, `${which}: ${n.fg[0]} on ${n.bg} at ${r.phonePx}px/${r.phoneWeight}, opacity ${r.product}`)
+        .toBeGreaterThanOrEqual(r.floor);
+    });
+});
+
+describe('the floors are derived per regime, not typed', () => {
   it('a plan name floor is 4.5 only because the mobile rule shrinks it', () => {
     const n = page.names[0];
-    const { desktop, phone } = sizes(n.size);
-    expect(desktop).toBe(20);
-    expect(phone).toBe(18);
-    expect(floorFor(desktop, WEIGHT[n.weight])).toBe(3);
-    expect(floorFor(phone, WEIGHT[n.weight])).toBe(4.5);
+    const s = sizes(n.size!), w = weights(n.weight!);
+    expect(s.desktop).toBe(20);
+    expect(s.phone).toBe(18);
+    expect(floorFor(s.desktop, w.desktop)).toBe(3);
+    expect(floorFor(s.phone, w.phone)).toBe(4.5);
   });
 
   it('the hero line floor is 4.5 at every width, and the mobile rule does not touch its size', () => {
-    const { desktop, phone, w, floor } = ratioAndFloor(page.hero[0]);
-    expect(desktop).toBe(14);
-    expect(phone).toBe(14);
-    expect(w).toBe(700);
-    expect(floor).toBe(4.5);
+    const r = ratioAndFloor(page.hero[0]);
+    expect(r.desktopPx).toBe(14);
+    expect(r.phonePx).toBe(14);
+    expect(r.desktopWeight).toBe(700);
+    expect(r.floor).toBe(4.5);
   });
 
-  it('POSITIVE CONTROL: the colour these replaced fails, so the test can go red', () => {
-    const r = contrast(resolve('text-slate-400'), resolve('bg-white'));
+  it('/mo inherits its weight, and the mobile rule drops that weight from 900 to 700', () => {
+    // The span carries `text-2xl` and no weight of its own. Before this file
+    // walked the chain it could not have held this element at all.
+    expect(page.mo.weight).toBe('font-black');
+    const w = weights('font-black');
+    expect(w.desktop).toBe(900);
+    expect(w.phone).toBe(700);
+    const r = ratioAndFloor(page.mo);
+    expect(r.desktopPx).toBe(24);
+    expect(r.phonePx).toBe(20);
+    expect(r.floor).toBe(3); // large at both: 24px, and 20px at 700
+  });
+
+  it('the mock eyebrow is sized by an ARBITRARY utility the mobile rule never touches', () => {
+    const n = HELD.find((x) => x.label === 'AI Extraction')!;
+    expect(n.size).toBe('text-[10px]');
+    const s = sizes('text-[10px]');
+    expect(s.desktop).toBe(10);
+    expect(s.phone).toBe(10);
+    expect(floorFor(s.desktop, 700)).toBe(4.5);
+  });
+});
+
+describe('controls', () => {
+  it('POSITIVE CONTROL: the colour the hero and eyebrow replaced fails, so this can go red', () => {
+    const r = contrast(rgb(resolve('text-slate-400')), rgb(resolve('bg-white')));
     expect(r).toBeCloseTo(2.56, 2);
     expect(r).toBeLessThan(4.5);
   });
 
+  it('POSITIVE CONTROL: opacity is COMPOSITED, and ignoring it flips the verdict', () => {
+    // This is the pair `/mo` shipped as: slate-900 inherited, at opacity-40, on
+    // white. Read without the opacity it is one of the strongest pairs on the
+    // page. Read with it, it is below the floor its own size earns. A single
+    // assertion on either number alone proves nothing; the DIFFERENCE is the control.
+    const white = rgb('#ffffff');
+    const ink = rgb(resolve('text-slate-900'));
+    expect(contrast(ink, white), 'ignoring opacity').toBeGreaterThan(15);
+    expect(contrast(over(white, ink, 0.4), white), 'compositing opacity').toBeLessThan(3);
+  });
+
+  it('POSITIVE CONTROL: the fold reaches a background two ancestors up', () => {
+    // `Label` sits in a <th> inside <thead> inside <table> inside the div that
+    // paints. If the walk stopped at the element the background would be white
+    // and the ratio would be wrong in the SAFE direction, which is the direction
+    // that hides defects.
+    const n = HELD.find((x) => x.label === 'Label')!;
+    expect(n.bg).toBe('bg-slate-50');
+    expect(paint(n).bg).not.toEqual(rgb('#ffffff'));
+  });
+
   it('NEGATIVE CONTROL: an unknown utility throws instead of resolving to something that passes', () => {
     expect(() => resolve('text-not-a-colour-500')).toThrow(/cannot resolve/);
-    expect(contrast('#000000', '#ffffff')).toBeCloseTo(21, 5);
-    expect(contrast('#767676', '#fff')).toBeCloseTo(4.54, 2);
+    expect(contrast(rgb('#000000'), rgb('#ffffff'))).toBeCloseTo(21, 5);
+    expect(contrast(rgb('#767676'), rgb('#ffffff'))).toBeCloseTo(4.54, 2);
+  });
+
+  it('NEGATIVE CONTROL: a size utility that is not one is not mistaken for one', () => {
+    expect(SIZE_RE.test('text-slate-500')).toBe(false);
+    expect(SIZE_RE.test('text-center')).toBe(false);
+    expect(SIZE_RE.test('text-[10px]')).toBe(true);
+    expect(COLOUR_RE.test('text-[10px]')).toBe(false);
+    expect(COLOUR_RE.test('text-slate-500')).toBe(true);
   });
 });
 
 // ── KNOWN, NOT FIXED HERE, AND TWO-WAY ─────────────────────────────────────
-// The closing band carries the SAME sentence, `text-slate-500` on `bg-slate-900`,
-// measured 3.75 against a 4.5 floor at 1280, 485, 390 and 360. It belongs to the
-// board's closing-section entry, which rules that band is decided as a whole, so
-// it is recorded here rather than repaired. This assertion goes red the moment
-// that line clears its floor: when it does, move it into HELD above and delete
-// this block, so the record cannot outlive the defect.
+// Both blocks below record a MEASURED failure that a board entry owns. Each
+// goes red the moment the defect is repaired, so the record cannot outlive it.
+
 describe('the closing band copy of the sentence is a known failure, owned by the board', () => {
   it('still fails its floor (move it into HELD when this goes red)', () => {
     expect(page.sentenceCount, 'the sentence should appear exactly twice: hero and closing band').toBe(2);
     expect(page.twin).toHaveLength(1);
-    const { ratio, floor } = ratioAndFloor(page.twin[0]);
-    expect(floor).toBe(4.5);
-    expect(ratio).toBeLessThan(floor);
+    const r = ratioAndFloor(page.twin[0]);
+    expect(r.floor).toBe(4.5);
+    expect(r.ratio).toBeLessThan(r.floor);
+  });
+});
+
+describe('the three red ! tiles are a known failure BELOW 768 only, owned by the board', () => {
+  it('each clears the desktop floor and misses the phone one', () => {
+    // `text-red-500` on `bg-red-50`, `font-black text-xl`. The ratio never
+    // changes; the FLOOR does. At >= 768 it is 20px/900, large, floor 3. Below,
+    // the mobile rule makes it 18px/700, which is under the 18.66px large-text
+    // line, so the floor becomes 4.5 and the same pair fails. Boarded rather
+    // than repaired: at 3.44 it clears the 3:1 a graphical object would get, and
+    // a `!` redundant with the sentence beside it is an icon, not prose.
+    expect(page.tiles).toHaveLength(3);
+    for (const t of page.tiles) {
+      const s = sizes(t.size!), w = weights(t.weight!);
+      const { bg, product } = paint(t);
+      const ratio = contrast(over(bg, rgb(resolve(t.fg[0])), product), bg);
+      expect(floorFor(s.desktop, w.desktop), `${t.label}: desktop floor`).toBe(3);
+      expect(floorFor(s.phone, w.phone), `${t.label}: phone floor`).toBe(4.5);
+      expect(ratio, `${t.label}: clears 3`).toBeGreaterThanOrEqual(3);
+      expect(ratio, `${t.label}: misses 4.5`).toBeLessThan(4.5);
+    }
   });
 });
