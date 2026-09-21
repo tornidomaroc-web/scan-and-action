@@ -50,7 +50,7 @@
 // ============================================================================
 
 (function () {
-  const TARGET = 'http://localhost:5173/';
+  const DEFAULT_TARGET = 'http://localhost:5173/';
   // One width per layout regime, plus the narrowest wrap. Measured 2026-09-20:
   // the verdicts collapse to exactly TWO regimes split at 767 by the index.css
   // mobile block, not at any Tailwind breakpoint. 1280 and 480 alone would have
@@ -108,7 +108,11 @@
   };
 
   // ── the frame ────────────────────────────────────────────────────────────
-  S.install = async function () {
+  S.install = async function (url) {
+    // TARGET is a PARAMETER because the localhost build and the served page are
+    // different claims. Pass a production origin to re-measure what visitors get;
+    // the host page must be SAME-ORIGIN with it or the frame is unreadable.
+    const TARGET = url || window.__SWEEP_TARGET || DEFAULT_TARGET;
     const d = document;
     const old = d.getElementById('__sweep_frame');
     if (old) old.remove();
