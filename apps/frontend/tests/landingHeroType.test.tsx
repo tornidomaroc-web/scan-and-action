@@ -165,9 +165,24 @@ describe('all-caps is removed from copy and kept on micro-labels', () => {
 // expectation flips from "exactly one survivor" to NONE. The block stays: it is
 // the same ledger entry, and keeping it is what shows the residue was paid off
 // rather than quietly forgotten.
+/**
+ * Source with its comments removed. This scan is about MARKUP, and a comment is
+ * not markup: the moment a note in LandingScreen.tsx explains why a micro-label
+ * is uppercase, an unstripped scan reads that prose as a surviving violation and
+ * the assertion below goes red against a file that changed nothing. That is not
+ * hypothetical, it is what happened when the hero mock's contrast note was
+ * written. landingLightPin.test.tsx already strips for the same reason, in its
+ * own words: "both source files NAME tokens in prose".
+ */
+const landingMarkup = landingSrc
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .split(String.fromCharCode(10))
+  .filter((l) => !l.trim().startsWith('//'))
+  .join(String.fromCharCode(10));
+
 describe('no uppercase survives on body copy', () => {
   it('every remaining `uppercase` is a text-[10px] micro-label in the product mock', () => {
-    const lines = landingSrc.split(String.fromCharCode(10)).filter((l) => l.includes('uppercase'));
+    const lines = landingMarkup.split(String.fromCharCode(10)).filter((l) => l.includes('uppercase'));
     const notMicro = lines.filter((l) => !l.includes('text-[10px]'));
     expect(notMicro).toHaveLength(0);
     // and the micro-labels are still there — the positive half, so this cannot

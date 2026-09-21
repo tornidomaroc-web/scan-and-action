@@ -72,16 +72,62 @@ export function LandingScreen() {
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
                   <h3 className="text-2xl font-bold text-slate-900 tracking-tight leading-none">Starbucks Receipt</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">AI Extraction</p>
+                  {/* ====================================================================
+                      THE MOCK IS A PICTURE OF THE PRODUCT. IT IS NOT EXEMPT FROM CONTRAST.
+                      ====================================================================
+                      WORK-QUEUE's step-3 entry excludes this subtree from the TOKEN
+                      MIGRATION ("excluding the hero mock, which #214 made deliberately
+                      literal because it is a PICTURE of the product"). That is a ruling
+                      about which elements follow the theme. It is not a contrast
+                      exemption, contrast is not mentioned in it, and it was written
+                      before any of these pairs had been measured.
+
+                      Measured in a browser, light, at 1280/900/700/480/360, four of the
+                      texts in here sat below their floor at EVERY width: this label and
+                      the two table headers at `text-slate-400` (2.56 on white, 2.45 on
+                      the table's `bg-slate-50`), the status chip at `text-amber-600`
+                      (3.07), and the `!` badge at `text-white` on `bg-amber-400` (1.67).
+                      Floors are 4.5: none of them is large text.
+
+                      WHY THESE ARE REPAIRS AND NOT DESIGN DECISIONS. Nobody chose 2.45 on
+                      a 10px label. It is an unmeasured default, and the mock exists to be
+                      READ: it is the hero's evidence, and a visitor who cannot read
+                      "Needs Review" has not been shown the product's central claim.
+                      Each swap is the quietest step in its own ramp that clears the floor
+                      WITH A MARGIN, and the margin is why the two table headers are the
+                      exception. `text-slate-500` clears them at 4.5484 against 4.5: a
+                      pass, and a margin of 0.05 on a floor this file has already had
+                      wrong once. They take `text-slate-600` (7.2425) instead. That makes
+                      them the same colour as the values they head, which costs nothing
+                      here: 10px uppercase at `tracking-wider` against 14px sentence case
+                      is what separates a header from a value in this table, not hue.
+
+                      Measured after the change, same harness, all five widths:
+                        AI Extraction   slate-400 -> slate-500   2.5640 -> 4.7588  [4.5]
+                        Label / Value   slate-400 -> slate-600   2.4506 -> 7.2425  [4.5]
+                        Needs Review    amber-600 -> amber-700   3.0721 -> 4.8424  [4.5]
+                        ! badge         white     -> amber-900   1.6694 -> 5.4346  [4.5]
+
+                      STILL LITERAL, DELIBERATELY. Every replacement is a raw Tailwind
+                      utility, not a token, so #214's ruling holds: this subtree still does
+                      not follow the theme, and step 3 still skips it.
+                      ==================================================================== */}
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">AI Extraction</p>
                 </div>
-                <div className="px-3 py-1 bg-amber-50 border border-amber-200 text-amber-600 rounded-full text-[10px] font-bold uppercase tracking-wide">
+                <div className="px-3 py-1 bg-amber-50 border border-amber-200 text-amber-700 rounded-full text-[10px] font-bold uppercase tracking-wide">
                   Needs Review
                 </div>
               </div>
 
               {/* Mock Decision Banner */}
               <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-xl flex items-center gap-3">
-                <div className="w-6 h-6 bg-amber-400 rounded-full flex items-center justify-center text-white font-bold text-xs">!</div>
+                {/* The GLYPH darkens, not the tile. White on `bg-amber-400` measured
+                    1.67, the worst pair on the page and below even the 3:1 a graphical
+                    object would get, so no reading of it passes. Recolouring the tile
+                    would have moved it out of the amber family the banner's border and
+                    the pulse dot also use; recolouring the glyph keeps the badge looking
+                    like itself. */}
+                <div className="w-6 h-6 bg-amber-400 rounded-full flex items-center justify-center text-amber-900 font-bold text-xs">!</div>
                 <p className="text-xs font-bold text-amber-800">Missing total amount detected</p>
               </div>
 
@@ -91,8 +137,8 @@ export function LandingScreen() {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b border-slate-100">
-                        <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Label</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Value</th>
+                        <th className="px-4 py-3 text-[10px] font-bold text-slate-600 uppercase tracking-wider">Label</th>
+                        <th className="px-4 py-3 text-[10px] font-bold text-slate-600 uppercase tracking-wider">Value</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -486,7 +532,17 @@ export function LandingScreen() {
                     the paywall's, which IS previewed. */}
                 <div className="text-5xl font-black text-slate-900">
                   {PLAN_CATALOG.monthly.fallbackFormatted}
-                  <span className="text-2xl opacity-40">{PLAN_CATALOG.monthly.periodSuffix}</span>
+                  {/* THE DE-EMPHASIS IS A COLOUR, NOT AN OPACITY, and that is the whole
+                      point of this line rather than a preference. `opacity-40` composited
+                      the inherited `text-slate-900` down to an effective #9FA2AA on white:
+                      2.55 against a floor of 3, failing at every width measured. It is
+                      large text everywhere (24px/900 at >=768, and 20px/700 below it, since
+                      the mobile rule turns `font-black` into 700), so the floor is 3 and
+                      never 4.5. Nothing in the repository could see it: `opacity` carries no
+                      colour utility, so tokenLiteralPairing has nothing to inspect, and
+                      landingTextContrast.test.tsx REFUSED opacity outright rather than
+                      compositing it. That refusal is now a composite, and this pair is held. */}
+                  <span className="text-2xl text-slate-500">{PLAN_CATALOG.monthly.periodSuffix}</span>
                 </div>
               </div>
               <ul className="space-y-3 font-medium text-slate-900 text-sm">
