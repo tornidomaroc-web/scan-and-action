@@ -270,6 +270,24 @@ bundle, because a frontend-only change is invisible to `/api/version`.
 
 ---
 
+## EXTRACTION RELIABILITY — first reading 2026-09-22T23:36Z, by a checked-in command
+
+**Re-run it, never quote it:** `cd apps/backend && npx tsx scripts/extractionWatch.ts 60`. It is read-only, enforced by the database: one `SET TRANSACTION READ ONLY` transaction, asserted `on` before anything is read. It prints no text, filename, email or org name.
+
+- [ ] **EVERY UPLOADER — the extraction failure rate on the CURRENT model is UNMEASURED, because nobody has uploaded since 2026-09-11.** **The predicate:** a first attempt is FAILED if it carries `extraction_error`, carries `extraction_recovered`, is still empty (`rawText=''` and `overallConfidence=0`), or was processed more than 60 min after upload. The last clause is the clock: every `processedAt` write is an extraction outcome, and `/reextract` admits only failed rows. Judging by the row's current state would undercount every recovered failure. **The 60 min threshold sits in an empty band:** 352 documents were processed in under 1 min, 10 in 1-5 min, 1 in 5-15 min, NONE between 15 and 60 min, and 21 after more than an hour. Traces explain 20 of those 21; the clock alone catches the other one (era C, class unrecorded, consistent with the 2026-09-09 delivery loss that was recovered before the marker existed). **Controls, all passed:** transaction read-only `on`; population 386 documents / 1022 facts / 31 organisations; the known-failed malformed upload `24c3ea41` classifies FAILED; 193 succeeded vs 171 failed; 0 `FAILED`-status rows read as a success. **Witnesses:** BROKEN_RECORD 1, DELIVERY_RECORD_BROKEN 0.
+  **By month** (failed ÷ (succeeded + failed)): **Mar 2.9%** (105 docs), **Apr 0.0%** (20), **Jun 86.3%** (126), **Jul 56.6%** (86), **Sep 49.0%** (49). No uploads in May or August. The June regime change stands, re-measured with a predicate that sees recoveries.
+  **By era**, split at the deploys that changed what extraction records or does:
+
+  | era (by upload time) | uploads | orgs | succeeded | failed | classes |
+  |---|---|---|---|---|---|
+  | A: before #191, no class recorded | 343 | 27 | 171 | 150 | all unrecorded; **149 still empty today** |
+  | B: #191 to #193, keyword classes | 1 | 1 | 0 | 1 | LowConfidence (the malformed test upload) |
+  | C: #193 to #196, class from HTTP status; code default alias vs `gemini-2.5-flash`, then 2.5 | **41** | **1** | 21 | 20 | **RATE_LIMITED 13**, VENDOR_ERROR 6, unrecorded 1 |
+  | D: after #196, code default `gemini-3.5-flash` | **1** | 1 | 1 | 0 | none |
+
+  **What it means.** (1) **The current regime has one upload.** Nothing in this reading says whether #196 changed the rate. (2) **The only era with trustworthy classes is one organisation's two-day test burst** (2026-09-08/09). There, failures were mostly a quota ceiling (13 of 20 were 429s) and partly vendor 5xx (6 of 20). That points to a limit rather than a defect, but it was measured under deliberately bursty load, and on the models before 3.5-flash. (Model names are code defaults in `modelArm.ts`; `GEMINI_PINNED_MODEL` can override them at runtime, so they are not proof of what ran.) (3) The 150 era-A failures recorded no class, so they cannot separate limit from defect at all. (4) **149 documents in users' accounts are still empty** from era A. They are free to retry (a re-extraction never charges), but recovering them moves those users' totals: see "RECOVERY MOVES OTHER PEOPLE'S MONEY FIGURES" below.
+  **EXPIRY: the era D row gets a sample.** Organic traffic delivered 1 upload in 11 days, so waiting is not a plan. The reading needs deliberate uploads on the current model, which is a production write and the owner's decision.
+
 ## OPEN — ordered by who meets the defect
 
 > **The ordering is the point.** Everything below was found in the same two days
