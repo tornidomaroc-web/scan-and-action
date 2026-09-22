@@ -60,7 +60,7 @@ export function LandingScreen() {
                   in a browser at 1280, 485, 390 and 360;
                   landingTextContrast.test.tsx holds the pair. The closing band
                   repeats this sentence on a DARK band, a different pair that
-                  fails the other way; it is a board item, not fixed here. */}
+                  is fixed the other way: LIGHTER text, `text-slate-400`. */}
               <p className="text-slate-500 font-bold text-sm tracking-wide">No credit card. Takes 30 seconds.</p>
             </div>
           </div>
@@ -590,25 +590,41 @@ export function LandingScreen() {
           narrower — strictly better than before, when it orphaned at 1280 too,
           but not a fix. The remaining orphan is a property of this STRING at
           this type size, so closing it means a copy or type decision, not
-          another container. That belongs to the closing-section entry on the
-          board, which already owns this band.
+          another container. It has its own entry on the board ("the closing
+          headline orphans its last word"), filed when the closing-section
+          entry that used to own it closed.
 
-          NOT TOUCHED, and it is an OPEN board item, not an oversight: this
-          button is `bg-ink` (#1A1F36 under the pin) on a `bg-slate-900` band
-          (#0F172A), measured SHAPE 1.10 against a 3:1 floor — it reads as white
-          text floating on the band. Its label is fine at 16.24:1; the affordance
-          is what is missing. The board's entry rules that a different fill, a
-          different band, or dropping the band are decisions about this closing
-          section, and forbids fixing it piecemeal. Changing the padding does not
-          touch it either way. */}
+          THE BAND WAS RULED AS A WHOLE, 2026-09-22. It stays DARK, and every
+          colour in it is a palette LITERAL. None of the 31 colour tokens is
+          dark in both themes and none is a surface, so any token here depends
+          on `.sa-pin-light`, and that dependence is what hid the old defect:
+          the button was `bg-ink`, #1A1F36 under the pin, on this #0F172A band,
+          SHAPE 1.10 against a 3:1 floor, a button with no edge.
+
+          Now `bg-white text-slate-900`, the hero CTA's dark-on-light inverted
+          rather than a third button style, and the reassurance line is
+          `text-slate-400`, LIGHTER, because on a dark band the fix runs the
+          opposite way to the hero's. MEASURED with scripts/contrastSweep and
+          contrastShapeSweep on a production build, five proven widths
+          (1280/900/700/480/360), transitions frozen, every control passing:
+
+            CTA fill vs band (SHAPE)   17.8525   floor 3
+            CTA label                  17.8525   floor 3 (24px/900; 20px/700 < 768)
+            reassurance line            6.9627   floor 4.5
+
+          Identical with `.dark` on <html>, and identical again with the pin
+          stripped from the DOM, while that same strip moved the hero CTA from
+          16.239 to 1.0463, so the toggle was live and this band does not ride
+          on the pin. landingTextContrast.test.tsx holds all three, and holds
+          the band to literals. */}
       <div className="py-24 px-6 bg-slate-900 text-center">
         <div className="max-w-7xl mx-auto space-y-10">
           <h2 className="text-4xl sm:text-5xl font-black text-white leading-tight">Turn receipts into clean data in seconds</h2>
           <div className="space-y-6">
-            <Link to="/login" className="inline-block px-12 py-6 bg-ink text-surface-raised font-black text-2xl rounded-2xl hover:opacity-90 transition-all shadow-2xl active:scale-95 tracking-tight">
+            <Link to="/login" className="inline-block px-12 py-6 bg-white text-slate-900 font-black text-2xl rounded-2xl hover:opacity-90 transition-all shadow-2xl active:scale-95 tracking-tight">
               Start Free with 10 Scans Included
             </Link>
-            <p className="text-slate-500 font-bold text-sm tracking-wide">No credit card. Takes 30 seconds.</p>
+            <p className="text-slate-400 font-bold text-sm tracking-wide">No credit card. Takes 30 seconds.</p>
           </div>
         </div>
       </div>

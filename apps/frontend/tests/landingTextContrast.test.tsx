@@ -13,8 +13,11 @@ import { LandingScreen } from '../src/screens/LandingScreen';
 // LANDING TEXT THAT WAS FIXED FOR CONTRAST KEEPS CLEARING ITS FLOOR.
 // ============================================================================
 // Held here: the two pricing-card plan names, the hero's reassurance line, the
-// `/mo` price suffix, and the five texts inside the hero mock that were below
-// their floor at every width.
+// `/mo` price suffix, the five texts inside the hero mock that were below
+// their floor at every width, and the closing band's reassurance line and CTA
+// label. The closing band's CTA is also held for SHAPE (its fill against the
+// band, WCAG 1.4.11, floor 3), and the band is held to literals throughout,
+// because the ruling that fixed it was that nothing in it may depend on the pin.
 //
 // WHAT THIS CAN HOLD HONESTLY. jsdom has no layout, so nothing here can say
 // whether anything lines up or how a weight reads. A colour PAIR is not a
@@ -275,6 +278,11 @@ function render() {
   const hero = withSentence.filter((p) => heroColumn.contains(p)).map((p) => inspect('hero line', p));
   const twin = withSentence.filter((p) => p.closest('.bg-slate-900')).map((p) => inspect('closing-band line', p));
 
+  // The closing band and its one link, located through the band's own literal.
+  const bands = [...container.querySelectorAll('.bg-slate-900')];
+  const bandLinks = bands.flatMap((b) => [...b.querySelectorAll('a')]);
+  const cta = bandLinks.map((a) => inspect('closing CTA label', a));
+
   const mock = mockRoot(container);
   const ths = [...mock.querySelectorAll('th')];
   const mockup = [
@@ -289,21 +297,29 @@ function render() {
 
   root.unmount();
   container.remove();
-  return { names, mo, hero, twin, mockup, tiles, thCount: ths.length, sentenceCount: withSentence.length };
+  return {
+    names, mo, hero, twin, cta, mockup, tiles,
+    bandCount: bands.length, thCount: ths.length, sentenceCount: withSentence.length,
+  };
 }
 
 const page = render();
-const HELD: Inspected[] = [...page.names, page.mo, ...page.hero, ...page.mockup];
+const HELD: Inspected[] = [...page.names, page.mo, ...page.hero, ...page.twin, ...page.cta, ...page.mockup];
 
 describe('the sweep found what it holds', () => {
-  it('finds both plan names, ONE hero line, the /mo suffix and the five mock texts', () => {
+  it('finds both plan names, BOTH reassurance lines, the /mo suffix, the closing CTA and the five mock texts', () => {
     expect(page.names.map((n) => n.label)).toEqual(['Free', 'Pro']);
+    expect(page.sentenceCount, 'the sentence should appear exactly twice: hero and closing band').toBe(2);
     expect(page.hero, 'the hero reassurance line was not found in the headline column').toHaveLength(1);
     expect(page.hero[0].inDarkBand, 'the hero line resolved inside the dark closing band').toBe(false);
+    expect(page.twin, 'the closing band copy of the sentence was not found in the band').toHaveLength(1);
+    expect(page.bandCount, 'there should be exactly one bg-slate-900 band').toBe(1);
+    expect(page.cta, 'the closing band should carry exactly one link').toHaveLength(1);
+    expect(page.cta[0].el.textContent?.trim()).toBe('Start Free with 10 Scans Included');
     expect(page.mo.el.textContent, 'the /mo span is empty, so the catalog suffix moved').toBeTruthy();
     expect(page.thCount, 'the mock table no longer has exactly two headers').toBe(2);
     expect(page.mockup.map((n) => n.label)).toEqual(['AI Extraction', 'Needs Review', '! badge', 'Label', 'Value']);
-    expect(HELD).toHaveLength(9);
+    expect(HELD).toHaveLength(11);
   });
 
   it('every held element resolves a colour, a size, a weight and a background', () => {
@@ -330,7 +346,8 @@ describe('the sweep found what it holds', () => {
     for (const n of HELD) { ratioAndFloor(n); expect(n.unresolvedBg, n.label).toEqual([]); }
   });
 
-  it.each(['Free', 'Pro', 'hero line', '/mo', 'AI Extraction', 'Needs Review', '! badge', 'Label', 'Value'])(
+  it.each(['Free', 'Pro', 'hero line', 'closing-band line', 'closing CTA label', '/mo',
+    'AI Extraction', 'Needs Review', '! badge', 'Label', 'Value'])(
     '%s clears the stricter of its desktop and phone floors', (which) => {
       const n = HELD.find((x) => x.label === which)!;
       const r = ratioAndFloor(n);
@@ -423,19 +440,99 @@ describe('controls', () => {
   });
 });
 
-// ── KNOWN, NOT FIXED HERE, AND TWO-WAY ─────────────────────────────────────
-// Both blocks below record a MEASURED failure that a board entry owns. Each
-// goes red the moment the defect is repaired, so the record cannot outlive it.
+// ── THE CLOSING BAND, RULED AS A WHOLE ─────────────────────────────────────
+// Its CTA used to be `bg-ink` (the pinned #1A1F36) on this band's #0F172A:
+// SHAPE 1.10 against a floor of 3, a button with no edge. The ruling kept the
+// band dark and made everything in it a palette LITERAL, because none of the
+// 31 colour tokens is dark in both themes and none is a surface, so any token
+// in this band depends on the pin, and that dependence is what hid the defect.
 
-describe('the closing band copy of the sentence is a known failure, owned by the board', () => {
-  it('still fails its floor (move it into HELD when this goes red)', () => {
-    expect(page.sentenceCount, 'the sentence should appear exactly twice: hero and closing band').toBe(2);
-    expect(page.twin).toHaveLength(1);
-    const r = ratioAndFloor(page.twin[0]);
-    expect(r.floor).toBe(4.5);
-    expect(r.ratio).toBeLessThan(r.floor);
+/**
+ * SHAPE: an element's own fill against the composited backdrop of its
+ * ancestors, WCAG 1.4.11. The same fold as paint(), stopped one step early.
+ * `hover:` and `active:` variants do not match and are deliberately not
+ * modelled: this is the resting state.
+ */
+function shape(el: Element): { ratio: number; fill: string; backdrop: string } {
+  const fillUtility = classesOf(el).find((c) => /^bg-[a-z]/.test(c));
+  expect(fillUtility, 'the element paints no background of its own, so it has no fill to measure').toBeDefined();
+  let backdrop: Rgb = { r: 255, g: 255, b: 255 };
+  let backdropUtility = 'none';
+  let product = 1;
+  for (const e of chainOf(el)) {
+    for (const c of classesOf(e)) {
+      const m = c.match(/^opacity-(\d+)$/);
+      if (m) product *= Number(m[1]) / 100;
+    }
+    if (e === el) break;
+    const bgu = classesOf(e).find((c) => /^bg-[a-z]/.test(c));
+    if (bgu) { backdrop = over(backdrop, rgb(resolve(bgu)), product); backdropUtility = bgu; }
+  }
+  const fill = over(backdrop, rgb(resolve(fillUtility!)), product);
+  return { ratio: contrast(fill, backdrop), fill: fillUtility!, backdrop: backdropUtility };
+}
+
+/** True when a colour utility resolves through a `var(--sa-*)`, i.e. is a token. */
+function isToken(utility: string): boolean {
+  const name = utility.replace(/^(text|bg)-/, '');
+  if (name === 'white' || name === 'black') return false;
+  const lit = name.match(/^([a-z]+)-(\d{2,3})$/);
+  if (lit && typeof palette[lit[1]] === 'object' && (palette[lit[1]] as Record<string, string>)[lit[2]]) return false;
+  resolve(utility); // throws on anything that is neither
+  return true;
+}
+
+describe('the closing band CTA has an edge', () => {
+  it('its fill clears the 3:1 non-text floor against the band', () => {
+    const s = shape(page.cta[0].el);
+    expect(s.backdrop, 'the CTA no longer sits directly on the dark band').toBe('bg-slate-900');
+    expect(s.ratio, `${s.fill} on ${s.backdrop}`).toBeGreaterThanOrEqual(3);
+  });
+
+  it('POSITIVE CONTROL: the fill it replaced fails that floor, so this can go red', () => {
+    const r = contrast(rgb(resolve('bg-ink')), rgb(resolve('bg-slate-900')));
+    expect(r).toBeCloseTo(1.10, 2);
+    expect(r).toBeLessThan(3);
+  });
+
+  it('NEGATIVE CONTROL: a fill equal to its backdrop measures exactly 1', () => {
+    const band = page.cta[0].el.closest('.bg-slate-900')!;
+    expect(contrast(rgb(resolve('bg-slate-900')), rgb(resolve('bg-slate-900')))).toBe(1);
+    expect(band.contains(page.cta[0].el)).toBe(true);
   });
 });
+
+describe('nothing in the closing band depends on the pin', () => {
+  it('the band, its CTA fill and label, and its reassurance line are all palette literals', () => {
+    // Under the pin a token here can PASS every ratio above and still be wrong:
+    // `bg-surface-raised text-ink` would read as white and navy today and flip
+    // with the theme the day the pin is removed. That is the dependence this
+    // band was ruled out of, so it is held here rather than left to step 3.
+    const cta = page.cta[0];
+    const twin = page.twin[0];
+    const used = {
+      band: 'bg-slate-900',
+      'CTA fill': classesOf(cta.el).find((c) => /^bg-[a-z]/.test(c))!,
+      'CTA label': cta.fg[0],
+      'reassurance line': twin.fg[0],
+    };
+    for (const [role, utility] of Object.entries(used)) {
+      expect(utility, `${role}: no colour utility found`).toBeDefined();
+      expect(isToken(utility), `${role}: ${utility} is a token, so it depends on the pin`).toBe(false);
+    }
+  });
+
+  it('POSITIVE CONTROL: the classifier does call a token a token', () => {
+    expect(isToken('bg-ink')).toBe(true);
+    expect(isToken('text-surface-raised')).toBe(true);
+    expect(isToken('bg-white')).toBe(false);
+    expect(isToken('text-slate-400')).toBe(false);
+  });
+});
+
+// ── KNOWN, NOT FIXED HERE, AND TWO-WAY ─────────────────────────────────────
+// The block below records a MEASURED failure that a board entry owns. It goes
+// red the moment the defect is repaired, so the record cannot outlive it.
 
 describe('the three red ! tiles are a known failure BELOW 768 only, owned by the board', () => {
   it('each clears the desktop floor and misses the phone one', () => {

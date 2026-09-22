@@ -68,6 +68,7 @@
 //   __SWEEP.shapeMutation();                      // 6 planted, 5 must fail and 1 must PASS
 //   await __SWEEP.install('https://<origin>/');   // discard the mutants
 //   __SWEEP.runShape();
+//   __SWEEP.lastShape.polarity                    // failAnchor must be < 3, passAnchor >= 3
 // ============================================================================
 
 (function () {
@@ -291,13 +292,24 @@
 
   /**
    * CONTROL: polarity, located STRUCTURALLY and two-sided. The fail anchor is the
-   * single link inside the page's only `bg-slate-900` band; the pass anchor is the
-   * link in the h1's own column. No expected figure appears anywhere in this file.
+   * link in the pricing card whose h3 reads "Free", a deliberately quiet
+   * secondary; the pass anchor is the link in the h1's own column. No expected
+   * figure appears anywhere in this file.
+   *
+   * The fail anchor USED to be the single link in the `bg-slate-900` band. That
+   * was the page's primary shape defect, and the closing-band ruling fixed it, so
+   * it stopped being a failure and could no longer anchor one. It is still
+   * reported, as `bandAnchor`, because it is the element that ruling is about.
    */
   S.shapePolarity = function (run) {
     const fd = S.f.contentDocument, fw = S.f.contentWindow;
     const band = fd.querySelector('.bg-slate-900');
     const heroCol = fd.querySelector('h1').parentElement;
+    const freeCard = Array.prototype.find.call(fd.querySelectorAll('#pricing .grid > div'), function (c) {
+      const h = c.querySelector('h3');
+      return !!h && h.textContent.trim() === 'Free';
+    });
+    const freeLinks = freeCard ? Array.prototype.slice.call(freeCard.querySelectorAll('a')) : [];
     const bandLinks = band ? Array.prototype.slice.call(band.querySelectorAll('a')) : [];
     const heroLinks = Array.prototype.slice.call(heroCol.querySelectorAll('a'));
     const pick = function (el) {
@@ -306,9 +318,10 @@
       return { fill: r.fillVsBackdrop, cue: r.edgeCue, fillHex: r.fillHex, backHex: r.backdropHex, area: r.areaPx };
     };
     return {
-      w: run.w, bandLinks: bandLinks.length, heroLinks: heroLinks.length,
-      failAnchor: pick(bandLinks[0]), passAnchor: pick(heroLinks[0]),
-      structural: !!band && bandLinks.length === 1 && heroLinks.length === 1 && bandLinks[0] !== heroLinks[0]
+      w: run.w, freeLinks: freeLinks.length, bandLinks: bandLinks.length, heroLinks: heroLinks.length,
+      failAnchor: pick(freeLinks[0]), passAnchor: pick(heroLinks[0]), bandAnchor: pick(bandLinks[0]),
+      structural: freeLinks.length === 1 && heroLinks.length === 1 && freeLinks[0] !== heroLinks[0] &&
+        !!band && bandLinks.length === 1
     };
   };
 
