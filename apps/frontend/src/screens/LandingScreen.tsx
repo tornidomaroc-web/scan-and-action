@@ -643,13 +643,25 @@ export function LandingScreen() {
           PIN-DEPENDENT, and the guard cannot see it: this is a flipping token
           over a literal band that sits on an ANCESTOR, so tokenLiteralPairing
           (one className at a time) passes it. Unpinned in dark it would read
-          #CBD5E1 on #F8FAFC = 1.42. Step 3 moves this band with its text. */}
+          #CBD5E1 on #F8FAFC = 1.42. Step 3 moves this band with its text.
+
+          THE UNDERLINE IS WCAG 1.4.1, NOT CONTRAST. Without it a link here
+          differed from the ` · ` text between them by nothing at all: same
+          colour, weight 400, 13px, no decoration. It goes on each LINK, never
+          on the footer, because text-decoration propagates to descendants and
+          would underline the separators too. MEASURED on a production build:
+          each link computes `text-decoration-line: underline`, while the
+          footer and every ancestor compute `none`, in both themes. The
+          screenshot shows one full-width line under each link (99-100%
+          coverage) and none under either separator (at most 25%).
+          landingInlineLinks.test.tsx holds it by pattern: every <a> that
+          shares its parent with text, anywhere on the route. */}
       <footer className="text-ink-secondary" style={{ textAlign: 'center', padding: '24px', fontSize: '13px' }}>
-        <Link to="/terms">Terms of Service</Link>
+        <Link to="/terms" className="underline">Terms of Service</Link>
         {" · "}
-        <Link to="/privacy">Privacy Policy</Link>
+        <Link to="/privacy" className="underline">Privacy Policy</Link>
         {" · "}
-        <Link to="/refund">Refund Policy</Link>
+        <Link to="/refund" className="underline">Refund Policy</Link>
       </footer>
     </div>
   );
