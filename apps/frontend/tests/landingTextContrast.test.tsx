@@ -14,8 +14,11 @@ import { LandingScreen } from '../src/screens/LandingScreen';
 // ============================================================================
 // Held here: the two pricing-card plan names, the hero's reassurance line, the
 // `/mo` price suffix, the five texts inside the hero mock that were below
-// their floor at every width, and the closing band's reassurance line and CTA
-// label. The closing band's CTA is also held for SHAPE (its fill against the
+// their floor at every width, the closing band's reassurance line and CTA
+// label, and the three `!` tiles on the cost cards, each held on its own. With
+// the tiles, this file holds no known failure at all: every text below its
+// floor on this route has been repaired, so any failure found from here on is
+// new. The closing band's CTA is also held for SHAPE (its fill against the
 // band, WCAG 1.4.11, floor 3), and the band is held to literals throughout,
 // because the ruling that fixed it was that nothing in it may depend on the pin.
 //
@@ -304,10 +307,12 @@ function render() {
 }
 
 const page = render();
-const HELD: Inspected[] = [...page.names, page.mo, ...page.hero, ...page.twin, ...page.cta, ...page.mockup];
+const HELD: Inspected[] = [
+  ...page.names, page.mo, ...page.hero, ...page.twin, ...page.cta, ...page.mockup, ...page.tiles,
+];
 
 describe('the sweep found what it holds', () => {
-  it('finds both plan names, BOTH reassurance lines, the /mo suffix, the closing CTA and the five mock texts', () => {
+  it('finds both plan names, BOTH reassurance lines, the /mo suffix, the closing CTA, the five mock texts and the three tiles', () => {
     expect(page.names.map((n) => n.label)).toEqual(['Free', 'Pro']);
     expect(page.sentenceCount, 'the sentence should appear exactly twice: hero and closing band').toBe(2);
     expect(page.hero, 'the hero reassurance line was not found in the headline column').toHaveLength(1);
@@ -319,7 +324,9 @@ describe('the sweep found what it holds', () => {
     expect(page.mo.el.textContent, 'the /mo span is empty, so the catalog suffix moved').toBeTruthy();
     expect(page.thCount, 'the mock table no longer has exactly two headers').toBe(2);
     expect(page.mockup.map((n) => n.label)).toEqual(['AI Extraction', 'Needs Review', '! badge', 'Label', 'Value']);
-    expect(HELD).toHaveLength(11);
+    expect(page.tiles.map((n) => n.label)).toEqual(['red ! tile 1', 'red ! tile 2', 'red ! tile 3']);
+    expect(page.tiles.map((n) => n.el.textContent?.trim())).toEqual(['!', '!', '!']);
+    expect(HELD).toHaveLength(14);
   });
 
   it('every held element resolves a colour, a size, a weight and a background', () => {
@@ -347,7 +354,8 @@ describe('the sweep found what it holds', () => {
   });
 
   it.each(['Free', 'Pro', 'hero line', 'closing-band line', 'closing CTA label', '/mo',
-    'AI Extraction', 'Needs Review', '! badge', 'Label', 'Value'])(
+    'AI Extraction', 'Needs Review', '! badge', 'Label', 'Value',
+    'red ! tile 1', 'red ! tile 2', 'red ! tile 3'])(
     '%s clears the stricter of its desktop and phone floors', (which) => {
       const n = HELD.find((x) => x.label === which)!;
       const r = ratioAndFloor(n);
@@ -530,27 +538,29 @@ describe('nothing in the closing band depends on the pin', () => {
   });
 });
 
-// ── KNOWN, NOT FIXED HERE, AND TWO-WAY ─────────────────────────────────────
-// The block below records a MEASURED failure that a board entry owns. It goes
-// red the moment the defect is repaired, so the record cannot outlive it.
+// ── THE `!` TILES: WHY THEIR FLOOR IS 4.5, AND WHAT THEY REPLACED ───────────
+// They were the last known failure in this file, held two-way until repaired.
+// They are held as TEXT at 4.5, not as icons at 3: an icon floor would have
+// left a permanent exception in the route's own baseline.
 
-describe('the three red ! tiles are a known failure BELOW 768 only, owned by the board', () => {
-  it('each clears the desktop floor and misses the phone one', () => {
-    // `text-red-500` on `bg-red-50`, `font-black text-xl`. The ratio never
-    // changes; the FLOOR does. At >= 768 it is 20px/900, large, floor 3. Below,
-    // the mobile rule makes it 18px/700, which is under the 18.66px large-text
-    // line, so the floor becomes 4.5 and the same pair fails. Boarded rather
-    // than repaired: at 3.44 it clears the 3:1 a graphical object would get, and
-    // a `!` redundant with the sentence beside it is an icon, not prose.
+describe('the three ! tiles are held at the phone floor', () => {
+  it('their floor is 4.5 only because the mobile rule shrinks them below large text', () => {
+    // `font-black text-xl`: 20px/900 at >= 768, large text, floor 3. Below 768
+    // the index.css mobile rule makes it 18px/700, under the 18.66px bold line.
     expect(page.tiles).toHaveLength(3);
     for (const t of page.tiles) {
       const s = sizes(t.size!), w = weights(t.weight!);
-      const { bg, product } = paint(t);
-      const ratio = contrast(over(bg, rgb(resolve(t.fg[0])), product), bg);
       expect(floorFor(s.desktop, w.desktop), `${t.label}: desktop floor`).toBe(3);
       expect(floorFor(s.phone, w.phone), `${t.label}: phone floor`).toBe(4.5);
-      expect(ratio, `${t.label}: clears 3`).toBeGreaterThanOrEqual(3);
-      expect(ratio, `${t.label}: misses 4.5`).toBeLessThan(4.5);
+      expect(ratioAndFloor(t).floor, `${t.label}: held floor`).toBe(4.5);
     }
+  });
+
+  it('POSITIVE CONTROL: the colour they replaced clears the desktop floor and misses this one', () => {
+    // Without this, a model that silently used the desktop floor would pass the
+    // old colour too, and the held assertions above would prove nothing.
+    const r = contrast(rgb(resolve('text-red-500')), rgb(resolve('bg-red-50')));
+    expect(r).toBeGreaterThanOrEqual(3);
+    expect(r).toBeLessThan(4.5);
   });
 });

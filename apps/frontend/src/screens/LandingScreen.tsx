@@ -262,6 +262,13 @@ export function LandingScreen() {
           The one literal island is the `!` tile, kept as the existing approved
           ornament rather than pressed onto `--sa-danger-*`, which is an error
           state and not an editorial mark.
+          Its mark is `text-red-700`, held as TEXT: below 768 the mobile rule
+          makes `font-black text-xl` 18px/700, under the large-text line, so its
+          floor there is 4.5, and `text-red-500` missed it. MEASURED with
+          scripts/contrastSweep on a production build, five proven widths,
+          every control passing: 5.9146 on `bg-red-50` at every width, in both
+          themes. It is a literal pair on its own element, so the pin cannot
+          move it.
           UNVERIFIED, AND SAY SO: `.sa-pin-light` holds all of these tokens at
           their light values, so this section looks correct in dark mode whether
           that reasoning is right or wrong. What is verified is the pairing
@@ -274,15 +281,15 @@ export function LandingScreen() {
           <div className="grid sm:grid-cols-3 gap-8">
             {/* Row 1 - the cost: a red mark and one bold sentence. */}
             <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-4">
-              <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-xl">!</div>
+              <div className="w-12 h-12 bg-red-50 text-red-700 rounded-xl flex items-center justify-center font-black text-xl">!</div>
               <p className="font-bold text-ink text-lg leading-snug">You’re still typing every receipt by hand</p>
             </div>
             <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-4">
-              <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-xl">!</div>
+              <div className="w-12 h-12 bg-red-50 text-red-700 rounded-xl flex items-center justify-center font-black text-xl">!</div>
               <p className="font-bold text-ink text-lg leading-snug">Receipts with missing amounts break your reports</p>
             </div>
             <div className="p-8 rounded-3xl border border-line bg-surface-raised shadow-sm space-y-4">
-              <div className="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-xl">!</div>
+              <div className="w-12 h-12 bg-red-50 text-red-700 rounded-xl flex items-center justify-center font-black text-xl">!</div>
               <p className="font-bold text-ink text-lg leading-snug">You find mistakes only after it’s too late</p>
             </div>
 
