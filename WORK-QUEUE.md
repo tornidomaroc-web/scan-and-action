@@ -37,46 +37,38 @@
 - **The recovery track is dead. Do not resume it.** Its items left with it.
 - **The privacy rules stand as engineering discipline** (the owner, same day).
 - **Order:**
-  1. This rewrite.
-  2. The owner enrolls in the Apple Developer Program, now and in parallel. It
-     needs his approval of the fee, and "Founder decision" comes first.
-  3. Design step 1, direction prototypes, with no repository change.
-  4. Once enrollment clears: the iOS platform and a CI → TestFlight pipeline, in
-     one small PR, so every later design commit is judged on his iPhone.
+  1. The board rewrite (#239).
+  2. **The Apple developer account is ready** (the owner, 2026-09-23). Everything
+     left on the Apple track is engineering work: nothing on it is his to decide
+     or pay for.
+  3. Design step 1, direction prototypes, with no repository change. Built
+     2026-09-23; waiting on his choice.
+  4. The iOS platform and a CI → TestFlight pipeline, in one small PR, so every
+     later design commit is judged on his iPhone. Unblocked: it waits only for
+     an order.
   5. Design steps 2 to 7.
   6. Submission, once design steps 1 to 5 are done and every APPLE TRACK blocker
      is closed.
 
-## CORRECTED 2026-09-23 — "paying customers" was a reading of our own table
+## CLOSED 2026-09-23 — subscriptions: zero subscribers, nobody is charged
 
-This file's header said "paying customers", and its logo item said "3 ACTIVE
-Paddle subscriptions".
+The owner settled it: **there are zero subscribers, and nobody is being charged
+anything.** The three `Subscription` rows (`source PADDLE`, `status ACTIVE`, all
+created 2026-06, none recording a `currentPeriodEnd`) are **dead data**. This
+file once called them "paying customers". That was a reading of our own table,
+never of anyone being charged. **Do not send the owner to a dashboard about
+them.**
 
-- **What the database says** (read-only, 2026-09-23): three `Subscription` rows,
-  `source PADDLE`, `status ACTIVE`, all created 2026-06, and none recording a
-  `currentPeriodEnd`. Two are in the owner's organisations `d8b34ee3` and
-  `5ce3e185`. The third is in an organisation outside his three: created
-  2026-03, its only member last signed in 2026-04, and all 22 of its documents
-  were uploaded in 2026-03.
-- **What it cannot say:** whether anyone is being charged, whose card it would
-  be, or whose the March organisation is. A `Subscription` row is our last-known
-  entitlement state, written by the webhook path or a backfill. It is not a
-  billing ledger.
-- **The two checks only the owner can make.** Nothing here asserts their outcome.
-  1. Paddle dashboard, **live mode** → Subscriptions: which are active and
-     billing, and to whom.
-  2. Supabase → Authentication → Users, the accounts created in 2026-03: is that
-     address his?
+**One trap, for whoever cleans them up.** Two of the rows sit in the owner's
+own organisations, `d8b34ee3` and `5ce3e185`, and those organisations are PRO
+only through them:
+- `planOverride` is null on both (read 2026-09-23).
+- `derivePlan` gives PRO while any source is ACTIVE.
 
-```sql
--- apps/backend, inside SET TRANSACTION READ ONLY. Prints no identities.
-SELECT CASE left(s."organizationId"::text, 8)
-         WHEN 'd8b34ee3' THEN 'owner A' WHEN '5ce3e185' THEN 'owner B'
-         WHEN '22d51116' THEN 'review' ELSE 'not ours' END AS whose,
-       s.source, s.status, to_char(s."createdAt", 'YYYY-MM') AS created,
-       s."currentPeriodEnd" IS NULL AS no_period_recorded
-FROM "Subscription" s ORDER BY s."createdAt";
-```
+So a cleanup that recomputes the plan (anything through
+`applyEntitlementChange`) drops both to FREE, which caps his own accounts at the
+free scan limit in `uploadController.ts`. Set `planOverride = PRO` on both
+first, or leave the rows alone.
 
 ## CONSTRAINT — other people's rows never become design material
 
@@ -89,8 +81,8 @@ a store screenshot.**
   by month, through `Membership`). This file recorded that test's testers as 25
   people from a Fiverr seller who created their own in-app accounts.
 - What their documents show is unknown, and the empty ones were never read.
-- The March accounts fall under the same rule, because their owner is
-  unconfirmed (see the correction above).
+- The March accounts fall under the same rule, because the database cannot say
+  whose they are.
 - **Use the owner's own receipts, or synthetic ones.**
 
 ## APPLE TRACK
@@ -110,8 +102,8 @@ a store screenshot.**
   was never observed. **Verify both on the first TestFlight build.** For
   deletion, delete a throwaway account in-app, then run the query in "Orphaned
   app rows": its count must not grow.
-- **Enrollment:** this file only ever recorded the plan ("$99/yr, individual"),
-  never a start. Whether it has started is read at developer.apple.com/account.
+- **The Apple developer account is ready** (the owner, 2026-09-23). Nothing on
+  this track is his to decide or pay for; what remains is engineering work.
 
 ### Facts corrected 2026-09-23, each with what was read
 
@@ -144,27 +136,15 @@ a store screenshot.**
     … provided those items are also available as in-app purchases within the
     app."* A reviewer who reads the app under (b) rather than (f) will ask for
     IAP, so the review notes must argue (f).
-  - A free app also needs no paid-apps agreement (recalled, not read: confirm
-    under App Store Connect → Agreements). That sidesteps whether Apple would
-    accept this Morocco-based account for one, which has never been asked. Play
-    refused it merchant status.
 - **ATT is moot.** App Tracking Transparency was on this list only for ads, and
   ads left the plan on 2026-09-23.
-- **"Individual" is a seller-identity choice, and it is the same decision the
-  welcome email is waiting on.**
-  - An individual enrollment sells under the person's legal name.
-  - Distribution in the EU asks for a trader declaration whose contact details
-    are shown on EU product pages. Not verified here; read the current terms in
-    App Store Connect when enrolling.
-  - Both are the welcome email's question: which name and address the world
-    sees. See "Founder decision".
 
 ### Blockers this file never had
 
 - [ ] **No iOS platform in the repository.** `apps/frontend/ios` is absent, and
   `@capacitor/ios` is not a dependency. **EXPIRY:** a PR adds the platform and a
   CI workflow that uploads a signed build to TestFlight, and the owner installs
-  it on his iPhone. Needs enrollment first.
+  it on his iPhone. Unblocked: the account is ready.
 - [ ] **Placeholder text that 2.1(a) forbids is reachable today.** Apple 2.1(a):
   *"placeholder text, empty websites, and other temporary content should be
   scrubbed before submission."*
@@ -219,22 +199,24 @@ a store screenshot.**
     from".
   - Recipient addresses go to Resend, a US email processor.
   - **EXPIRY:** the labels are submitted, and match the build and the Gemini tier.
-- [ ] **Gemini billing tier: settle it before the privacy label is written.**
+- [ ] **Gemini's data terms in the privacy label: write it for the free tier.**
   - The label must say what Google does with document content. On the free tier,
     Google may use submitted content to improve its products (terms:
     https://ai.google.dev/gemini-api/terms).
-  - Which tier the key is on is not recorded here, by rule. Read it on the Google
-    AI Studio / Cloud billing page for that key's project.
-  - A second reason: in the only era whose failures carry a class (2026-09-08/09,
-    one organisation, deliberately bursty load), 13 of its 20 failures were
-    quota 429s. That comes from the extraction watch reading of 2026-09-22, now
-    in git history. A reviewer's scans can meet a quota.
-  - **EXPIRY:** the tier is read, and the label written to match it.
+  - Write the label to that disclosure unless the key is shown to be on the paid
+    tier. A label that discloses more than happens is true, and one that
+    discloses less is not, so submitting needs nobody's decision and nobody's
+    payment.
+  - **EXPIRY:** the label is written.
 - [ ] **The reviewer's first scan must work. Measure it before submitting.** This
   replaces the extraction-reliability tracking, which was justified by uploaders
   who do not exist.
   - Measure on the current model, with the owner's own phone photos of real
-    receipts, through the TestFlight build, after the Gemini tier is settled.
+    receipts, through the TestFlight build.
+  - Include a few scans inside one minute. In the only era whose failures carry a
+    class (2026-09-08/09, one organisation, deliberately bursty load), 13 of its
+    20 failures were quota 429s (extraction watch reading of 2026-09-22, in git
+    history), and a reviewer's scans can meet a quota.
   - Read the result with `cd apps/backend && npx tsx scripts/extractionWatch.ts 60`,
     which is read-only, enforced by the database.
   - Today's evidence is thin. The watch read the current era at 6 succeeded and
@@ -265,36 +247,6 @@ a store screenshot.**
     - A reset sets **both** `planOverride = null` and `plan = 'FREE'` in one
       statement, as `docs/DASHBOARD_REDESIGN_PROGRESS.md` already said.
   - **EXPIRY:** none while either store reviews updates.
-- [ ] **Founder decision: which name and address the world sees.** It blocks two
-  things, and only the owner can decide it.
-  1. Apple enrollment: as an individual (his legal name as seller, and the EU
-     trader declaration), or as an organisation.
-  2. The welcome email, which is held twice:
-     - `MAIL_POSTAL_ADDRESS` must be set, because `mailer.ts` fails closed
-       without a physical address (CAN-SPAM requires one).
-     - `WELCOME_EMAIL_ENABLED` must be `true` (`welcomeEmail.ts`).
-     - Both are Railway variables, and their values are not recorded here.
-  - **EXPIRY:** the owner decides, before enrolling.
-- [ ] **Real in-app purchase (RevenueCat): DEFERRED until there are users.** v1
-  ships under 3.1.3(f), with no purchase.
-  - When it is built, it goes through `applyEntitlementChange`
-    (`apps/backend/src/services/entitlement/`), the path the Paddle webhook
-    uses. That path takes a row lock, guards against out-of-order events, and
-    never writes `planOverride`.
-  - Set `app_user_id` to the Supabase user id.
-  - Give it a separate webhook with its own signature check. It maps each event
-    to a per-source ACTIVE/INACTIVE status, never directly to a plan:
-    - `INITIAL_PURCHASE` / `RENEWAL` / `PRODUCT_CHANGE` → ACTIVE.
-    - **`CANCELLATION` turns auto-renew off and nothing else.** Access continues
-      to the period end, so the source stays ACTIVE. **Never map CANCELLATION
-      to FREE.**
-    - `EXPIRATION` → INACTIVE. This is the real downgrade point.
-    - `BILLING_ISSUE`, grace and dunning → stay ACTIVE.
-  - `derivePlan` takes the maximum across sources, so Paddle and RevenueCat rows
-    coexist.
-  - An earlier mapping in this file sent CANCELLATION, EXPIRATION and
-    BILLING_ISSUE to FREE. That was revenue-damaging.
-  - **EXPIRY:** the owner decides to sell inside the iOS app.
 
 ## DESIGN TRACK
 
@@ -338,20 +290,42 @@ restyled.** Do not start at login, although a reviewer sees it first:
 
 ### The order
 
-- [ ] **1. Direction: prototypes before any repository change.**
-  - Two or three genuinely different phone-size prototypes of the loop, home and
-    brand, in Arabic and English.
-  - The owner chooses on his iPhone. Taste is his, and the best in the market
-    comes from choosing between different pictures, not from iterating one.
-  - Content: the owner's receipts or synthetic ones (CONSTRAINT).
-  - References, chosen for the loop: Apple's document camera in Notes and Files,
-    Microsoft Lens, Expensify's SmartScan, and Apple Wallet's transaction list.
+- [ ] **1. Direction: prototypes before any repository change.** BUILT
+  2026-09-23; waiting on the owner's choice.
+  - **Three phone-size prototypes, one per structure:** Capture-first,
+    Ledger-first and Inbox-first.
+    - They are private claude.ai pages titled "Scan & Action Capture", "Scan &
+      Action Ledger" and "Scan & Action Inbox" (find them with the Artifact
+      tool's `list`).
+    - The look is identical across the three: one stylesheet, one engine and one
+      data set, proved by hash at build.
+    - They differ only in what the app opens to, what a scan turns into, and what
+      brings him back.
+  - **Each runs the same script, in Arabic and in English:**
+    1. Scan four synthetic receipts: clean, crumpled, Arabic, and a repeat.
+    2. Ask what was spent on food this month.
+    3. Deal with what needs him.
+
+    The capture is simulated.
+  - **The honesty rule they follow: nothing unbuilt appears unframed.**
+    - Anything not built or not measured sits in a dashed frame.
+    - One tap on the frame shows what today's code does with the same receipts.
+    - That text was computed by running the real categorizer and a guarded copy
+      of the review gate on those receipts.
+  - **Who chooses:** the owner, on his iPhone. Taste is his, and the best in the
+    market comes from choosing between different pictures, not from iterating
+    one.
+  - **Content:** synthetic receipts only (CONSTRAINT).
+  - **References, chosen for the loop:** Apple's document camera in Notes and
+    Files, Microsoft Lens, Expensify's SmartScan, and Apple Wallet's transaction
+    list.
   - **Decides:**
     - What home is for, which settles "Money by category".
-    - The icon and palette. This replaces the old logo item: the icon is the App
-      Store's first pixel and a required asset, and the brand comes before the
-      system.
     - Whether capture is batch, which triggers "Row-lock contention".
+    - Then a second round, on the chosen structure, decides the icon and palette.
+      Colour is held still in this round so that the choice is about structure.
+      This replaces the old logo item: the icon is the App Store's first pixel
+      and a required asset, and the brand comes before the system.
   - **EXPIRY:** the owner has chosen a direction.
 - [ ] **2. The design system, in code.**
   - Tokens, a type scale, and core components: sheet, list row, field, button,
@@ -394,6 +368,9 @@ restyled.** Do not start at login, although a reviewer sees it first:
      `'stationery'`.
    - Its keyword table is Latin-only, while `persistence.ts` passes the
      original-language `rawText`.
+   - Run on the nine synthetic receipts in the direction prototypes (2026-09-23),
+     it called only the two café receipts Food. The grocery receipt and the
+     Arabic bakery came out Other.
 2. **A fresh, tested summary query.** **Never revive the old ones as one-line key
    swaps:** turning an empty report into a populated wrong one ships a new wrong
    number. The known wrong reads:
@@ -491,12 +468,26 @@ restyled.** Do not start at login, although a reviewer sees it first:
   - Where `category` goes, if the categorizer earns a place, is a layout decision:
     category is a derived judgement, not something read off the page.
 - **How often a clean read says "Needs review".**
-  - `isWeak` in `persistence.ts` sends a document to review in three cases:
+  - `isWeak` in `persistence.ts` sends a document to review when any of these
+    holds (corrected 2026-09-23; an earlier version of this list named only
+    three cases):
     - confidence below `CONFIDENCE_THRESHOLD = 0.98`;
-    - template words: "template", "sample", "example", "your business name",
+    - no date, no amount, or no facts at all;
+    - fewer than two of the English anchor words (`total`, `subtotal`, `tax`,
+      `vat`, `amount`, `item`, `receipt`, `invoice`, `cash`, `card`, `payment`,
+      `merchant`, `store`), matched as substrings of the read text;
+    - a template word: "template", "sample", "example", "your business name",
       "lorem ipsum";
-    - repeated multi-document markers: invoice, receipt, subtotal, total, tax,
-      thank you.
+    - two or more multi-document markers (invoice, receipt, subtotal, total, tax,
+      thank you) that each appear more than once, counted as substrings, so
+      "subtotal" also counts as a "total".
+  - **Read 2026-09-23: the anchor words are English-only, so a receipt printed
+    only in Arabic always lands in "Needs review", however well it was read.**
+    Run on the nine synthetic receipts in the direction prototypes, the gate
+    flagged four, and three of those were read correctly:
+    - an Arabic bakery receipt, with no anchors;
+    - a terse fuel receipt, with no anchors;
+    - a French pharmacy receipt, with only "total".
   - The 2026-09-23 paced run sent 2 of 4 uploads to review. Both were the invoice
     test image, whose text contains `example` and repeats `invoice` and `total`.
   - How often a real receipt trips it is unmeasured. Recomputing `isWeak` over the
@@ -565,6 +556,33 @@ This is also Apple 3.1.3(f)'s condition, word for word (APPLE TRACK), and
 
 ### Other kept items
 
+- [ ] **Welcome email (dormant).** It is built, and held by two switches:
+  - `MAIL_POSTAL_ADDRESS` must be set, because `mailer.ts` fails closed without
+    a physical address (CAN-SPAM requires one).
+  - `WELCOME_EMAIL_ENABLED` must be `true` (`welcomeEmail.ts`).
+  - Both are Railway variables, and their values are not recorded here. It
+    blocks nothing in this stage.
+  - **EXPIRY:** new signups are wanted.
+- [ ] **Real in-app purchase (RevenueCat): DEFERRED until there are users.** v1
+  ships under 3.1.3(f), with no purchase, so this is not on the Apple track.
+  - When it is built, it goes through `applyEntitlementChange`
+    (`apps/backend/src/services/entitlement/`), the path the Paddle webhook
+    uses. That path takes a row lock, guards against out-of-order events, and
+    never writes `planOverride`.
+  - Set `app_user_id` to the Supabase user id.
+  - Give it a separate webhook with its own signature check. It maps each event
+    to a per-source ACTIVE/INACTIVE status, never directly to a plan:
+    - `INITIAL_PURCHASE` / `RENEWAL` / `PRODUCT_CHANGE` → ACTIVE.
+    - **`CANCELLATION` turns auto-renew off and nothing else.** Access continues
+      to the period end, so the source stays ACTIVE. **Never map CANCELLATION
+      to FREE.**
+    - `EXPIRATION` → INACTIVE. This is the real downgrade point.
+    - `BILLING_ISSUE`, grace and dunning → stay ACTIVE.
+  - `derivePlan` takes the maximum across sources, so Paddle and RevenueCat rows
+    coexist.
+  - An earlier mapping in this file sent CANCELLATION, EXPIRATION and
+    BILLING_ISSUE to FREE. That was revenue-damaging.
+  - **EXPIRY:** the owner decides to sell inside the iOS app.
 - [ ] **Orphaned app rows: a privacy question with no decision.** Kept 2026-09-23,
   because deleting it would close it silently.
   - Four `public."User"` rows have no auth identity, and two of them hold two
