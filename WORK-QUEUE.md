@@ -1,471 +1,645 @@
 # Scan & Action — Work Queue
 
-> **THIS IS THE ONLY BOARD. Renamed from `LAUNCH_TODO.md` on 2026-09-09** — the
-> launch happened (vc4 at 100% rollout, paying customers), so the old name
-> described a phase that is over and sent people looking for a queue file that
-> did not exist.
+> **THIS IS THE ONLY BOARD.** Where any other file in this repository disagrees
+> with it about what is open, **this file wins.** `docs/DASHBOARD_REDESIGN_PROGRESS.md`
+> is frozen as of 2026-09-09 with a pointer back here, every other file in
+> `docs/` is a dated snapshot, and `DEFERRED.md` has never existed.
 >
-> **PRECEDENCE.** Where any other file in this repository disagrees with this one
-> about what is open, **this file wins.** There is exactly one other living
-> tracker, `docs/DASHBOARD_REDESIGN_PROGRESS.md`, and it is frozen as of
-> 2026-09-09 with a pointer back here; every other file in `docs/` is a **dated
-> snapshot**, written to become historical rather than stale, and none of them
-> claims to be current. `DEFERRED.md` has never existed — the deferred register
-> is the `## DEFERRED` section of this file, below.
+> **REWRITTEN 2026-09-23 for a new stage (see THE STAGE).** Everything removed is
+> in git: `git show 9751e8139e2acd844c3e32eee85fe4bf74716917:WORK-QUEUE.md`.
+> Titles that the tree still cites are listed at the bottom, so no citation
+> dead-ends.
 >
-> Living checklist for everything outstanding. Tick items off as they're
-> completed. Keep this up to date across sessions so deferred steps are never
-> lost.
+> **CITE ITEMS BY QUOTED TITLE, NEVER BY LINE NUMBER.** Inside items, anchor code
+> by a string you can grep, and prove it resolves to exactly one place.
 >
-> **CITE ITEMS BY QUOTED TITLE, NEVER BY LINE NUMBER.** A `WORK-QUEUE.md:128`
-> pointer in a source comment goes stale the moment any item above it is edited,
-> and it does so silently — there is no error, and the number still resolves to
-> *a* line. Every in-tree reference was converted to a quoted title on
-> 2026-09-09 for exactly this reason.
-
-> **THE RULE FOR THIS FILE — added 2026-09-05, after it produced five false claims
-> in three days and one of them cost a real upload attempt.**
->
-> **Any line asserting something about a system outside this repository carries the
-> call that answers it, or does not assert it.**
->
-> Play, the database, Resend, Supabase, Cloudflare, Google Cloud — this file cannot
-> see any of them. A sentence describing what one of them contains is a *cached
-> reading*, and nothing here invalidates that cache. Write the question and the
-> instrument instead; both stay true after the answer changes.
->
-> **A date is not a substitute.** The worst line this file ever carried read *"~9
-> days remain **as of 2026-06-25**"* and misled for ten weeks. A date records when
-> somebody looked, not whether the claim survived, and a reader skims it as readily
-> as anything else.
->
-> **Where no programmatic call exists**, name the system and the exact question —
-> never a cached answer. "Which tier: the billing page for that key's project" is
-> durable; "currently on the free tier" is not.
->
-> This does not apply to claims about *this repository* — `file.ts:12-18` is
-> checkable by the reader with the file open in front of them.
-
-## CURRENT STATE (verified against Google Play Console 2026-06-25)
-
-- App is **SUBMITTED** and the closed-testing release is **APPROVED & published**. Track: **Closed testing - Alpha**. All "set up your app" tasks are complete (see bottom section).
-- **CLOSED TESTING IS FINISHED AND THE APP IS IN PRODUCTION — corrected 2026-09-05.** The two bullets that stood here said *"Closed-testing clock IS RUNNING"* and *"Path to production is now just time: keep ≥12 testers opted in continuously for the remaining ~9 days"*, dated 2026-06-25. Both were true when written and both went on reading as current for **ten weeks**. The clock finished in July; production has been live since ~2026-08-11 at 100% rollout; and on **2026-09-05** versionCode 5 (the API 36 build) was submitted to Production at 100% and is *in review*. **Note that the stale text carried its own date and still misled** — a date records when someone looked, not whether the claim survives, and a reader skims past it.
-- Review/test account `unicornapps.support@gmail.com` holds **PRO via `Organization.planOverride`** (verified live, SAFE — see CLEANUP item; reset to `null` post-production-review).
-- **NOTE (history corrected):** earlier versions of this file said the "clock has NOT started," "still completing setup tasks," and carried tester-vendor ambiguity (Touseef Ijaz/Standard vs Grayo/Premium). Those notes were **STALE** — superseded by the verified dashboard state above. Whatever the original tester-sourcing vendor, the dashboard now confirms 12 testers opted in and the 14-day clock running.
-
-## INVARIANT — Android (native) anti-steering (do NOT violate)
-
-The Android (native) build must **never** contain pricing, external-payment links, or any
-copy/CTA that steers the user toward paying for PRO outside the app. **Reflect entitlement
-state only** (e.g. "Pro Active", "Free Tier", the free scan limit as information). A mention
-of "Pro" is fine; an active *sell* is not. Subscriptions are sold **only** on the web (Paddle),
-because the Morocco-based developer account cannot register as a Google Play merchant.
-
-- The `isNativePlatform()` gate in `PaywallModal.tsx` (web checkout/prices render only when it
-  is false) is the single most important guard — **keep it intact**.
-- The Settings billing card, and the scan-limit / multi-doc triggers in `CaptureSheet.tsx` and
-  `UploadModal.tsx`, are native-gated to show neutral status (no "Go PRO" CTA, no paywall) —
-  see strings `freePlanLimitReached` / `freePlanSingleDoc` / `proAutoUnlock`.
-- Any future UI change to the native build **must preserve this invariant.** When adding a Pro/
-  upgrade surface, gate it behind `!isNativePlatform()`.
-- Note (web-only, low risk): `/privacy` and `/refund` legal routes mention subscription
-  cancellation/refund and Paddle; they are **not linked from any in-app surface** so they are
-  unreachable in the native UI. Revisit their copy if they are ever linked from inside the app.
-
-## Current status (as of this session)
-
-- Android app is live via Capacitor. Package: `com.scanaction.app`. **versionCode 5, versionName 1.0** — submitted 2026-09-05, Production, 100% rollout, *Changes in review*. (This line read "versionCode 1" until 2026-09-05, having gone unmaintained through 2, 3 and 4.)
-- **THE REPOSITORY IS NOT A RECORD OF WHAT HAS BEEN SHIPPED.** On 2026-09-05 this file and `build.gradle` agreed that Play held vc4. Play held **vc5** — a bundle uploaded into a draft that no commit, tag, branch or artifact here records, and the upload was only discovered because Play rejected a second attempt with *"Version code 5 has already been used."* Any claim about what Play holds, what the backend is serving, or what a dashboard is configured with has to come from a reading of that system. Not from here.
-- Signed release AAB built and uploaded to the **"Closed testing - Alpha"** track in Google Play Console. Play App Signing accepted (Google holds the app signing key; our upload key is at `D:\keys\scan-action-upload.jks` with `key.properties` untracked/gitignored).
-- Already merged to `main` and deployed:
-  - Paddle checkout hidden on native (neutral "Pro coming soon" placeholder).
-  - Native app opens on login screen with no logged-out pricing.
-  - In-app account deletion (`DELETE /api/account`) + public `/delete-account` web page.
-  - Account-deletion privacy section.
-- The **14-day closed-testing clock IS RUNNING** — all Play Console "set up your app" tasks are complete and 12 testers are opted in (dashboard: "12 testers opted in for 5 days continuously"). **~9 days remain (~Jul 4 2026).** See CURRENT STATE for the verified detail.
-- Review account: `unicornapps.support@gmail.com` holds PRO via **`Organization.planOverride = PRO`** (NOT bare `Organization.plan`), with **no Paddle/billing subscription** backing it, so the Google reviewer sees Pro features. This is **structurally protected**: `applyEntitlementChange` never writes `planOverride`, and `derivePlan` treats it as a floor — so no billing event or plan recompute can downgrade it. **Verified against the live DB** (2026-06-25): `planOverride = PRO`, `plan = PRO` (the cached derivation), zero `Subscription` rows. (The earlier note that this was "set on `Organization.plan` directly" was inaccurate — it's on `planOverride`, the safe place; no fix needed.)
-
-## Completed (this session — email / transactional system + tester-signup unblock)
-
-All merged to `main` and deployed unless noted. The welcome email is built but **gated OFF**.
-
-- **PR4a (#31):** standalone, fail-safe Resend REST mailer (`apps/backend/src/services/email/mailer.ts`) — never throws, typed `SendResult`, header-injection guards, compliance footer + List-Unsubscribe.
-- **PR4b (#32):** one-time welcome email on first-user provisioning + `User.welcomeEmailSentAt` column (atomic claim-then-send so the provisioning race can't double-send). Migration applied live (expand-then-deploy).
-- **PR #33:** `WELCOME_EMAIL_ENABLED` kill switch, **default OFF** — welcome emails are currently held (no send) until the compliance placeholders are real (see Open engineering items).
-- **Tester-signup blocker fixed (Supabase config, not code):** root cause was **Supabase's built-in email service rate limit (~2/hour)**, which capped concurrent tester signups (testers reported "only 2 users at a time can create an account"). Fix = **Resend custom SMTP** in Supabase Auth (`smtp.resend.com:465`, user `resend`, password = the scan-action.com Resend key, sender `noreply@scan-action.com`) + **raised the Supabase Auth email-sending rate limit** (was 30/hour). Email confirmation kept **ON**.
-- **Confirmation-link "site can't be reached" fixed (Supabase config):** **Site URL was `http://localhost:3000`** (unreachable on a tester's phone); set to **`https://www.scan-action.com`** and added `https://www.scan-action.com/**` to the Redirect URLs allowlist. Verified end-to-end (confirmation completes; login works).
-- **PR #34:** corrected the mailer sender from the **unverified `send.scan-action.com` subdomain** to the **verified apex `scan-action.com`** (code default, unsubscribe mailto domain, `.env.example`, tests). Empirically proven: apex accepted by Resend (HTTP 200, delivered); subdomain rejected (HTTP 403). Railway `MAIL_FROM` updated + deployed to the apex.
-
-## Phase map (reconciled)
-
-Earlier labels in this file were inconsistent (AdMob tagged "Phase C", RevenueCat "Phase B"). Actual state:
-
-- **Phase B — Paddle billing + entitlement backend: DONE.** Per-source `Subscription` rows, the pure `derivePlan`, and `applyEntitlementChange` (row-lock + out-of-order guard + the never-writes-`planOverride` invariant), with the Paddle webhook wired onto them.
-- **Phase C — native anti-steering: DONE** (see the invariant section above) **+ email / transactional system: DONE this session.**
-- **AdMob ads: DEFERRED** (not a numbered phase).
-- **RevenueCat native IAP: DORMANT / FUTURE** (iOS-driven; see the deferred item). Web subscriptions remain **Paddle-only** because the Morocco-based developer account cannot register as a Google Play merchant.
-
-## DEFERRED — deliberately not being built yet
-
-> **Premise updated 2026-09-09.** This section's heading used to read "to
-> build/do DURING or AFTER the 14-day clock (before applying for production)".
-> That clock is spent and production was applied for and granted — vc4 has been
-> at 100% rollout since ~2026-08-11 — so the deadline that ordered this list no
-> longer exists. The items below are still deferred; what changed is that
-> nothing external is now forcing their timing. **This is the deferred register.
-> There is no `DEFERRED.md` and there never has been.**
-
-- [ ] **ADS (deferred — not a numbered phase):** integrate AdMob. Show ads to FREE users only; PRO removes ads. iOS needs UMP consent + ATT (App Tracking Transparency). After building, you **MUST** update Play Console: flip the "Ads" declaration from No to Yes, and update the Data Safety form and Content rating to match.
-- [ ] **REAL IN-APP PURCHASE (RevenueCat — future / dormant, iOS-driven):** integrate RevenueCat for native subscriptions. It must **NOT** write `Organization.plan` directly — it must go through the shared entitlement service **`applyEntitlementChange`** (`apps/backend/src/services/entitlement/`), the SAME path the Paddle webhook already uses, which enforces a row-lock (`SELECT … FOR UPDATE`), an out-of-order event guard, and the invariant that it **never writes `planOverride`** (this is what protects ENTERPRISE deals and the review account from being clobbered by any billing event). Set RevenueCat `app_user_id = Supabase user.id`. Add a separate RevenueCat webhook endpoint with its own signature verification, and map each event to a per-source **ACTIVE/INACTIVE status** (never directly to a plan):
-  - `INITIAL_PURCHASE` / `RENEWAL` / `PRODUCT_CHANGE` → **ACTIVE** (derives PRO).
-  - `CANCELLATION` → auto-renew turned OFF **only**; access **CONTINUES until period end → stay ACTIVE/PRO**. **Do NOT map CANCELLATION to FREE.**
-  - `EXPIRATION` → the real end of entitlement → **INACTIVE** (derives FREE). **This is the actual downgrade point**, not cancellation.
-  - `BILLING_ISSUE` / grace / dunning → **stay ACTIVE/PRO** (do NOT yank access mid-dunning). `grace → ACTIVE` is the confirmed product rule per `derivePlan.ts`.
-  Multi-source precedence is **already handled**: `derivePlan` = `max(planOverride floor, PRO if ANY source ACTIVE else FREE)`, so Paddle (web) and RevenueCat (mobile) coexist as independent `Subscription` rows and cannot fight over one field. Remove the "Pro coming soon" placeholder once real IAP works.
-  - ⚠️ The earlier mapping in this file (`CANCELLATION`/`EXPIRATION`/`BILLING_ISSUE` → FREE) was **wrong and revenue-damaging** — it would have cut off paying users the moment they toggled auto-renew off or hit a transient billing hiccup. Corrected above to match the code.
-- [ ] **DATA SAFETY form (Play) + Apple Privacy Labels (iOS):** complete truthfully. Disclose Google Gemini, Supabase, RevenueCat (when added), AdMob (when added), and **Resend**. **Email reality (corrected):** the backend sends transactional email through **Resend** (REST API) via `apps/backend/src/services/email/mailer.ts`, and **Supabase Auth emails are routed through Resend custom SMTP**. The sender is the apex **noreply@scan-action.com**; **which domains Resend actually holds verified is not recorded here, by rule** — read Resend's domains page, or observe it: #34 established empirically that the apex is accepted (HTTP 200, delivered) and the `send.` subdomain rejected (HTTP 403). (The earlier note here — "investigation found NO Resend in the codebase; email appears to be Supabase Auth's built-in mailer" — was **false** and is removed.) Because recipient email addresses are shared with Resend (a US email processor), the Data Safety form must disclose this.
-- [ ] **LOGO / BRANDING:** design a professional, premium logo and a single consistent app icon + splash screen (current ones are placeholder/inconsistent). Upload as an app update during the 14-day window (closed-testing updates do NOT reset the clock). **⚠️ PREMISE MOVED — NOT RE-RANKED. This is a note, not a decision.** Two of the assumptions in the sentence above are spent. (1) **There is no 14-day window left to upload into.** Closed testing finished; submission 5 was approved and has been at 100% rollout since ~2026-08-11, so "upload during the window" is no longer the delivery mechanism — an icon change now ships as an ordinary production update on its own review cycle. (2) **There are now paying customers, which there were not when this was written as pre-launch polish.** Measured 2026-09-09 (`prisma.subscription.count`, production): **3 ACTIVE Paddle subscriptions**, and 4 organizations on `plan PRO` of 31 total (the fourth is the review account's `planOverride`, not a billing source). So the placeholder icon is now in front of people who pay for the product, which is a different argument for the same work than "premium look before launch" was. **Both facts are recorded here without acting on them: whether this moves up, stays, or drops is not a call this note makes.**
-- [x] **SUPPORT EMAIL — VERIFIED WORKING 2026-09-05, by probe rather than by configuration.** Original text: *"verify `support@scan-action.com` is active and monitored (it's referenced in the privacy policy and the `/delete-account` page)."* **The evidence:** the apex runs on Cloudflare nameservers with Cloudflare Email Routing MX records (`route1/2/3.mx.cloudflare.net`) and SPF `include:_spf.mx.cloudflare.net`. An SMTP session to `route1.mx.cloudflare.net:25` issuing `RCPT TO` only — **no message delivered** — returned `250 2.1.0 Ok` for `support@scan-action.com`. **Behind a control:** a deliberately fake address on the same domain returned `550 5.1.1 Address does not exist`, so it is a real routing rule and not a catch-all. This matters more than housekeeping: `accountLockedBody` and `deleteAccountIdentityConflict` both send users to that address, so it is the destination of every terminal path the product has.
-- [ ] **REVIEW ACCOUNT CLEANUP:** revert `unicornapps.support@gmail.com` to FREE after the **production** review completes (the closed-testing review is already approved; production review is later). It is granted via **`Organization.planOverride = PRO`**, NOT bare `Organization.plan`: the entitlement service treats `planOverride` as a floor and **never writes it** (`applyEntitlementChange.ts` invariant), so no billing/downgrade event can clobber it. **Its live state is not recorded here, by rule.** To read it: `SELECT o."planOverride", o.plan, (SELECT count(*) FROM "Subscription" s WHERE s."organizationId"=o.id) FROM "Organization" o JOIN "Membership" m ON m."organizationId"=o.id JOIN "User" u ON u.id=m."userId" WHERE u.email = <that address>;` — `planOverride = PRO` with zero subscription rows is the safe shape. (A line here once said *"VERIFIED (2026-06-25, live DB) — SAFE, no fix needed"*; that was a reading from June being quoted in September.) **Only remaining action — reset post-production-review:** set `planOverride = null` (it then derives FREE, since the account has no billing source). Stays pending and tied to the Play production-review timeline.
-- [ ] **iOS / APPLE APP STORE (entire track, later):** requires a Mac + Xcode (founder is on Windows + iPhone, no Mac yet — decide Mac mini vs cloud build like Codemagic). Also: Apple Developer Program enrollment ($99/yr, individual), Apple Small Business Program (15% tier, must apply), App Store IAP via RevenueCat, ATT, Apple Privacy Labels. Account deletion is already cross-platform (works on iOS too).
-- [x] **targetSdk 36 — DONE and SUBMITTED 2026-09-05, in review on Play.** `variables.gradle` has carried `compileSdkVersion = 36` / `targetSdkVersion = 36` since #159 (2026-09-03); the only thing left was a versionCode Play would accept. Shipped as **versionCode 5, versionName 1.0, Production, 100% rollout**, status *Changes in review*. Play's bundle explorer independently confirmed what was measured locally before upload: Target SDK 36, supports 16 KB memory page size, four native platforms, three permissions. Three non-blocking warnings: no deobfuscation file, no debug symbols, and 1,008 devices no longer supported (minSdk 23→24, required by Capacitor 8). **The Nov 1 target-API deadline is met.**
-- [x] **APPLY FOR PRODUCTION — DONE.** Production has been live since ~2026-08-11 at 100% rollout, and versionCode 5 was submitted 2026-09-05. Original text: *"only after the closed test has run 14 days with 12+ opted-in testers (testers via Grayo on Fiverr, Premium plan, testers create their own in-app accounts, India required as a target country). Coordinate with Grayo — they provide the production-access questionnaire answers; do NOT apply independently."* That gate was cleared in July.
-- [ ] **GEMINI BILLING TIER:** **Which tier the key is on is not recorded here, by rule** — read it on the Google AI Studio / Cloud billing page for that key's project. (This line used to assert *"currently uses a Gemini API key on the FREE tier"*, observed once and never re-read; a billing account being linked is not the same as the key being on the paid tier, which is exactly the distinction that made the original observation worth writing down and exactly the one that rots.) On the free tier, Google may use submitted content to improve its products — which is why the Play Data Safety form was filled in declaring document data as SHARED with Google. ACTION (later, when usage/users grow): upgrade to the genuine PAID Gemini tier so customer document content is NOT used for training. This strengthens customer privacy/trust and lets us potentially update the Data Safety "Shared" disclosure. Reference: https://ai.google.dev/gemini-api/terms
-- [x] **PHOTO PERMISSION FALLBACK — DEAD, the premise was false. Corrected 2026-09-05.** The item opened *"The app uses `READ_MEDIA_IMAGES` and we filled Google's 'Photo and video permissions' declaration"* and described migrating to the Android Photo Picker if Google rejected it. **The app has not requested that permission since 2026-07-23**, when commit `d6a797f3` — *"fix(android): remove unused media/storage permissions (Play)"* — removed it. **Three independent readings agree:** the tracked `AndroidManifest.xml` declares only `INTERNET` and `CAMERA`; the merged release manifest adds only AndroidX's self-defined `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` (the `android.permission.DUMP` string in there is the guard on ProfileInstaller's receiver, not a request); and **Play's own bundle explorer reports three permissions** for versionCode 5. The gallery path is the WebView's `<input type="file">` through the system picker, which needs no permission. **Residual, not engineering:** the "Photo and video permissions" declaration on file at Play now describes a permission this build does not ask for, and may be withdrawable.
-- [x] **MONITOR TESTER OPT-INS — DEAD, the clock it protected is finished.** Original text: *"(clock running — ~9 days left as of 2026-06-25): Keep the 'testers currently opted-in' counter at ≥12 continuously; if it drops below 12 the 14-day continuity counter can reset."* Nothing depends on that counter now. **Evidence it is over:** installs on active devices is **1** as read from Play on 2026-09-05 — the paid testers uninstalled, which is exactly what you would expect and exactly why this item could not have stayed useful.
-- [x] **AFTER THE 14-DAY CLOCK COMPLETES — DONE in July.** Original text: *"(~Jul 4 2026): 'Apply for production' unlocks; answer Google's questionnaire about the closed test (coordinate with the tester vendor for feedback/notes)."* The questionnaire was answered and production was granted; the app has been live since ~2026-08-11. The post-production-review item it pointed at (the review-account reset) is still open below and is now **due once versionCode 5 clears review**.
-
-## Open engineering items (from the email / monetization workstream)
-
-- [ ] **Welcome email — ONE blocker left, and it is a FOUNDER DECISION, not engineering:** `WELCOME_EMAIL_ENABLED` stays OFF until **POSTAL_ADDRESS** in `mailer.ts` is a real physical mailing address instead of the `[Your Company Name], …` placeholder. CAN-SPAM requires one. **Nobody can write this line but you** — it is a privacy choice about which address the world sees, and there is no engineering work waiting behind it. Once it is set, flip `WELCOME_EMAIL_ENABLED=true` in Railway and the feature is on.
-  - **The SECOND blocker is closed — corrected 2026-09-05.** It read: *"Unsubscribe inbox `unsubscribe@scan-action.com` must actually receive mail (no inbox today). Cheapest fix: Cloudflare Email Routing (free) on the apex domain."* **That address is used nowhere in the codebase** — `grep unsubscribe@` across `.ts`/`.tsx` returns nothing. `mailer.ts:50` sets `DEFAULT_CONTACT_MAILTO = 'support@scan-action.com'`, and its own comment is explicit that the `List-Unsubscribe` header, the footer link and `Reply-To` all resolve to that one mailbox *"so they can never disagree"*. `support@` was probed working on 2026-09-05 (see the SUPPORT EMAIL item). CAN-SPAM allows email-based opt-out, so the opt-out path is already live. **The blocker described an address the product never uses.**
-
-- [ ] **Re-engagement (reminder) emails — POST-LAUNCH:** the script `apps/backend/scripts/send_reminders.js` is currently **QUARANTINED** — a DO-NOT-RUN header + a hard runtime guard make it a no-op that exits unless `ALLOW_SEND_REMINDERS=true` (done in PR #37). Not needed during closed testing; it would misdeliver today (Resend **sandbox** sender `onboarding@resend.dev` + dead `https://scan-and-action.vercel.app/queue` link), and it is dormant (not wired to any cron). Before enabling this feature: (1) route sending through the real mailer / verified **apex sender `noreply@scan-action.com`** instead of the sandbox `onboarding@resend.dev`; (2) fix the dead queue link to `https://www.scan-action.com/...`; (3) remove/relax the quarantine guard; and (4) confirm it's intentionally wired to a scheduler. **Revisit once there's a real returning-user base to re-engage.**
-- [ ] **authMiddleware provisioning-race hardening (latent bug):** two concurrent first-time requests for the SAME user can both enter the zero-memberships branch; the loser hits a unique-constraint **P2002** on `organization.create`, which currently bubbles to the generic `catch` → a spurious **401**. This was **NOT** the tester-signup symptom, and it's now rare (email confirmation serializes a user's first login), but harden before production scale: catch P2002 and treat it as "already provisioned" (re-read memberships and continue) instead of 401. Keep the deterministic `workspace-<uuid8>` slug.
-
-- [ ] **UI, LOW PRIORITY — the tray chip says "Processing complete" for a document that needs review:** `ProcessingTray.tsx:37-38` renders `processingDone` whenever `processingCount` reaches zero, and that string is the literal **"Processing complete"** (`strings.ts:21`). It is shown for *any* settled status, `NEEDS_REVIEW` included — so the chip can read "Processing complete" while the row beside it carries the amber `NEEDS_REVIEW` icon. **Both statements are true in the product's own terms** (processing did complete; the verdict is "a human should look"), which is exactly why this is a wording item and not a defect. **A real user hit it on 2026-09-04, on the first real photograph the product has ever processed** — the operator read the chip, reported the document as processed, and only the icon in the screenshot said otherwise. Worth a settled-state-aware label; not worth blocking anything.
-- [ ] **BACKEND, LOW PRIORITY — `persistIngestionResult` re-writes the document status once per low-confidence fact:** at `persistence.ts:230-235` the per-fact branch issues `tx.document.update({status:'NEEDS_REVIEW'})` but never assigns its local `documentStatus`, so its own guard `documentStatus !== 'NEEDS_REVIEW'` stays true and it repeats the write for **every** remaining low-confidence fact inside one transaction. The sibling path at `persistence.ts:102-107` shows the correct shape — it assigns the variable, so it writes once. **Caveats that keep this low:** `persistIngestionResult` has **zero callers** (it is dead code), it is **not on the upload path** — `processUploadAsync` calls `updateDocumentWithExtraction`, the sibling — so nothing on the upload path reaches it at all. Fix it or delete the function; either closes it.
-- [ ] **BACKEND, LOW PRIORITY — `authMiddleware` write amplification: a row write, and sometimes two, on every authenticated request:** `ensureUser` (`authMiddleware.ts:86-137`) issues `prisma.user.upsert` with `update: { email }` on **every** `/api/*` request, because the middleware is mounted on the prefix (`app.ts:92`). For the overwhelming majority of requests the value written is the value already stored, so this is a wasted row write per API call through the pooler. **Two things this is NOT.** It is not a correctness risk: rewriting a unique column to the value it already holds cannot violate the constraint, since the only index entry in the way is the row's own — so this is not the update-path lockout guard and must not be conflated with it. **Second, separate half:** `expenseRoutes.ts:9` mounts `authMiddleware` a SECOND time on `GET /summary`, inside a router already behind the global mount — so that one endpoint runs `supabase.auth.getUser` and `ensureUser` **twice per request**, doubling both the Supabase round trip and the row write. Removing the redundant mount is free. **Filed as amplification, not as a guard.** The fix shape is a conditional write (compare before updating) plus deleting the duplicate mount; measure before assuming it matters.
-- [ ] **BACKEND — the ingestion path emits no DURATIONS, so every timing question is answered from Railway or not at all:** every line in `processUploadAsync` (`ingestionService.ts:38-102`) is a *marker* — "Starting validation and extraction", "Attempt N/2", "Persisting...", "Workflow complete" — and not one carries elapsed time. Railway timestamps them, so the deltas live in a log that may or may not survive its deployment; nothing in the application records them. **This is an inconsistency, not a new idea:** `queryExecutor.ts:17` and `:165` already do exactly this with `startTime` / `executionTimeMs`. The ingestion path is the outlier. **Why this still stands on its own merits:** the 2026-09-04 case that originally motivated it is now settled and needed no durations to settle (see below) — but a `Date.now()` at entry plus a per-stage delta costs nothing at runtime, logs no document content, needs no second data point to justify, and turns the *next* occurrence from an argument into a number. It would also settle 2-vs-3 Gemini calls, which the amber icon alone cannot: `NEEDS_REVIEW` proves final confidence was under `persistence.ts:8`'s 0.98, not whether it was under the 0.6 that triggers the retry at `ingestionService.ts:55-77`.
-- [ ] **CURIOSITY, NO LIVE CONSEQUENCE — settle whether the 2026-09-04 upload was the camera original or the canvas re-encode:** the Railway log recorded 2,585,128 bytes for document `c176c0d5-0f55-40d2-bccb-ed5dc6cfc76e` — an ordinary 12MP phone JPEG, consistent with **both** a camera original and a full-resolution `canvas.toBlob(..., 0.95)` re-encode of one. Neither the log nor the code can separate them: `imagePreprocess.ts` preserves `file.type` and `file.name`, the filename is deliberately not logged (`ingestionService.ts:34-37`), and the only differing field, `lastModified`, is never transmitted. **The stored object can**, and it still exists — fetch that document's `fileUrl` and read the first bytes: a camera original carries an **APP1 `Exif` segment** (`FF E1`), while `canvas.toBlob` emits a bare Chromium-encoder JPEG with no EXIF, no maker note and no ICC. Presence means the original was uploaded, so the 2-second timeout at `imagePreprocess.ts:14` fired; absence means the re-encode ran. **Deliberately ranked below the durations item:** it identifies which file was uploaded but cannot recover the original's size, so it quantifies nothing and prevents no repeat. Do it only when idle. **⚠️ THE DELAY ITSELF IS SETTLED — do not reopen this as delay forensics.** `c176c0d5` was an extraction FAILURE, not a slow success: the row holds `status NEEDS_REVIEW`, `rawText` length **0**, `overallConfidence` **0**, `summary` `""`, `documentType UNKNOWN_DOCUMENT_TYPE`, **zero** `DocumentEntity` rows and exactly two facts, both `sourceSpan rule_engine` (`decision NEEDS_REVIEW`, `decision_reason "Missing amount"`). `uploadedAt 2026-09-04T01:21:09.384Z` → `processedAt 2026-09-04T01:22:23.036Z` = **73.652 s spent to produce nothing** — the two-attempt retry burning down into the empty fallback, which is the documented cost of that path and not an unexplained stall. Measured 2026-09-09 by `prisma.document.findUnique` + `documentFact.findMany` on that id. It is one of the 130 empty `NEEDS_REVIEW` rows, and the widened re-extraction whitelist admits it.
-- [x] **DONE 2026-09-09 — `processUploadAsync` is covered; closed because its premise is now false, not because someone did the work as scoped:** this item said "there is no `ingestionService` test file at all". There are **five**, and between them they cover **every one of the five paths this item named**: normal (`deliveryRecord` "a clean run records nothing"; `failureRecord` "CONTROL: a SUCCESSFUL extraction records no failure"), low-confidence retry (`failureRecord` "records the failure when every attempt returns LOW CONFIDENCE without throwing"; `deliveryRecord` "a LOW-CONFIDENCE extraction that persists fine records neither"), multi-document abort (`errorLog` ":62 — multi-document NEEDS_REVIEW failure"; `failedFallback` ":62 — multi-document abort"), extractor throw (`failureRecord` "records the failure when every attempt throws"), persistence throw (`deliveryFailure` "a successful extraction whose PERSIST fails leaves a queryable record"). They arrived incidentally, as the observability work in #191–#196 each brought its own harness, rather than as the single dedicated suite this item imagined. Verified by `ls apps/backend/src/services/ingestion/ingestionService.*.test.ts` and a `grep` of the describe/it names, 2026-09-09. **What is still NOT covered, and is deliberately not being re-filed as a new item unless it bites:** these all enter through the observability seam, so they assert what gets *recorded*; none asserts the happy-path return value or the ordering of the pipeline stages for their own sake. Original text follows.<br>~~**BACKEND — `processUploadAsync` runs on every upload and has NO unit test:** there is no `ingestionService` test file at all.~~ `apps/backend/src/services/ingestion/ingestionService.ts` owns the whole background pipeline — the single-document gate, the two-attempt retry with its confidence threshold, the empty-result fallback, persistence and the emergency `markAsNeedsReview` — and not one line of it is covered. **How this was noticed:** while adding stage durations (#179), the change had to be verified by executing the compiled `dist` against stubbed adapters by hand, because there was nothing to run. That harness was throwaway and deliberately not committed. **Deliberately kept out of #179** so it is decided on its own merits rather than smuggled in behind a logging change. It is a bigger piece of work than the durations were: five paths worth covering (normal, low-confidence retry, multi-document abort, extractor throw, persistence throw), and mocks for the Gemini adapter and the persistence service.
-- [x] **DONE 2026-09-06 — `ingestionService` now routes all four error-log sites through `formatErrorForLog`:** `:62`, `:85`, `:111`, `:113` interpolated `err.message` / `error.message` / `persistError.message` / `finalErr.message` directly; the file now imports the redactor like `geminiAdapter.ts` and `authMiddleware.ts` already did. Covered by `ingestionService.errorLog.test.ts`, which asserts each site three ways on the same captured line (marker present, raw value absent, no newline) — the first of those is what fails against unfixed source. **Two claims in the ORIGINAL version of this item were WRONG and are corrected here rather than deleted.** (1) It said the leak was reachable because *"`extractFromImage` calls `JSON.parse(result.response.text())`, and a parse failure quotes the offending text"*. It does — but `extractFromImage` **catches its own parse failure** at `geminiAdapter.ts:249-275` and RETURNS a fallback result; the file contains **zero** `throw` statements. So `ingestionService.ts:84` cannot be entered in production and **`:85` is defensive, not a live Gemini leak**. The 2026-09-05 demonstration reached it by executing the compiled function with a substituted extractor that threw — which is the harness, not the product. (2) The live sites are `:62`, `:111` and `:113`, and what they close is **log-splitting plus unaudited text** from a multi-line Prisma message — not a status bug. `markAsNeedsReview` is the call that failed at `:62`/`:113`, so NEEDS_REVIEW was never reachable there either way; the guard changes a null-ish rejection's outcome from **FAILED** (TypeError propagating to `uploadController.ts:110-124`) to a **stuck PROCESSING** row. That is a real behavior change, it is confined to a rejection shape Prisma does not produce, and it is recorded in the commit body.
-
-- [x] **DONE 2026-09-06 — `uploadController.ts` now routes its three error-log sites through `formatErrorForLog`:** `:110` read `err.message || err`, `:127` read `error.message || error`, and `:121` read `updateErr.message`; all three now emit a bounded projection. Covered by `uploadController.errorLog.test.ts` — 7 tests, asserting each site on the SAME captured line (marker present, raw value absent, no newline) and driving BOTH hazard shapes at each `|| err` site: message-present (raw multi-line Prisma text, which also splits the record) and message-absent (the whole object serialised, `storageKey` and a nested address included). 6 of the 7 fail against unfixed source; the 7th is a GUARD that passes either way. **`:112` IS UNTOUCHED, deliberately** — `err.message === 'LIMIT_REACHED'` is a COMPARISON driving the status branch, and `formatErrorForLog` returns `name=Error message=LIMIT_REACHED`, so redacting it would flip the branch to FAILED silently under a green suite; the guard test pins that branch so a later "consistency" edit goes red. A sweep found exactly four `.message` occurrences in the file — those three logs and that one comparison; the others (`:17`, `:33`, `:51`) compare `organizationId` / plan / counts and are not error-derived. **ONE CLAIM IN THE ORIGINAL VERSION OF THIS ITEM WAS WRONG, and is corrected here rather than deleted.** It said *"Reachability is not in doubt here, unlike `ingestionService.ts:85`"* — of all three sites. That holds for **`:127` ONLY**: its `try` wraps `uploadToSupabase` (which throws at `supabaseStorage.ts:44` on a vendor error and `:9` on missing env) plus `organization.findUnique`, `document.count` and `document.create`, so any storage or DB failure lands there. It is the one demonstrated live leak in the file, and it is the `|| err` object-dump shape. **`:110` and `:121` are DEFENSIVE, exactly like `:85`.** Both sit in the `.catch` on `processUploadAsync`, and after #181 no path in that function rejects under the error shapes its dependencies produce: `validateSingleDocument` → `isSingleDocument` FAILS OPEN (`geminiAdapter.ts:101-106` catches everything and returns `true`; that file contains zero `throw` statements), `extractFromImage` sits inside the retry `try`/`catch` AND self-catches, and both `markAsNeedsReview` call sites end in `.catch(...)`. The residual is a property getter that throws while the redactor reads `name`/`code`/`status`/`meta`/`message`, which Prisma does not produce. Guarding them is still right — #181 fixed its own `:85` on precisely this basis — but the claim is **"defensive"**, not "live".
-- [x] **DONE 2026-09-07 — a failed `markAsNeedsReview` now lands the row in `FAILED` instead of leaving it `PROCESSING`:** both call sites in `processUploadAsync` (`:62`, the multi-document abort, and `:113`, the emergency fallback) logged the failure, swallowed it and returned, so the function RESOLVED, `uploadController`'s `.catch` never fired, and the row kept a status that described nothing — the detached `setImmediate` callback had already returned. Both now force `FAILED` through a new `PersistenceService.markAsFailed`, which writes exactly what `staleSweepService.ts` writes for the same rows, so **this is not a new state, it is the same state 15-20 minutes earlier**. Covered by `ingestionService.failedFallback.test.ts` (5 tests, 3 red against unfixed source) and pinned client-side by `stuckProcessingResumeSet.test.tsx` (2 tests, both PINS that pass either way — the frontend is unchanged). **THE CALL SITES USE `try`/`catch`, NOT `.catch()`, and that distinction was found by the suite rather than by review:** two pre-existing doubles stubbed `persistenceService` without `markAsFailed`, so the call raised `TypeError: ... is not a function` — a SYNCHRONOUS throw, which a `.catch()` on the returned promise cannot intercept because no promise is ever returned. `processUploadAsync` rejected, which is precisely what the accompanying test claims cannot happen. Both doubles now stub the method, and a fifth test pins the synchronous-throw path. **ONE CLAIM IN THE ORIGINAL VERSION OF THIS ITEM WAS WRONG, and is corrected here rather than deleted.** It said a stuck row *"re-fires a fresh 90s poll plus another red 'scan failed' toast on EVERY app foreground, for up to `RESUME_WINDOW_MS` = 2 hours"*. It does not. `settle()` is the only thing that toasts, and `ProcessingContext.tsx:70-76` persists **only** `PROCESSING` jobs — so a job that settles leaves the resume set and cannot toast again. What a foreground actually does (`:175-177` → `startPolling` → `:109`, `pollStart = Date.now()`) is **reset the 90-second window**, which produces no toast at all and instead means a user who foregrounds inside each window **never settles**: a permanent spinner, not a repeated alarm. The repeat comes from COLD STARTS — the job is still in storage because it never settled, `:55-57` resumes it, and 90 seconds later it settles `FAILED` with one toast; close the app sooner and it repeats on the next cold start, up to the 2-hour window. **Stated as what it is: a BEHAVIOUR change.** A row that today ends `PROCESSING` until the sweep now ends `FAILED` at once, and that is visible in `GET /documents/all` and in the list UI. **`uploadController.ts` is deliberately untouched** — #182 established that its `.catch` is defensive and does not run, so a fix there would be one nobody executes.
-- [x] **DONE — the re-extraction endpoint shipped, and 2026-09-09 widened it to empty `NEEDS_REVIEW` rows:** `POST /:id/reextract` exists at `documentRoutes.ts:45` behind `reextractOrgLimiter` (20/hour/org). Both open questions at the end of this item are answered: it charges **no** scan (`chargeScan: false`, asserted by `documentController.reextract.test.ts`), and it is callable by anyone in the owning org — isolation comes from the `findFirst` `{ id, organizationId }` where-clause, the same shape as `getDocumentDetail`, with no role gate. The source-state whitelist admits `FAILED` unconditionally and `NEEDS_REVIEW` only in the empty shape (`rawText ''`, `overallConfidence 0`, no fact whose `sourceSpan` starts with `user_`); `PROCESSING`, `COMPLETED`, `LIMIT_REACHED` and `REJECTED` stay refused. **Note the population this actually reaches:** measured 2026-09-09 there are **0** `FAILED`, **0** `PROCESSING` and **0** `LIMIT_REACHED` rows in production, so before the widening the endpoint had nothing to act on; after it, 130 rows are eligible. **The UI still gates the button on `doc.status === 'FAILED'` (`DocumentDetailScreen.tsx:468`), so no client can reach the new capability yet** — recovery is a separate, user-initiated batched operation, deliberately not in the widening PR. Original text follows.<br>~~**BACKEND — there is NO re-extraction path anywhere in the tree, so a `FAILED` document is content-dead:** grepped `reprocess|re-process|retryDocument|/retry|requeue` across `apps/` — every hit is `preprocessImage` (client-side image resizing) or a comment. `documentRoutes.ts:33-41` has no retry endpoint, and `PATCH /:id/status` whitelists only `COMPLETED`/`NEEDS_REVIEW`/`REJECTED` (`documentController.ts:175`), so the one manual lever relabels a stub still carrying `rawText: ''`, `overallConfidence: 0` and `documentType: 'UNKNOWN'` (`uploadController.ts:85-93`) without recovering anything. The only way to get a document's content extracted after a failure is to upload the file again, which creates a NEW row and consumes a scan on a FREE org (`persistence.ts` increments `scanCount` inside the transaction). **This gap is identical for `FAILED` and for a stuck `PROCESSING` row, so it was NOT an argument for either in the state ruling above** — it is its own piece of work. The file is already in Supabase storage at the row's `fileUrl`, so a re-extraction endpoint would not need a re-upload; the open questions are whether it re-charges a scan and who may call it.~~
-- [x] **DONE 2026-09-04 — parked the address held by orphan app row `1e1c8482`, unblocking one locked-out user:** a real user re-registered on 2026-08-24 at an address a surviving `public."User"` row still held, and `User.email` is `@unique` NOT NULL — so `ensureUser` refused, and because `authMiddleware` is mounted on the `/api` prefix (`app.ts:92`) **every** authenticated endpoint failed for them for eleven days. The row's address was moved to `orphan-<uuid>@parked.invalid` (RFC 2606 `.invalid`, unregistrable, uuid-unique) under a guarded single-row UPDATE inside a rollback-on-mismatch transaction. **The old value is deliberately NOT recorded in this public repository** — it survives byte-identically on the live auth identity, and the one-statement undo plus the full pre-state are in `docs/PRODUCTION_DATA_FIX_2026-09-04_ORPHAN_1e1c8482.md`. **That undo is only available while that identity exists — do not delete it.** The other three orphan app rows were deliberately left alone: their addresses are on `.local` / `example.com`, which cannot receive a confirmation link, and confirmation is required, so none of them is armed.
-- [ ] **LOCAL DEV, WILL COST THE NEXT PERSON AN HOUR — the local `SUPABASE_SERVICE_ROLE_KEY` is a DISABLED legacy key:** Supabase disabled this project's legacy `anon` / `service_role` keys on **2026-06-12**, and the value in `apps/backend/.env` is one of them. Any call to the Supabase auth API from a local backend returns **`401 {"message":"Legacy API keys are disabled"}`**, so `authMiddleware`'s `supabase.auth.getUser` fails and **every** authenticated route 401s locally — which reads exactly like a bad token or a broken login rather than a dead key. **PRODUCTION IS UNAFFECTED, and that is proven rather than asserted:** a `User` row exists with `createdAt 2026-08-02` and document `c176c0d5-…` was created 2026-09-04, and both are written only *after* `supabase.auth.getUser` succeeds — so the deployed key worked well after the 2026-06-12 disablement. Either the local file is stale or Railway carries a new-format key; the Railway environment is not readable from here. **Fix:** replace the local value with a current publishable/secret key from the Supabase dashboard, or re-enable legacy keys there. Costs nothing until someone tries to run the backend locally against auth, at which point it costs them an hour.
-
-## Note — the parked row, and a constraint that turned out not to be one
-
-The address of app row `1e1c8482-16bb-474c-89d0-5f3e65d1f186` was parked as
-`orphan-<uuid>@parked.invalid` on 2026-09-05 to unblock a locked-out account. The
-old value was deliberately **not** committed here, because this repository is
-public and an address belongs to its owner.
-
-**CORRECTED the same day.** An earlier version of this section was headed
-`STANDING CONSTRAINT` and said auth identity `c521aa92-…` must never be deleted
-because it was *"the ONLY place the original address survives"*. That was true of
-the **database** and false of the **world**: the account is one of this project's
-own, and its owner knows the address. **The undo does not depend on that row.**
-Deleting it would destroy nothing irrecoverable, and leaving a constraint
-standing on a justification that has evaporated is exactly the stale, overstated
-line this file keeps having to correct.
-
-What does still apply — once that identity has an app row again — is the general
-rule, which is about every identity and not about this one: **never remove an
-auth identity while leaving its `public."User"` row behind.** See
-`IdentityEmailConflictError` in `authMiddleware.ts` and §6 of
-`docs/FIRST_CUSTOMER_RUNBOOK.md`.
-
-**RE-MEASURED 2026-09-11 — THERE ARE FOUR ORPHAN ROWS, NOT THREE, AND TWO OF THEM
-HOLD DOCUMENTS.** Query:
-`SELECT u.id FROM public."User" u LEFT JOIN auth.users a ON a.id = u.id WHERE a.id IS NULL`,
-with `SELECT COUNT(*) FROM auth.users` returning **31** as its positive control —
-so the join reads both tables and a zero would have been a real zero.
-
-| app row | documents | organisations | single-member org |
-|---|---|---|---|
-| `84b3410d` | **2** | 1 | yes |
-| `769f583b` | **2** | 1 | yes |
-| `1e1c8482` | 0 | 1 | yes | 
-| `5a45cd6e` | 0 | 1 | yes |
-
-`1e1c8482` is the row parked on 2026-09-04 and described above. The other three
-were not recorded anywhere. **All four are the sole member of their organisation,
-so nobody can sign in to any of them** — and `84b3410d` and `769f583b` between
-them hold **4 documents that no living account can reach**. Those documents are
-not in the recovery population above (their organisations are not among the 20),
-so they are not a money question; they are a data-retention and deletion question
-nobody has asked yet.
-
-**This is the same failure the RECURRING FAILURE section names.** "Three" was
-carried forward from a session that looked once; the number was never a reading,
-it was a memory of a reading. The query is one line and it carries its own
-control.
-
-Full pre-state, reasoning and the one-statement recovery:
-`docs/PRODUCTION_DATA_FIX_2026-09-04_ORPHAN_1e1c8482.md`.
-
-## Play Console "set up your app" tasks — ALL COMPLETE (clock is now running)
-
-- [x] Privacy policy URL (https://www.scan-action.com/privacy)
-- [x] Sign-in details (test account: `unicornapps.support@gmail.com`, now PRO; full-access box checked)
-- [x] Ads declaration (answered **No** — app has no ads yet; revisit when ads are built)
-- [x] Content rating questionnaire
-- [x] Target audience (**18+**)
-- [x] Data safety (completed truthfully)
-- [x] Government apps (**No**)
-- [x] Financial features (**none**)
-- [x] Health (**none**)
-- [x] App category (**Productivity**) + contact details
-- [x] Store listing (app icon + feature graphic + 7 phone/tablet screenshots + descriptions)
-- [x] Select countries/regions for the closed track (**177 countries, includes Pakistan**)
-- [x] Add testers to the closed track (created **"Scan Action Testers"** email list with **25 testers** from the Fiverr seller)
-- [x] Send the release to Google for review
-
-## QUEUED — migrated from session memory 2026-09-09
-
-> **Why these appear here now.** Every item below existed only in an assistant
-> session-memory file: invisible to the owner, invisible to any other session,
-> invisible to review, and with no expiry. That is a shadow backlog, and it was
-> discovered the hard way — the owner had been assuming a `WORK-QUEUE.md` existed
-> and carried them. It did not. Each item keeps the evidence that was actually
-> measured, the command that produced it, and an **expiry**: the condition under
-> which it should be picked up or struck out. An item whose expiry condition
-> cannot be stated does not belong on a board.
->
-> **None of these has been acted on.** Sizing and ordering are the owner's call.
-
-- [ ] **`isSingleDocument` spends a Gemini call per document, on the same endpoint, and fails open.** `GeminiExtractionAdapter.isSingleDocument` (`geminiAdapter.ts:50`) makes its **own** `generateContent` call on the same model as extraction, and its catch returns `true`, so the pipeline continues regardless. Called once per document at `ingestionService.ts:66`. **Evidence:** per document the pipeline makes 1 validation call + up to 2 extraction attempts, so validation is roughly **a third of all Gemini call volume**; during the 2026-09-08 outage that was ~10 validation calls against an endpoint shedding load, and every 503 it absorbed bought nothing. Measured contrast in the same minutes, same alias, same images: extraction succeeded on **1 of 19 calls (~5%)**, validation on **at least 5 of 10** — the cheap call is far likelier to be served, so dropping it saves the *least* valuable third. **EXPIRY: the blocker is gone — this was held so it would not change two variables at once during the model-pin A/B, which finished in #194/#195/#196. It is actionable now.** Strike it out only if a later change removes the multi-document guard entirely, which is a product decision and not an observability one.
-
-- [ ] **UNCONFIRMED — `Organization` row-lock contention under fast-cadence uploads.** A hypothesis with a named mechanism, **not a finding**; nothing was changed on its account. `doc10-tilden-taxi.jpg` (2026-09-09T01:53:03Z) extracted successfully and its persist threw — the first persist failure ever observed here. **Evidence:** doc10 took **14.0s** against siblings at **8.1–10.5s**; it was the last of ten uploads at a **5-second cadence** (min 3, max 6), so up to ~3 background jobs overlapped. **Mechanism, unverified:** every persist takes a row lock on the SAME `Organization` row to increment `scanCount`, so concurrent persists serialise on it and an interactive transaction can exceed its default timeout. **Ruled OUT, not merely unlikely:** not `LIMIT_REACHED` — the org is PRO, so `plan: { not: FREE }` satisfies the charge condition and `PRO_DAILY_LIMIT` is 200 against a handful of uploads. **EXPIRY: the next fast-cadence run settles it** — `delivery_error` (PR #196) now records the error CLASS directly, and a transaction timeout has a distinctive class from a lock error. A dose-response (10 uploads at 5s, then 10 at 30s) discriminates: failures tracking cadence means contention is real; failures at both means it is not concurrency.
-
-- [ ] **Rule-engine coverage gaps — three, none sized.** **(1) 147 documents hold no amount fact at all.** Of 209 evaluated documents, 147 correctly reported "Missing amount" — **73%** — because extraction genuinely produced no `TOTAL_AMOUNT`/`manual_amount`/`amount`. That is an EXTRACTION COVERAGE question, not a rule-engine one, and the fact-key fix does nothing for it. **(2) 132 of 341 documents have no `decision` fact, but the real number is 20.** Sized 2026-09-07: 112 predate the first-ever evaluation (2026-04-01) and are not a failure; **20 fall inside the window where evaluation WAS running and were skipped anyway**. The two populations interleave, so this was intermittent, not a clean cutover. Zero documents since 2026-07-04 lack a decision, so **the rule engine is not failing on live traffic**. Plausible mechanism for the 93 that hold facts but no decision, undiagnosed: `evaluateRulesAndSave` swallows its own errors. **(3) ~~Rule D is dead.~~ FALSIFIED 2026-09-11 — Rule D was FIXED and this text is stale.** `checkDuplicate` now queries `entity: { entityType: 'VENDOR', canonicalName: ... }` (`ruleEngineService.ts:158-164`), keyed on the entity TYPE rather than the role, and the fix carries its own note explaining the two axes. The rest of this paragraph describes the defect as it WAS: `checkDuplicate` queried `documentEntities.some({ role: 'VENDOR' })`, but every stored role is `ISSUER` — measured **156 rows ISSUER, zero VENDOR** — because the adapter emits `role: 'Issuer'` (`geminiAdapter.ts:238`) and persistence upper-cases it. The duplicate-expense rule has never matched anything. `documentController.ts` has the same lookup, so `merchantName` is null on the re-evaluation path too. **EXPIRY: size (2) first** — a document the rule engine never saw is invisible to every count taken so far, including the 209 denominator above. (3) is a one-line change whose only risk is that Rule D starts firing for the first time; treat its first week as new behaviour, not as a fix. Related: the duplicate rule ships with **no time window**, and that was deliberate — 30d moved the count 68→67 and the monthly false positive has zero instances.
-
-- [ ] **`UNKNOWN_DOCUMENT_TYPE` at 0.99 confidence — the classifier and the confidence score disagree.** Observed 2026-09-07 on the first document through post-#185 code: `status=NEEDS_REVIEW`, `overallConfidence=0.99`, `documentType=UNKNOWN_DOCUMENT_TYPE`, `rawText_length=472`, 4 facts, 1 entity. The extraction plainly worked, and 0.99 is **above** the 0.98 `CONFIDENCE_THRESHOLD`, so NEEDS_REVIEW came from the `isWeak` branch or a single sub-threshold fact. **Why it matters:** a status `groupBy` the same day returned COMPLETED=179, NEEDS_REVIEW=149, REJECTED=12 of 340 — **nearly half of all documents land in review**. If a meaningful share look like this one, the review queue is being fed by a classification gap rather than by doubtful scans, and the fix is in the type normaliser or `isWeak`, not the model. **Do not confuse this with the P2022 signature**, which is NEEDS_REVIEW with `rawText=''`, 0 facts and confidence 0 — the opposite shape. **PARTLY EXPLAINED 2026-09-11 by #204 (`20f5201`) and #205 (`48aecc4`), and the remainder is now the real question.** `DOCUMENT_TYPE_MAP` held no `'receipt'` key and spelled business card with a SPACE where the prompt emits an UNDERSCORE, so two of the three document types the model is told to return fell through to the fallback. That is why `UNKNOWN_DOCUMENT_TYPE` was the largest bucket: **323 of 386 rows on 2026-09-11**, with RECEIPT at 0 and BUSINESS_CARD at 0. Both keys are mapped now, but **no backfill ran**, so those 323 rows keep their stored value and the census will not move for them — only new uploads are typed correctly. **The classifier half of this item is therefore explained; the CONFIDENCE half is not.** `documentType` is not an input to `isWeak` (`persistence.ts:110` reads confidence, facts and `rawText` only, verified 2026-09-11), so the type gap never caused the NEEDS_REVIEW status and fixing it cannot reduce the review queue. **EXPIRY: sample the `isWeak` inputs (`hasDate`, `hasAmount`, `hasAnchors`, template/multi-doc signals) across a batch of NEEDS_REVIEW rows BEFORE changing any threshold.** Moving a threshold without that sample is guessing at which of six predicates fired.
-
-- [ ] **`normalizeTextToEnglish` is a stub — `normalizedText` is not English.** `normalizationService.ts:82-92` (was `:58-68`; the file grew a documented `DOCUMENT_TYPE_MAP` header in #204/#205) returns `rawText` unchanged for English and the original text with a literal `[MOCK_TRANSLATED] ` prefix otherwise. No translation happens, in a column whose own comment says it exists "to ensure the `normalizedText` column is searchable in English." **Corroborated by bytes, not by reading the code:** production document `e7ae52df` (Arabic) measured `rawText_length=472`, `normalizedText_length=490` — a delta of exactly **18**, the length of `"[MOCK_TRANSLATED] "`. **Why it matters beyond tidiness:** on 2026-09-07 it nearly became the basis of a categorizer "fix" that fed it `normalizedText` instead of `rawText`, which would have changed nothing at all. **EXPIRY: void the moment real translation ships.** Until then, check whether search reads `normalizedText` — if it does, a leading `[MOCK_TRANSLATED] ` sits inside the searchable body of every non-English document.
-
-- [ ] **DELIBERATELY NOT WORTH FIXING YET — Latin-only category keywords.** `expenseCategorizationService.ts:10-30` holds an entirely Latin-script keyword table and `persistence.ts` passes `extraction.rawText`, the original-language text, so a non-Latin document can only match on an incidental Latin brand name and otherwise falls through to the documented no-match default `{ category: 'Other', confidence: 0.5 }`. **The number that decides it**, a read-only `groupBy` on `detectedLanguage` across all 341 documents (**the corpus is 386 as of 2026-09-11; the census has not been re-run and the percentages below are therefore a reading of a smaller, older corpus**): `en 317 (93.0%) | fr 9 (2.6%) | de 4 | he 3 | ar 2 (0.6%) | zh/id/it/pt/und/UNKNOWN 1 each` — **non-English = 24 (7.0%)**, no NULLs, buckets reconcile. Arabic is **2 documents**. The threshold was set *before* the number was read: ≥30% worth building, ≤10% not. 7.0% is below the floor. **Do not use the post-deploy sample as evidence of a changing mix** — it is n=1, a deliberate test upload, and reads as "100% non-English". **EXPIRY: revisit only if non-English share crosses ~30%, or if non-English users turn out to be disproportionately paying** — that second factor, not the raw count, is what should decide it.
-
-- [ ] **`Document` retains no input metadata — no MIME type, no file size, no page count.** `grep -nE "mime|size|fileSize" prisma/schema.prisma` returns **nothing**; the model keeps `originalFileName` and `fileUrl` and nothing else about the input. **What that cost, concretely:** on 2026-09-08, investigating why 172 of 343 documents (50.1%) held `rawText=''` with `overallConfidence=0`, four input-side axes were considered — file type, file size, language, organization — and **two were unanswerable, not inconclusive**: the columns do not exist. "Do PDFs fail more often than JPEGs?" cannot be asked at all. It also forces a workaround: the MIME type has to be recovered from the storage response at re-extraction time because the row does not carry it. **EXPIRY: no natural one — this stays open until a schema change is wanted for another reason and can carry it.** Both columns are additive and nullable and nothing in the product reads them, so the value is diagnostic only; this should ride along with another migration rather than justify its own.
-
-- [ ] **The migration FAILURE path has never been observed.** A *succeeding* migration on the Railway pre-deploy path was proven 2026-09-07 (#185): ledger and physical schema both confirmed, merge → serving 103s. **Still unproven:** that a *failing* migration fails the deploy and leaves the previous container serving. That is Railway's documented contract and has never been observed here, and the success path is not evidence for it — the two share no code. **Why it matters more than it looks:** the failure mode is not a red deploy, it is new code on an old schema, and here that is **quiet**. Measured against a throwaway: a missing column throws `P2022` inside the persist transaction, which rolls back; `ingestionService` catches it and calls `markAsNeedsReview`, which does not reference the new column and therefore **succeeds**. The user sees a 202, then a NEEDS_REVIEW row with `rawText=''`, 0 facts, confidence 0. **And nothing alerts** — `sendDiscordAlert` is wired only into `webhookController`, `Sentry.captureException` only into the Express error middleware, and the persist runs in a post-202 `setImmediate` that reaches neither. The sole signal is `[CRITICAL] Persistence failed` in Railway stdout. **Fastest recovery is a Railway rollback**, not `git revert` and not a manual `DROP COLUMN`: an added nullable column is backward compatible with the older client, so rolling the container back restores ingestion whether or not the migration ran. **EXPIRY: only a deliberate rehearsal closes this** — a migration designed to fail, on a throwaway first, then watched on a real deploy. Nothing short of that is evidence.
-
-## SHIPPED 2026-09-11 — #201 through #206
-
-All six merged to `main` and verified serving. Each line names its merge commit
-and what it discharges on this board. `/api/version` was byte-compared against
-`merge_commit_sha` after each; the last one was also verified in the served
-bundle, because a frontend-only change is invisible to `/api/version`.
-
-- [x] **#201 `2a71211` — say when a document was re-processed, in the list and in detail.** The re-processed notice and badge, three locales, driven by a `reprocessed` field the DTO derives from the `extraction_recovered` fact. **Discharges** the per-document half of "RECOVERY MOVES OTHER PEOPLE'S MONEY FIGURES" — a user looking at one recovered document can now see why it changed. It does **not** discharge the total-level half; that item stays open and says so.
-- [x] **#202 `9e39ca5` — tie the re-processed marker to the re-extraction, not to the row.**
-- [x] **#203 `004c1cb` — let the retry button reach the rows the endpoint already admits.** **Closes "SHIPPED BUT UNREACHABLE"** in full: the render gate is now the server's own `reextractable`, and the two 409 codes that item said had no copy turned out to have it in all three locales.
-- [x] **#204 `20f5201` — store a receipt as RECEIPT.** `DOCUMENT_TYPE_MAP` had no `'receipt'` key. **Partly discharges** the `UNKNOWN_DOCUMENT_TYPE` item: the classifier half is explained, the confidence half is not.
-- [x] **#205 `48aecc4` — store a business card as BUSINESS_CARD.** The map held `'business card'` with a SPACE; the prompt emits `business_card` with an UNDERSCORE. Same defect one spelling over.
-- [x] **#206 `14245d2` — show only facts a user can read, and stop the banner over-claiming.** Replaced the detail table's two-key denylist with an allowlist that fails closed, and scoped the APPROVED banner copy to what the rule engine actually tests. **Confirmed on screen by the owner**, Arabic UI, on both a COMPLETED and a NEEDS_REVIEW document.
-
----
-
-## EXTRACTION RELIABILITY — first reading 2026-09-22T23:36Z, by a checked-in command
-
-**Re-run it, never quote it:** `cd apps/backend && npx tsx scripts/extractionWatch.ts 60`. It is read-only, enforced by the database: one `SET TRANSACTION READ ONLY` transaction, asserted `on` before anything is read. It prints no text, filename, email or org name.
-
-- [ ] **EVERY UPLOADER — the extraction failure rate on the CURRENT model is UNMEASURED, because nobody has uploaded since 2026-09-11.** **The predicate:** a first attempt is FAILED if it carries `extraction_error`, carries `extraction_recovered`, is still empty (`rawText=''` and `overallConfidence=0`), or was processed more than 60 min after upload. The last clause is the clock: every `processedAt` write is an extraction outcome, and `/reextract` admits only failed rows. Judging by the row's current state would undercount every recovered failure. **The 60 min threshold sits in an empty band:** 352 documents were processed in under 1 min, 10 in 1-5 min, 1 in 5-15 min, NONE between 15 and 60 min, and 21 after more than an hour. Traces explain 20 of those 21; the clock alone catches the other one (era C, class unrecorded, consistent with the 2026-09-09 delivery loss that was recovered before the marker existed). **Controls, all passed:** transaction read-only `on`; population 386 documents / 1022 facts / 31 organisations; the known-failed malformed upload `24c3ea41` classifies FAILED; 193 succeeded vs 171 failed; 0 `FAILED`-status rows read as a success. **Witnesses:** BROKEN_RECORD 1, DELIVERY_RECORD_BROKEN 0.
-  **By month** (failed ÷ (succeeded + failed)): **Mar 2.9%** (105 docs), **Apr 0.0%** (20), **Jun 86.3%** (126), **Jul 56.6%** (86), **Sep 49.0%** (49). No uploads in May or August. The June regime change stands, re-measured with a predicate that sees recoveries.
-  **By era**, split at the deploys that changed what extraction records or does:
-
-  | era (by upload time) | uploads | orgs | succeeded | failed | classes |
-  |---|---|---|---|---|---|
-  | A: before #191, no class recorded | 343 | 27 | 171 | 150 | all unrecorded; **149 still empty today** |
-  | B: #191 to #193, keyword classes | 1 | 1 | 0 | 1 | LowConfidence (the malformed test upload) |
-  | C: #193 to #196, class from HTTP status; code default alias vs `gemini-2.5-flash`, then 2.5 | **41** | **1** | 21 | 20 | **RATE_LIMITED 13**, VENDOR_ERROR 6, unrecorded 1 |
-  | D: after #196, code default `gemini-3.5-flash` | **1** | 1 | 1 | 0 | none |
-
-  **What it means.** (1) **The current regime has one upload.** Nothing in this reading says whether #196 changed the rate. (2) **The only era with trustworthy classes is one organisation's two-day test burst** (2026-09-08/09). There, failures were mostly a quota ceiling (13 of 20 were 429s) and partly vendor 5xx (6 of 20). That points to a limit rather than a defect, but it was measured under deliberately bursty load, and on the models before 3.5-flash. (Model names are code defaults in `modelArm.ts`; `GEMINI_PINNED_MODEL` can override them at runtime, so they are not proof of what ran.) (3) The 150 era-A failures recorded no class, so they cannot separate limit from defect at all. (4) **149 documents in users' accounts are still empty** from era A. They are free to retry (a re-extraction never charges), but recovering them moves those users' totals: see "RECOVERY MOVES OTHER PEOPLE'S MONEY FIGURES" below.
-  **PACED RUN, INTERRUPTED 2026-09-23.** Upload 1 of 5 ran on the current model: `e27a839b`, COMPLETED, confidence 0.99, extracted in 8.4 s, with no error or recovery trace (era D is now 2 uploads, 2 succeeded). Upload 2 never reached the server; see the upload-dialog entry under OPEN. The run was stopped there, and it cannot be resumed until that entry is fixed, because the dialog can drop a file without a trace and the watch counts only rows.
-  **PACED RUN, COMPLETED 2026-09-23 after #236 deployed.** Four more uploads in ONE dialog session on the web (00:57-01:00Z), after upload 1. The owner saw a Start button every time he added a file. Read-only: **exactly 4 new rows** since the 00:54:01Z baseline (387 to 391, one organisation), so nothing was stranded. **Every one was extracted by `models/gemini-3.5-flash -> gemini-3.5-flash`** (the model that resolved, not just the code default), at confidence 0.99, with text and no error trace, in 9.9-16.3 s. **The watch now reads era D at 6 succeeded, 0 failed.** **What that supports:** if the per-upload Gemini-call failure rate were still the 46% measured in era C, five clean uploads in a row would happen 0.54^5 = 4.6% of the time. So for small, clean images uploaded one at a time, the rate is below about 45% (95% confidence), and the half-failing regime is over for unhurried single uploads. **What it cannot conclude:** the actual rate (30% would still give five clean uploads 17% of the time); anything about bursts, large phone photos, other times of day, or other accounts. Only 3 distinct images were used, two of them twice. **Two of the four landed in NEEDS_REVIEW, and that is correct for that file:** both are the invoice test image, whose text contains `example` (from the sample email domain `joespizza.example`). That trips the template signal in `persistence.ts:103-104`, a gate that ignores confidence. The same text also trips the multi-document signal (`invoice` and `total` each repeated, `:106-108`). The rule engine's FLAGGED verdict ("Possible duplicate expense" on all four) is stored as a separate fact and does not set the status; the two receipts carry it too and stayed COMPLETED.
-  **EXPIRY: the era D row gets a sample.** Organic traffic delivered 1 upload in 11 days, so waiting is not a plan. The reading needs deliberate uploads on the current model, which is a production write and the owner's decision.
-
-## OPEN — ordered by who meets the defect
-
-- **CLOSED 2026-09-23 by #236 — a file added to the upload dialog after its batch started is never stranded again.** Found on upload 2 of the paced extraction run: the dialog listed the new file under the finished panel with no Start button, and Done closed it unsent. There was no request, row, error or retry. **Wider than reported:** the same stranding happened after a PARTIAL result, after an ERROR, and for a file added WHILE an upload was still in flight. **The fix is derived, not a reset:** `UploadModal` records every file handed to `uploadDocument`, and while any listed file is unsent the dialog shows its ready state, where Start sends it. Nothing is cleared: the batch's per-file error cards stay, and removing the unsent file brings the finished state back. **Why not a reset in `addFiles`, the first ruling:** during an upload the status is already idle, and the batch sets the finished state afterwards, so a file added mid-upload was still stranded. The M-RESET-ON-ADD mutation below measures exactly that. **The rule, held by `tests/uploadModalUnsentFile.test.tsx` without reading any button label:** every file the dialog shows has been handed to `uploadDocument`, or ONE activation of ONE visible control sends it. The second half is found by replaying the scenario once per visible button. One activation is the point, because the defect's only exit was "Manage Files" and then a Start that appeared afterwards. **Mutation-proven:** the component as it was on main fails success, partial, error and in-flight; exempting success fails success and in-flight (that path ends in success); exempting partial fails partial only; exempting error fails error only; the reset-in-addFiles version fails in-flight only; never marking files as sent fails partial, error and the two-step control. The close-and-reopen control passes under every mutation. The two-step control proves the checker does not count a two-click path, and the absent-file control proves it cannot report a file that is not there. **Before it, nothing could catch this:** eleven test files touched the dialog, and none ever picked a file after a batch had finished.
-
-- [ ] **ANDROID APP ON A WIDE SCREEN ONLY — the #236 stranding fix is not in the Android app until a new build ships through Play.** Read 2026-09-23. The app bundles its own copy of the web UI (`capacitor.config.ts:5`: "deliberately NO server.url here: the app ships its own bundled UI"; `webDir: 'dist'` at `:11`), so a web deploy does not reach an installed app. **The exposure is narrower than "every Android user":** the upload dialog opens only in two cases. The first is New Scan at a viewport of **768 CSS px or wider** (`Layout.tsx:61-66`, `useIsDesktop` = `(min-width: 768px)` at `useMediaQuery.ts:24`), meaning tablets and wide foldables. The second is a URL carrying `?intent=upload` (`Layout.tsx:37`), which nothing in this repository produces. On a phone-width screen, New Scan and the bottom tab bar's scan button open `CaptureSheet` instead (`Layout.tsx:65`, `:111`). That is a one-file flow which closes itself after every successful upload (`CaptureSheet.tsx:90-91`), so it cannot strand a second file. **Not readable from here:** which build Play currently serves, and how many Android users have a screen that wide. The repository is not a record of what has shipped (see CLAUDE.md), so any claim about it has to come from Play. **EXPIRY: an Android build made from `d0dc2cf3` or later reaches Play**, confirmed in Play itself, not in this repository.
-
-- [ ] **EVERY UPLOADER — the post-upload confirmation panel (heading, background note, Done, Manage Files) never renders in the normal flow, and after #236 it cannot render at all.** Read and probed 2026-09-23. In `UploadModal.tsx` the finished panels sit inside the `files.length > 0` block, and a fully successful batch removes every file it sent, so after an ordinary upload the dialog shows only the success header and subtitle, with the header X as its only button (probed in jsdom). The green panel with Done and Manage Files rendered ONLY in the stranded-file defect #236 closes, where it was the misleading surface. After #236 it would need a success with a sent file still listed, which cannot happen. So it is dead UI. It has not been deleted, because what a finished upload SHOULD show is a design question, not a repair. **EXPIRY: the design pass rules on it:** move the confirmation out of the files block so a finished upload shows it, or delete it.
-
-- [ ] **EVERY DASHBOARD VISIT — each upload blanks the whole dashboard into skeletons TWICE, and refetches stats three times.** Read 2026-09-23, not measured in a browser. `DashboardScreen.tsx:177-179` runs `fetchData(true)` on every change of `refreshCount`, and `showLoading=true` makes `:124` set `loading` and `:182` replace the entire screen with skeletons until both requests return. `Layout.tsx` raises `refreshCount` twice per upload: when the dialog reports success (`onSuccess={handleUploadSuccess}`) and again when processing settles (`ProcessingProvider onJobSettled={handleUploadSuccess}`). Each rise costs three requests: `Layout`'s own `getStats` (`Layout.tsx`, the `[refreshCount, location.pathname]` effect) plus the dashboard's `getStats` and `getRecentActivity`, so `getStats` is fetched twice for one event. **The targeted update already exists and is unused:** `fetchData(false)` refreshes the data in place with no skeleton, but the effect always passes `true`. Server-side cost of `getStats` is not measured here. Owner-observed: the blank appears "during upload and again when extraction finishes", which is exactly the two rises.
-  **EXPIRY: one commit.** Skeleton on first mount only, `fetchData(false)` on every later `refreshCount`, and one shared stats fetch.
-
-
-> **The ordering is the point.** Everything below was found in the same two days
-> and it would be easy to file it as one undifferentiated pile. It is not one
-> pile: some of these are in front of every person who opens the app, and some
-> are in front of nobody at all and are only traps for the next change. Sizing
-> without that distinction is how a dead report gets fixed before a live screen.
-
-### EVERY USER MEETS IT
-
-- [ ] **THE SCREEN GOES QUIET BETWEEN THE RETRY TAP AND A MANUAL REFRESH, AND #203 JUST PUT THAT BUTTON IN FRONT OF PEOPLE.** `POST /:id/reextract` sets `status: 'PROCESSING'` and returns 202 (`documentController.ts`), then `handleReextract` shows a toast and calls `handleRefresh()` — which re-fetches **immediately**, so it lands on the row mid-processing. **`DocumentDetailScreen` has no `PROCESSING` branch at all:** `grep -n "PROCESSING" apps/frontend/src/screens/DocumentDetailScreen.tsx` returns nothing, while the same grep for the other statuses in the same file returns 10 hits — a clean negative, not a missed match. So the page renders its ordinary layout for a row that is being rebuilt: the status chip does read "Processing" (`getStatus` maps it), but the facts table renders the empty-state, and **nothing re-fetches again**. The user is left on a stalled-looking screen until they refresh by hand.
-  **And the processing tray cannot help, because it is never told.** `trackUpload` is called from exactly two places — `CaptureSheet.tsx:88` and `UploadModal.tsx:161`, the two upload surfaces. `handleReextract` does not call it, so `ProcessingContext` has no job for this document and the tray shows nothing.
-  **Why this is top of the list:** before #203 the button rendered only on `FAILED` rows and production has **0** of those, so this path had never run for a real user. As of #203 the button renders on **99 rows across 23 organisations**. The defect went from theoretical to live in the same change that made it reachable.
-  **EXPIRY: closed when a re-extraction is visible while it runs** — either by `handleReextract` calling `trackUpload` so the existing tray covers it, or by a `PROCESSING` branch on the detail screen, or both. Pick one deliberately: the tray already polls and already exists, so reusing it is the smaller change, but it was built for uploads and its copy says so.
-
-- [ ] **OBSERVED, UNMEASURED — the top bar mixes English and Arabic, and the camera button appears twice at a narrow width.** From the owner's own screenshots, 2026-09-11, Arabic UI on a phone-width viewport: the top bar renders "Scan & Action" in Latin script with Arabic copy beside it, and a camera affordance appears **twice — once in the top bar and once at the bottom**.
-  **Recorded as OBSERVED and NOT MEASURED, deliberately.** No breakpoint was identified, no component was read, no locale matrix was run, and it is not known whether either behaviour is intended (a wordmark is often left untranslated on purpose) or whether the duplicate button is two components or one rendered twice. **Nothing here should be quoted as a finding.**
-  **EXPIRY: the UI design pass reads the top bar and the capture affordances and decides both.** This item exists so the observation survives to that pass; it does not exist to be fixed from the description above.
-
-### SOME USERS MEET IT
-
-- [ ] **`'stationary'` is not `'stationery'`, and the Office category cannot match a stationery receipt.** `expenseCategorizationService.ts` lists `'stationary'` — meaning *not moving* — where the word for pens and paper is `'stationery'`. Matching is whole-token (`utils/textMatch`), so the two can never cross. **Measured 2026-09-11 against the real categorizer:** `rawText 'stationery supplies'` → `Other @ 0.5`; `rawText 'stationary supplies'` → `Office @ 0.9`; positive control, merchant `'Office Depot'` → `Office @ 0.9`. Run against the owner's own stationery receipt, the live categorizer reproduces the stored `Other @ 0.5` and **not one** of the ten Office keywords matches, though the document does contain the tokens `pen` and `paper` — neither of which is in the list.
-  **Who meets it:** anyone scanning office supplies, which is a core receipt category. **It does not currently reach the screen** — #206 hid the `category` fact — but it still decides what `expenseSummaryService` reports.
-  **EXPIRY: fix the spelling and add generic product words in the same change, then count categories before and after.** A one-word fix moves real documents from `Other` to `Office`, so its first week is new behaviour, not a repair.
-
-- [ ] **The no-facts empty state is now reachable, and was written for a different situation.** With the allowlist in #206, a document whose only facts are hidden ones renders `visibleFacts.length === 0` and falls to the `noFacts` empty state. Before #206 that state was effectively unreachable for any processed document, because something always rendered — even if it was a raw key. The copy has not been read since it became reachable.
-  **EXPIRY: the design pass reads it in place.** Grouped here rather than under the design items below because it is a copy question first and a layout question second.
-
-### NOBODY MEETS IT TODAY — traps for the next change, not live defects
-
-> Every item in this tier is invisible to users right now. That is exactly why
-> each one is worth writing down: an invisible defect gets "fixed" by someone who
-> assumes it was visible, and two of the three below would ship a wrong number to
-> a screen the moment anybody built that screen.
-
-- [ ] **NOTHING IN THE FRONTEND CALLS `/api/reports` AT ALL — the whole controller is unreachable.** `grep -rn "reports/|getReport|reportService" apps/frontend/src` returns nothing, and `grep -rn "rep1|repDesc1|rep2|repDesc2|rep3|repDesc3" apps/frontend/src` (excluding `strings.ts`) also returns nothing, while the same grep finds sibling i18n keys rendered in components (`s.queue` at `Sidebar.tsx:54` and `ReviewQueueScreen.tsx:157`) — so both are clean negatives. Three report blueprints exist server-side (`monthly_expenses`, `recent_cards`, `find_upcoming_appointments`), three sets of labels and descriptions exist in all three locales, and **no screen opens any of them.** **EXPIRY: either build the reports screen or retire the strings.** Until one of those happens, the three items below are dormant and must not be prioritised as if a user were waiting on them.
-
-- [ ] **`monthly_expenses` reads a fact key that has never been written, so it returns `[]` for every organisation.** `queryExecutor.ts:51` filters and `:94` groups on `key = 'EXPENSE_CATEGORY'`; `persistence.ts:312` writes `key: 'category'`. **Measured 2026-09-11: `EXPENSE_CATEGORY` = 0 fact rows corpus-wide, against 254 for `decision` through the same query.** Third instance of write-key/read-key divergence after the receipt and business-card keys.
-  **DO NOT FIX THIS AS A ONE-LINE KEY SWAP.** Measured what the report *would* render for the owner's main organisation if the key were corrected today: USD **59,269.55** shown against **62,342.62** real — **3,073.07 silently omitted** — with **93.5%** of what is shown sitting under `Other`, CAD 100% under `Other`, and four entire currency lines (INR, CHF, EUR, MAD) vanishing because the join is inner and those documents carry no category fact. Corpus-wide, **154 documents hold a `TOTAL_AMOUNT` and no category at all**. Going from an empty report to that is not a repair; it is shipping a new wrong number.
-  **EXPIRY: closed only when the key fix, the missing-category population, and the date filter below are decided together.**
-
-- [ ] **`monthly_expenses` has no date filter, despite its name and its own label.** The blueprint at `reportController.ts:21-30` sets `filters: []`, so the executor aggregates the organisation's entire history. The i18n label for it is "Monthly expenses" / "Dépenses mensuelles" / the Arabic equivalent. **EXPIRY: settle the window semantics with the key fix above, not separately.**
-
-- [ ] **`find_upcoming_appointments` can never return a row: `APPOINTMENT_DATE` is read and never written.** `queryExecutor.ts:143` filters `key: 'APPOINTMENT_DATE'`; `grep -rn "APPOINTMENT_DATE" apps/backend/src` finds that read and **no write anywhere**. The production census confirms it: of the 12 fact keys that exist, `APPOINTMENT_DATE` is not one of them. Same class as the two above, found while building the #206 allowlist — it was a candidate for the allowlist and was rejected precisely because nothing writes it. **EXPIRY: whoever builds the reports screen decides whether appointments are a product at all; if they are, the extraction prompt has to emit the fact first.**
-
-- [ ] **`extraction_error` survives a successful re-extraction, so it is stale on recovered rows.** A fully recovered `COMPLETED` document still reads `RATE_LIMITED`. **20 documents hold an `extraction_error` fact** as of 2026-09-11. #206 removed it from the detail screen, so no user reads it any more — but **we** still do, and any "how many extractions failed" query that keys on its presence over-counts. **EXPIRY: either clear the fact on a successful persist, or stop treating its presence as a failure signal and key on the columns instead (#200 already did the latter for one query).**
-
-- [ ] **`review_action` is now hidden with no replacement — a gap this board created, not one it found.** #206 hides it because the value is a raw snake_case enum (`amount_corrected`, `marked_valid`) with no label, and its *result* is already visible: a correction shows as `manual_amount`, a note as `justification_note`. **10 documents carry one.** That reasoning holds for a single user, and it is weaker in an organisation with more than one member, where "somebody marked this valid" is a different fact from "a note exists" — though **zero users currently hold membership in more than one organisation**, measured 2026-09-11, so nobody is affected today. **EXPIRY: decide during the design pass whether reviewer actions deserve a labelled review-history line. If yes, it is a new surface, not a fact row.**
-
-- [ ] **The categorizer answers `Other` for 43 of the 47 documents it has ever categorized.** Distribution 2026-09-11: `Other` 43, `Office` 2, `Travel` 1, `Food` 1. The `0.5` confidence is the hardcoded no-match return at `expenseCategorizationService.ts:65`, not a measurement — a real match returns `0.9`. And the feature is four days old: `categorizeAndSave` was inert for its entire life until `98e4c9e` (#188, 2026-09-07) supplied the required `sourceSpan`, so only documents persisted since then carry the fact — **47 of 386**, and no backfill. **EXPIRY: this is the gate on un-hiding `category` in the detail screen.** Putting it back is one line in `lib/detailFacts`; it should not be put back while nine of every ten answers is the catch-all.
-
-- [ ] **Two i18n keys are now referenced by no screen: `decisionField` and `decisionReason`.** They were used only by the old `fieldLabel` map that #206 replaced. They are kept for now because `tests/documentDetailRestyle.test.tsx` asserts on `strings.en.decisionField` to prove the decision fact is **not** rendered as a table row. **EXPIRY: a catalog cleanup, once someone is touching `strings.ts` for another reason.** Not worth its own change.
-
-- [ ] **A merchant whose name collides with `Object.prototype` silently loses its spend and can never be `topMerchant`.** `expenseSummaryService.ts` accumulates into a plain object — `const merchantSpend: Record<string, number> = {}`, then `merchantSpend[merchantName] = (merchantSpend[merchantName] || 0) + amount` — and `merchantName` is `merchantEntity?.canonicalName`, a string the extraction model produced from the document, not one we chose. Two distinct behaviours, both silent, **measured 2026-09-14 by running the exact expression shape in isolation under node**:
-  **`__proto__`** — the read returns `Object.prototype`, which is truthy, so `|| 0` never fires; the write then assigns a primitive through the `__proto__` setter, which **ignores it**. No own key is created. `[['__proto__',500],['ACME',10]]` gives entries `[["ACME",10]]` and `topMerchant ACME` — the 500 is gone with no trace.
-  **`constructor`, `toString`, `valueOf`, `hasOwnProperty`, any other `Object.prototype` member** — the read returns the inherited **function**, so `fn + amount` evaluates to a **string**, which is stored as a real own key. `Record<string, number>` is then false at runtime. `[['constructor',500],['ACME',10]]` gives entries `[["constructor","function Object() { [native code] }500"],["ACME",10]]`. That string can never win `spend > maxSpend` (string-vs-number compares false), so that merchant can never be `topMerchant` either.
-  Positive control through the same harness: `[['Carrefour',500],['ACME',10]]` → `topMerchant Carrefour`, max `500`.
-  **It is NOT prototype pollution and NOT a `NaN`** — an earlier session claimed a `NaN`; that was wrong. The `__proto__` setter drops primitives, so nothing is polluted and nothing crashes. The whole effect is a silent under-count on one field.
-  **Blast radius is `topMerchant` alone.** `merchantSpend` is never returned. `categoryBreakdown` is **safe** and must not be "fixed" alongside it: it is initialised with six fixed keys and guarded by `categoryBreakdown.hasOwnProperty(category)` with an `Other` fallback, so a hostile category name lands in `Other`.
-  **Why nobody meets it:** nothing in the frontend calls the route. `grep -rn -E "/expenses|expenseSummary|topMerchant" apps/frontend/src --include=*.ts --include=*.tsx` returns nothing, while the same grep shape finds `/api/search` text in that same tree — a clean negative, not a broken search. The route is mounted server-side (`router.use('/expenses', expenseRoutes)` in `routes/index.ts`).
-  The repair, when someone wants it, is a `Map`, or `Object.create(null)`, or the same `hasOwnProperty` guard `categoryBreakdown` already carries. **Do not do it alone** — see the item directly below, because the same function currently reads an amount key that is never written, so fixing the merchant keys changes nothing anyone can see. **EXPIRY: closed when the expenses summary gets a screen, or when `/api/expenses` is retired.**
-
-- [ ] **`expenseSummaryService` reads fact key `'amount'`, which `normalizeFactKey` can never emit, so every figure it returns is zero.** The service selects facts with `OR: [{ key: 'amount' }, { key: 'category' }]` and then keeps `f.key === 'amount' && f.valueNumber !== null`. Ingestion writes every extracted fact through `this.normalizer.normalizeFactKey(f.key)`, which is `FACT_KEY_MAP[key] || rawKey.toUpperCase().replace(/\s+/g, '_')` — **every value in `FACT_KEY_MAP` is uppercase and the fallback uppercases**, so lowercase `'amount'` is not an output the function can produce. `grep -rn "'amount'" apps/backend/src --include=*.ts` excluding tests finds the two reads in `expenseSummaryService`, the `resolveAmount` read in `ruleEngineService`, one anchor-word list and one comment — **no writer anywhere**. Negative control on the same grep shape returned exit 1; positive control found the `TOTAL_AMOUNT` and `EXPENSE_CATEGORY` sites through the identical pattern.
-  **Consequence, at code level:** `amount` resolves to `0` for every document, so `totalExpenses`, `averageExpense` and all six `categoryBreakdown` buckets are `0`; and because `maxSpend` starts at `-1`, the `0 > -1` comparison makes `topMerchant` **whichever vendor happens to be iterated first**, reported at a spend of zero. `'category'` itself is fine — `persistence.ts` writes `{ key: 'category', valueString: category }` as a literal.
-  **Fourth instance of write-key/read-key divergence** after the receipt type, the business-card type and `EXPENSE_CATEGORY`, and the same shape as `resolveAmount` matching `'amount'` against a canonical `'TOTAL_AMOUNT'`.
-  **What this repository cannot answer:** whether legacy rows written before normalization existed carry a lowercase `'amount'` key. The call that settles it, run from `apps/backend` so `dotenv` loads the credential without printing it: a `prisma.documentFact.groupBy` on `key` filtered to `['amount','AMOUNT','TOTAL_AMOUNT']`. Pair it with a total row count as a positive control, because `0` from an empty or misconfigured database is byte-identical to `0` from the right one.
-  **DO NOT FIX THIS AS A ONE-LINE KEY SWAP** — identical trap to `monthly_expenses` above: going from an all-zero summary to a populated one is shipping a new number, not repairing an old one, and the same missing-category population applies. Decide it together with that item. **EXPIRY: as above.**
-  Both of these were found 2026-09-14 while building `apps/backend/src/services/query/queryPlanContract.test.ts`; neither is fixed, and neither was the subject of that change.
-
----
-
-## DESIGN PASS — hand these to the UI work, do not fix them piecemeal
-
-> **Written on 2026-09-11, immediately after #206, and deliberately NOT fixed
-> there.** #206's remit was what the screen SAYS. Every item below is about what
-> it LOOKS like, and each one is cheap to patch badly and much better decided
-> once, as part of a system. They are listed with who meets them, same as above.
->
-> **ANCHOR BY STRING, NEVER BY LINE NUMBER.** Every element reference in this
-> section is a class or a literal you can `grep` for, not a `file:line`. Line
-> numbers are STATE, and they fail in two different ways, both SILENT — there is
-> no error, the number still points at a line, and that line still looks like
-> code. Both ways happened here within two days. **Wrong on arrival:** #215 wrote
-> `:226` for the closing CTA's dark band, and `:226` was `</ul>` at the moment
-> the entry was written. **Rotted afterwards:** #212 wrote `:83` for the "Fix
-> required" label, then #214 edited above it and deleted the very class the entry
-> named. **An anchor that matches zero places, or several, is not an anchor** —
-> prove it resolves to exactly one, and run a needle you know is absent so you
-> know the search itself works. Added 2026-09-13.
-
-- [ ] **EVERY USER — the decision banner is still green beside a "Needs review" status.** #206 fixed the words: the APPROVED subtitle no longer claims "no issues detected", and when the document is still `NEEDS_REVIEW` it says why both are true. **The colour still says otherwise.** A success-tinted banner with a check icon sits directly above a warning-tinted status chip. Whether the decision vocabulary should be tinted at all when the lifecycle status disagrees is a hierarchy question, not a copy one. Verified on screen by the owner after #206: the sentences read correctly, the colour contrast remains.
-- [ ] **EVERY USER — the confidence pill is the same number on every document.** `TOTAL_AMOUNT` and `TRANSACTION_DATE` both carry `0.99` whenever extraction succeeds, so the detail table shows "99% match" next to essentially every row. Measured 2026-09-11: `TOTAL_AMOUNT` has exactly one distinct confidence across 199 rows (`0.99`); `TRANSACTION_DATE` has three (`0.99`, `0.3`, `0.1`) across 197. A number that is the same everywhere is decoration. **Decide: show it, band it, or drop it** — and note that `getPrimaryFields` deliberately keeps confidence OFF the mobile search card already, so the product is not consistent about this today.
-- [ ] **EVERY USER — the facts table is a three-column table with a header, for two rows.** After #206 most documents show exactly `TOTAL_AMOUNT` and `TRANSACTION_DATE`. The desktop layout is a full `<table>` with `Field / Value / Precision` headers; the mobile layout is a stacked list. Worth re-drawing rather than patching.
-- [ ] **SOME USERS — the no-facts empty state.** Cross-listed above under SOME USERS; it is a copy question and a layout question and the design pass should see it either way.
-- [ ] **NOBODY TODAY — where `category` goes when the categorizer earns its place.** Re-showing it is one line in `lib/detailFacts`. **Where** it belongs — a fact row among the extracted values, or a labelled field near the document type, given that it is a derived judgement and not something read off the page — is a layout decision that should be made once, in the pass, rather than by defaulting back to a table row.
-- **CLOSED 2026-09-13 — the "Fix required" label on the landing hero mock, closed by #214.** Measured in a browser on production, both themes, transitions disabled, resolving the backdrop by walking REAL ancestors rather than trusting the nearest wrapper in the source: **`#92400E` on `#F8FAFC` = 6.78:1**, against a floor of 4.5. Anchors, each still resolving to exactly one place in `LandingScreen.tsx`: the label is the only **`Fix required`**, its cell the only **`text-sm text-amber-800 font-bold`**, and the ancestor walk landed on the only **`bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden`** — the wrapper the entry named. #214 de-tokenised this mock and replaced `text-warning-text` (`#B26A0A`, the colour the struck 4.05:1 figure described) with the darker `text-amber-800` literal, and that cleared the floor. Deleted per its own expiry. Identical in both themes because label and wrapper are both Tailwind literals — and the discrimination control confirms the toggle took effect rather than silently failing: `body` moved `#F5F7FA` → `#0F172A` and `--sa-ink` moved `#1A1F36` → `#F8FAFC` across the same two reads, while the cell did not move at all.
-- **CLOSED 2026-09-22 — the closing band: its CTA had no edge and its reassurance line was below its floor, ruled as a whole and closed by #231.** The band stays `bg-slate-900` and every colour in it is now a palette literal: the CTA is **`bg-white text-slate-900`** (was `bg-ink text-surface-raised`) and the line **`text-slate-400`** (was `text-slate-500`). **Why literals:** of the 31 colour tokens none is dark in both themes and none is a surface, so any token in this band depends on `.sa-pin-light`, and that dependence is what produced the old SHAPE 1.10 (`#1A1F36` on `#0F172A`). The fill mirrors the hero CTA's dark-on-light instead of adding a third button style; the line goes LIGHTER because on a dark band the fix runs opposite to the hero's. **Measured 2026-09-22** with `contrastSweep.browser.js` and `contrastShapeSweep.browser.js` against a local production build of the branch, at proven widths 1280/900/700/480/360, transitions frozen, every control passing (text mutation 6/6 at three widths, shape mutation 5 below and 1 above at two, closure, P1 cross-check, hit-test 0 holes): **CTA SHAPE 17.8525 [floor 3], CTA label 17.8525 [3: 24px/900, and 20px/700 below 768], line 6.9627 [4.5]**. Identical with `.dark` on `<html>`, and identical again with the pin stripped from the DOM, while that same strip moved the hero CTA from 16.239 to 1.0463, so the toggle was live and the band does not ride on the pin. After it the route has **zero** text below floor at 1280 and 900; below 768 only the three `!` tiles remain, owned by their own entry. `landingTextContrast.test.tsx` holds the label, the line and the SHAPE, and holds the band to literals; each of the three edits, reverted alone, was mutation-proven red. **The shape instrument's polarity fail anchor moved** from this button, which no longer fails, to the Free plan link (1.0955), a deliberately quiet secondary; the button is still reported as `bandAnchor`.
-- [ ] **EVERY VISITOR BELOW ~1003px — the closing headline orphans its last word.** "Turn receipts into clean data in seconds" (`text-4xl sm:text-5xl`) is one line at 1280, 955px wide, and wraps as ["Turn receipts into clean data in"] / ["seconds"] at a proven 900 and at 485. Those readings were taken when the section containers were unified, and until 2026-09-22 they were recorded only in the `LandingScreen.tsx` comment above the band, which named the closing-section entry as owner. **Moved here when that entry closed, so it does not lose its owner.** It is a property of this STRING at this type size, so it is a copy or type decision, not a container one. **EXPIRY: the copy pass rules on it**, including the option of accepting it.
-- **CLOSED 2026-09-22 — the three footer links are now underlined: a WCAG 1.4.1 fix, closed by #232.** Before it, `Terms of Service · Privacy Policy · Refund Policy` gave a link nothing to tell it from the ` · ` text between them: the same `rgb(90, 98, 115)`, weight 400, 13px, no decoration. The pair passed 1.4.3 at 5.8527, and that is why two contrast sweeps never saw it. **The fix is `underline` on each `<Link>` and on nothing else.** Colour, weight and size are unchanged. It is never on the `<footer>`, because text-decoration propagates to descendants and would underline the separators too. **Measured 2026-09-22** on a local production build of the branch, light and with `.dark` on `<html>`: each link computes `text-decoration-line: underline` (solid, `currentColor`, thickness, offset and skip-ink all `auto`), while the footer and every ancestor up to `<html>` compute `none`. Paint was measured from the screenshot's pixels, not judged by eye: one row under each link is dark across 99-100% of its width, and no row under either separator exceeds 25%. **Scope, ruled:** the guard is by PATTERN, not by name. `landingInlineLinks.test.tsx` requires every `<a>` that shares its parent with non-whitespace text, anywhere on the route, to be underlined, and asserts the pattern matches exactly these three today, so a fourth inline link is caught when it is added. CTAs and header links have no text beside them and are not reached. Every mutation went red: each link losing it, a `no-underline` on one, the underline moved to the footer, and a fourth link added without one. **[CORRECTED 2026-09-23: crowding WAS measured, on production after #232 deployed, and there is none.** The 0.82x above was the automation browser's 80% page zoom on this origin (`devicePixelRatio` 0.8), not only screenshot scaling. Captures 1:1 with device pixels, rendered at 80% and again at a 100%-equivalent size (CSS `zoom: 1.25`, which measured the link at 104.70 device px against 104.71 CSS px), both show one fully empty pixel row between the last glyph row and a 1 px underline on all three links. Skip-ink shows in the numbers: the underline row reads 1.00 under "Terms of Service", which has no descender, and 0.95 and 0.98 under the two links containing a `y`. No offset or thickness was added, and none is needed.**]**
-
-- **CLOSED 2026-09-23 — the three `!` marks on the cost cards clear their floor at every width, closed by #233.** They are the file's only `bg-red-50` divs, and each now carries `text-red-700` (was `text-red-500`). Nothing else changed. **Held as TEXT at 4.5, not as icons at 3.** Below 768 the index.css mobile rule makes `font-black text-xl` 18px/700, under the 18.66px large-text line, so the floor there is 4.5. Classifying the mark as an icon on 1.4.11's 3:1 was considered and rejected, because it would leave a permanent exception in the route's own baseline. **Measured 2026-09-23** with `contrastSweep.browser.js` (loaded from main at 3e3e7da6) against a local production build of the branch, proven widths 1280/900/700/480/360, every control passing (text mutation 6/6 at three widths, shape mutation 5 below and 1 above at two, closure, polarity, mock count 13): **5.9146 on `bg-red-50` for each of the three tiles at every width**, floor 3 at 1280 and 900 (20px/900) and 4.5 at 700, 480 and 360 (18px/700). Identical with `.dark` on `<html>`, where the toggle was proven live. **With it the sweep reports ZERO text below floor on this route at every width**, so any failure it reports from here on is new. `landingTextContrast.test.tsx` moves the three out of its two-way known-failure block into HELD, one entry each, and that file now holds no known failure. Reverting any one tile alone goes red on that tile's own name.
-- [ ] **NOBODY TODAY — the instruments' "no published figure" guard has not been kept current since #231.** `contrastSweepInstrument.test.ts` lists the figures the two sweep scripts must never contain in executable code, so a run cannot converge on a number it was told to expect. Four readings published since then are missing from its `PUBLISHED` list, checked by grep: the closing band's 17.8525 and 6.9627, the unpinned hero CTA's 1.0463, and the tiles' 5.9146. (The shape polarity anchor's 1.0955 IS listed; it was published earlier.) Found 2026-09-23 while closing the tiles entry and deliberately not fixed there, because that commit was scoped to the tiles. Neither script contains any of them today; the gap is that nothing would notice if one did. **EXPIRY: one commit appends them.** A test-only change whose negative control already exists.
-
-- [ ] **NOT A DEFECT — A MEASURED SCOPE FINDING. Step 3 cannot be "migrate the section backgrounds, then delete the pin", and the pin must NOT be deleted yet.** Measured 2026-09-13 in a browser on production, both themes, transitions disabled, by applying the migration to the live page and re-reading computed styles — a measurement, not a prediction. Floors: 4.5:1 normal text, 3:1 large. **Shipped page today: 11 of 62 text nodes below floor, IDENTICAL in both themes** **[SUPERSEDED as a COUNT, 2026-09-20 — the finding it supports is untouched. A full sweep with four controls (closure to a TreeWalker denominator cross-checked byte-for-byte against `innerText`; six planted mutants at six structural positions, 6/6 caught; polarity located structurally; the mock enumerated at 13) read 68 text nodes / 67 elements at >= 768 and 65 with 2 named exclusions below 640. Failures were 7 above 768 and 10 below, now 1 and 4 after the repair. Re-derive, never quote: `apps/frontend/scripts/contrastSweep.browser.js`.]** (the pin makes the route theme-invariant). **Migrate only the section backgrounds and remove the pin, exactly as scoped: 44 of 62 below floor in dark** — including `#0F172A` on `#0F172A` and `#1E293B` on `#1E293B`, text at **1.00:1**, invisible. The cause is that `LandingScreen.tsx` carries **89 literal colour utilities across 70 of its 255 lines** against 19 token ones; only about 12 are section backgrounds, so flipping the backgrounds strands 77 literal foregrounds that cannot follow. **Migrate the foregrounds too** — every `text-slate-*` → the `--sa-ink*` ramp, `border-slate-*` → `--sa-line*`, excluding the hero mock, which #214 made deliberately literal because it is a PICTURE of the product **[AMENDED 2026-09-20: that exclusion is about the TOKEN MIGRATION and about nothing else. It has already been read once as a contrast exemption, which it is not and never said: contrast is not mentioned in it, and it was written before a single pair inside the mock had been measured. A ruling made without the measurement is not a ruling against the measurement. Measured 2026-09-20, four texts in the mock were below floor at EVERY width (`text-slate-400` eyebrow 2.5640 and table headers 2.4506, `text-amber-600` chip 3.0721, `text-white` on `bg-amber-400` badge 1.6694) and were repaired. Every replacement is still a raw Tailwind literal, so THIS exclusion stands exactly as written and step 3 still skips the mock.]** — **and dark falls to 16 of 62: light unchanged at 11, dark 11 → 16.** Still a regression, and the five new failures were all one thing: `--sa-accent` did not flip. **AMENDED 2026-09-15 — THAT HALF IS SETTLED AND THIS SENTENCE USED TO READ AS LIVE.** #219 unfroze it: `.dark --sa-accent` is `#A7A1FF` on disk today, and the two figures this entry quoted are pre-#219 readings of `#635BFF`. Re-derived from the `.dark` block as it now stands, compositing the translucent tint over `--sa-surface-raised` (`#29315A`): `text-accent` on `bg-accent-tint` **5.46** [floor 3], on `bg-surface-raised` **6.40** [4.5], on `bg-surface` **7.81** [4.5] — every pair clears. The derivation reproduces the old 2.66 and 3.11 exactly when fed `#635BFF`, which is what makes it a check rather than a restatement; see the CLOSED entry below for the twenty foreground swaps that had to ship with the value. **So do not budget for the dark accent ramp — it is done.** What remains of this entry is the literal foregrounds and the closing band. **So the pin is carrying TWO things, not three:** the literal foregrounds, and the closing band, for which no surface token exists (see the entry above). **[AMENDED 2026-09-22: the closing band is no longer one of them. #231 made it all-literal, and it measured identical with the pin stripped from the DOM. The pin still carries the rest of the route: the same strip, in dark, took the route from 0 to 9 text failures at 1280 and moved the hero CTA to SHAPE 1.0463. So step 3 is the foregrounds and section backgrounds; "then the band" in the expiry below is done.]** The dark accent ramp was the third and is gone (above). **The foreground count is stale too, and is NOT restated here on purpose.** The 77 came from a census of 89 literals; measured with controls on 2026-09-15 the file is at **70 literals against 43 token utilities**, down from 88/20, because the six-card grid converted 24 literal colour utilities and put 6 back as the `!` tiles. The foreground/background SPLIT was not re-derived, so budget from a fresh count against `tailwind.config.cjs`, never from a number in this paragraph. **THE GUARD WILL NOT CATCH THIS — measured by mutation, not assumed.** `tokenLiteralPairing.test.ts` inspects ONE `className` string at a time, so a flipping section background paired with a literal foreground on a CHILD element is invisible to it: the backgrounds-only migration that measures 44 failures passes the ratchet **4/4 green**. It does bite where it claims to — token-bg + literal-fg, token-fg + literal-bg, and a stale `KNOWN` entry each go red on their named assertion. Its blind spot is cross-element, which is exactly this migration's hazard. **EXPIRY: this entry dies when step 3 lands. Whoever takes it: decide the dark accent ramp first, then migrate foregrounds and backgrounds together, then the band, and delete the pin LAST, after a measurement — never on a prediction.**
-- **CLOSED — `--sa-accent` is no longer frozen. `.dark --sa-accent: #A7A1FF` shipped together with twenty foreground swaps, in one commit, because neither half is safe alone.** **WHY NO SINGLE VALUE COULD DO IT, and this is arithmetic rather than taste:** the token served two jobs — a FILL under `text-white` (floor 4.5 at 14px/600) and TEXT/graphics on the dark surfaces. White-on-accent ≥ 4.5 requires **L ≤ 0.1833**; accent-on-`surface-raised` ≥ 4.5 requires **L ≥ 0.2730**. Empty set: no colour clears both, derived or invented. So the fix had to be a value AND a foreground. Both halves are derived from what already shipped — `#A7A1FF` was already the dark `--sa-accent-text`, and `text-surface-raised` already ships as a paired foreground elsewhere. **THE LIST WAS NOT SIXTEEN.** `bg-accent` appears at **23** sites; 16 carry `text-white` in the same class string, 5 are decorative fills with no text on them, and **2 carry `text-white` on DESCENDANTS the ratchet cannot see** — `Layout.tsx` (a `<Camera>` icon on the accent tile) and `DashboardScreen.tsx` (an icon plus two text spans on the accent card, one of them `text-white/80`). Swapping only the sixteen would have shipped white text at **2.29** on the Dashboard's primary action. The real edit was **20 swaps across 18 sites**. **`text-surface-raised/80` DOES NOT EXIST** — Tailwind 3.4 emits **zero rules** for an alpha modifier on a `var()` colour, proven by generating the CSS — so that one site uses `text-surface-raised opacity-80`, which composites identically. **TWO CONSEQUENCES, both forced by guards rather than chosen:** the pin grew **6 → 7** declarations, because `landingLightPin.test.tsx` requires the pinned set to be exactly the differing tokens the route reaches and `--sa-accent` now differs — the landing route therefore stays byte-identical, which is correct for a light-only marketing page; and `DashboardScreen`'s icon colour moved from its span to the `<ScanLine>` itself, because `bg-white/15` is a LITERAL but a TRANSLUCENT one over `bg-accent`, so its effective backdrop does flip and the pairing the ratchet flagged there was a false positive — recorded at the site rather than pinned into `KNOWN`, where it would have read as a deferred defect. **THE GUARD OWNS THE ORDER, proven by mutation:** the value alone, with all 20 swaps reverted, goes **RED naming exactly 16 sites**; one single site reverted to `text-white` goes red naming that site; removing the pin declaration goes red on *covers every differing token*; changing the pinned value by ONE byte goes red on *byte-identical to `:root`*. **WHAT NO TEST CAN SEE:** every one of the seven contrast pairs. jsdom applies no stylesheet and resolves no `var()`, so the suite proves the PAIRING is absent and nothing about any ratio. The browser owns all seven, and the numbers live in the PR. **ALSO FOUND, PRE-EXISTING, NOT FIXED HERE:** `bg-surface/40` (`AreaChart`, `DashboardScreen`) and `bg-surface-raised/95` (`DocumentDetailScreen`, twice) are **dead classes that emit no CSS at all**, for the same Tailwind reason — they have been silently doing nothing. And `text-accent` on `--sa-surface` measures **4.38** in LIGHT, under the 4.5 floor, and always has. **THE CANDIDATES, AND WHY NOT THEM — carried here from #218 so the reasoning survives its closure; every figure below is that PR's, not a re-measurement.** The value it was frozen AT is **`#635BFF`**, which was `:root` and `.dark` alike; it remains `:root`'s light value and ships unchanged. Of the six accent tokens only `--sa-accent` ever froze; `-hover`, `-text`, `-tint`, `-tint-2` and `-border` all flip. It is consumed **57 times across 15 files** — `bg-accent` 26, `text-accent` 21, `border-accent` 7, `ring-accent` 3 — which is the blast radius any future change to it inherits. Dark, before the fix, floors in brackets: white on accent fill **4.70** [4.5] passed; `text-accent` on `accent-tint` **2.66** [3], on `surface-raised` **3.11** [4.5], and on `surface` **3.80** [4.5] all FAILED; the fill and border shapes **3.11** and **3.80** [3] passed, barely. Every candidate was derived from a value already in the ramp and measured against every dark surface. **`#A7A1FF`** (the dark `--sa-accent-text`) cleared **seven of eight** — **5.46 / 6.40 / 7.81** — failing only white-on-fill at **2.29**, which is exactly what the twenty foreground swaps answer. **`#6F67FF`** (the dark `-hover`) failed white-on-fill **4.15**, text-on-raised **3.52** and text-on-surface **4.30**. **`#4A3FE0`** and **`#5147E8`** (the LIGHT `-text` and `-hover`) fixed white-on-fill and failed everything else. And keeping white-on-fill at all caps L at **0.1833**, where text-on-raised still reaches only **3.25** and text-on-surface **3.97** — both short — while eroding the one passing pair from **4.70** to exactly **4.50**. **What shipped instead measures 6.40 / 5.46 / 6.40 / 7.81 / 6.40 / 7.81 / 6.40 — every pair passing — with light a byte-level no-op at 4.70 / 4.07 / 4.70 / 4.38.**
-- **CLOSED AS AN ACCEPTED TRADE 2026-09-22 — "How it works" and Pricing are adjacent whites, and that stays. The fix is NOT to grey-wash pricing.** Merging Problem and Value into one section left five sections, which cannot alternate, so these two became adjacent whites. Keeping the closing band dark (#231) settles the bottom third of the page as white, white, dark, and this entry was waiting on exactly that decision. **The cost is accepted, not overlooked**, as measured 2026-09-13 at a proven 1280 with transitions disabled and NOT re-measured since (#231 touched neither section): the two sections are separated only by their `border-y border-slate-100` hairlines, `#F1F5F9` at 1px, **1.096:1** against the `#FFFFFF` either side, across a **1066px continuous white run**. The rule is faintly visible; the two read as one long white expanse. **STILL: DO NOT FIX THIS BY PUTTING PRICING ON A GREY BAND.** That is a one-utility change to a section this work deliberately did not restyle, and it re-opens the half-migrated state step 3 exists to avoid. If the separation is ever revisited, it is a layout decision about both sections, not a background swap on one.
-- **NOTE ON WHAT THE ADJACENT WHITES ARE NOT.** They are not a regression in legibility: nothing moved below a contrast floor, and the same two sections were always `bg-white` — what changed is that a grey band no longer sits between them. Anyone reaching for this entry as a bug should re-read the sentence above about who owns it.
-- [ ] **EVERY PHONE VISITOR, EVERY SCREEN — the app-wide mobile type rule flattens `font-black` to 700 below 768px, so no screen has a heaviest weight on a phone.** The rule is the block headed **"Mobile type scale (<md)"** in `apps/frontend/src/index.css`: inside `@media (max-width: 767px)` it sets **`.font-black { font-weight: 700; }`**, shrinks `.text-6xl` through `.text-xl`, and narrows three tracking utilities. It is global by design; its own comment says it exists because ultra-heavy weights, uppercase and wide tracking "forces letter-by-letter wrapping and clipped pills/CTAs" at phone widths. So **removing it is not free**, and that reason has to be answered, not just the symptom. **Reach, counted with controls on 2026-09-19:** `font-black` appears **87 times across 15 of the 78 source files** in live code, and **`md:font-black`, the one spelling the rule leaves alone, appears 0 times**, so every one of them is 700 on a phone. **What it costs, measured on the pricing cards** in a browser at layout widths 1280, 485, 390 and 360: the cards now carry a three-step weight ladder (list `font-medium` 500 < plan name `font-bold` 700 < price `font-black` 900). At 1280 all three steps hold. At every phone width the price reads **700 and TIES the plan name**, so only list < name survives. **It also moves contrast floors**, which is the less visible half: shrinking `text-xl` from 20px to 18px drops bold text below WCAG's 18.66px large-text line, so a colour that clears 3:1 on desktop can fail 4.5:1 on every phone. That is why the Free plan name had to clear 4.5 (see `landingTextContrast.test.tsx`, which derives the floor from this block). **Do not fix it piecemeal:** a card-local `md:` override or a one-off `font-extrabold` would restore one price and leave 86 other uses deciding nothing. The decision is about the system: keep the flattening and record it as deliberate in the block's own comment, or scope it to the wrapping-prone elements (uppercase, wide-tracked, pill and CTA text) and let headings and prices keep 900. **Who owns it:** this design pass. **EXPIRY: dies when that decision lands in `index.css`, either as a changed rule or as a comment ruling the flattening deliberate.**
-
-## RECURRING FAILURE — named so it stops recurring
-
-- [ ] **ASSERTED FROM A MODEL OF THE SYSTEM RATHER THAN A READING OF IT. FIVE instances in four days, and it cost real work every time.** *(This header read "THREE instances in two days" until 2026-09-11; two more are recorded in the item below it. A count in a heading goes stale exactly like any other cached reading.)* On 2026-09-08 the owner's standing instructions referred to `WORK-QUEUE.md` as the place listing every pending step. It did not exist; `LAUNCH_TODO.md` was the board, and eight pending items were sitting in assistant session memory where nobody could see them. On 2026-09-09, asked what else could disagree with the board, the assistant named `DEFERRED.md` as "the register" — also from memory. **`git log --all --diff-filter=A -- "*DEFERRED*"` returns empty: it has never existed on any branch, ever.** The thing actually meant was the `## DEFERRED` section of this file. **This is not one person's mistake.** It was carried in the owner's written instructions for weeks and repeated back by the assistant without checking, which is precisely how a wrong premise survives: both sides recognise the name, so neither looks. A filename is the most quotable kind of claim and the least verified. **THE CHECK, one command, before any file name is used as a premise:** `git cat-file -e origin/main:<FILE> && echo EXISTS || echo ABSENT`. It carries its own positive control — run it against a file you know is there and one you know is not, and it prints `EXISTS` then `ABSENT`, so a wrong answer is visible rather than inferred. Verified 2026-09-09: `WORK-QUEUE.md: EXISTS`, `DEFERRED.md: ABSENT`. **THIRD INSTANCE, 2026-09-09, and it is the same shape with no filename in it.** The recovery of the empty rows was proposed as a *paced dose-response* — 10 rows at a 5s cadence against 10 at 30s — sold as settling the `Organization` row-lock contention item “at zero extra cost”, on rows that needed recovering anyway. **A re-extraction cannot test that hypothesis at any cadence.** `persistence.ts` gates the charge as `chargeScan ? await tx.document.updateMany(...) : { count: 0 }`, and the `tx.organization.update({ scanCount: { increment: 1 } })` sits in the trailing `else`. Re-extraction passes `chargeScan: false`, so **both are skipped and the contended row lock is never taken** — that lock being the entire mechanism the hypothesis names. The design came from a remembered model of the persist path, not a reading of it, and would have spent 10 rows and five minutes on a comparison that measured nothing. The 5s arm that did run remains valid evidence — 19/19 delivered across two runs, median ingestion ~9.5s — but **only about re-extraction**, and it must never be quoted as evidence about the upload path. **The generalised rule: a filename, a call path, or a code behaviour you have not READ this session is a hypothesis, not a fact** — including one in your own earlier instructions, and including one you feel sure of because you wrote the surrounding code. Before a claim rests on what some code does, open it. EXPIRY: none. This is a standing check, not a task.
-
-- [ ] **FOURTH AND FIFTH INSTANCES, 2026-09-11 — and both of them are ESTIMATES, which is the shape this section had not yet caught.** The first three instances were about a *name* or a *call path* recalled instead of read. These two are about a *number*, and a number is worse, because it arrives already looking like a measurement.
-  **(4) `roughly 14,000 on the median or 113,000 on the mean`.** That line sat on this board as the exposure of recovering other people's documents. It was produced by taking the median and mean of 20 already-recovered documents and multiplying by the rows still held. **Every one of those 20 was in a single organisation, and the two largest organisations in the database are the owner's own** — the runner had been selecting "largest org" each time. So the per-document size was sampled from his receipts and projected onto strangers. **Measured instead, everyone else's entire recorded spend, every currency, every status, came out three orders of magnitude below that estimate** (the figure is not quoted here: it is other people's spending), and the number never said which population it came from.
-  **(5) `three orphan rows`.** The board said three. The query — `LEFT JOIN auth.users ... WHERE a.id IS NULL`, with `SELECT COUNT(*) FROM auth.users` returning 31 as its control — returns **four**, and two of them hold documents. "Three" had been carried from a session that looked once; it was a memory of a reading, which is not a reading.
-  **THE RULE THIS ADDS: an extrapolation is a claim about a POPULATION, and the population has to be written next to it.** "Median of the sample times rows remaining" is arithmetic wrapped around an assumption — that what is left resembles what was measured. State the assumption or do not publish the number. **NO ESTIMATE WITHOUT ITS POPULATION**, and where the real figure is cheap to measure, measure it instead: the query that replaced (4) took one command, against an estimate that had stood for two days and was shaping how the recovery was being sized.
-  **A note on who catches these.** All five instances were caught by someone asking a question the author had not asked themselves, not by the author re-reading their own work. That is worth knowing about this failure mode: re-reading does not catch it, because the sentence still parses and the number still looks like a number. EXPIRY: none. This is a standing check, not a task.
-
-## SHIPPED BUT UNREACHABLE — CLOSED 2026-09-11 by #203
-
-> Kept rather than deleted: the item's sizing argument is why the work got done,
-> and the annotated corrections inside it record what the board had wrong.
-
-- [x] **CLOSED 2026-09-11 by #203 (`004c1cb`) — THE RETRY BUTTON NOW REACHES THE ROWS THE ENDPOINT ADMITS.** *Everything from here to the end of this item is the ORIGINAL text, left standing because the sizing argument in it was right and is what got the work done. The three costs it named are all discharged; each is annotated inline below.* ~~`DocumentDetailScreen.tsx:468` renders the re-extraction button behind `doc.status === 'FAILED'`.~~ **FALSIFIED 2026-09-11:** the render gate is now `doc.reextractable`, the SERVER's own answer computed by `documentController.reextractionRefusal`, so the button appears on exactly the rows the endpoint would accept. The `FAILED` branch is kept alongside it and deliberately does not consult `reextractable`. **Production holds 0 `FAILED` documents** — measured 2026-09-09, `prisma.document.count({ where: { status: 'FAILED' } })`, against 385 total (COMPLETED 201, NEEDS_REVIEW 172, REJECTED 12; also 0 `PROCESSING`, 0 `LIMIT_REACHED`). **Re-measured 2026-09-11 over 386 rows: COMPLETED 222, NEEDS_REVIEW 152, REJECTED 12 — still 0 `FAILED`, 0 `PROCESSING`, 0 `LIMIT_REACHED`.** The `FAILED` branch therefore still reaches nobody; what changed is that the `reextractable` branch beside it now does. So the button renders for nobody, and the `POST /:id/reextract` endpoint has **never executed for a real user**. **Its true size, stated honestly, because "one line" undersells it:** what shipped in #187 was a button, three-language 409 copy (`retryExtraction`, `reextractStarted`, `reextractSourceUnavailable`, `reextractInProgress` in en/fr/ar, with the Arabic asserted by code point in `tests/reextractErrorI18n.test.ts`), a per-org rate limiter at 20/hour, and an exact-code error discriminator in `lib/reextractErrors.ts` — a complete, tested, localized feature whose gate condition has never once been true in production. ~~**Since #197 there are 130 eligible rows** (empty-shape `NEEDS_REVIEW`) and the UI still cannot reach any of them.~~ **RE-MEASURED 2026-09-11** (`prisma.document.findMany` on the gate's own predicate — `status NEEDS_REVIEW` + `rawText ''` + `overallConfidence 0` + no `user_`-prefixed fact): **109 empty-shape rows across 23 organisations**, of which **99 are ADMITTED** by the gate and **10 are REFUSED** as multi-document declines (`documentType = 'UNKNOWN'`, 8 organisations). The UI reaches all 99 as of #203. The 130 was measured before #202/#203 and before any recovery ran; it is not what is there now. **What making it reachable actually costs:** (a) widen the render gate — genuinely one line; ~~(b) **two new 409 codes have no copy at all** — `DOCUMENT_HAS_CONTENT` and `DOCUMENT_HAS_USER_EDITS` currently fall through `reextractErrors.ts` to the generic toast, so a user refused for holding their own edits would be told nothing useful, and closing that means 2 strings × 3 languages plus the i18n test;~~ **FALSIFIED 2026-09-11:** both have copy in all three locales — `reextractHasContent` and `reextractHasUserEdits` at `strings.ts:432-433` (en), `:873-874` (fr), `:1326-1327` (ar) — and `reextractErrors.ts:43-44,65,69` exports and discriminates both codes. This cost was paid, not skipped; (c) there is **no bulk or multi-select affordance anywhere in the frontend** — `grep -rn "selectAll|bulk|batchAction|selectedIds" apps/frontend/src` returns nothing — so 130 rows would be 130 individual taps against a 20/hour/org limiter. **NOT being fixed in this change, deliberately.** Recorded at full size so it is not later re-discovered as "just a gate condition". ~~EXPIRY: revisit when the canary and the 23-row batch have established that the recovery path works end-to-end — building UI onto a path that has never completed once would be building on an assumption.~~ **THAT EXPIRY WAS CIRCULAR AND #203 BROKE IT, which is the durable lesson here.** It said: do not build the UI until the path has completed end-to-end. The path could not complete end-to-end *because the UI could not reach it* — every completion to date came from a script run by us, never from a user tapping a button. An expiry condition that can only be satisfied by the work it is blocking is not an expiry condition; it is a deadlock with a date on it. **The check: read an expiry aloud and ask who can satisfy it. If the answer is 'the item itself', rewrite it.** What actually discharged it was noticing that the server already computed the admission answer, so the client could stop guessing.
-
-## RECOVERY MOVES OTHER PEOPLE'S MONEY FIGURES
-
-> **The headline is still true and the size is not what this section said.**
-> The mechanism is unchanged: `sum_expenses` has no status filter, so a recovered
-> amount enters a total the instant it is written. What was withdrawn on
-> 2026-09-11 is the 14,000-113,000 exposure estimate, which was extrapolated from
-> the owner's own two organisations. Everyone else's recorded spend is a small
-> fraction of his, and is **not quoted here: it is other people's spending**. The
-> twenty-thousand-dollar move that prompted this section happened in **his own
-> account**, not a stranger's.
-
-- [ ] **THE EXPENSE SUM ITSELF HAS NO AFFORDANCE, AND A PER-DOCUMENT INDICATOR DOES NOT GIVE IT ONE. Bigger than the indicator PR; deliberately not folded into it.** `queryExecutor.ts:58-70` answers `sum_expenses` by grouping `TOTAL_AMOUNT` facts filtered only by organisation — **`Document.status` is applied ONLY when the user explicitly asks for it**, so every status is included by default. A recovered document writes a `TOTAL_AMOUNT` fact, and that amount enters "how much did I spend" the instant it is written. **Measured 2026-09-09: the 20 documents recovered that day wrote 20 `TOTAL_AMOUNT` facts totalling 20,644.74 (median 127.40, mean 1032.24, USD and CAD), and because the runner kept selecting "largest org" they all landed in ONE organisation.** One person's summable expense total moved by twenty thousand dollars with nothing in the product saying why. ~~**Aggregate exposure across the remaining 110 held rows: roughly 14,000 on the median or 113,000 on the mean, across 23 organisations and 23 distinct people**~~ — ~~the two figures differ by 8x because the sample carries a 7,282 and a 5,650 outlier and several repeated values suggesting the same receipts uploaded more than once.~~
-
-  **WITHDRAWN 2026-09-11. THE ESTIMATE WAS EXTRAPOLATED FROM THE WRONG POPULATION, AND THE REAL ONE IS THREE ORDERS OF MAGNITUDE SMALLER.** Both figures were built by taking the median and the mean of the 20 already-recovered documents and multiplying by the rows still held. Every one of those 20 landed in ONE organisation — the runner kept selecting "largest org" — and the two largest organisations are **the owner's own**. So the per-document size was sampled entirely from his receipts and then applied to strangers.
-
-  **Measured instead, 2026-09-11, `documentFact.groupBy` on `key: 'TOTAL_AMOUNT'` scoped by organisation:**
-
-  | population | organisations | documents | total recorded spend |
-  |---|---|---|---|
-  | `d8b34ee3` (owner) | 1 | 79 | USD 85,761.91 + SAR 19,790.00 + MAD 3,274.95 + CAD 922.08 + AED 525.00 + PHP 106.00 + 16.50 with no currency |
-  | `5ce3e185` (owner) | 1 | 74 | USD 62,342.62 + CAD 9,638.87 + INR 290.00 + CHF 218.00 + EUR 131.79 + MAD 128.23 |
-  | one further organisation, not ours | 1 | not quoted | *not quoted: another person's spending* |
-  | **everyone else** | **28** | **211** | *not quoted: other people's spending* |
-
-  **Everyone else's recorded spend, across every currency and every status, is not quoted here: it is other people's spending, and it is a small fraction of the owner's.** (Replaced 2026-09-23, with the per-organisation row above: a planning document does not carry other people's spending. The figures stay in git history; they are not repeated.) Of the 42 `TOTAL_AMOUNT` facts those 28 organisations hold between them, **39 are zero-valued and 3 are not**. Twenty of the 21 organisations holding any such fact are on a bare FREE plan; the twenty-first is `22d51116`, which is the review/test account (`planOverride = PRO`).
-
-  **What this changes about the item, and what it does not.** The *mechanism* stands untouched and is still the reason this item is open: `queryExecutor.ts:59-74` sums `TOTAL_AMOUNT` with no status filter, so a recovered document's amount enters the total the instant it is written, and nothing in the product explains a total that moved. What collapses is the *stakes* for third parties. The twenty-thousand-dollar move that prompted this item was real, and it happened to **the owner's own organisation**. Almost all recorded spend sits in his own accounts. That is evidence about scale, not a bound: a receipt that was never read can carry any amount, so recorded spend does not limit what recovering it would add. (Corrected 2026-09-23: this sentence used to claim such a bound, in dollars.)
-
-  **The lesson is the one this file already names elsewhere: an extrapolation is a claim about a population, and the population has to be stated.** "Median of the sample × rows remaining" reads like arithmetic and is actually an assumption — that the rows remaining resemble the rows sampled. Here they did not, and nothing in the number said so. **No estimate without its population.** **What the indicator does and does not do:** the re-processed notice shipped alongside this item explains a DOCUMENT — "this one failed earlier, it was re-processed on <date>". It cannot explain a TOTAL that moved, because a user reconciling works downward from the number and would have to already suspect which documents changed. **What closing this would take:** `sum_expenses` returning provenance metadata (how many documents in the answered set were re-processed, and when), the answer surface rendering it, and a ruling on the time-window semantics — that is the query pipeline, not the document view, and it is a separate piece of work. **EXPIRY: this blocks nothing today because the rows are held. It becomes urgent the moment recovery resumes at scale** — and see the item below, which establishes that "at scale" is not something we can do.
-
-- [ ] **WE CANNOT RUN THE RECOVERY FOR ANYONE ELSE. THE ENDPOINT AUTHENTICATES PER ORGANISATION, SO EACH ROW NEEDS ITS OWN OWNER'S SESSION.** `DocumentController.reextract` reads `organizationId` from `req.user` — set by `authMiddleware` from the caller's own token — and scopes the lookup as `prisma.document.findFirst({ where: { id, organizationId } })`. A row belonging to another organisation returns **404**, not 403: from our session it does not exist. There is no admin path, no impersonation, and no service-role route to it; `grep -rn "organizationId" apps/backend/src/controllers/documentController.ts` shows every query in the file scoped the same way.
-
-  **The population that puts us on the wrong side of that boundary, measured 2026-09-11:** of the 99 empty-shape rows the gate admits, **4 are in the owner's two organisations** and **95 are not**. One of those 95 is the review account, leaving **94 rows across 20 organisations belonging to 20 distinct people** — one person per organisation, since `Membership` shows **zero** users holding membership in more than one organisation. None of the 94 sits in an organisation whose only member has lost their auth account, so all 94 are in principle reachable *by their owners*.
-
-  **What that means for the recovery plan, stated plainly: there is no plan we can execute.** Every previous recovery ran as a script under a session we control, against rows in accounts we control. That route is closed for these 94. The only paths that exist are (a) each of the 20 people signs in and taps retry on each of their own rows — against a 20/hour/org limiter, with no bulk affordance anywhere in the frontend — or (b) somebody builds a server-side job that runs outside the request path and therefore outside `authMiddleware`, which is new code, new authorisation surface, and a decision about writing into other people's data without them asking. **(b) is not a small change and should not be started without the precondition named in the PROCESS FAILURE item below.**
-
-  **This reframes the exposure item above rather than adding to it.** Recovery "resuming at scale" was being treated as a scheduling question. It is not: at scale it requires either 20 strangers to act, or a new mechanism to be built and authorised. **EXPIRY: closed either by a decision not to recover third-party rows at all — which is defensible on the recorded-spend evidence above, remembering that recorded spend does not bound what unread receipts hold — or by (b) being specified and authorised.**
-
-- [ ] **PROCESS FAILURE, recorded because the sequencing is the lesson: this was surfaced TWO TURNS AFTER the first twenty rows were spent, not before the first one.** The canary and both batches were proposed, authorised and run on the strength of technical safety — the guard, the charge gate, the delivery record, the witness — and every one of those checks was sound. **None of them asked what the user would SEE.** The question "does this change a number a person is looking at, and would they be able to tell why?" was never put before the first row, and it is not a technical question, which is exactly why the technical checklist did not catch it. **The rule: before any operation that writes data into accounts belonging to other people, state what changes in their view of their own data and whether the product explains it — as a precondition, alongside the safety checks, not as a follow-up.** Twenty rows is a cheap price for learning it; 110 across 23 strangers would not have been. EXPIRY: none. This is a standing precondition, not a task.
-
-- [ ] **TOOLING — importing the re-extract admission rule builds storage clients it has no use for.** Read 2026-09-23. `reextractionRefusal` lives in `documentController.ts`, and importing that module constructs two Supabase **service-role** clients (`supabaseStorage.ts:12`, `getSignedFileUrl.ts:11`) and a Prisma client on load. `scripts/recoveryCensus.ts` imports the rule on purpose, because a restated copy would drift from what the endpoint admits. The consequence is that a read-only census holds storage-capable clients it never calls. Measured: importing the census core exits cleanly in 1.7 s, so the clients are only built, and nothing is started or called. **EXPIRY: one refactor.** Move `reextractionRefusal` and the constants it reads into a module with no imports, and re-export it from the controller. The behaviour is identical, and it is held by `documentController.reextractGate.test.ts` and by the census test's agreement check.
-
-- [ ] **QUEUED — the Gemini adapter records no `usageMetadata`, so token spend is unmeasurable and unattributable.** `geminiAdapter.ts` names `usageMetadata` only in a comment about the response shape; nothing reads it. Consequence: the cost of any run can be estimated but never measured. The 110-row recovery was estimated at roughly $0.05-$0.35 (220 calls: one `isSingleDocument` validation plus one extraction per document, all 19 observed extractions succeeding on attempt 1) and under $4 even if that is wrong by an order of magnitude. **Do NOT pick this up to refine that estimate — the uncertainty band is smaller in absolute terms than the effort.** The reason it is worth doing is different and unrelated to run costing: **the Gemini project is shared between two products and the console cannot attribute usage per key**, so today there is no way to answer "what does THIS product cost to run". Capturing `usageMetadata` per call is the only thing that would. EXPIRY: revisit when per-product cost attribution is actually wanted; until then it is a nice-to-have with a named payoff.
+> **THE RULE FOR THIS FILE.** A line asserting something about a system outside
+> this repository (Play, Apple, Paddle, the database, Supabase, Resend, Google
+> Cloud, Railway) carries the call that answers it, or does not assert it. A date
+> is not a substitute. Where no programmatic call exists, name the system and the
+> exact question, never a cached answer. Claims about this repository need no
+> instrument: the reader can open the file.
+
+## THE STAGE — design, then the Apple App Store
+
+- **Set 2026-09-23 by the owner:** make the app's design and interfaces modern,
+  then publish on the Apple App Store. Everything else is secondary.
+- **Premise:** the app has zero Play downloads and no user besides the owner (his
+  statement). A read-only reading the same day agreed: since 2026-08-01, zero
+  uploads and zero sign-ins by members of any organisation outside his three,
+  against 54 uploads in his own three over the same window (the control). The
+  three: owner `d8b34ee3`, owner `5ce3e185`, review account `22d51116`.
+  Instrument: from `apps/backend`, inside `SET TRANSACTION READ ONLY` with
+  `SHOW transaction_read_only` asserted `on` first, count `Document.uploadedAt`
+  and `auth.users.last_sign_in_at` on or after `2026-08-01`, joined through
+  `Membership`, for organisations whose id starts with none of the three
+  prefixes; then the same counts for the three, as the control.
+- **The recovery track is dead. Do not resume it.** Its items left with it.
+- **The privacy rules stand as engineering discipline** (the owner, same day).
+- **Order:**
+  1. This rewrite.
+  2. The owner enrolls in the Apple Developer Program, now and in parallel. It
+     needs his approval of the fee, and "Founder decision" comes first.
+  3. Design step 1, direction prototypes, with no repository change.
+  4. Once enrollment clears: the iOS platform and a CI → TestFlight pipeline, in
+     one small PR, so every later design commit is judged on his iPhone.
+  5. Design steps 2 to 7.
+  6. Submission, once design steps 1 to 5 are done and every APPLE TRACK blocker
+     is closed.
+
+## CORRECTED 2026-09-23 — "paying customers" was a reading of our own table
+
+This file's header said "paying customers", and its logo item said "3 ACTIVE
+Paddle subscriptions".
+
+- **What the database says** (read-only, 2026-09-23): three `Subscription` rows,
+  `source PADDLE`, `status ACTIVE`, all created 2026-06, and none recording a
+  `currentPeriodEnd`. Two are in the owner's organisations `d8b34ee3` and
+  `5ce3e185`. The third is in an organisation outside his three: created
+  2026-03, its only member last signed in 2026-04, and all 22 of its documents
+  were uploaded in 2026-03.
+- **What it cannot say:** whether anyone is being charged, whose card it would
+  be, or whose the March organisation is. A `Subscription` row is our last-known
+  entitlement state, written by the webhook path or a backfill. It is not a
+  billing ledger.
+- **The two checks only the owner can make.** Nothing here asserts their outcome.
+  1. Paddle dashboard, **live mode** → Subscriptions: which are active and
+     billing, and to whom.
+  2. Supabase → Authentication → Users, the accounts created in 2026-03: is that
+     address his?
+
+```sql
+-- apps/backend, inside SET TRANSACTION READ ONLY. Prints no identities.
+SELECT CASE left(s."organizationId"::text, 8)
+         WHEN 'd8b34ee3' THEN 'owner A' WHEN '5ce3e185' THEN 'owner B'
+         WHEN '22d51116' THEN 'review' ELSE 'not ours' END AS whose,
+       s.source, s.status, to_char(s."createdAt", 'YYYY-MM') AS created,
+       s."currentPeriodEnd" IS NULL AS no_period_recorded
+FROM "Subscription" s ORDER BY s."createdAt";
+```
+
+## CONSTRAINT — other people's rows never become design material
+
+**Nothing from an organisation outside the owner's three (`d8b34ee3`,
+`5ce3e185`, `22d51116`) becomes prototype content, demo data, a test fixture or
+a store screenshot.**
+
+- **The June accounts came from the closed test.** 22 accounts outside his
+  organisations were created in 2026-06 (read 2026-09-23: `auth.users.created_at`
+  by month, through `Membership`). This file recorded that test's testers as 25
+  people from a Fiverr seller who created their own in-app accounts.
+- What their documents show is unknown, and the empty ones were never read.
+- The March accounts fall under the same rule, because their owner is
+  unconfirmed (see the correction above).
+- **Use the owner's own receipts, or synthetic ones.**
+
+## APPLE TRACK
+
+### Done in code, never run on iOS
+
+- **In-app account deletion.** `DELETE /api/account` is served by
+  `AccountController.deleteAccount` and opened from `DeleteAccountModal.tsx`,
+  and there is a public `/delete-account` page. Apple 5.1.1(v): *"If your app
+  supports account creation, you must also offer account deletion within the
+  app."*
+- **The native no-sell gate.** `isNativePlatform` in `native/shell.ts` is
+  `Capacitor.isNativePlatform()`, which is true on iOS as on Android.
+- **There has never been an iOS build.** `apps/frontend/ios` does not exist, and
+  `@capacitor/ios` is not in `apps/frontend/package.json`, while
+  `@capacitor/android` is. So the old line "account deletion works on iOS too"
+  was never observed. **Verify both on the first TestFlight build.** For
+  deletion, delete a throwaway account in-app, then run the query in "Orphaned
+  app rows": its count must not grow.
+- **Enrollment:** this file only ever recorded the plan ("$99/yr, individual"),
+  never a start. Whether it has started is read at developer.apple.com/account.
+
+### Facts corrected 2026-09-23, each with what was read
+
+- **A Mac is not required to build, sign or ship.**
+  - The repository is public (`gh api repos/{owner}/{repo} --jq .visibility`).
+  - GitHub's runner reference
+    (docs.github.com/en/actions/reference/runners/github-hosted-runners), read
+    2026-09-23: *"Use of the standard GitHub-hosted runners is free and unlimited
+    on public repositories."* `macos-latest`, `macos-14`, `macos-15` and
+    `macos-26` are on that list.
+  - The plan: build, sign with an App Store Connect API key, and upload to
+    TestFlight in CI, at $0. TestFlight puts each build on the owner's iPhone.
+  - **What CI cannot give** is Safari's Web Inspector attached to the app on the
+    phone. If iOS-only rendering bugs appear, that is when a Mac earns its price.
+  - Two conditions:
+    - Signing material lives only in Actions secrets and is never echoed,
+      because this repository's logs are public.
+    - If the repository ever goes private, the quoted sentence stops applying.
+- **Version 1 needs no in-app purchase.**
+  - Apple 3.1.3(f), read 2026-09-23 at
+    developer.apple.com/app-store/review/guidelines: *"Free apps acting as a
+    stand-alone companion to a paid web based tool (i.e. VoIP, Cloud Storage,
+    Email Services, Web Hosting) do not need to use in-app purchase, provided
+    there is no purchasing inside the app, or calls to action for purchase
+    outside of the app."*
+  - That condition is the native INVARIANT below, already enforced in code.
+  - **The named risk is 3.1.3(b)**, on the same page: *"Apps that operate across
+    multiple platforms may allow users to access content, subscriptions, or
+    features they have acquired in your app on other platforms or your web site
+    … provided those items are also available as in-app purchases within the
+    app."* A reviewer who reads the app under (b) rather than (f) will ask for
+    IAP, so the review notes must argue (f).
+  - A free app also needs no paid-apps agreement (recalled, not read: confirm
+    under App Store Connect → Agreements). That sidesteps whether Apple would
+    accept this Morocco-based account for one, which has never been asked. Play
+    refused it merchant status.
+- **ATT is moot.** App Tracking Transparency was on this list only for ads, and
+  ads left the plan on 2026-09-23.
+- **"Individual" is a seller-identity choice, and it is the same decision the
+  welcome email is waiting on.**
+  - An individual enrollment sells under the person's legal name.
+  - Distribution in the EU asks for a trader declaration whose contact details
+    are shown on EU product pages. Not verified here; read the current terms in
+    App Store Connect when enrolling.
+  - Both are the welcome email's question: which name and address the world
+    sees. See "Founder decision".
+
+### Blockers this file never had
+
+- [ ] **No iOS platform in the repository.** `apps/frontend/ios` is absent, and
+  `@capacitor/ios` is not a dependency. **EXPIRY:** a PR adds the platform and a
+  CI workflow that uploads a signed build to TestFlight, and the owner installs
+  it on his iPhone. Needs enrollment first.
+- [ ] **Placeholder text that 2.1(a) forbids is reachable today.** Apple 2.1(a):
+  *"placeholder text, empty websites, and other temporary content should be
+  scrubbed before submission."*
+  - `SettingsScreen.tsx`: the `s.comingSoon` panel lists invoice history, team
+    management, API key generation and webhook configuration under "Coming
+    soon:". Its container carries no platform or width guard.
+  - `DashboardScreen.tsx`: `s.dataComingSoon` ("Data coming soon") appears at two
+    sites, one in each panel without data. That describes a new account's first
+    screen.
+  - `ProfileScreen.tsx` holds a third, but nothing imports or routes it. It goes
+    in design step 5.
+  - **EXPIRY:** no `comingSoon`, `moreSettingsSoon` or `dataComingSoon` string can
+    render in a native build.
+- [ ] **No support page.**
+  - App Store Connect requires a Support URL. `App.tsx` declares `/`, `/login`,
+    `/privacy`, `/terms`, `/refund`, `/delete-account` and the app screens, and
+    nothing else. Contact addresses appear only on the legal pages and on
+    `/delete-account`.
+  - The address the page should carry is `support@scan-action.com`. Before
+    publishing, verify it still routes: an SMTP `RCPT TO` against the domain's
+    MX, with no message sent, and a deliberately fake address on the same domain
+    as the control, which must be refused. The 2026-09-05 run of that probe is
+    in git history.
+  - **EXPIRY:** a public page with support contact exists, and its URL is in App
+    Store Connect.
+- [ ] **No privacy-policy link inside the native app.** Found 2026-09-23 while
+  writing this rewrite.
+  - Apple 5.1.1(i): *"All apps must include a link to their privacy policy in the
+    App Store Connect metadata field and within the app in an easily accessible
+    manner."*
+  - The only in-app `<Link to="/privacy"` is in `LandingScreen.tsx`, and a native
+    build never renders the landing: `LandingRoute` in `App.tsx` sends native `/`
+    to `/dashboard` or `/login`.
+  - **Linking it triggers the INVARIANT's own note.** `PrivacyPolicy.tsx` says
+    payments are processed by Paddle, and mentions subscription cancellation.
+  - **EXPIRY:** a native build links a privacy policy whose copy carries no
+    purchase link and no call to action.
+- **Scope: v1 is iPhone-only.** Set the device family to iPhone when the platform
+  is added. At iPad width (768 CSS px and up, `useIsDesktop`), New Scan opens the
+  desktop upload dialog instead of `CaptureSheet`, which would be a second layout
+  to design and review.
+
+### Kept, with the reason each has now
+
+- [ ] **App Privacy details (Apple) and Data Safety (Play): complete truthfully.**
+  Required to submit.
+  - Derive the processor list from the code at submission time, never from a
+    list here.
+  - Today that list is Google Gemini (document analysis), Supabase (auth,
+    database, storage) and Resend. Resend carries transactional mail, and
+    Supabase Auth mail through custom SMTP; see "Where a confirmation email comes
+    from".
+  - Recipient addresses go to Resend, a US email processor.
+  - **EXPIRY:** the labels are submitted, and match the build and the Gemini tier.
+- [ ] **Gemini billing tier: settle it before the privacy label is written.**
+  - The label must say what Google does with document content. On the free tier,
+    Google may use submitted content to improve its products (terms:
+    https://ai.google.dev/gemini-api/terms).
+  - Which tier the key is on is not recorded here, by rule. Read it on the Google
+    AI Studio / Cloud billing page for that key's project.
+  - A second reason: in the only era whose failures carry a class (2026-09-08/09,
+    one organisation, deliberately bursty load), 13 of its 20 failures were
+    quota 429s. That comes from the extraction watch reading of 2026-09-22, now
+    in git history. A reviewer's scans can meet a quota.
+  - **EXPIRY:** the tier is read, and the label written to match it.
+- [ ] **The reviewer's first scan must work. Measure it before submitting.** This
+  replaces the extraction-reliability tracking, which was justified by uploaders
+  who do not exist.
+  - Measure on the current model, with the owner's own phone photos of real
+    receipts, through the TestFlight build, after the Gemini tier is settled.
+  - Read the result with `cd apps/backend && npx tsx scripts/extractionWatch.ts 60`,
+    which is read-only, enforced by the database.
+  - Today's evidence is thin. The watch read the current era at 6 succeeded and
+    0 failed (2026-09-23). That bounds the per-upload failure rate only below
+    about 39% at 95% confidence (calculated: 1 − 0.05^(1/6)). Showing it is below
+    10% takes about 29 clean uploads in a row (calculated: ln 0.05 / ln 0.9).
+  - **EXPIRY:** a run sized for the bound wanted, on real receipts, read by that
+    command and reported with its population.
+- [ ] **Review account `unicornapps.support@gmail.com` (`22d51116`): it STAYS PRO
+  as the standing demo account for both stores.** REVERSED 2026-09-23; this used
+  to say "revert to FREE after the production review".
+  - Why it stays: Apple 2.1(a) says *"include demo account info (and turn on your
+    back-end service!) if your app includes a login"*, and Play re-reviews every
+    update.
+  - It is PRO through `Organization.planOverride`, which the entitlement service
+    never writes. Read it with
+    `SELECT o."planOverride", o.plan, (SELECT count(*) FROM "Subscription" s WHERE s."organizationId"=o.id) FROM "Organization" o JOIN "Membership" m ON m."organizationId"=o.id JOIN "User" u ON u.id=m."userId" WHERE u.email = <that address>;`.
+    `planOverride = PRO` with zero subscription rows is the safe shape.
+  - Its documents are ours, so they are acceptable demo content.
+  - **If it is ever reset, the instruction this file used to carry was WRONG.**
+    It said "set `planOverride = null` (it then derives FREE)".
+    - `Organization.plan` is a cache written only on a billing event:
+      `data: { plan: newPlan }` in `applyEntitlementChange.ts` is its only writer.
+    - Request-time checks read the cached column (`organization?.plan === 'FREE'`
+      in `uploadController.ts`).
+    - So on an account with no subscription, nulling the override alone leaves
+      `plan = PRO` forever.
+    - A reset sets **both** `planOverride = null` and `plan = 'FREE'` in one
+      statement, as `docs/DASHBOARD_REDESIGN_PROGRESS.md` already said.
+  - **EXPIRY:** none while either store reviews updates.
+- [ ] **Founder decision: which name and address the world sees.** It blocks two
+  things, and only the owner can decide it.
+  1. Apple enrollment: as an individual (his legal name as seller, and the EU
+     trader declaration), or as an organisation.
+  2. The welcome email, which is held twice:
+     - `MAIL_POSTAL_ADDRESS` must be set, because `mailer.ts` fails closed
+       without a physical address (CAN-SPAM requires one).
+     - `WELCOME_EMAIL_ENABLED` must be `true` (`welcomeEmail.ts`).
+     - Both are Railway variables, and their values are not recorded here.
+  - **EXPIRY:** the owner decides, before enrolling.
+- [ ] **Real in-app purchase (RevenueCat): DEFERRED until there are users.** v1
+  ships under 3.1.3(f), with no purchase.
+  - When it is built, it goes through `applyEntitlementChange`
+    (`apps/backend/src/services/entitlement/`), the path the Paddle webhook
+    uses. That path takes a row lock, guards against out-of-order events, and
+    never writes `planOverride`.
+  - Set `app_user_id` to the Supabase user id.
+  - Give it a separate webhook with its own signature check. It maps each event
+    to a per-source ACTIVE/INACTIVE status, never directly to a plan:
+    - `INITIAL_PURCHASE` / `RENEWAL` / `PRODUCT_CHANGE` → ACTIVE.
+    - **`CANCELLATION` turns auto-renew off and nothing else.** Access continues
+      to the period end, so the source stays ACTIVE. **Never map CANCELLATION
+      to FREE.**
+    - `EXPIRATION` → INACTIVE. This is the real downgrade point.
+    - `BILLING_ISSUE`, grace and dunning → stay ACTIVE.
+  - `derivePlan` takes the maximum across sources, so Paddle and RevenueCat rows
+    coexist.
+  - An earlier mapping in this file sent CANCELLATION, EXPIRATION and
+    BILLING_ISSUE to FREE. That was revenue-damaging.
+  - **EXPIRY:** the owner decides to sell inside the iOS app.
+
+## DESIGN TRACK
+
+### The ruling, and why starting anywhere else produces a well-measured admin panel
+
+**Colour and type are not the cause.** The type pairing is deliberate: Inter plus
+IBM Plex Sans Arabic, loaded by the `@fontsource` imports in `main.tsx`.
+
+**The cause is structure. The app is a B2B web admin panel on a phone:**
+
+- The navigation is Dashboard / Recent activity / Search / Queue / Settings (the
+  nav items in `Sidebar.tsx`).
+- Home reports on the system, not on the person: `s.documentsProcessed` and
+  `s.documentsByStatus` in `DashboardScreen.tsx`.
+- Settings promises API keys and webhooks (the `s.comingSoon` panel).
+- Capture hands the user a plain photo from the phone's generic camera:
+  `capture="environment"` in `CaptureSheet.tsx`. `@capacitor/camera` is used only
+  for its permission API (`native/camera.ts`).
+
+In an app store, that is what Apple 4.2 excludes: *"Your app should include
+features, content, and UI that elevate it beyond a repackaged website."*
+
+**Every design entry this file used to carry corrected one element of that
+structure:** a banner's colour, a pill, a table, an empty state. The landing work
+measured contrast to four decimals, which is hygiene, not design. **Working that
+list, or starting from whichever screen is easiest to change, produces a
+well-measured admin panel rather than an app.**
+
+**The ruling: start at the scan → read → result loop, redrawn from zero, not
+restyled.** Do not start at login, although a reviewer sees it first:
+
+- Both judges decide on the first scan: the reviewer's 4.2 ruling, and a
+  first-time visitor's keep-or-delete.
+- It is the furthest point from the market's best. System document scanners give
+  edge detection, auto-capture, perspective correction and multi-page:
+  VisionKit's document camera on iOS, ML Kit's document scanner on Android. The
+  plugin choice comes later.
+- A flattened, cropped page may also extract better than a raw photo. That is a
+  hypothesis, measured in step 3.
+- The loop sets the visual language every other screen inherits.
+
+### The order
+
+- [ ] **1. Direction: prototypes before any repository change.**
+  - Two or three genuinely different phone-size prototypes of the loop, home and
+    brand, in Arabic and English.
+  - The owner chooses on his iPhone. Taste is his, and the best in the market
+    comes from choosing between different pictures, not from iterating one.
+  - Content: the owner's receipts or synthetic ones (CONSTRAINT).
+  - References, chosen for the loop: Apple's document camera in Notes and Files,
+    Microsoft Lens, Expensify's SmartScan, and Apple Wallet's transaction list.
+  - **Decides:**
+    - What home is for, which settles "Money by category".
+    - The icon and palette. This replaces the old logo item: the icon is the App
+      Store's first pixel and a required asset, and the brand comes before the
+      system.
+    - Whether capture is batch, which triggers "Row-lock contention".
+  - **EXPIRY:** the owner has chosen a direction.
+- [ ] **2. The design system, in code.**
+  - Tokens, a type scale, and core components: sheet, list row, field, button,
+    tab bar, nav bar.
+  - Colour tokens are defined as channels, so opacity modifiers work. Today
+    `bg-surface/40` (`DashboardScreen.tsx`, `AreaChart.tsx`) emits no CSS at all:
+    Tailwind 3.4 generates no rule for an alpha modifier on a `var()` colour.
+  - Carries "Mobile type scale (<md)" and "Step 3".
+  - **EXPIRY:** the system ships without repainting the finished landing.
+- [ ] **3. The loop.**
+  - A native document scanner on both platforms.
+  - A reading state that shows the document at once, with its image.
+  - A result that shows the image with its fields, edits in place, and flags only
+    what needs the owner.
+  - Measure extraction success and the "Needs review" rate on his real receipts,
+    judged only on rows the current code wrote.
+  - **EXPIRY:** it ships on both native builds, with that measurement.
+- [ ] **4. Home**, per the direction.
+- [ ] **5. First run.** Login and signup, an email confirmation that returns to
+  the app, the icon and splash, every "coming soon" removed, `ProfileScreen.tsx`
+  deleted, and the in-app privacy link.
+- [ ] **6. The rest.** Documents and search, the review queue, settings with
+  account deletion reachable, and the web-only paywall.
+- [ ] **7. Store screenshots**, taken from the finished UI.
+
+### Inputs, filed under the step that redraws them — not a checklist
+
+> Most of these vanish with the screen they describe. Fixing one in place on the
+> current screens is the admin-panel trap above.
+
+**Step 1: "Money by category"**
+
+**If home shows money, two things come first.** Nothing in the frontend calls
+`/api/reports` or `/api/expenses` today.
+
+1. **The categorizer is rebuilt.** As of 2026-09-11:
+   - It answers `Other` for 43 of the 47 documents it has categorized. The `0.5`
+     beside that answer is its hardcoded no-match return, not a measurement.
+   - `expenseCategorizationService.ts` lists `'stationary'` where it means
+     `'stationery'`.
+   - Its keyword table is Latin-only, while `persistence.ts` passes the
+     original-language `rawText`.
+2. **A fresh, tested summary query.** **Never revive the old ones as one-line key
+   swaps:** turning an empty report into a populated wrong one ships a new wrong
+   number. The known wrong reads:
+   - (a) `monthly_expenses` reads `EXPENSE_CATEGORY`, which is never written; the
+     categorizer writes `category`. Corrected, it would silently drop every
+     document with no category fact, and whole currency lines with them.
+   - (b) `monthly_expenses` has no date filter, despite its name.
+   - (c) `find_upcoming_appointments` reads `APPOINTMENT_DATE`, which nothing
+     writes.
+   - (d) `expenseSummaryService.ts` reads fact key `'amount'`, which
+     `normalizeFactKey` can never emit, so every figure it returns is zero.
+   - (e) Its `merchantSpend` is a plain object, so a merchant named `__proto__`
+     or `constructor` silently loses its spend.
+   - (f) `sum_expenses` counts every status, `REJECTED` included, unless the user
+     asks otherwise.
+   - (g) `queryPlanner.ts` pushes `DocumentFact.factType` and `DocumentFact.key`
+     filters on `sum_expenses` / `group_expenses`, and the executor drops them.
+     That is harmless only because the executor re-applies the same literals.
+     Honouring them would narrow which documents qualify, and move a money
+     figure. `queryPlanContract.test.ts` sends readers here for this with
+     "see WORK-QUEUE.md"; this file never carried it before 2026-09-23.
+
+**If home does not show money:** delete those routes, and the `rep1`–`rep3` /
+`repDesc1`–`repDesc3` strings. **EXPIRY:** the direction decides.
+
+**Step 2: the system**
+
+- **"Mobile type scale (<md)" flattens `font-black` on every phone.**
+  - The block with that heading in `apps/frontend/src/index.css` sets
+    `.font-black { font-weight: 700; }` inside `@media (max-width: 767px)`. So no
+    screen has a heaviest weight on a phone, and on the landing's pricing cards
+    the price ties the plan name.
+  - The rule exists because heavy, wide-tracked uppercase wrapped letter by
+    letter on phones. That reason has to be answered, not only the symptom.
+  - `landingTextContrast.test.tsx` derives floors from this block, so changing it
+    moves the finished landing's floors: re-measure the landing when it changes.
+  - **EXPIRY:** the new type scale replaces the rule deliberately, or keeps it and
+    says why in its own comment.
+- **Step 3: the landing pin. The new system must not repaint the finished
+  landing.**
+  - The landing is finished, but it still reaches token utilities: 43 at the
+    2026-09-15 count. Re-count against `tailwind.config.cjs` before relying on
+    that number.
+  - A system that changes `:root` token values repaints the landing in light
+    mode, and `landingLightPin.test.tsx` forces the pin to follow `:root` byte for
+    byte.
+  - **So give the app new tokens, or convert the landing to literals first, and
+    delete the pin LAST, after a measurement, never on a prediction.**
+  - Measured 2026-09-13: migrating the backgrounds alone strands the foregrounds,
+    with text at 1.00:1 and 44 of 62 text nodes below floor in dark. Backgrounds
+    and foregrounds move together.
+  - The migration skips the hero mock. `LandingScreen.tsx` quotes this ruling
+    word for word, so it is kept whole on one line:
+    "excluding the hero mock, which #214 made deliberately literal because it is a PICTURE of the product".
+    It is about the token migration only, never a contrast exemption.
+  - `tokenLiteralPairing.test.ts` reads one class string at a time, so it cannot
+    see a flipping background paired with a literal foreground on a child
+    element. That is exactly this migration's hazard: measure it in a browser.
+  - **EXPIRY:** the system lands and the landing measures unchanged, or the pin is
+    deleted after a measurement.
+- **The contrast instruments' "no published figure" guard is behind.** The
+  `PUBLISHED` list in `contrastSweepInstrument.test.ts` lacks four figures
+  published since #231: 17.8525, 6.9627, 1.0463 and 5.9146. (1.0955 is present,
+  as the control.) It matters again because the sweeps become the hygiene gate
+  on new screens. **EXPIRY:** the first commit that sweeps an app screen appends
+  them.
+
+**Step 3: the loop**
+
+- **The reading state.** Today three things go wrong:
+  - After a retry, the detail screen goes quiet. `POST /:id/reextract` sets
+    `PROCESSING`, but `DocumentDetailScreen.tsx` has no `PROCESSING` branch, and
+    `trackUpload` is called only from `CaptureSheet.tsx` and `UploadModal.tsx`,
+    so the tray is never told.
+  - Each upload blanks the whole dashboard into skeletons twice. `Layout.tsx`
+    raises `refreshCount` on dialog success and again when processing settles,
+    and `DashboardScreen.tsx` calls `fetchData(true)`, which replaces the screen.
+    Nothing calls `fetchData(false)`.
+  - The tray says `processingDone` ("Processing complete") for a `NEEDS_REVIEW`
+    document too.
+  - The rule for the new state: a document being read shows it, however the read
+    started, and the settled state names its verdict.
+- **What a finished upload shows.** The confirmation panel in `UploadModal.tsx`
+  (Done / Manage Files) sits inside the `files.length > 0` block, and has been
+  unreachable since #236. Redesign it or delete it.
+- **The result screen.** Decide these together:
+  - The decision banner is success-tinted beside a "Needs review" status chip.
+  - The confidence pill reads "99% match" on almost every row: `TOTAL_AMOUNT` had
+    one distinct confidence, `0.99`, across 199 rows (2026-09-11). The mobile
+    search card already omits it.
+  - The facts table is a three-column `<table>` with headers, usually for two
+    rows.
+  - The `noFacts` empty state became reachable with #206 and has not been read
+    since.
+  - Where `category` goes, if the categorizer earns a place, is a layout decision:
+    category is a derived judgement, not something read off the page.
+- **How often a clean read says "Needs review".**
+  - `isWeak` in `persistence.ts` sends a document to review in three cases:
+    - confidence below `CONFIDENCE_THRESHOLD = 0.98`;
+    - template words: "template", "sample", "example", "your business name",
+      "lorem ipsum";
+    - repeated multi-document markers: invoice, receipt, subtotal, total, tax,
+      thank you.
+  - The 2026-09-23 paced run sent 2 of 4 uploads to review. Both were the invoice
+    test image, whose text contains `example` and repeats `invoice` and `total`.
+  - How often a real receipt trips it is unmeasured. Recomputing `isWeak` over the
+    historical corpus fails its own control, so measure only on rows the current
+    code wrote.
+- **Ingestion durations: the wait the reading state is designed around.**
+  - The 2026-09-23 paced run took 8.4 s, then 9.9–16.3 s.
+  - Every line of `processUploadAsync` in `ingestionService.ts` is a marker with
+    no elapsed time, while `queryExecutor.ts` already records `executionTimeMs`.
+  - Per-stage durations say which part can shrink. One candidate is the
+    `isSingleDocument` validation call: a separate Gemini call on every document,
+    before extraction.
+- **Row-lock contention (UNCONFIRMED).**
+  - Every persist increments `scanCount` on the same `Organization` row, so one
+    person batch-scanning serialises on that lock.
+  - It was seen once: the tenth upload of a 5-second-cadence run took 14.0 s, and
+    its persist threw.
+  - **Settle it before batch capture ships:** ten uploads at 5 s against ten at
+    30 s, reading the class recorded in `delivery_error`. Failures that track the
+    cadence mean contention.
+
+**Step 5: first run**
+
+- **The confirmation link leaves the app.**
+  - `supabase.auth.signUp({ email, password })` in `AuthScreen.tsx` passes no
+    redirect, so the link goes to the Site URL configured in Supabase. When last
+    recorded, that was a web page, so a first-time iOS user has to find their
+    own way back to the app.
+  - The direction decides between a code typed into the app and a link the app
+    catches.
+  - One signup in 2026-09 never confirmed its email (read-only, 2026-09-23). That
+    is n=1: a pointer, not a finding.
+- **Where a confirmation email comes from.** Ask Supabase → Authentication, not
+  this file:
+  - SMTP Settings: custom SMTP through Resend was set up during the closed test,
+    to escape the built-in sender's cap.
+  - URL Configuration: the Site URL was moved off `http://localhost:3000` during
+    the same test.
+  - Read both there before changing the confirmation path.
+- **The top bar**, observed in the owner's screenshots on 2026-09-11 and never
+  measured. In the Arabic UI at phone width, "Scan & Action" is in Latin script
+  beside Arabic copy, and a camera button appears twice. Decide both when the
+  shell is redrawn.
+
+## KEPT OUTSIDE BOTH TRACKS
+
+### INVARIANT — native (Android and iOS) anti-steering (do NOT violate)
+
+A native build must **never** contain pricing, external-payment links, or any
+copy or call to action that steers the user toward paying for PRO outside the
+app. **Reflect entitlement state only**: "Pro Active", "Free Tier", the free scan
+limit as information. Subscriptions are sold only on the web (Paddle), because
+the Morocco-based developer account cannot register as a Google Play merchant.
+This is also Apple 3.1.3(f)'s condition, word for word (APPLE TRACK), and
+`isNativePlatform()` covers iOS.
+
+- The `isNativePlatform()` gate in `PaywallModal.tsx` is the single most
+  important guard. **Keep it intact.**
+- On native, the Settings billing card and the scan-limit and multi-document
+  triggers in `CaptureSheet.tsx` and `UploadModal.tsx` show neutral status. The
+  strings are `freePlanLimitReached`, `freePlanSingleDoc` and `proAutoUnlock`.
+- Any new Pro or upgrade surface goes behind `!isNativePlatform()`.
+- `/privacy` and `/refund` mention Paddle and subscription cancellation, and no
+  in-app surface links them. **Apple 5.1.1(i) now requires an in-app privacy
+  link** (APPLE TRACK), so revisit that copy before linking it.
+
+### Other kept items
+
+- [ ] **Orphaned app rows: a privacy question with no decision.** Kept 2026-09-23,
+  because deleting it would close it silently.
+  - Four `public."User"` rows have no auth identity, and two of them hold two
+    documents each that no living account can reach.
+  - How they arose is not recorded, except for `1e1c8482`, which is the
+    project's own (`docs/PRODUCTION_DATA_FIX_2026-09-04_ORPHAN_1e1c8482.md`).
+  - The query:
+    `SELECT u.id FROM public."User" u LEFT JOIN auth.users a ON a.id = u.id WHERE a.id IS NULL`.
+    Its control, `SELECT COUNT(*) FROM auth.users`, must be non-zero, so that an
+    empty result is real. It returned four rows on 2026-09-11.
+  - Two uses:
+    1. The owner decides retention of those documents under the privacy policy.
+    2. It is the check behind the account-deletion verification in APPLE TRACK.
+  - The standing rule: never remove an auth identity while leaving its
+    `public."User"` row behind. See `IdentityEmailConflictError` in
+    `authMiddleware.ts`, and §6 of `docs/FIRST_CUSTOMER_RUNBOOK.md`.
+  - **EXPIRY:** the owner rules on retention, and a TestFlight deletion leaves the
+    count unchanged.
+- **Android release facts nobody would think to search history for.**
+  - The package is `com.scanaction.app`.
+  - Play App Signing was accepted at the first upload, so Google holds the app
+    signing key (Play Console → App integrity).
+  - The upload key is at `D:\keys\scan-action-upload.jks`, with `key.properties`
+    untracked and gitignored.
+  - What Play holds is read in Play Console, on every track including drafts,
+    never here. Uploading a bundle consumes its version code permanently.
+- [ ] **LOCAL DEV: the local `SUPABASE_SERVICE_ROLE_KEY` is a disabled legacy
+  key.**
+  - Supabase disabled this project's legacy `anon` / `service_role` keys on
+    2026-06-12.
+  - A local backend's `supabase.auth.getUser` returns
+    `401 {"message":"Legacy API keys are disabled"}`, so every authenticated route
+    fails with 401 locally, which reads like a broken login. Production is
+    unaffected.
+  - **Fix:** replace the local value with a current secret key from the Supabase
+    dashboard.
+  - **EXPIRY:** someone runs the backend locally against auth.
+
+## STANDING RULES — not tasks
+
+1. **Read before you claim.** A filename, a call path or a code behaviour you have
+   not read this session is a hypothesis, including one in your own earlier
+   instructions.
+2. **No estimate without its population.** An extrapolation is a claim about a
+   population. Write the population next to it, or measure the real figure
+   instead.
+3. **An expiry that only the blocked work can satisfy is a deadlock.** Read the
+   expiry aloud and ask who can satisfy it. If the answer is "the item itself",
+   rewrite it.
+4. **Before writing into anyone else's account, say what they will see.** State
+   what changes in their view of their own data, and whether the product
+   explains it. This is a precondition beside the safety checks, not a
+   follow-up.
+
+The incidents behind each rule are in git, in the RECURRING FAILURE and recovery
+sections of the file at `9751e813`.
+
+## REMOVED 2026-09-23 — titles the tree still cites
+
+> A citation into this file must never dead-end. A search of the live board for a
+> removed title returns a clean zero, which reads exactly like "never existed".
+> For the full text: `git show 9751e8139e2acd844c3e32eee85fe4bf74716917:WORK-QUEUE.md`.
+
+- **"there is NO re-extraction path anywhere in the tree"**, cited in
+  `documentController.reextract.test.ts`. Closed 2026-09-09 when
+  `POST /:id/reextract` shipped; removed as history.
+- **"`uploadController.ts` now routes its three error-log sites through `formatErrorForLog`"**,
+  cited in `uploadController.errorLog.test.ts`. Done 2026-09-06; removed as
+  history. The test file itself carries the item's
+  reachability correction and the `LIMIT_REACHED` trap.
+- **"the closing headline orphans its last word"**, cited in `LandingScreen.tsx`.
+  **CLOSED 2026-09-23 as ACCEPTED.** That is the ruling its expiry asked the copy
+  pass for: the owner declared the landing finished.
+- **The published contrast figures and the card-fill observation** that
+  `contrastSweep.browser.js`, `contrastShapeSweep.browser.js` and
+  `contrastSweepInstrument.test.ts` describe as "on the board". They are in the
+  closed DESIGN PASS entries at `9751e813` and in their PRs. The instruments do
+  not read this file.
