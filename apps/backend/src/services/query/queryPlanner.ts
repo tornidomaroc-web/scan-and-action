@@ -76,18 +76,19 @@ export class QueryPlanner {
 
     // Category-aware expense planning & fully qualified lists
     switch (intent.intent) {
+      // `categories` carries STATUS shortcuts only: intentParser pushes nothing
+      // else into it. The branch that turned any other value into an
+      // EXPENSE_CATEGORY fact filter was removed 2026-09-23; that key has never
+      // been written, so it could only ever match zero documents.
       case 'sum_expenses':
-      case 'group_expenses':
         plan.sourceTables.push('DocumentFact');
         plan.filters.push({ field: 'DocumentFact.factType', operator: 'eq', value: 'AMOUNT' });
         plan.filters.push({ field: 'DocumentFact.key', operator: 'eq', value: 'TOTAL_AMOUNT' });
-        
+
         if (intent.categories && intent.categories.length > 0) {
            const statusFilters = (intent.categories || []).filter((c: string) => ['NEEDS_REVIEW', 'COMPLETED', 'PENDING'].includes(c));
            if (statusFilters.length > 0) {
              plan.filters.push({ field: 'Document.status', operator: 'in', value: statusFilters });
-           } else {
-             plan.filters.push({ field: 'ExpenseCategory', operator: 'in', value: intent.categories });
            }
         }
 
@@ -113,8 +114,6 @@ export class QueryPlanner {
            const statusFilters = (intent.categories || []).filter((c: string) => ['NEEDS_REVIEW', 'COMPLETED', 'PENDING'].includes(c));
            if (statusFilters.length > 0) {
              plan.filters.push({ field: 'Document.status', operator: 'in', value: statusFilters });
-           } else {
-             plan.filters.push({ field: 'ExpenseCategory', operator: 'in', value: intent.categories });
            }
         }
 
@@ -130,11 +129,6 @@ export class QueryPlanner {
         }
         break;
         
-      case 'find_upcoming_appointments':
-        plan.filters.push({ field: 'Document.documentType', operator: 'eq', value: 'APPOINTMENT' });
-        plan.limit = 20;
-        break;
-
       default:
         // Scaffolding default
         plan.limit = 10;
@@ -149,7 +143,6 @@ export class QueryPlanner {
     
     switch (intent.intent) {
       case 'sum_expenses': parts.push('Calculating total spend'); break;
-      case 'group_expenses': parts.push('Grouping expenses'); break;
       case 'list_documents': parts.push('Listing documents'); break;
       case 'count_documents': parts.push('Counting documents'); break;
       case 'latest_document': parts.push('Finding the latest document'); break;

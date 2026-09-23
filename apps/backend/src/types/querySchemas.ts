@@ -6,8 +6,6 @@ export const SupportedIntents = z.enum([
   'count_documents',
   'latest_document',
   'extract_contacts',
-  'group_expenses',
-  'find_upcoming_appointments',
   'timeline'
 ]);
 

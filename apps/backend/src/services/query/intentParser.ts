@@ -36,13 +36,11 @@ export class IntentParserService {
       intent.confidence = 0.8;
     }
 
-    // Grouping
-    const groupKeywords = ['by category', 'per category', 'par catégorie', 'حسب الفئة', 'by vendor', 'per vendor', 'par fournisseur', 'حسب المورد'];
-    if (groupKeywords.some(k => q.includes(k))) {
-      intent.intent = 'group_expenses';
-      intent.outputFormat = 'chart_ready_data';
-      intent.confidence = 0.9;
-    }
+    // No grouping intent. `group_expenses` was removed 2026-09-23: it joined on
+    // the fact key EXPENSE_CATEGORY, which nothing has ever written, so every
+    // "by category" / "by vendor" question answered "No expense groups found".
+    // Spending by category is GET /api/ledger; such a question now falls
+    // through to sum_expenses or list_documents on its other words.
 
     // Latest document
     const latestKeywords = ['latest', 'recent', 'most recent', 'dernier', 'أحدث', 'أخير'];

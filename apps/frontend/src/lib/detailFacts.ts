@@ -54,9 +54,9 @@ type Strings = Record<string, string>;
 //                                  (documentController.ts:699).
 //
 // TWO KEYS WERE CONSIDERED AND REJECTED FOR HAVING NO WRITER AT ALL:
-//   APPOINTMENT_DATE  queryExecutor.ts:143 READS it; grep over apps/backend/src
-//                     finds no write anywhere. Allowlisting it would be
-//                     inventing a row that cannot exist.
+//   APPOINTMENT_DATE  queryExecutor.ts used to READ it (removed 2026-09-23);
+//                     grep over apps/backend/src finds no write anywhere.
+//                     Allowlisting it would be inventing a row that cannot exist.
 //   PERSON_NAME       reachable only via normalizeFactKey('name'), and the
 //                     adapter emits no 'name' fact. Same reason.
 //
@@ -109,10 +109,11 @@ export const FACT_LABEL_KEY: Record<string, string> = {
 // no-match as a half-confident finding.
 //
 // This is a display decision ONLY. The categorizer is untouched, the fact is
-// still written, and every total is unaffected — nothing that computes money
-// reads `category` (queryExecutor groups on 'EXPENSE_CATEGORY', a key that has
-// never been written). Put it back in the list above when the categorizer earns
-// it; that is one line, and this comment is the record of what to check first.
+// still written, and every total is unaffected by hiding it here. Since
+// 2026-09-23 the ledger (GET /api/ledger) splits money by `category`; before
+// that nothing did (the old query grouped on a key nothing wrote). Put it back
+// in the list above when the categorizer earns it; that is one line, and this
+// comment is the record of what to check first.
 export const CATEGORY_IS_HIDDEN = 'category';
 
 /**

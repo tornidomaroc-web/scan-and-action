@@ -96,23 +96,25 @@ export class RuleEngineService {
   /**
    * Resolves the "single source of truth" amount using the following priority:
    * 1. manual_amount (User correction)
-   * 2. TOTAL_AMOUNT (Stronger AI signal)
-   * 3. amount (Default AI extraction)
+   * 2. TOTAL_AMOUNT (the extraction)
+   *
+   * A third key, 'amount', was read here until 2026-09-23. Nothing writes it:
+   * the adapter emits 'Total Amount', normalizeFactKey uppercases an unmapped
+   * raw 'amount' to 'AMOUNT', and production held zero rows under that key
+   * across all 391 documents. The ledger (services/ledger/ledgerCore.ts) uses
+   * this same priority.
    */
   private resolveAmount(facts: any[]): number | null {
     const manualAmount = facts.find(f => f.key === 'manual_amount')?.valueNumber;
     if (manualAmount != null) return manualAmount;
 
     const totalAmount = facts.find(f => f.key === 'TOTAL_AMOUNT')?.valueNumber;
-    if (totalAmount != null) return totalAmount;
-
-    const amount = facts.find(f => f.key === 'amount')?.valueNumber;
-    return amount ?? null;
+    return totalAmount ?? null;
   }
 
   /**
    * Conservative duplicate check: Same merchant name, same amount, different document, same organization.
-   * It checks against both raw AI 'amount' and 'manual_amount' in existing documents.
+   * It checks against both the extracted TOTAL_AMOUNT and 'manual_amount' in existing documents.
    */
   private async checkDuplicate(
     documentId: string,
@@ -166,7 +168,7 @@ export class RuleEngineService {
         },
         facts: {
           some: {
-            key: { in: ['amount', 'manual_amount', 'TOTAL_AMOUNT'] },
+            key: { in: ['manual_amount', 'TOTAL_AMOUNT'] },
             valueNumber: amount
           }
         }

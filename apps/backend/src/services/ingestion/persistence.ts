@@ -294,8 +294,8 @@ export class PersistenceService {
       // Part 2: Rule Engine Evaluation
       //
       // The keys handed to the rule engine MUST be the canonical ones, because
-      // resolveAmount (ruleEngineService.ts:90-99) matches 'manual_amount',
-      // 'TOTAL_AMOUNT' and 'amount' by exact string. `extraction.facts` carries
+      // resolveAmount (ruleEngineService.ts) matches 'manual_amount' and
+      // 'TOTAL_AMOUNT' by exact string. `extraction.facts` carries
       // the RAW adapter keys — geminiAdapter.ts:227 emits 'Total Amount' — and
       // the canonical form is produced by normalizeFactKey when the row is
       // WRITTEN (:118), which happens after this array used to be built from the
