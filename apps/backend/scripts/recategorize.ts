@@ -43,6 +43,12 @@ async function main() {
   console.log(`scope: ${docs.length} documents with text across ${Object.keys(byOrg).length} organisations ${JSON.stringify(byOrg)}; ${outside} documents outside the scope are NOT touched`);
   console.log(`already carrying a category: ${docs.filter(d => d.facts.length).length}; model calls if --write: ${docs.length}; scans charged: 0`);
   if (!write) { console.log('dry run: nothing written, no model called. Add --write to run.'); await prisma.$disconnect(); return; }
+  // --expect N: the count the dry run resolved. A different count at run time
+  // means the world moved between the order and the run; refuse, do not adapt.
+  const expectArg = process.argv.find(a => a.startsWith('--expect='));
+  if (expectArg && Number(expectArg.slice(9)) !== docs.length) {
+    throw new Error(`scope moved: expected ${expectArg.slice(9)} documents, resolved ${docs.length}; nothing written`);
+  }
 
   const classifier = new CategoryClassifier();
   const fallback = new ExpenseCategorizationService();
