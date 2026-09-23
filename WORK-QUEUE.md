@@ -41,14 +41,81 @@
   2. **The Apple developer account is ready** (the owner, 2026-09-23). Everything
      left on the Apple track is engineering work: nothing on it is his to decide
      or pay for.
-  3. Design step 1, direction prototypes, with no repository change. Built
-     2026-09-23; waiting on his choice.
+  3. Design step 1: **DONE 2026-09-23, ledger-first chosen.** See DECIDED below.
   4. The iOS platform and a CI → TestFlight pipeline, in one small PR, so every
      later design commit is judged on his iPhone. Unblocked: it waits only for
      an order.
-  5. Design steps 2 to 7.
+  5. **The build order**, ruled 2026-09-23 and not to be reshuffled by taste:
+     1. the categorizer, with its backfill and its measurement (bar below);
+     2. the summary endpoint;
+     3. the ledger home (design step 4).
+     Nothing visual is drawn until the "Other" share on his own receipts is a
+     measured number rather than 43 of 47. Design steps 2, 3 and 5 to 7 follow.
   6. Submission, once design steps 1 to 5 are done and every APPLE TRACK blocker
      is closed.
+
+## DECIDED 2026-09-23 — ledger-first
+
+**The owner chose ledger-first** after running all three direction prototypes
+on his iPhone in one sitting. Capture-first and inbox-first are **decided
+against, not deferred**: do not reopen them as runners-up.
+
+**Why, in his words as relayed:** it is the only one of the three that gives a
+reason to open the app without a receipt in hand; it is closest to what he
+reached for when he showed the visual level he wants; and it makes the product
+read as a money product rather than a scanning utility, which changes what it
+can be priced as later. He chose it knowing it carries the biggest backend bill
+of the three.
+
+**What would reopen it, and nothing else:** the categorizer failing its bar (see
+the build order) on his own receipts after a real rebuild. A screen full of
+"Other" is not an argument for another structure; it is the bar unmet.
+
+**The prototypes are spent.** They were the instrument for this decision and
+are not inputs to the build. They stay as private claude.ai pages (titles
+"Scan & Action Capture", "Scan & Action Ledger", "Scan & Action Inbox"; find
+them with the Artifact tool's `list`); their links are not recorded here.
+
+**Four facts read from the code on 2026-09-23, which set the build order:**
+1. **A rebuilt categorizer reaches no existing document.** `categorizeAndSave`
+   in `persistence.ts` returns early when a `category` fact exists and runs
+   only inside a persist. Of 386 documents, 47 carry a category. Without a
+   backfill, a rebuild changes nothing on screen.
+2. **The by-category answer is wrong in the ask path too.** `group_expenses` in
+   `queryExecutor.ts` joins on `cat."key" = 'EXPENSE_CATEGORY'`, which nothing
+   writes; the categorizer writes `category`. That makes **eight** wrong reads
+   in the old summary paths, not seven.
+3. **The per-currency rule already exists.** `sum_expenses` groups
+   `TOTAL_AMOUNT` by `currency` and returns `isMixedCurrency`. The prototype
+   drew what the code does; it did not invent the rule. It holds for the home
+   screen at any number of currencies: per currency, never summed, the currency
+   carrying the most spend as the figure and the rest as subordinate lines.
+   Conversion, if ever wanted, is a separate reporting-currency feature.
+4. **The current home has no money in it.** `dashboardStatsService` counts
+   documents by `processedAt`. The ledger home needs an endpoint that does not
+   exist.
+
+**The categorizer commit: what it must prove before it can be merged.**
+- The category comes from the extractor, as a fixed enum in the existing Gemini
+  call, stored as the `category` fact with its source; the keyword matcher stays
+  only as the fallback when the model returns nothing.
+- A paced backfill script classifies stored `rawText` for **his own
+  organisations and the review account only** (CONSTRAINT), and may overwrite
+  an existing `category` fact.
+- A measurement script prints, for a labelled set of at least 40 of his own
+  receipts in both scripts (labelled from the text, spot-checked by him), the
+  set's size, the accuracy, and the "Other" share.
+- On the nine prototype receipts, the grocery receipt and the Arabic bakery come
+  out Food.
+- Existing tests and the extraction-shape tests are green.
+- The merge replaces "43 of 47" on this board with the measured figure.
+
+**The summary endpoint commit, second, after the backfill has run:** built
+fresh (month, by category, by currency, key `category`), the three dead paths
+deleted and `group_expenses` fixed or removed, proved by exact totals against a
+hand-computed fixture. Its status rule: count COMPLETED and NEEDS_REVIEW rows
+that carry an amount, exclude REJECTED, and exclude a flagged duplicate until
+he keeps it.
 
 ## CLOSED 2026-09-23 — subscriptions: zero subscribers, nobody is charged
 
@@ -290,43 +357,14 @@ restyled.** Do not start at login, although a reviewer sees it first:
 
 ### The order
 
-- [ ] **1. Direction: prototypes before any repository change.** BUILT
-  2026-09-23; waiting on the owner's choice.
-  - **Three phone-size prototypes, one per structure:** Capture-first,
-    Ledger-first and Inbox-first.
-    - They are private claude.ai pages titled "Scan & Action Capture", "Scan &
-      Action Ledger" and "Scan & Action Inbox" (find them with the Artifact
-      tool's `list`).
-    - The look is identical across the three: one stylesheet, one engine and one
-      data set, proved by hash at build.
-    - They differ only in what the app opens to, what a scan turns into, and what
-      brings him back.
-  - **Each runs the same script, in Arabic and in English:**
-    1. Scan four synthetic receipts: clean, crumpled, Arabic, and a repeat.
-    2. Ask what was spent on food this month.
-    3. Deal with what needs him.
-
-    The capture is simulated.
-  - **The honesty rule they follow: nothing unbuilt appears unframed.**
-    - Anything not built or not measured sits in a dashed frame.
-    - One tap on the frame shows what today's code does with the same receipts.
-    - That text was computed by running the real categorizer and a guarded copy
-      of the review gate on those receipts.
-  - **Who chooses:** the owner, on his iPhone. Taste is his, and the best in the
-    market comes from choosing between different pictures, not from iterating
-    one.
-  - **Content:** synthetic receipts only (CONSTRAINT).
-  - **References, chosen for the loop:** Apple's document camera in Notes and
-    Files, Microsoft Lens, Expensify's SmartScan, and Apple Wallet's transaction
-    list.
-  - **Decides:**
-    - What home is for, which settles "Money by category".
-    - Whether capture is batch, which triggers "Row-lock contention".
-    - Then a second round, on the chosen structure, decides the icon and palette.
-      Colour is held still in this round so that the choice is about structure.
-      This replaces the old logo item: the icon is the App Store's first pixel
-      and a required asset, and the brand comes before the system.
-  - **EXPIRY:** the owner has chosen a direction.
+- [x] **1. Direction: DONE 2026-09-23, ledger-first chosen.** See DECIDED at the
+  top. Three prototypes, identical in look and different only in structure,
+  each running the same script in Arabic and English under the rule that
+  nothing unbuilt appears unframed; the owner chose on his iPhone. The
+  prototypes are spent. **Still owed by this step:** a second round, on
+  ledger-first, decides the icon and palette (this replaces the old logo item:
+  the icon is the App Store's first pixel and a required asset). It comes
+  after the categorizer and summary commits, with the ledger home.
 - [ ] **2. The design system, in code.**
   - Tokens, a type scale, and core components: sheet, list row, field, button,
     tab bar, nav bar.
@@ -343,7 +381,11 @@ restyled.** Do not start at login, although a reviewer sees it first:
   - Measure extraction success and the "Needs review" rate on his real receipts,
     judged only on rows the current code wrote.
   - **EXPIRY:** it ships on both native builds, with that measurement.
-- [ ] **4. Home**, per the direction.
+- [ ] **4. Home: the ledger home.** Third in the build order; drawn only after the
+  categorizer and summary commits have merged and the backfill has run. What
+  it shows: the month's spend in the dominant currency as the figure, other
+  currencies subordinate and never summed, category cards, what needs him, and
+  the receipts as transactions.
 - [ ] **5. First run.** Login and signup, an email confirmation that returns to
   the app, the icon and splash, every "coming soon" removed, `ProfileScreen.tsx`
   deleted, and the in-app privacy link.
@@ -356,10 +398,10 @@ restyled.** Do not start at login, although a reviewer sees it first:
 > Most of these vanish with the screen they describe. Fixing one in place on the
 > current screens is the admin-panel trap above.
 
-**Step 1: "Money by category"**
-
-**If home shows money, two things come first.** Nothing in the frontend calls
-`/api/reports` or `/api/expenses` today.
+**Step 1: "Money by category" — RESOLVED 2026-09-23 by ledger-first.** Home
+shows money, so the two things below are now the first two commits of the
+build order (see DECIDED). The detail stays here as the record of what is
+wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
 
 1. **The categorizer is rebuilt.** As of 2026-09-11:
    - It answers `Other` for 43 of the 47 documents it has categorized. The `0.5`
@@ -500,7 +542,9 @@ restyled.** Do not start at login, although a reviewer sees it first:
   - Per-stage durations say which part can shrink. One candidate is the
     `isSingleDocument` validation call: a separate Gemini call on every document,
     before extraction.
-- **Row-lock contention (UNCONFIRMED).**
+- **Row-lock contention (UNCONFIRMED, DORMANT since 2026-09-23).** Ledger-first
+  scans one receipt at a time, so its trigger does not fire. It wakes only if
+  batch capture is ever added.
   - Every persist increments `scanCount` on the same `Organization` row, so one
     person batch-scanning serialises on that lock.
   - It was seen once: the tenth upload of a 5-second-cadence run took 14.0 s, and
