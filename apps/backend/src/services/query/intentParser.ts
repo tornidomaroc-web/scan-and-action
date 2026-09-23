@@ -36,11 +36,16 @@ export class IntentParserService {
       intent.confidence = 0.8;
     }
 
-    // No grouping intent. `group_expenses` was removed 2026-09-23: it joined on
-    // the fact key EXPENSE_CATEGORY, which nothing has ever written, so every
-    // "by category" / "by vendor" question answered "No expense groups found".
-    // Spending by category is GET /api/ledger; such a question now falls
-    // through to sum_expenses or list_documents on its other words.
+    // Grouping questions are asked back, not answered. `group_expenses` was
+    // removed 2026-09-23: it joined on the fact key EXPENSE_CATEGORY, which
+    // nothing has ever written, so every "by category" / "by vendor" question
+    // rendered an empty chart ("No chart data to show yet."). Letting them fall
+    // through instead would answer a DIFFERENT question with confidence:
+    // "how much did I spend by category" would get sum_expenses' all-time
+    // total with no category, REJECTED rows and flagged duplicates included.
+    // The search path has no grouping; spending by category is GET /api/ledger.
+    const groupKeywords = ['by category', 'per category', 'par catégorie', 'حسب الفئة', 'by vendor', 'per vendor', 'par fournisseur', 'حسب المورد'];
+    const asksForGrouping = groupKeywords.some(k => q.includes(k));
 
     // Latest document
     const latestKeywords = ['latest', 'recent', 'most recent', 'dernier', 'أحدث', 'أخير'];
@@ -90,7 +95,7 @@ export class IntentParserService {
     }
 
     // 4. Ambiguity Check
-    if (q.length < 3) {
+    if (q.length < 3 || asksForGrouping) {
       intent.needsClarification = true;
       intent.confidence = 0.1;
     }

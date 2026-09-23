@@ -497,6 +497,21 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
      receipt's currency. The ledger reads a correction in the currency of the
      document's extracted total (8 of the 9 stored corrections re-type that
      total exactly). **EXPIRY:** the form shows the document's currency.
+   - **A missing currency is stored as USD.** `normalizeCurrency` in
+     `geminiAdapter.ts` answers `'USD'` when the model returns no currency, or
+     anything that is not a known symbol or a 3-letter code (so `د.م.`, the
+     Arabic dirham sign, becomes USD). The ledger's unknown-currency line
+     therefore never sees those rows: they land in USD. Stored rows cannot be
+     told apart, because the model's raw answer is not kept. **EXPIRY:** the
+     adapter stores no currency when it cannot read one, and maps the dirham
+     in both scripts.
+   - **A note on a kept duplicate un-keeps it.** The ledger counts a flagged
+     duplicate once its latest `review_action` is `marked_valid`.
+     `applyFixAction` in `documentController.ts` replaces `review_action` on
+     every action, and a flagged row still offers "Save note"
+     (`FixActionPanel.tsx`), so a note added after "Mark valid" drops the row
+     out of the total again, silently. **EXPIRY:** keeping is recorded in a
+     fact no other action overwrites, and the ledger reads that fact.
    - (g) `queryPlanner.ts` pushes `DocumentFact.factType` and `DocumentFact.key`
      filters on `sum_expenses`, and the executor drops them.
      That is harmless only because the executor re-applies the same literals.
