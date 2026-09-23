@@ -466,23 +466,54 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
    - Run on the nine synthetic receipts in the direction prototypes (2026-09-23),
      it called only the two café receipts Food. The grocery receipt and the
      Arabic bakery came out Other.
-2. **A fresh, tested summary query.** **Never revive the old ones as one-line key
-   swaps:** turning an empty report into a populated wrong one ships a new wrong
-   number. The known wrong reads:
-   - (a) `monthly_expenses` reads `EXPENSE_CATEGORY`, which is never written; the
-     categorizer writes `category`. Corrected, it would silently drop every
-     document with no category fact, and whole currency lines with them.
-   - (b) `monthly_expenses` has no date filter, despite its name.
-   - (c) `find_upcoming_appointments` reads `APPOINTMENT_DATE`, which nothing
-     writes.
-   - (d) `expenseSummaryService.ts` reads fact key `'amount'`, which
-     `normalizeFactKey` can never emit, so every figure it returns is zero.
-   - (e) Its `merchantSpend` is a plain object, so a merchant named `__proto__`
-     or `constructor` silently loses its spend.
+2. **A fresh, tested summary query: the ledger PR carries it.** `GET /api/ledger?month=YYYY-MM&tz=<IANA>`
+   (`services/ledger/ledgerCore.ts` holds every rule and its evidence; the
+   fixture test proves the figures; `scripts/ledgerReconcile.ts` checks them
+   against a direct SQL read, read-only). Removed in the same commit, with
+   the old wrong reads they carried: (a) and (b) the `monthly_expenses`
+   report, (c) `find_upcoming_appointments`, (d) and (e) `/api/expenses/summary`
+   with `expenseSummaryService.ts`, and `group_expenses` with the
+   `ExpenseCategory` plan filter (both read `EXPENSE_CATEGORY`), plus the rule
+   engine's unused `'amount'` fallback. Still open:
    - (f) `sum_expenses` counts every status, `REJECTED` included, unless the user
-     asks otherwise.
+     asks otherwise, and it counts flagged duplicates and months by upload
+     date. So the ask path's "how much did I spend" disagrees with the ledger
+     home. **EXPIRY:** it reads the ledger's rules, or the ask path stops
+     answering money questions.
+   - **Duplicates the rule engine never saw are counted.** The ledger excludes
+     a row only when its `decision_reason` says "Possible duplicate expense",
+     and many rows have no decision at all: 65 of the 136 COMPLETED or
+     NEEDS_REVIEW rows with an amount in the owner's three organisations
+     (read-only, 2026-09-23: those rows left-joined to their `decision` fact).
+     Grouping the rows the ledger counts by organisation, lower-cased VENDOR
+     `canonicalName`, amount and currency gives 15 groups with 30 extra
+     copies. One group of four was evaluated and still not flagged (it
+     predates the Rule D fix). Re-running Rule D over those rows writes
+     `decision` facts only, and the ledger then excludes the extras with no
+     code change. It is a production write, so it waits for an order.
+     **EXPIRY:** that grouping, re-run, finds only groups the owner has kept.
+   - **The amount-correction form says MAD, and the stored correction has no
+     currency.** `FixActionPanel.tsx` labels the input `s.madUnit` whatever the
+     receipt's currency. The ledger reads a correction in the currency of the
+     document's extracted total (8 of the 9 stored corrections re-type that
+     total exactly). **EXPIRY:** the form shows the document's currency.
+   - **A missing currency is stored as USD.** `normalizeCurrency` in
+     `geminiAdapter.ts` answers `'USD'` when the model returns no currency, or
+     anything that is not a known symbol or a 3-letter code (so `د.م.`, the
+     Arabic dirham sign, becomes USD). The ledger's unknown-currency line
+     therefore never sees those rows: they land in USD. Stored rows cannot be
+     told apart, because the model's raw answer is not kept. **EXPIRY:** the
+     adapter stores no currency when it cannot read one, and maps the dirham
+     in both scripts.
+   - **A note on a kept duplicate un-keeps it.** The ledger counts a flagged
+     duplicate once its latest `review_action` is `marked_valid`.
+     `applyFixAction` in `documentController.ts` replaces `review_action` on
+     every action, and a flagged row still offers "Save note"
+     (`FixActionPanel.tsx`), so a note added after "Mark valid" drops the row
+     out of the total again, silently. **EXPIRY:** keeping is recorded in a
+     fact no other action overwrites, and the ledger reads that fact.
    - (g) `queryPlanner.ts` pushes `DocumentFact.factType` and `DocumentFact.key`
-     filters on `sum_expenses` / `group_expenses`, and the executor drops them.
+     filters on `sum_expenses`, and the executor drops them.
      That is harmless only because the executor re-applies the same literals.
      Honouring them would narrow which documents qualify, and move a money
      figure. `queryPlanContract.test.ts` sends readers here for this with

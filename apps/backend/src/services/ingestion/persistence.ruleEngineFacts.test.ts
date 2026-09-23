@@ -7,8 +7,8 @@ import { GeminiExtractionResult } from '../../types/schemas';
 // The rule engine must see the SAME fact keys on ingestion that it sees on
 // re-evaluation.
 // ============================================================================
-// resolveAmount (ruleEngineService.ts:90-99) matches 'manual_amount',
-// 'TOTAL_AMOUNT' and 'amount' by EXACT string. Two callers feed it:
+// resolveAmount (ruleEngineService.ts) matches 'manual_amount' and
+// 'TOTAL_AMOUNT' by EXACT string. Two callers feed it:
 //
 //   persistence.ts:160-161      allFacts = [...extraction.facts, ...]  -> RAW keys
 //   documentController.ts:466-476  updatedDoc.facts (from the DB)      -> CANONICAL keys

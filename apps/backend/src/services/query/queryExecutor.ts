@@ -47,8 +47,6 @@ export class QueryExecutor {
              } else {
                 baseWhere.AND.push({ status: { in: filter.value } });
              }
-          } else if (filter.field === 'ExpenseCategory') {
-             baseWhere.AND.push({ facts: { some: { key: 'EXPENSE_CATEGORY', valueString: { in: filter.value } } } });
           }
       }
 
@@ -71,37 +69,6 @@ export class QueryExecutor {
            metadata.currencies = data.map((d: any) => d.currency);
            metadata.isMixedCurrency = data.length > 1;
            resultCount = data.length;
-           break;
-        }
-
-        case 'group_expenses': {
-           const validDocs = await this.prisma.document.findMany({ select: { id: true }, where: baseWhere });
-           const docIds = validDocs.map(d => d.id);
-           
-           if (docIds.length === 0) {
-             data = [];
-             break;
-           }
-
-           const rawGroups = await this.prisma.$queryRaw<any[]>`
-             SELECT 
-               cat."valueString" as "category",
-               amt."currency" as "currency",
-               SUM(amt."valueNumber") as "sum"
-             FROM "DocumentFact" amt
-             JOIN "DocumentFact" cat ON amt."documentId" = cat."documentId"
-             WHERE amt."key" = 'TOTAL_AMOUNT' 
-               AND cat."key" = 'EXPENSE_CATEGORY'
-               AND amt."documentId"::text = ANY(${docIds})
-             GROUP BY cat."valueString", amt."currency"
-           `;
-           data = rawGroups.map(r => ({
-              category: r.category || 'UNCATEGORIZED',
-              currency: r.currency || 'UNKNOWN',
-              sum: Number(r.sum)
-           }));
-           resultCount = data.length;
-           metadata.groupingContext = 'EXPENSE_CATEGORY';
            break;
         }
 
@@ -131,21 +98,6 @@ export class QueryExecutor {
                entity: { entityType: { in: ['PERSON', 'VENDOR', 'CONTACT'] } }
              },
              include: { entity: true }
-           });
-           resultCount = data.length;
-           break;
-        }
-
-        case 'find_upcoming_appointments': {
-           data = await this.prisma.documentFact.findMany({
-             where: { 
-               document: baseWhere,
-               key: 'APPOINTMENT_DATE', 
-               valueDate: { gte: new Date() } 
-             },
-             include: { document: true },
-             orderBy: { valueDate: 'asc' },
-             take: plan.limit || 10
            });
            resultCount = data.length;
            break;

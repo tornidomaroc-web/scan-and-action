@@ -17,17 +17,10 @@ export class ReportController {
 
       let plan: QueryPlan;
 
+      // `monthly_expenses` was removed 2026-09-23: it grouped on the fact key
+      // EXPENSE_CATEGORY, which nothing has ever written, and had no date
+      // filter. The month's money is GET /api/ledger.
       switch (id) {
-        case 'monthly_expenses':
-          plan = {
-            sourceTables: ['Document', 'DocumentFact'],
-            joins: [],
-            filters: [],
-            aggregations: { operation: 'SUM', field: 'DocumentFact.valueNumber' },
-            groupBy: ['DocumentFact.key'],
-            outputMode: 'chart_ready_data'
-          };
-          break;
         case 'recent_cards':
           plan = {
             sourceTables: ['Document'],
@@ -44,7 +37,7 @@ export class ReportController {
 
       // Execute natively through execution engine bypassing LLM Parser completely
       const intent: any = { 
-        intent: id === 'monthly_expenses' ? 'group_expenses' : 'list_documents', 
+        intent: 'list_documents',
         outputFormat: plan.outputMode, 
         confidence: 1, 
         needsClarification: false 

@@ -56,7 +56,7 @@ import { Prisma } from '@prisma/client';
 // queryExecutor.ts compiles filters through a closed if/else-if chain. A filter
 // whose `field` matches no branch falls off the end and is DISCARDED — no
 // throw, no log, no counter. queryPlanner.ts emits two such fields on the
-// sum_expenses / group_expenses branch:
+// sum_expenses branch:
 //
 //   plan.filters.push({ field: 'DocumentFact.factType', operator: 'eq', ... })
 //   plan.filters.push({ field: 'DocumentFact.key',      operator: 'eq', ... })
@@ -70,9 +70,9 @@ import { Prisma } from '@prisma/client';
 // They are NOT fixed here. `baseWhere` is a Document where-clause and those are
 // DocumentFact columns, so honouring them means a `facts: { some: ... }`
 // relation predicate — which narrows WHICH DOCUMENTS QUALIFY rather than which
-// facts are summed, and on group_expenses that predicate selects the id set fed
-// to the raw SQL. That moves a money figure on the reports screen. Out of scope
-// for a test-only change; see WORK-QUEUE.md.
+// facts are summed. That moves a money figure in the ask path. Out of scope
+// here too: the home screen's money is GET /api/ledger, which does not use it.
+// See WORK-QUEUE.md.
 //
 // The pin is bidirectional: red if a THIRD dropped field appears, and red if
 // these two are ever honoured, which is when someone should read this note.
@@ -146,7 +146,9 @@ const DOCUMENT_COLUMNS: string[] = documentModel.fields
 const PINNED_AS_DROPPED = ['DocumentFact.factType', 'DocumentFact.key'];
 
 // TRANSCRIBED PROBE INPUTS, not an oracle — blind spot 1 in the header.
-const REPORT_IDS = ['monthly_expenses', 'recent_cards'];
+// `monthly_expenses` was removed 2026-09-23 (it grouped on EXPENSE_CATEGORY,
+// which nothing writes); the month's money is GET /api/ledger.
+const REPORT_IDS = ['recent_cards'];
 
 const primeDoubles = () => {
   mocks.docFindMany.mockResolvedValue([]);

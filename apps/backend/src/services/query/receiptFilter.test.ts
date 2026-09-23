@@ -120,7 +120,7 @@ describe('asking for receipts finds the row ingestion stored as a receipt', () =
 
 // ── REPORTED, NOT FIXED HERE ────────────────────────────────────────────────
 // queryPlanner.ts:79-104 consumes `intent.documentTypes` for `list_documents`
-// and `count_documents` ONLY (:107-110). The `sum_expenses` / `group_expenses`
+// and `count_documents` ONLY (:107-110). The `sum_expenses`
 // branch never pushes the filter, so "how much did I spend on receipts" parses
 // the receipt type correctly and then sums EVERY document in the organisation.
 // That is a planner defect, it is older than this change, and fixing it would
