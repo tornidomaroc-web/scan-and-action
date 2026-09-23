@@ -110,6 +110,19 @@ them with the Artifact tool's `list`); their links are not recorded here.
 - Existing tests and the extraction-shape tests are green.
 - The merge replaces "43 of 47" on this board with the measured figure.
 
+**Amended 2026-09-23, from reading the set the measurement would run on.** His
+organisations hold 154 documents with text; 144 carry an amount. Read for
+labelling, they are mostly stock receipt images and templates, and they
+repeat: one supermarket receipt is there ten times, one "Shop Name" template
+twelve. Labelled, they give 101 receipts (43 templates, forms and screenshots
+skipped), which dedupe to **53 distinct receipts**. **Only two documents carry
+Arabic, and neither is a receipt** (an invoice template and a subscriptions
+dashboard). So the bar's "at least 40 in both scripts" cannot be met on what
+exists: the Latin side is measured on 53 distinct receipts, and **the Arabic
+side is not covered by this set**; the measurement says so rather than
+pretending. The labels are `scripts/categorizerLabels.json` (id prefix →
+label only; no merchant or amount in the repository).
+
 **The summary endpoint commit, second, after the backfill has run:** built
 fresh (month, by category, by currency, key `category`), the three dead paths
 deleted and `group_expenses` fixed or removed, proved by exact totals against a
@@ -403,7 +416,11 @@ shows money, so the two things below are now the first two commits of the
 build order (see DECIDED). The detail stays here as the record of what is
 wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
 
-1. **The categorizer is rebuilt.** As of 2026-09-11:
+1. **The categorizer is rebuilt.** IN PROGRESS: the categorizer PR carries it
+   (extractor enum in `expenseCategories.ts`, keywords demoted to fallback,
+   `scripts/recategorize.ts` for the backfill, `scripts/categorizerMeasure.ts`
+   for the measurement). The measured figure replaces the line below once the
+   backfill has run. As of 2026-09-11:
    - It answers `Other` for 43 of the 47 documents it has categorized. The `0.5`
      beside that answer is its hardcoded no-match return, not a measurement.
    - `expenseCategorizationService.ts` lists `'stationary'` where it means

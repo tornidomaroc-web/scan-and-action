@@ -289,7 +289,7 @@ export class PersistenceService {
       
       // Part 1: Auto Categorization (SAFE EXTENSION)
       const merchantFact = extraction.entities.find(e => e.entityType === 'VENDOR')?.name || null;
-      const category = await this.categorizeAndSave(tx, documentId, merchantFact, extraction.rawText, extraction.facts);
+      const category = await this.categorizeAndSave(tx, documentId, merchantFact, extraction.rawText, extraction.facts, (extraction as any).category ?? null);
 
       // Part 2: Rule Engine Evaluation
       //
@@ -471,7 +471,7 @@ export class PersistenceService {
       
       // Part 1: Auto Categorization (SAFE EXTENSION)
       const merchantFact2 = extraction.entities.find(e => e.entityType === 'VENDOR')?.name || null;
-      const category2 = await this.categorizeAndSave(tx, doc.id, merchantFact2, extraction.rawText, extraction.facts);
+      const category2 = await this.categorizeAndSave(tx, doc.id, merchantFact2, extraction.rawText, extraction.facts, (extraction as any).category ?? null);
 
       // Part 2: Rule Engine Evaluation
       // Canonical keys, for the same reason as the sibling site above. Kept
@@ -776,7 +776,8 @@ export class PersistenceService {
     documentId: string,
     merchantName: string | null,
     rawText: string,
-    facts: any[]
+    facts: any[],
+    extractorCategory: string | null = null
   ): Promise<string> {
     try {
       // 1. Check if category already exists to avoid overwriting
@@ -786,12 +787,15 @@ export class PersistenceService {
 
       if (existing) return existing.valueString || 'Other';
 
-      // 2. Get categorization result
-      const { category, confidence } = this.categorizationService.categorize({
-        merchantName,
-        rawText,
-        facts
-      });
+      // 2. The category. Since 2026-09-23 it normally arrives WITH the
+      // extraction (a fixed enum the model fills in, geminiAdapter.ts); the
+      // keyword matcher runs only when the model returned nothing on the list.
+      // The source is recorded on the fact so the two can be told apart later.
+      const fromExtractor = extractorCategory != null;
+      const { category, confidence } = fromExtractor
+        ? { category: extractorCategory as string, confidence: 0.9 }
+        : this.categorizationService.categorize({ merchantName, rawText, facts });
+      const sourceSpan = fromExtractor ? 'extractor' : 'auto_categorization';
 
       // 3. Persist as a new Fact
       await tx.documentFact.create({
@@ -814,7 +818,7 @@ export class PersistenceService {
           // 'user_correction' (:420), 'user_justification' (:439),
           // 'review_flow' (:457) and 'rule_engine_reval' (:491, :504), and
           // geminiAdapter.ts:222/:232/:242 use descriptive spans of their own.
-          sourceSpan: 'auto_categorization',
+          sourceSpan,
           isReviewed: confidence >= CONFIDENCE_THRESHOLD
         }
       });
