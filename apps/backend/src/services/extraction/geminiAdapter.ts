@@ -1,4 +1,5 @@
 import { GeminiExtractionSchema, GeminiExtractionResult } from '../../types/schemas';
+import { categoryPromptFragment, normalizeCategory, ExpenseCategory } from '../expenseCategories';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { formatErrorForLog } from '../../redaction';
 import { pinnedModelId } from './modelArm';
@@ -178,7 +179,7 @@ export class GeminiExtractionAdapter {
     // See isSingleDocument. Defaults to the PINNED model; the A/B supplies the
     // arm's model per document when it is running.
     injectedModelId?: string
-  ): Promise<GeminiExtractionResult & { failureCause?: string; modelVersion?: string }> {
+  ): Promise<GeminiExtractionResult & { failureCause?: string; modelVersion?: string; category?: ExpenseCategory | null }> {
     const modelId = injectedModelId ?? pinnedModelId();
 
     try {
@@ -201,12 +202,14 @@ export class GeminiExtractionAdapter {
            - Search for patterns like: DD/MM/YYYY, MM-DD-YY, YYYY.MM.DD, or "Mar 23, 2024".
            - Normalize to YYYY-MM-DD.
            - If found at all, return it. If absolutely not present after 3 passes, return "UNKNOWN".
-        4. CATEGORY: Correctly identify: "receipt" (point of sale), "invoice" (bill for service), or "business_card".
+        4. DOCUMENT TYPE: Correctly identify: "receipt" (point of sale), "invoice" (bill for service), or "business_card".
         5. CURRENCY: Detect from symbols ($, €, MAD, DH) or codes.
+        6. EXPENSE CATEGORY: what was bought, from the fixed list in the schema. Works for any language.
 
         ### JSON SCHEMA:
         {
           "documentType": "invoice" | "receipt" | "business_card",
+          ${categoryPromptFragment()}
           "language": "string (ISO)",
           "date": "string (YYYY-MM-DD or UNKNOWN)",
           "totalAmount": number,
@@ -320,9 +323,12 @@ export class GeminiExtractionAdapter {
       // describes the extraction, not the transport, and adding a field to it
       // would change the shape every existing caller and test asserts on. Same
       // treatment as failureCause.
+      // `category` rides the same way: null when the model returned nothing on
+      // the list, which is what makes persistence fall back to keywords.
       return {
         ...GeminiExtractionSchema.parse(mappedResult),
-        modelVersion: readModelVersion(result.response)
+        modelVersion: readModelVersion(result.response),
+        category: normalizeCategory(rawJson.category)
       };
 
     } catch (error: any) {

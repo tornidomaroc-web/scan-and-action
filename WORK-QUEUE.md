@@ -50,7 +50,8 @@
      2. the summary endpoint;
      3. the ledger home (design step 4).
      Nothing visual is drawn until the "Other" share on his own receipts is a
-     measured number rather than 43 of 47. Design steps 2, 3 and 5 to 7 follow.
+     measured number rather than 43 of 47. **Measured 2026-09-23** (see "The
+     categorizer is rebuilt" under Step 1). Design steps 2, 3 and 5 to 7 follow.
   6. Submission, once design steps 1 to 5 are done and every APPLE TRACK blocker
      is closed.
 
@@ -108,7 +109,22 @@ them with the Artifact tool's `list`); their links are not recorded here.
 - On the nine prototype receipts, the grocery receipt and the Arabic bakery come
   out Food.
 - Existing tests and the extraction-shape tests are green.
-- The merge replaces "43 of 47" on this board with the measured figure.
+- The merge replaces "43 of 47" on this board with the measured figure. DONE in
+  the categorizer PR; the figure and its caveats are under "The categorizer is
+  rebuilt" in the DESIGN TRACK.
+
+**Amended 2026-09-23, from reading the set the measurement would run on.** His
+organisations hold 154 documents with text; 144 carry an amount. Read for
+labelling, they are mostly stock receipt images and templates, and they
+repeat: one supermarket receipt is there ten times, one "Shop Name" template
+twelve. Labelled, they give 101 receipts (43 templates, forms and screenshots
+skipped), which dedupe to **53 distinct receipts**. **Only two documents carry
+Arabic, and neither is a receipt** (an invoice template and a subscriptions
+dashboard). So the bar's "at least 40 in both scripts" cannot be met on what
+exists: the Latin side is measured on 53 distinct receipts, and **the Arabic
+side is not covered by this set**; the measurement says so rather than
+pretending. The labels are `scripts/categorizerLabels.json` (id prefix →
+label only; no merchant or amount in the repository).
 
 **The summary endpoint commit, second, after the backfill has run:** built
 fresh (month, by category, by currency, key `category`), the three dead paths
@@ -403,9 +419,46 @@ shows money, so the two things below are now the first two commits of the
 build order (see DECIDED). The detail stays here as the record of what is
 wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
 
-1. **The categorizer is rebuilt.** As of 2026-09-11:
-   - It answers `Other` for 43 of the 47 documents it has categorized. The `0.5`
-     beside that answer is its hardcoded no-match return, not a measurement.
+1. **The categorizer is rebuilt: the categorizer PR carries it** (extractor enum
+   in `expenseCategories.ts`, keywords demoted to fallback,
+   `scripts/recategorize.ts` for the backfill, `scripts/categorizerMeasure.ts`
+   for the measurement). The backfill ran 2026-09-23: 154 documents in his
+   three organisations, all 154 categorized by the model, 0 by keywords, 0 scans
+   charged.
+   - **MEASURED 2026-09-23, replacing "43 of 47":** on the labelled copies,
+     `categorizerMeasure.ts` printed **accuracy 94.1% (95/101)** and **"Other"
+     share 6.9% (7/101)**, all 101 from source `extractor_backfill`. Those two
+     are the instrument's figures. On the **53 distinct receipts** behind them
+     (calculated, counting a receipt right only if every copy is right):
+     **50 of 53 right, 6 of 53 stored as Other**, of which 5 are labelled Other
+     and 1 (a freight forwarder) is a miss. Re-run, never quote:
+     `cd apps/backend && npx tsx scripts/categorizerMeasure.ts scripts/categorizerLabels.json`.
+   - **Read these caveats with the number, in this order.**
+     1. **The labels were adjudicated by the strategy assistant, not by the
+        owner.** He delegated the 53-row spot-check. That is weaker evidence
+        than the bar asked for ("spot-checked by him"), and the number carries
+        that weakness. One label changed in adjudication (a freight forwarder
+        is Transport); three of the assistant's own labels were overruled to
+        Other (trade suppliers and unnamed companies are not personal Shopping
+        or Office).
+     2. **The set is 53 distinct receipts after deduplication**, from 144
+        labelled documents: 43 skipped as templates, forms and screenshots (they
+        are not receipts and were not counted as misses or as Others), and 101
+        receipt copies that repeat heavily (one supermarket receipt ten times).
+        Most are stock receipt images, not his own spending.
+     3. **Arabic is not covered at all**: the measurement printed
+        `arabic: n=0 — NOT COVERED`, because no Arabic receipt exists in his
+        accounts (two Arabic documents, an invoice template and a dashboard
+        screenshot). Covering it takes new material, outside the categorizer PR:
+        he scans fifteen to twenty real Arabic receipts through the app, they
+        land in his organisation, and the same two scripts label and measure
+        them.
+     4. **Identical copies received different categories.** The Walmart
+        pet-supplies receipt, five copies: Shopping ×3, Food ×2. The Northwind
+        office-supply invoice, three copies: Office ×1, Shopping ×2. That is a
+        property of the model on near-identical text, not of the labels, and it
+        is recorded as it is: the categorizer is not deterministic across copies
+        even at temperature 0. A loop input for the result screen.
    - `expenseCategorizationService.ts` lists `'stationary'` where it means
      `'stationery'`.
    - Its keyword table is Latin-only, while `persistence.ts` passes the
