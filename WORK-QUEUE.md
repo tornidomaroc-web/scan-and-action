@@ -43,8 +43,14 @@
      or pay for.
   3. Design step 1: **DONE 2026-09-23, ledger-first chosen.** See DECIDED below.
   4. The iOS platform and a CI → TestFlight pipeline, in one small PR, so every
-     later design commit is judged on his iPhone. Unblocked: it waits only for
-     an order.
+     later design commit is judged on his iPhone. It needs the owner's App Store
+     Connect API key: no Apple credential is configured for this repository (its
+     Actions secrets are `SUPABASE_URL` and `SUPABASE_ANON_KEY` only; ask
+     `gh secret list`), and the key can only be created signed in to his Apple
+     account. Ruled 2026-09-24: the ledger home comes first, and is judged on
+     his iPhone from the home screen ("Add to Home Screen" runs the web app
+     full-screen with the same WebKit engine; `apple-mobile-web-app-capable`
+     in `index.html`).
   5. **The build order**, ruled 2026-09-23 and not to be reshuffled by taste:
      1. the categorizer, with its backfill and its measurement (bar below);
      2. the summary endpoint;
@@ -229,7 +235,8 @@ a store screenshot.**
 - [ ] **No iOS platform in the repository.** `apps/frontend/ios` is absent, and
   `@capacitor/ios` is not a dependency. **EXPIRY:** a PR adds the platform and a
   CI workflow that uploads a signed build to TestFlight, and the owner installs
-  it on his iPhone. Unblocked: the account is ready.
+  it on his iPhone. It needs the owner's App Store Connect API key (see THE
+  STAGE, item 4).
 - [ ] **Placeholder text that 2.1(a) forbids is reachable today.** Apple 2.1(a):
   *"placeholder text, empty websites, and other temporary content should be
   scrubbed before submission."*
@@ -381,8 +388,13 @@ restyled.** Do not start at login, although a reviewer sees it first:
   nothing unbuilt appears unframed; the owner chose on his iPhone. The
   prototypes are spent. **Still owed by this step:** a second round, on
   ledger-first, decides the icon and palette (this replaces the old logo item:
-  the icon is the App Store's first pixel and a required asset). It comes
-  after the categorizer and summary commits, with the ledger home.
+  the icon is the App Store's first pixel and a required asset). **Ruled
+  2026-09-24: it comes AFTER the ledger home**, as the owner's locked order
+  has it (item 4), not with it. The ledger home ships on the current tokens:
+  its accent is already the prototypes' own (`--sa-accent: #635BFF` in
+  `tokens.css`), a palette change repaints the finished landing through the
+  pin (`landingLightPin.test.tsx`), and judging structure and colour in one
+  sitting makes neither judgement readable.
 - [ ] **2. The design system, in code.**
   - Tokens, a type scale, and core components: sheet, list row, field, button,
     tab bar, nav bar.
@@ -399,12 +411,23 @@ restyled.** Do not start at login, although a reviewer sees it first:
   - Measure extraction success and the "Needs review" rate on his real receipts,
     judged only on rows the current code wrote.
   - **EXPIRY:** it ships on both native builds, with that measurement.
-- [ ] **4. Home: the ledger home.** Third in the build order; drawn only after the
-  categorizer and summary commits have merged, the backfill has run, and the
-  duplicate re-evaluation has been written (its dry run then plans 0 changes). What
-  it shows: the month's spend in the dominant currency as the figure, other
-  currencies subordinate and never summed, category cards, what needs him, and
-  the receipts as transactions.
+- [ ] **4. Home: the ledger home. BUILT in the ledger-home PR; open until the
+  owner has judged it on his iPhone.** Its precondition held: the duplicate
+  write ran 2026-09-24 and the dry run, re-run, planned 0 changes. What it
+  shows: one figure per currency, category cards, what needs him, and the
+  receipts as transactions (`LedgerScreen.tsx`; every rule and its evidence
+  in `lib/ledgerView.ts`).
+  - **Changed from "the dominant currency as the figure, other currencies
+    subordinate" (ruled 2026-09-24, on the owner's brief).** Every currency
+    gets a figure of the same size. Choosing a dominant one means comparing
+    amounts across currencies, which is a conversion in disguise: INR 290 would
+    outrank USD 50. The figures stay in the order `/api/ledger` returns them,
+    the unknown currency last.
+  - **It replaces the old home at `/dashboard`**; the workspace dashboard (CSV
+    export, activity, stats) moved to `/overview`, one tap from the ledger's
+    footer, until design step 6 redraws it. Its "Data coming soon" placeholders
+    are no longer the first screen of a new account.
+  - **EXPIRY:** the owner has used it on his iPhone and ruled on it.
 - [ ] **5. First run.** Login and signup, an email confirmation that returns to
   the app, the icon and splash, every "coming soon" removed, `ProfileScreen.tsx`
   deleted, and the in-app privacy link.
@@ -498,14 +521,34 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
      row the ledger does not count by status; dry run by default. Re-run it,
      never quote: the dry run prints the plan, the groups, each group whose
      copies disagree on currency with the copy that stays counted, and the
-     ledger before and after. **EXPIRY:** the write has run and the dry run,
-     re-run, plans 0 changes. One limit it does not remove:
-     - **A vendor misread escapes it.** Rule D matches the vendor string
-       exactly, so a copy read as another vendor stays counted: the 467.85 MAD
-       receipt has seven copies read as BIM MAROC (5), MHAMMADI and UNKNOWN, and
-       after the write still counts three times (two in Feb 2026, one in Feb
-       2024). **EXPIRY:** a rule for this is ruled on with its false-positive
-       cost measured, or the owner rejects the extra copies by hand.
+     ledger before and after. **EXPIRY MET 2026-09-24:** the write ran
+     (`--expect=50`, 50 documents, decision facts only) and the dry run, re-run,
+     planned 0 changes. One limit it does not remove:
+     - **A vendor misread escapes it, and the ledger home shows it.** Rule D
+       matches the vendor string exactly, so a copy read as another vendor
+       stays counted: the 467.85 MAD receipt has seven copies read as BIM MAROC
+       (5), MHAMMADI and UNKNOWN, and still counts three times (two in Feb 2026,
+       one in Feb 2024). **A known input to the ledger home:** February 2026
+       in `d8b34ee3` reads MAD 935.70 from two rows side by side, same day, same
+       amount, different vendor (re-run, never quote:
+       `npx tsx scripts/ledgerReconcile.ts --org=d8b34ee3 --month=2026-02 --rows`).
+       The screen offers no cue for it: a cue is a duplicate rule by another
+       name, and this one has not been ruled on. **Nor can the owner reject the
+       extra copy today:** Reject is offered only on a NEEDS_REVIEW document
+       (`doc.status === 'NEEDS_REVIEW'` in `DocumentDetailScreen.tsx`), and
+       these copies are COMPLETED. **EXPIRY:** a rule for this is ruled on with
+       its false-positive cost measured, or the detail screen lets the owner
+       reject a counted copy and he does.
+   - **Two amounts that look misread, both counted.** Neither is a duplicate;
+     each is one document whose extracted amount is probably wrong, and each
+     sits on the ledger home as real spend. Re-run, never quote, with
+     `ledgerReconcile.ts --org=<prefix> --month=<YYYY-MM> --rows`:
+     - `d8b34ee3`, March 2026: a single SAR 19,790.00 receipt whose text
+       carries no SAR marker (the 2026-09-24 currency census read its
+       `rawText`).
+     - `d8b34ee3`, July 2017: a USD row of 80,616.00, most of that month's
+       USD 80,714.21.
+     **EXPIRY:** each is corrected, rejected, or confirmed as right by the owner.
      - **CLOSED by the currency-ranking PR: "Rejecting an original drops the
        receipt."** Any change to one copy now re-checks its whole group
        (`duplicateGroupRecheck.ts`): an upload or re-extraction whatever its
