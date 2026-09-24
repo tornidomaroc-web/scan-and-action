@@ -77,7 +77,11 @@
      `categoryPalette.test.ts` computes those ratios from this file; move a
      value outside the window and it fails. Hues follow common meaning where it
      helps (food orange, transport blue, health green as a pharmacy cross);
-     none reuses a status colour (warning amber, danger red). */
+     none reuses a status colour (warning amber, danger red). Other is a
+     category like the rest, so it has a hue of its own (fuchsia), never
+     grey: a grey tile among coloured ones reads as disabled (owner, 2026-09-25).
+     The test also holds every fill to a chroma floor and a distance from the
+     others. */
   --sa-cat-food: #D9480F;
   --sa-cat-transport: #1C7ED6;
   --sa-cat-travel: #0C8599;
@@ -85,7 +89,7 @@
   --sa-cat-health: #2B8A3E;
   --sa-cat-bills: #B7791F;
   --sa-cat-office: #8B5CF6;
-  --sa-cat-other: #737D92;
+  --sa-cat-other: #C026D3;
 
   /* ── Radius scale ──────────────────────────────────────────────────── */
   --sa-radius-sm: 6px;

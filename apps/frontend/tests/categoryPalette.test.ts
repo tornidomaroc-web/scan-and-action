@@ -43,6 +43,25 @@ const ratio = (a: string, b: string) => {
 };
 
 const FLOOR = 3; // WCAG 1.4.11, the only floor for a non-text graphic
+
+// CIE L*a*b* (D65), for "is it a colour" (chroma) and "is it a different
+// colour" (CIE76 ΔE). The floors are set under the palette's weakest real
+// value (chroma: Travel 29; distance: Health to success 16.5) and above the
+// failures they exist for (the grey Other: chroma 13; an orange one step from
+// Food: ΔE 7.7).
+const CHROMA_FLOOR = 25;
+const DISTANCE_FLOOR = 15;
+function lab(hex: string): [number, number, number] {
+  const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const [r, g, b] = [1, 3, 5].map(i => lin(parseInt(hex.slice(i, i + 2), 16) / 255));
+  const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const x = f((r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047);
+  const y = f(r * 0.2126 + g * 0.7152 + b * 0.0722);
+  const z = f((r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+const chroma = (hex: string) => { const [, a, b] = lab(hex); return Math.hypot(a, b); };
+const deltaE = (p: string, q: string) => { const a = lab(p), b = lab(q); return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]); };
 const SURFACES = {
   'light page': root['--sa-surface'],
   'light card': root['--sa-surface-raised'],
@@ -81,6 +100,21 @@ describe('category colours', () => {
   it('no category reuses a status colour', () => {
     const status = ['--sa-warning', '--sa-danger', '--sa-success', '--sa-accent'].map(k => root[k].toUpperCase());
     for (const c of LEDGER_CATEGORIES) expect(status).not.toContain(root[tokenOf(c)].toUpperCase());
+  });
+
+  it('every fill is a colour, not a grey (control: the old grey Other fails)', () => {
+    expect(chroma('#737D92')).toBeLessThan(CHROMA_FLOOR);
+    for (const c of LEDGER_CATEGORIES) expect(chroma(root[tokenOf(c)]), c).toBeGreaterThanOrEqual(CHROMA_FLOOR);
+  });
+
+  it('every fill stays apart from every other fill and from the warning, danger and success fills (control: a near twin fails)', () => {
+    expect(deltaE('#E8590C', root['--sa-cat-food'])).toBeLessThan(DISTANCE_FLOOR);
+    const others = [...LEDGER_CATEGORIES.map(tokenOf), '--sa-warning', '--sa-danger', '--sa-success'];
+    for (const c of LEDGER_CATEGORIES) {
+      for (const o of others.filter(t => t !== tokenOf(c))) {
+        expect(deltaE(root[tokenOf(c)], root[o]), `${c} vs ${o}`).toBeGreaterThanOrEqual(DISTANCE_FLOOR);
+      }
+    }
   });
 
   for (const c of LEDGER_CATEGORIES) {
