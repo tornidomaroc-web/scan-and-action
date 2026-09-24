@@ -30,7 +30,7 @@ let container: HTMLDivElement;
 let root: Root;
 let onNewScan: ReturnType<typeof vi.fn>;
 
-function mount(lang: Lang = 'en', path = '/dashboard?month=2026-05', refreshCount = 0) {
+function mount(lang: Lang = 'en', path = '/dashboard?month=2026-05', refreshCount = 0, pendingCount?: number) {
   localStorage.setItem('lang', lang);
   if (!container) {
     container = document.createElement('div');
@@ -42,7 +42,7 @@ function mount(lang: Lang = 'en', path = '/dashboard?month=2026-05', refreshCoun
       <LanguageProvider>
         <MemoryRouter initialEntries={[path]}>
           <Routes>
-            <Route element={<Outlet context={{ refreshCount, onNewScan }} />}>
+            <Route element={<Outlet context={{ refreshCount, onNewScan, pendingCount }} />}>
               <Route path="/dashboard" element={<LedgerScreen />} />
             </Route>
           </Routes>
@@ -184,7 +184,7 @@ describe('ledger home: the rows and what needs the owner', () => {
     mount();
     await settle();
     const other = q('[data-ledger-category="Other"]')!;
-    expect(other.textContent).toContain(strings.en.ledgerNotYetSorted.replace('{n}', '1'));
+    expect(other.querySelector('[data-ledger-not-sorted]')!.textContent).toBe('1 not yet sorted');
     expect(q('[data-ledger-row="f3"]')!.textContent).toContain(strings.en.ledgerNotSortedTag);
   });
 
@@ -214,9 +214,59 @@ describe('ledger home: the rows and what needs the owner', () => {
     mount();
     await settle();
     const needs = q('[data-ledger-needs]') as HTMLAnchorElement;
-    expect(needs.textContent).toContain('2 receipts need your review');
+    expect(needs.textContent).toContain('2 receipts from May need your review');
     expect(needs.getAttribute('href')).toBe('/queue');
     expect(q('[data-ledger-row="r1"]')!.textContent).toContain(strings.en.ledgerNeedsReviewTag);
+  });
+
+  // The Queue tab's badge counts every NEEDS_REVIEW document in every month
+  // (GET /api/stats pendingCount); the card counts this month's counted ones.
+  // The owner saw 8 on the tab and 1 on the card with nothing saying why.
+  const ONE_NEEDS = () => month([currency('USD', 30, [
+    receipt('n1', { status: 'NEEDS_REVIEW', amount: 10 }), receipt('ok', { amount: 20 }),
+  ], { Food: [30, 2] })]);
+
+  it('when the Queue holds more than this month, the card says both numbers and names the Queue', async () => {
+    h.getMonth.mockResolvedValue(ONE_NEEDS());
+    mount('en', '/dashboard?month=2026-05', 0, 8);
+    await settle();
+    const needs = q('[data-ledger-needs]')!;
+    expect(needs.textContent).toContain('1 receipt from May needs your review');
+    expect(q('[data-ledger-queue-all]')!.textContent).toBe('8 in Queue across all months');
+  });
+
+  it('when the two numbers agree, the second line is not shown (control: it is shown when they differ)', async () => {
+    h.getMonth.mockResolvedValue(ONE_NEEDS());
+    mount('en', '/dashboard?month=2026-05', 0, 1);
+    await settle();
+    expect(q('[data-ledger-needs]')).not.toBeNull();
+    expect(q('[data-ledger-queue-all]')).toBeNull();
+  });
+
+  it('nothing this month but the Queue is not empty: the card says what waits, and still leads to the Queue', async () => {
+    h.getMonth.mockResolvedValue(month([currency('USD', 20, [receipt('ok', { amount: 20 })], { Food: [20, 1] })]));
+    mount('en', '/dashboard?month=2026-05', 0, 8);
+    await settle();
+    const needs = q('[data-ledger-needs]') as HTMLAnchorElement;
+    expect(needs.textContent).toContain('8 documents are waiting in Queue');
+    expect(needs.getAttribute('href')).toBe('/queue');
+  });
+
+  it('nothing to review anywhere: no card', async () => {
+    h.getMonth.mockResolvedValue(month([currency('USD', 20, [receipt('ok', { amount: 20 })], { Food: [20, 1] })]));
+    mount('en', '/dashboard?month=2026-05', 0, 0);
+    await settle();
+    expect(q('[data-ledger-needs]')).toBeNull();
+  });
+
+  it('Arabic: the card reads as Arabic sentences, not "label: n"', async () => {
+    h.getMonth.mockResolvedValue(ONE_NEEDS());
+    mount('ar', '/dashboard?month=2026-05', 0, 8);
+    await settle();
+    expect(q('[data-ledger-needs]')!.textContent).toContain('إيصال واحد من مايو بانتظار مراجعتك');
+    expect(q('[data-ledger-queue-all]')!.textContent).toBe('8 مستندات في المراجعة من كل الأشهر');
+    expect(q('[data-ledger-category="Food"]')!.textContent).toContain('إيصالان');
+    expect(text()).not.toContain('الإيصالات: ');
   });
 
   it('a corrected amount is marked as edited', async () => {
@@ -394,9 +444,33 @@ describe('ledger home: languages', () => {
 
   it('every ledger string exists in all three languages', () => {
     const keys = Object.keys(strings.en).filter(k => k.startsWith('ledger') || k.startsWith('cat'));
-    expect(keys.length).toBeGreaterThanOrEqual(40);
+    // 39 since the one/other key pairs became single plural messages.
+    expect(keys.length).toBeGreaterThanOrEqual(39);
     for (const lang of ['fr', 'ar'] as const) {
       for (const k of keys) expect((strings[lang] as Record<string, string>)[k], `${lang}.${k}`).toBeTruthy();
     }
+  });
+});
+
+describe('ledger home: the category icon is never the only carrier', () => {
+  it('every category card shows its name beside a tile in its own colour, and the tile is hidden from screen readers', async () => {
+    const all = month([currency('USD', 80, CATS.map((c, i) => receipt(`r${i}`, { category: c, amount: 10 })),
+      Object.fromEntries(CATS.map(c => [c, [10, 1]])) as any)]);
+    h.getMonth.mockResolvedValue(all);
+    mount();
+    await settle();
+    const fills = new Set<string>();
+    for (const c of CATS) {
+      const card = q(`[data-ledger-category="${c}"]`)!;
+      expect(card.textContent).toContain(strings.en[`cat${c}` as const]);
+      const tile = card.querySelector(`[data-category-icon="${c}"]`)!;
+      expect(tile.getAttribute('aria-hidden')).toBe('true');
+      const fill = tile.className.match(/\bbg-cat-[a-z]+\b/)![0];
+      fills.add(fill);
+      // The same treatment on the receipt row, with the category named in its text.
+      const row = qa('[data-ledger-row]').find(r => r.querySelector(`[data-category-icon="${c}"]`))!;
+      expect(row.textContent).toContain(strings.en[`cat${c}` as const]);
+    }
+    expect(fills.size).toBe(CATS.length);
   });
 });

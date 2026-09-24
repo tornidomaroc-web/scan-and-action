@@ -187,8 +187,24 @@ export function isEmptyMonth(ledger: LedgerMonth): boolean {
   return ledger.currencies.length === 0;
 }
 
-/** "{n}" filled with a Western-digit count, and a plural picked by the language's rules. */
-export function plural(n: number, lang: Lang, one: string, other: string): string {
-  const form = new Intl.PluralRules(lang).select(n);
-  return (form === 'one' ? one : other).replace('{n}', formatCountLatn(n, lang));
+/**
+ * The forms of a plural message, "one={n} receipt|other={n} receipts". Arabic
+ * uses six categories (zero, one, two, few, many, other), French three, English
+ * two; a two-form one/other switch reads "الإيصالات: 1" in Arabic, which is why
+ * the message carries every form the language needs.
+ */
+export function pluralForms(message: string): Partial<Record<Intl.LDMLPluralRule, string>> {
+  const forms: Partial<Record<Intl.LDMLPluralRule, string>> = {};
+  for (const part of message.split('|')) {
+    const eq = part.indexOf('=');
+    if (eq > 0) forms[part.slice(0, eq) as Intl.LDMLPluralRule] = part.slice(eq + 1);
+  }
+  return forms;
+}
+
+/** The form the language's CLDR rules pick for n, with "{n}" filled in Western digits. */
+export function plural(n: number, lang: Lang, message: string): string {
+  const forms = pluralForms(message);
+  const text = forms[new Intl.PluralRules(lang).select(n)] ?? forms.other ?? message;
+  return text.replace('{n}', formatCountLatn(n, lang));
 }

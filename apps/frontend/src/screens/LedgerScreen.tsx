@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
-import {
-  Briefcase, Camera, ChevronLeft, ChevronRight, CircleDashed, HeartPulse, Car,
-  Plane, Receipt, ShoppingBag, Utensils, X,
-} from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight, ClipboardCheck, Receipt, X } from 'lucide-react';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { ErrorState } from '../components/ErrorState';
+import { CategoryIcon, CATEGORY_RING } from '../components/ui/CategoryIcon';
+import { CountChip } from '../components/ui/CountChip';
+import { Panel, panelClass } from '../components/ui/Panel';
 import { isIdentityConflict } from '../lib/identityConflict';
 import { ledgerService } from '../services/ledgerService';
 import type { LedgerCategory, LedgerMonth } from '../lib/ledgerTypes';
@@ -28,18 +28,12 @@ import {
 // adds amounts, and nothing compares amounts of different currencies
 // (lib/ledgerView.ts says why; ledgerNoCrossCurrencySum.test.ts enforces it).
 // There is no Pro or payment surface on this screen, on any platform.
+//
+// The visual language (components/ui): a category is a solid colour tile with
+// a white glyph and always its name beside it; a card is a Panel; a count is a
+// CountChip; figure, code, label and meta each have their own weight, size and
+// colour (CountChip.tsx lists them).
 // ============================================================================
-
-const CATEGORY_ICON: Record<LedgerCategory, typeof Utensils> = {
-  Food: Utensils,
-  Transport: Car,
-  Travel: Plane,
-  Shopping: ShoppingBag,
-  Health: HeartPulse,
-  Bills: Receipt,
-  Office: Briefcase,
-  Other: CircleDashed,
-};
 
 type Strings = ReturnType<typeof useStrings>;
 
@@ -51,7 +45,7 @@ const Money: React.FC<{ amount: number; currency: string | null; lang: Lang; s: 
 }) => {
   const p = moneyParts(amount, currency, lang);
   return (
-    <span className="inline-flex flex-wrap items-baseline gap-x-1.5" aria-label={`${p.number} ${p.name ?? p.code ?? s.ledgerNoCurrency}`}>
+    <span className="inline-flex flex-wrap items-baseline gap-x-1" aria-label={`${p.number} ${p.name ?? p.code ?? s.ledgerNoCurrency}`}>
       <bdi dir="ltr" data-ledger-amount className={`tabular-nums ${numberClass}`}>{p.number}</bdi>
       <span className={codeClass}>{p.code ?? s.ledgerNoCurrency}</span>
     </span>
@@ -62,9 +56,10 @@ export const LedgerScreen: React.FC = () => {
   const s = useStrings();
   const { language } = useLanguage();
   const lang = language as Lang;
-  const outlet = useOutletContext<{ refreshCount?: number; onNewScan?: () => void } | undefined>();
+  const outlet = useOutletContext<{ refreshCount?: number; onNewScan?: () => void; pendingCount?: number } | undefined>();
   const refreshCount = outlet?.refreshCount ?? 0;
   const onNewScan = outlet?.onNewScan;
+  const queueTotal = outlet?.pendingCount;
   const [searchParams, setSearchParams] = useSearchParams();
   const timeZone = useMemo(deviceTimeZone, []);
   const thisMonth = useMemo(() => currentMonth(timeZone), [timeZone]);
@@ -111,6 +106,7 @@ export const LedgerScreen: React.FC = () => {
 
   const title = monthTitle(month, lang);
   const loading = !data && !error;
+  const navButton = 'flex h-11 w-11 items-center justify-center rounded-pill bg-surface-raised text-ink-secondary ring-1 ring-line transition-colors hover:text-ink active:scale-95';
 
   return (
     <div className="mx-auto w-full max-w-xl pb-6" data-ledger-screen>
@@ -121,20 +117,20 @@ export const LedgerScreen: React.FC = () => {
           onClick={() => goTo(shiftMonth(month, -1))}
           aria-label={s.ledgerPrevMonth}
           data-ledger-prev
-          className="flex h-11 w-11 items-center justify-center rounded-pill text-ink-secondary transition-colors hover:bg-surface-alt active:scale-95"
+          className={navButton}
         >
-          <ChevronLeft size={22} className="rtl:-scale-x-100" aria-hidden="true" />
+          <ChevronLeft size={20} className="rtl:-scale-x-100" aria-hidden="true" />
         </button>
-        <h1 id="ledger-month" className="text-section font-semibold text-ink" aria-live="polite">{title}</h1>
+        <h1 id="ledger-month" className="text-[17px] font-bold tracking-tight text-ink" aria-live="polite">{title}</h1>
         <button
           type="button"
           onClick={() => goTo(shiftMonth(month, 1))}
           aria-label={s.ledgerNextMonth}
           disabled={month >= thisMonth}
           data-ledger-next
-          className="flex h-11 w-11 items-center justify-center rounded-pill text-ink-secondary transition-colors hover:bg-surface-alt active:scale-95 disabled:pointer-events-none disabled:opacity-30"
+          className={`${navButton} disabled:pointer-events-none disabled:opacity-30`}
         >
-          <ChevronRight size={22} className="rtl:-scale-x-100" aria-hidden="true" />
+          <ChevronRight size={20} className="rtl:-scale-x-100" aria-hidden="true" />
         </button>
       </header>
 
@@ -151,18 +147,21 @@ export const LedgerScreen: React.FC = () => {
       )}
 
       {data && isEmptyMonth(data) && (
-        <EmptyMonth
-          s={s}
-          lang={lang}
-          month={month}
-          onScan={onNewScan}
-          onPrevious={() => goTo(shiftMonth(month, -1))}
-          excluded={data.excluded}
-        />
+        <>
+          <NeedsReview s={s} lang={lang} month={month} monthCount={0} queueTotal={queueTotal} />
+          <EmptyMonth
+            s={s}
+            lang={lang}
+            month={month}
+            onScan={onNewScan}
+            onPrevious={() => goTo(shiftMonth(month, -1))}
+            excluded={data.excluded}
+          />
+        </>
       )}
 
       {data && !isEmptyMonth(data) && (
-        <LedgerBody data={data} s={s} lang={lang} month={month} filter={filter} setFilter={setFilter} />
+        <LedgerBody data={data} s={s} lang={lang} month={month} filter={filter} setFilter={setFilter} queueTotal={queueTotal} />
       )}
 
       {/* Everything the old home led to stays one tap away. */}
@@ -177,45 +176,75 @@ export const LedgerScreen: React.FC = () => {
 const LedgerSkeleton: React.FC<{ label: string }> = ({ label }) => (
   // The same shapes as the loaded screen, in the same surfaces, so the page
   // does not jump when the figures arrive.
-  <div className="mt-4 animate-pulse" aria-busy="true" aria-label={label} data-ledger-loading>
+  <div className="mt-6 animate-pulse" aria-busy="true" aria-label={label} data-ledger-loading>
     <div className="h-3.5 w-28 rounded-pill bg-line" />
     <div className="mt-3 h-11 w-52 rounded-btn bg-line" />
-    <div className="mt-2 h-3 w-36 rounded-pill bg-line" />
+    <div className="mt-3 h-5 w-36 rounded-pill bg-line" />
     <div className="mt-8 h-3.5 w-24 rounded-pill bg-line" />
     <div className="mt-3 grid grid-cols-2 gap-3">
-      {[0, 1, 2, 3].map(i => <div key={i} className="h-[104px] rounded-card bg-surface-raised shadow-card" />)}
+      {[0, 1, 2, 3].map(i => <div key={i} className={`h-[136px] ${panelClass}`} />)}
     </div>
-    <div className="mt-8 space-y-2">
-      {[0, 1, 2].map(i => <div key={i} className="h-[72px] rounded-card bg-surface-raised shadow-card" />)}
-    </div>
+    <div className={`mt-8 h-[216px] ${panelClass}`} />
   </div>
 );
 
 const ExcludedNote: React.FC<{ excluded: LedgerMonth['excluded']; s: Strings; lang: Lang }> = ({ excluded, s, lang }) => {
   const parts: string[] = [];
-  if (excluded.duplicate > 0) parts.push(plural(excluded.duplicate, lang, s.ledgerExcludedDuplicateOne, s.ledgerExcludedDuplicateOther));
-  if (excluded.noAmount > 0) parts.push(plural(excluded.noAmount, lang, s.ledgerExcludedNoAmount, s.ledgerExcludedNoAmount));
-  if (excluded.status > 0) parts.push(plural(excluded.status, lang, s.ledgerExcludedStatus, s.ledgerExcludedStatus));
+  if (excluded.duplicate > 0) parts.push(plural(excluded.duplicate, lang, s.ledgerExcludedDuplicate));
+  if (excluded.noAmount > 0) parts.push(plural(excluded.noAmount, lang, s.ledgerExcludedNoAmount));
+  if (excluded.status > 0) parts.push(plural(excluded.status, lang, s.ledgerExcludedStatus));
   if (!parts.length) return null;
   const list = parts.join(lang === 'ar' ? '، ' : ', ');
-  return <p className="mt-3 text-xs text-ink-muted" data-ledger-excluded>{s.ledgerNotCounted.replace('{list}', list)}</p>;
+  return <p className="mt-3 text-xs font-medium text-ink-muted" data-ledger-excluded>{s.ledgerNotCounted.replace('{list}', list)}</p>;
+};
+
+/**
+ * What needs the owner. Two numbers from two sources, each named for what it
+ * counts, so neither reads as the other's mistake:
+ *   monthCount  receipts of THIS month that count in its figures and wait for
+ *               review (/api/ledger, NEEDS_REVIEW rows it counts);
+ *   queueTotal  every NEEDS_REVIEW document in every month, counted or not:
+ *               the Queue tab's badge (GET /api/stats pendingCount, via Layout).
+ * The second line appears only when the two differ, and names the Queue tab.
+ */
+const NeedsReview: React.FC<{ s: Strings; lang: Lang; month: string; monthCount: number; queueTotal?: number }> = ({
+  s, lang, month, monthCount, queueTotal,
+}) => {
+  const total = typeof queueTotal === 'number' ? queueTotal : null;
+  if (monthCount === 0 && !total) return null;
+  const titleText = monthCount > 0
+    ? plural(monthCount, lang, s.ledgerNeedsReview).replace('{month}', monthName(month, lang))
+    : plural(total!, lang, s.ledgerQueueWaiting);
+  const allMonths = monthCount > 0 && total !== null && total > monthCount ? plural(total, lang, s.ledgerQueueAll) : null;
+  return (
+    <Link to="/queue" data-ledger-needs className={`mt-6 flex min-h-[64px] items-center gap-3 p-3 pe-4 ${panelClass}`}>
+      <span aria-hidden="true" className="flex h-10 w-10 flex-none items-center justify-center rounded-tile bg-warning-tint text-warning-text">
+        <ClipboardCheck size={20} strokeWidth={2.25} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-semibold leading-snug text-ink">{titleText}</span>
+        {allMonths && <span className="mt-0.5 block text-xs font-medium text-ink-muted" data-ledger-queue-all>{allMonths}</span>}
+      </span>
+      <ChevronRight size={18} className="flex-none text-ink-faint rtl:-scale-x-100" aria-hidden="true" />
+    </Link>
+  );
 };
 
 const EmptyMonth: React.FC<{
   s: Strings; lang: Lang; month: string; onScan?: () => void; onPrevious: () => void; excluded: LedgerMonth['excluded'];
 }> = ({ s, lang, month, onScan, onPrevious, excluded }) => (
-  <section className="mt-6 rounded-card bg-surface-raised p-8 text-center shadow-card" data-ledger-empty>
-    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-pill bg-accent-tint text-accent-text">
+  <Panel className="mt-6 p-8 text-center" data-ledger-empty>
+    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-tile bg-accent text-surface-raised">
       <Receipt size={26} aria-hidden="true" />
     </div>
-    <h2 className="mt-4 text-section font-semibold text-ink">{s.ledgerEmptyTitle.replace('{month}', monthName(month, lang))}</h2>
+    <h2 className="mt-4 text-[17px] font-bold text-ink">{s.ledgerEmptyTitle.replace('{month}', monthName(month, lang))}</h2>
     <p className="mx-auto mt-1 max-w-xs text-sm text-ink-secondary">{s.ledgerEmptyBody}</p>
     <div className="mt-6 flex flex-col items-center gap-2">
       {onScan && (
         <button
           type="button"
           onClick={onScan}
-          className="inline-flex min-h-[48px] items-center gap-2 rounded-btn bg-accent px-5 text-sm font-bold text-surface-raised shadow-card transition-all hover:bg-accent-hover active:scale-95"
+          className="inline-flex min-h-[48px] items-center gap-2 rounded-pill bg-accent px-6 text-sm font-bold text-surface-raised shadow-card transition-all hover:bg-accent-hover active:scale-95"
         >
           <Camera size={18} aria-hidden="true" />
           {s.scanReceipt}
@@ -226,13 +255,13 @@ const EmptyMonth: React.FC<{
       </button>
     </div>
     <ExcludedNote excluded={excluded} s={s} lang={lang} />
-  </section>
+  </Panel>
 );
 
 const LedgerBody: React.FC<{
-  data: LedgerMonth; s: Strings; lang: Lang; month: string;
+  data: LedgerMonth; s: Strings; lang: Lang; month: string; queueTotal?: number;
   filter: LedgerCategory | null; setFilter: (c: LedgerCategory | null) => void;
-}> = ({ data, s, lang, month, filter, setFilter }) => {
+}> = ({ data, s, lang, month, queueTotal, filter, setFilter }) => {
   const cards = categoryCards(data);
   const rows = receiptRows(data);
   const needs = needsReviewCount(data);
@@ -241,15 +270,15 @@ const LedgerBody: React.FC<{
   return (
     <>
       {/* ── The figures: one per currency, same size, never added together ── */}
-      <section className="mt-4" aria-labelledby="ledger-spent">
-        <p id="ledger-spent" className="text-sm font-medium text-ink-muted">
+      <section className="mt-6" aria-labelledby="ledger-spent">
+        <p id="ledger-spent" className="text-sm font-semibold text-ink-secondary">
           {s.ledgerSpentIn.replace('{month}', monthName(month, lang))}
         </p>
-        <ul className="mt-2 space-y-4">
+        <ul className="mt-2 divide-y divide-divider">
           {data.currencies.map(c => {
             const p = moneyParts(c.total, c.currency, lang);
             return (
-              <li key={c.currency ?? 'none'} data-ledger-currency={c.currency ?? 'none'}>
+              <li key={c.currency ?? 'none'} data-ledger-currency={c.currency ?? 'none'} className="py-3 first:pt-1">
                 <div className="flex flex-wrap items-baseline gap-x-2" aria-label={`${p.number} ${p.name ?? p.code ?? s.ledgerNoCurrency}`}>
                   <bdi
                     dir="ltr"
@@ -258,42 +287,31 @@ const LedgerBody: React.FC<{
                   >
                     {p.number}
                   </bdi>
-                  <span className={`text-lg font-semibold ${c.currency ? 'text-ink-muted' : 'text-warning-text'}`}>
+                  <span className={`text-base font-bold tracking-wide ${c.currency ? 'text-ink-muted' : 'text-warning-text'}`}>
                     {p.code ?? s.ledgerNoCurrency}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-ink-muted">
-                  {p.name ? `${p.name} · ` : ''}
-                  {plural(c.receiptCount, lang, s.ledgerReceiptsOne, s.ledgerReceiptsOther)}
-                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <CountChip>{plural(c.receiptCount, lang, s.ledgerReceiptCount)}</CountChip>
+                  {p.name && <span className="text-xs font-medium text-ink-muted">{p.name}</span>}
+                </div>
               </li>
             );
           })}
         </ul>
         {data.currencies.length > 1 && (
-          <p className="mt-3 text-xs text-ink-muted" data-ledger-separate>{s.ledgerSeparateCurrencies}</p>
+          <p className="mt-1 text-xs font-medium text-ink-muted" data-ledger-separate>{s.ledgerSeparateCurrencies}</p>
         )}
         <ExcludedNote excluded={data.excluded} s={s} lang={lang} />
       </section>
 
-      {/* ── What needs him ── */}
-      {needs > 0 && (
-        <Link
-          to="/queue"
-          data-ledger-needs
-          className="mt-5 flex min-h-[52px] items-center justify-between gap-3 rounded-card bg-warning-tint px-4 font-semibold text-warning-text"
-        >
-          <span>{plural(needs, lang, s.ledgerNeedsReviewOne, s.ledgerNeedsReviewOther)}</span>
-          <ChevronRight size={18} className="rtl:-scale-x-100" aria-hidden="true" />
-        </Link>
-      )}
+      <NeedsReview s={s} lang={lang} month={month} monthCount={needs} queueTotal={queueTotal} />
 
       {/* ── Categories ── */}
       <section className="mt-8" aria-labelledby="ledger-cats">
-        <h2 id="ledger-cats" className="text-sm font-semibold text-ink">{s.ledgerByCategory}</h2>
+        <h2 id="ledger-cats" className="text-[15px] font-bold text-ink">{s.ledgerByCategory}</h2>
         <div className="mt-3 grid grid-cols-2 gap-3">
           {cards.active.map(card => {
-            const Icon = CATEGORY_ICON[card.category];
             const on = filter === card.category;
             return (
               <button
@@ -303,15 +321,16 @@ const LedgerBody: React.FC<{
                 aria-pressed={on}
                 aria-label={s.ledgerCategoryFilter.replace('{category}', categoryLabel(s, card.category))}
                 onClick={() => setFilter(on ? null : card.category)}
-                className={`flex min-h-[104px] flex-col justify-between gap-2 rounded-card p-4 text-start transition-colors ${
-                  on ? 'bg-accent-tint ring-2 ring-accent' : 'bg-surface-raised shadow-card hover:bg-surface-alt'
+                className={`flex min-h-[136px] flex-col gap-3 rounded-panel bg-surface-raised p-4 text-start shadow-card transition-shadow active:scale-[0.98] ${
+                  on ? `ring-2 ${CATEGORY_RING[card.category]}` : 'ring-1 ring-line'
                 }`}
               >
-                <span className="flex items-center justify-between gap-2 text-sm font-medium text-ink-secondary">
-                  <span>{categoryLabel(s, card.category)}</span>
-                  <Icon size={16} aria-hidden="true" className="text-ink-faint" />
+                <span className="flex w-full items-start justify-between gap-2">
+                  <CategoryIcon category={card.category} />
+                  <CountChip>{plural(card.receiptCount, lang, s.ledgerReceiptCount)}</CountChip>
                 </span>
-                <span className="flex flex-col gap-0.5">
+                <span className="text-sm font-semibold text-ink-secondary">{categoryLabel(s, card.category)}</span>
+                <span className="mt-auto flex flex-col gap-0.5">
                   {card.lines.map(line => (
                     <Money
                       key={line.currency ?? 'none'}
@@ -319,17 +338,14 @@ const LedgerBody: React.FC<{
                       currency={line.currency}
                       lang={lang}
                       s={s}
-                      numberClass="text-[17px] font-bold text-ink"
-                      codeClass="text-xs font-semibold text-ink-muted"
+                      numberClass="text-xl font-extrabold leading-tight tracking-tight text-ink"
+                      codeClass={`text-[11px] font-bold tracking-wide ${line.currency ? 'text-ink-muted' : 'text-warning-text'}`}
                     />
                   ))}
-                </span>
-                <span className="text-xs text-ink-muted">
-                  {plural(card.receiptCount, lang, s.ledgerReceiptsOne, s.ledgerReceiptsOther)}
                   {card.notYetSorted > 0 && (
-                    <span className="block text-warning-text" data-ledger-not-sorted>
-                      {s.ledgerNotYetSorted.replace('{n}', String(card.notYetSorted))}
-                    </span>
+                    <CountChip tone="warning" className="mt-1.5 self-start" data-ledger-not-sorted>
+                      {plural(card.notYetSorted, lang, s.ledgerNotYetSorted)}
+                    </CountChip>
                   )}
                 </span>
               </button>
@@ -337,22 +353,22 @@ const LedgerBody: React.FC<{
           })}
         </div>
         {cards.empty.length > 0 && (
-          <p className="mt-3 text-xs text-ink-muted" data-ledger-empty-categories>
+          <p className="mt-3 text-xs font-medium text-ink-muted" data-ledger-empty-categories>
             {s.ledgerNothingIn.replace('{list}', cards.empty.map(c => categoryLabel(s, c)).join(lang === 'ar' ? '، ' : ', '))}
           </p>
         )}
       </section>
 
-      {/* ── Receipts ── */}
+      {/* ── Receipts: one grouped list, not a stack of boxes ── */}
       <section className="mt-8" aria-labelledby="ledger-receipts">
-        <div className="flex items-center justify-between gap-2">
-          <h2 id="ledger-receipts" className="text-sm font-semibold text-ink">{s.ledgerReceipts}</h2>
+        <div className="flex min-h-[36px] items-center justify-between gap-2">
+          <h2 id="ledger-receipts" className="text-[15px] font-bold text-ink">{s.ledgerReceipts}</h2>
           {filter && (
             <button
               type="button"
               onClick={() => setFilter(null)}
               data-ledger-clear-filter
-              className="inline-flex min-h-[36px] items-center gap-1 rounded-pill bg-accent-tint px-3 text-xs font-semibold text-accent-text"
+              className="inline-flex min-h-[36px] items-center gap-1 rounded-pill bg-surface-raised px-3 text-xs font-semibold text-ink ring-1 ring-line"
             >
               {s.ledgerShowing.replace('{category}', categoryLabel(s, filter))}
               <X size={14} aria-hidden="true" />
@@ -360,55 +376,46 @@ const LedgerBody: React.FC<{
             </button>
           )}
         </div>
-        <ul className="mt-3 space-y-2">
-          {shown.map(r => {
-            const Icon = CATEGORY_ICON[r.category ?? 'Other'];
-            return (
-              <li key={r.documentId}>
-                <Link
-                  to={`/documents/${r.documentId}`}
-                  data-ledger-row={r.documentId}
-                  className="flex items-center gap-3 rounded-card bg-surface-raised p-4 shadow-card transition-colors hover:bg-surface-alt"
-                >
-                  <span className="flex h-10 w-10 flex-none items-center justify-center rounded-btn bg-surface-alt text-ink-secondary">
-                    <Icon size={18} aria-hidden="true" />
+        <ul className={`mt-3 divide-y divide-divider overflow-hidden ${panelClass}`}>
+          {shown.map(r => (
+            <li key={r.documentId}>
+              <Link
+                to={`/documents/${r.documentId}`}
+                data-ledger-row={r.documentId}
+                className="flex min-h-[64px] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-alt active:bg-surface-alt"
+              >
+                <CategoryIcon category={r.category ?? 'Other'} size="sm" />
+                <span className="min-w-0 flex-1">
+                  <span
+                    dir="auto"
+                    className={`block truncate text-[15px] font-semibold ${r.merchant ? 'text-ink' : 'text-ink-muted'}`}
+                    title={r.merchant ?? undefined}
+                  >
+                    {r.merchant ?? s.ledgerUnknownVendor}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span
-                      dir="auto"
-                      className={`block truncate text-[15px] font-semibold ${r.merchant ? 'text-ink' : 'text-ink-muted'}`}
-                      title={r.merchant ?? undefined}
-                    >
-                      {r.merchant ?? s.ledgerUnknownVendor}
+                  <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-ink-muted">
+                    <span data-ledger-date>
+                      {r.dateSource === 'uploaded' ? s.ledgerNoDate.replace('{day}', dayLabel(r.date, lang)) : dayLabel(r.date, lang)}
                     </span>
-                    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted">
-                      <span data-ledger-date>
-                        {r.dateSource === 'uploaded' ? s.ledgerNoDate.replace('{day}', dayLabel(r.date, lang)) : dayLabel(r.date, lang)}
-                      </span>
-                      <span aria-hidden="true">·</span>
-                      <span>{r.category ? categoryLabel(s, r.category) : s.ledgerNotSortedTag}</span>
-                      {r.status === 'NEEDS_REVIEW' && (
-                        <span className="rounded-pill bg-warning-tint px-2 py-0.5 font-semibold text-warning-text">{s.ledgerNeedsReviewTag}</span>
-                      )}
-                      {r.amountSource === 'corrected' && (
-                        <span className="rounded-pill bg-surface-alt px-2 py-0.5 font-semibold text-ink-secondary">{s.ledgerCorrectedTag}</span>
-                      )}
-                    </span>
+                    <span aria-hidden="true">·</span>
+                    <span>{r.category ? categoryLabel(s, r.category) : s.ledgerNotSortedTag}</span>
+                    {r.status === 'NEEDS_REVIEW' && <CountChip tone="warning">{s.ledgerNeedsReviewTag}</CountChip>}
+                    {r.amountSource === 'corrected' && <CountChip>{s.ledgerCorrectedTag}</CountChip>}
                   </span>
-                  <span className="flex-none text-end">
-                    <Money
-                      amount={r.amount}
-                      currency={r.currency}
-                      lang={lang}
-                      s={s}
-                      numberClass="text-[15px] font-bold text-ink"
-                      codeClass={`text-xs font-semibold ${r.currency ? 'text-ink-muted' : 'text-warning-text'}`}
-                    />
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
+                </span>
+                <span className="flex-none text-end">
+                  <Money
+                    amount={r.amount}
+                    currency={r.currency}
+                    lang={lang}
+                    s={s}
+                    numberClass="text-[15px] font-bold text-ink"
+                    codeClass={`text-[11px] font-bold tracking-wide ${r.currency ? 'text-ink-muted' : 'text-warning-text'}`}
+                  />
+                </span>
+              </Link>
+            </li>
+          ))}
         </ul>
       </section>
     </>

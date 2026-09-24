@@ -62,12 +62,25 @@ module.exports = {
           text: 'var(--sa-danger-text)',
           tint: 'var(--sa-danger-tint)',
         },
+        // Category colours: meaning, not brand; one value in both themes (tokens.css).
+        cat: {
+          food: 'var(--sa-cat-food)',
+          transport: 'var(--sa-cat-transport)',
+          travel: 'var(--sa-cat-travel)',
+          shopping: 'var(--sa-cat-shopping)',
+          health: 'var(--sa-cat-health)',
+          bills: 'var(--sa-cat-bills)',
+          office: 'var(--sa-cat-office)',
+          other: 'var(--sa-cat-other)',
+        },
       },
       borderRadius: {
         // Additive names (Tailwind keeps its defaults: sm/md/lg/xl/2xl/full).
         nav: 'var(--sa-radius-nav)',   // 8px
         btn: 'var(--sa-radius-btn)',   // 9px
         card: 'var(--sa-radius-card)', // 12px
+        tile: 'var(--sa-radius-tile)', // 12px
+        panel: 'var(--sa-radius-panel)', // 20px
         pill: 'var(--sa-radius-pill)', // 999px
       },
       boxShadow: {

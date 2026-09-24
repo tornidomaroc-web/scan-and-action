@@ -67,11 +67,33 @@
   --sa-danger-text: #B23A2E;
   --sa-danger-tint: #FBECEA;
 
+  /* ── Category colours (added with the ledger home, 2026-09-24) ─────── */
+  /* A colour per spending category, carrying MEANING, not brand: it is the
+     fill of the category's icon tile, always with a white glyph and always
+     beside the category's name, so colour is never the only carrier.
+     ONE value serves both themes, deliberately: each fill sits in a luminance
+     window where the white glyph clears 3:1 (WCAG 1.4.11) AND the tile clears
+     3:1 against every card and page surface, light and dark.
+     `categoryPalette.test.ts` computes those ratios from this file; move a
+     value outside the window and it fails. Hues follow common meaning where it
+     helps (food orange, transport blue, health green as a pharmacy cross);
+     none reuses a status colour (warning amber, danger red). */
+  --sa-cat-food: #D9480F;
+  --sa-cat-transport: #1C7ED6;
+  --sa-cat-travel: #0C8599;
+  --sa-cat-shopping: #D6336C;
+  --sa-cat-health: #2B8A3E;
+  --sa-cat-bills: #B7791F;
+  --sa-cat-office: #8B5CF6;
+  --sa-cat-other: #737D92;
+
   /* ── Radius scale ──────────────────────────────────────────────────── */
   --sa-radius-sm: 6px;
   --sa-radius-nav: 8px;
   --sa-radius-btn: 9px;          /* buttons, icon tiles                       */
   --sa-radius-card: 12px;        /* cards                                     */
+  --sa-radius-tile: 12px;        /* category icon tile (36-44px squircle)     */
+  --sa-radius-panel: 20px;       /* the ledger's cards; the app's, from the rollout PR */
   --sa-radius-pill: 999px;
 
   /* ── Elevation (quiet) ─────────────────────────────────────────────── */

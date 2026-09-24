@@ -8,9 +8,8 @@ import { ProcessingTray } from './ProcessingTray';
 import { ProWelcome } from './ProWelcome';
 import { ProcessingProvider } from '../contexts/ProcessingContext';
 import { useIsDesktop } from '../hooks/useMediaQuery';
-import { useStrings } from '../i18n/useStrings';
 import { documentService } from '../services/documentService';
-import { Camera, Menu } from 'lucide-react';
+import { BrandMark } from './BrandMark';
 
 export const Layout: React.FC = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -22,7 +21,6 @@ export const Layout: React.FC = () => {
   const location = useLocation();
   const captureRef = useRef<CaptureSheetHandle>(null);
   const isDesktop = useIsDesktop();
-  const s = useStrings();
 
   // Re-fetched on navigation too, so the Queue tab badge reflects
   // approvals/rejections made in the queue as soon as the user leaves it.
@@ -77,21 +75,16 @@ export const Layout: React.FC = () => {
   return (
     <ProcessingProvider onJobSettled={handleUploadSuccess}>
     <div className="flex flex-col md:flex-row min-h-screen w-full bg-surface transition-colors duration-500">
-      {/* Mobile Top Bar */}
-      <header className="flex md:hidden items-center justify-between px-6 pb-4 pt-[max(1rem,env(safe-area-inset-top))] bg-surface-raised border-b border-line sticky top-0 z-[60] shadow-card">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-accent rounded-btn flex items-center justify-center shadow-card">
-            <Camera size={18} className="text-surface-raised" />
-          </div>
-          <span className="font-bold text-ink tracking-tight">Scan & Action</span>
-        </div>
-        <button
-          onClick={handleNewScan}
-          className="bg-accent hover:bg-accent-hover text-surface-raised px-4 py-2 rounded-btn text-sm font-bold shadow-card transition-all active:scale-95 flex items-center gap-2"
-        >
-          <Camera size={16} />
-          {s.scanReceipt}
-        </button>
+      {/* Mobile Top Bar. It carries the brand only. Scanning has ONE home on a
+          phone, the camera button in the centre of the tab bar: it is on every
+          screen, in thumb reach at the bottom of the display, and it opens the
+          camera directly. A second "Scan receipt" button up here offered the
+          same action twice, out of thumb reach (ruled 2026-09-24). The mark was
+          a camera glyph on an accent tile, which read as a third scan button;
+          it is the app's own mark now (BrandMark, as on the landing header). */}
+      <header className="flex md:hidden items-center gap-2.5 px-5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-surface-raised border-b border-line sticky top-0 z-[60]" data-mobile-header>
+        <BrandMark size={28} className="rounded-[7px]" />
+        <span className="font-bold text-ink tracking-tight">Scan & Action</span>
       </header>
 
       {/* Sidebar - Fixed Layer (Hidden on Mobile). `start-0` + `border-e` are
@@ -103,7 +96,7 @@ export const Layout: React.FC = () => {
       {/* Main Content Area (logical margin so it clears the rail on either edge) */}
       <main className="flex-1 md:ms-[280px] min-h-screen overflow-y-auto pb-20 md:pb-0">
         <div className="p-4 md:p-8 lg:p-12 xl:p-16">
-          <Outlet context={{ refreshCount, onNewScan: handleNewScan, onSuccess: handleUploadSuccess, plan }} />
+          <Outlet context={{ refreshCount, onNewScan: handleNewScan, onSuccess: handleUploadSuccess, plan, pendingCount }} />
         </div>
       </main>
 

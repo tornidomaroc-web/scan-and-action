@@ -17,7 +17,10 @@ import { join } from 'node:path';
 // ============================================================================
 
 const SRC = join(process.cwd(), 'src');
-const FILES = ['lib/ledgerView.ts', 'lib/ledgerTypes.ts', 'screens/LedgerScreen.tsx', 'services/ledgerService.ts'];
+const FILES = [
+  'lib/ledgerView.ts', 'lib/ledgerTypes.ts', 'screens/LedgerScreen.tsx', 'services/ledgerService.ts',
+  'components/ui/CategoryIcon.tsx', 'components/ui/CountChip.tsx', 'components/ui/Panel.tsx',
+];
 
 const stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 

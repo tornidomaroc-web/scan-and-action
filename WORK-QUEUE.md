@@ -395,7 +395,17 @@ restyled.** Do not start at login, although a reviewer sees it first:
   `tokens.css`), a palette change repaints the finished landing through the
   pin (`landingLightPin.test.tsx`), and judging structure and colour in one
   sitting makes neither judgement readable.
+  **Category colours are NOT part of that round (ruled 2026-09-24, on the
+  owner's first iPhone judgement of the ledger home).** They carry meaning,
+  like the status colours, not brand identity, so they shipped with the home
+  (`--sa-cat-*` in `tokens.css`, held to 3:1 in both themes by
+  `categoryPalette.test.ts`). The round still owns the app icon and the accent.
 - [ ] **2. The design system, in code.**
+  - **Started in the ledger-home PR (2026-09-24):** `components/ui/`
+    (`CategoryIcon`, `Panel`, `CountChip`) and the figure / code / label / meta /
+    count hierarchy written in `CountChip.tsx`. **Next: one rollout PR, after the
+    ledger home merges,** moves Search, Queue, Detail, Activity, Settings and the
+    tab bar onto those pieces. **EXPIRY:** that PR merges.
   - Tokens, a type scale, and core components: sheet, list row, field, button,
     tab bar, nav bar.
   - Colour tokens are defined as channels, so opacity modifiers work. Today
@@ -427,6 +437,14 @@ restyled.** Do not start at login, although a reviewer sees it first:
     export, activity, stats) moved to `/overview`, one tap from the ledger's
     footer, until design step 6 redraws it. Its "Data coming soon" placeholders
     are no longer the first screen of a new account.
+  - **The owner's first judgement (2026-09-24): the money was right, the look
+    was not.** Icons blended into cards. Answered in the same PR: each
+    category got a solid colour tile with a white glyph, and figure, label and
+    count each got their own treatment. Arabic and French plurals now use every
+    CLDR form. Scanning has one home on a phone, the tab bar's camera button.
+    The "needs review" card names both of its numbers: this month's receipts
+    and the Queue's total over all months (`GET /api/stats` pendingCount, the
+    badge).
   - **EXPIRY:** the owner has used it on his iPhone and ruled on it.
 - [ ] **5. First run.** Login and signup, an email confirmation that returns to
   the app, the icon and splash, every "coming soon" removed, `ProfileScreen.tsx`
