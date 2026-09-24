@@ -31,7 +31,7 @@ function makeCapturingPrisma() {
   const prisma = {
     document: {
       findUnique: async () => ({ summary: null }),
-      findFirst: async (args: any) => { seen.push(args); return null; },
+      findMany: async (args: any) => { seen.push(args); return []; },
     },
   } as any;
   return { prisma, seen };
@@ -78,7 +78,8 @@ describe('checkDuplicate queries the entity TYPE, not the role column', () => {
     const prisma = {
       document: {
         findUnique: async () => ({ summary: null }),
-        findFirst: async () => ({ id: 'other-doc' }), // a match exists
+        // an earlier, counted sibling at the same amount exists
+        findMany: async (args: any) => [{ id: 'other-doc', uploadedAt: new Date(0), status: 'COMPLETED', facts: [{ key: 'TOTAL_AMOUNT', valueNumber: args.where.facts.some.valueNumber, currency: null }] }],
       },
     } as any;
     const engine = new RuleEngineService(prisma);

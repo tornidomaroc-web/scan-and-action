@@ -171,7 +171,7 @@ const fromMilli = (m: number) => m / 1000;
 const isCategory = (v: string | null): v is ExpenseCategory =>
   v !== null && (EXPENSE_CATEGORIES as readonly string[]).includes(v);
 
-function normalizeCurrencyCode(raw: string | null | undefined): string | null {
+export function normalizeCurrencyCode(raw: string | null | undefined): string | null {
   if (typeof raw !== 'string') return null;
   const code = raw.trim().toUpperCase();
   return /^[A-Z]{3}$/.test(code) ? code : null;

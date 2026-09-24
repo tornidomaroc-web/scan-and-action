@@ -34,7 +34,8 @@ function makePrisma({ summary = null as string | null, duplicate = false } = {})
   return {
     document: {
       findUnique: async () => ({ summary }),
-      findFirst: async () => (duplicate ? { id: 'dup' } : null),
+      // An earlier, counted copy at the queried amount: what findOriginal needs.
+      findMany: async (args: any) => (duplicate ? [{ id: 'dup', uploadedAt: new Date(0), status: 'COMPLETED', facts: [{ key: 'TOTAL_AMOUNT', valueNumber: args.where.facts.some.valueNumber, currency: null }] }] : []),
     },
   } as any;
 }

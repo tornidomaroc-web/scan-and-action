@@ -48,7 +48,9 @@
   5. **The build order**, ruled 2026-09-23 and not to be reshuffled by taste:
      1. the categorizer, with its backfill and its measurement (bar below);
      2. the summary endpoint;
-     3. the ledger home (design step 4).
+     3. the ledger home (design step 4). **Precondition:** the duplicate
+        re-evaluation has been WRITTEN, not only merged, and its dry run
+        re-run plans 0 changes (see "Duplicates the rule engine never saw").
      Nothing visual is drawn until the "Other" share on his own receipts is a
      measured number rather than 43 of 47. **Measured 2026-09-23** (see "The
      categorizer is rebuilt" under Step 1). Design steps 2, 3 and 5 to 7 follow.
@@ -398,7 +400,8 @@ restyled.** Do not start at login, although a reviewer sees it first:
     judged only on rows the current code wrote.
   - **EXPIRY:** it ships on both native builds, with that measurement.
 - [ ] **4. Home: the ledger home.** Third in the build order; drawn only after the
-  categorizer and summary commits have merged and the backfill has run. What
+  categorizer and summary commits have merged, the backfill has run, and the
+  duplicate re-evaluation has been written (its dry run then plans 0 changes). What
   it shows: the month's spend in the dominant currency as the figure, other
   currencies subordinate and never summed, category cards, what needs him, and
   the receipts as transactions.
@@ -480,18 +483,28 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
      date. So the ask path's "how much did I spend" disagrees with the ledger
      home. **EXPIRY:** it reads the ledger's rules, or the ask path stops
      answering money questions.
-   - **Duplicates the rule engine never saw are counted.** The ledger excludes
-     a row only when its `decision_reason` says "Possible duplicate expense",
-     and many rows have no decision at all: 65 of the 136 COMPLETED or
-     NEEDS_REVIEW rows with an amount in the owner's three organisations
-     (read-only, 2026-09-23: those rows left-joined to their `decision` fact).
-     Grouping the rows the ledger counts by organisation, lower-cased VENDOR
-     `canonicalName`, amount and currency gives 15 groups with 30 extra
-     copies. One group of four was evaluated and still not flagged (it
-     predates the Rule D fix). Re-running Rule D over those rows writes
-     `decision` facts only, and the ledger then excludes the extras with no
-     code change. It is a production write, so it waits for an order.
-     **EXPIRY:** that grouping, re-run, finds only groups the owner has kept.
+   - **Duplicates the rule engine never saw are counted: the re-evaluation
+     PR carries the fix; the WRITE waits for the owner's order.** Rule D now
+     flags only a LATER copy of an earlier COMPLETED or NEEDS_REVIEW document
+     with the same vendor and amount as the ledger reads it (`duplicateRule.ts`
+     says why for each condition, and why currency is not compared). Before it,
+     re-evaluating a group flagged every copy, the first included.
+     `scripts/duplicateReevaluate.ts` runs that rule ONLY over the owner's three
+     organisations and rewrites `decision` facts only; dry run by default.
+     Re-run it, never quote: the dry run prints the plan, the groups, and the
+     ledger before and after. **EXPIRY:** the write has run and the dry run,
+     re-run, plans 0 changes. Two limits it does not remove:
+     - **A vendor misread escapes it.** Rule D matches the vendor string
+       exactly, so a copy read as another vendor stays counted: the 467.85 MAD
+       receipt has seven copies read as BIM MAROC (5), MHAMMADI and UNKNOWN, and
+       after the write still counts three times (two in Feb 2026, one in Feb
+       2024). **EXPIRY:** a rule for this is ruled on with its false-positive
+       cost measured, or the owner rejects the extra copies by hand.
+     - **Rejecting an original drops the receipt.** A copy's flag is written
+       when the copy is evaluated. If its original is later REJECTED, the copy
+       stays flagged and the receipt leaves the ledger, silently. Re-running the
+       script repairs it. **EXPIRY:** a status change re-evaluates the later
+       copies of the document it changes.
    - **The amount-correction form says MAD, and the stored correction has no
      currency.** `FixActionPanel.tsx` labels the input `s.madUnit` whatever the
      receipt's currency. The ledger reads a correction in the currency of the

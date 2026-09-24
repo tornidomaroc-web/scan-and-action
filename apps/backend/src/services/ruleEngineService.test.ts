@@ -8,7 +8,8 @@ function makePrisma({ summary = null as string | null, duplicate = false } = {})
   return {
     document: {
       findUnique: async () => ({ summary }),
-      findFirst: async () => (duplicate ? { id: 'dup' } : null),
+      // An earlier, counted copy at the queried amount: what findOriginal needs.
+      findMany: async (args: any) => (duplicate ? [{ id: 'dup', uploadedAt: new Date(0), status: 'COMPLETED', facts: [{ key: 'TOTAL_AMOUNT', valueNumber: args.where.facts.some.valueNumber, currency: null }] }] : []),
     },
   } as any;
 }
@@ -59,7 +60,7 @@ describe('RuleEngineService — food rule is accent- and boundary-aware (item C)
 });
 
 describe('RuleEngineService — checkDuplicate normalizes the merchant before comparing (item B)', () => {
-  // Capturing fake: records the exact `where` passed to document.findFirst so we
+  // Capturing fake: records the exact `where` passed to document.findMany so we
   // can assert what canonical key the duplicate query actually compares against.
   function makeCapturingPrisma() {
     const calls: any[] = [];
@@ -68,9 +69,9 @@ describe('RuleEngineService — checkDuplicate normalizes the merchant before co
       prisma: {
         document: {
           findUnique: async () => ({ summary: null }),
-          findFirst: async (args: any) => {
+          findMany: async (args: any) => {
             calls.push(args);
-            return null; // not a duplicate — we only care about the query shape
+            return []; // not a duplicate — we only care about the query shape
           },
         },
       } as any,
