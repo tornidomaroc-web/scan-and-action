@@ -3,14 +3,44 @@ import { resolveModelForDocument } from '../extraction/modelArm';
 import { formatErrorForLog } from '../../redaction';
 import { PersistenceService } from './persistence';
 import { PrismaClient } from '@prisma/client';
+import { recheckAfterChange, vendorNamesOf } from '../duplicateGroupRecheck';
 
 export class IngestionService {
   private geminiAdapter: GeminiExtractionAdapter;
   private persistenceService: PersistenceService;
+  private prisma: PrismaClient;
 
   constructor(prisma: PrismaClient) {
+    this.prisma = prisma;
     this.geminiAdapter = new GeminiExtractionAdapter();
     this.persistenceService = new PersistenceService(prisma);
+  }
+
+  /**
+   * The upload and re-extraction pipeline (runExtraction), followed, whatever
+   * its outcome, by the duplicate re-check of every group the document left or
+   * joined (duplicateGroupRecheck.ts): a new copy that outranks the one that
+   * stays counted takes the count over, and a re-extraction that fails or
+   * moves the document to another vendor or amount hands the count back to a
+   * twin. The vendors are read BEFORE the run, because a re-extraction
+   * replaces them. Same signature and contract as runExtraction.
+   */
+  public async processUploadAsync(
+    documentId: string,
+    userId: string,
+    organizationId: string,
+    targetFileBuffer: Buffer,
+    mimeType: string,
+    originalFileName: string,
+    fileUrl: string,
+    opts: { chargeScan?: boolean; isReextraction?: boolean } = {}
+  ): Promise<void> {
+    const vendorsBefore = opts.isReextraction ? await vendorNamesOf(this.prisma, documentId).catch(() => []) : [];
+    try {
+      await this.runExtraction(documentId, userId, organizationId, targetFileBuffer, mimeType, originalFileName, fileUrl, opts);
+    } finally {
+      await recheckAfterChange(this.prisma, documentId, organizationId, vendorsBefore);
+    }
   }
 
   /**
@@ -32,7 +62,7 @@ export class IngestionService {
    * Runs after the HTTP response is already sent.
    * Updates the document to COMPLETED or NEEDS_REVIEW.
    */
-  public async processUploadAsync(
+  private async runExtraction(
     documentId: string,
     userId: string,
     organizationId: string,

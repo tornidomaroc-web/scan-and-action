@@ -1,7 +1,8 @@
 /**
- * The one-off re-evaluation of Rule D over stored documents, as a pure plan.
- * scripts/duplicateReevaluate.ts reads the rows, prints this plan, and writes it
- * only with --write.
+ * The re-evaluation of Rule D over stored documents, as a pure plan. Two
+ * callers: scripts/duplicateReevaluate.ts (the one-off pass over the owner's
+ * organisations, dry run by default) and services/duplicateGroupRecheck.ts
+ * (the groups a changed document touches, after every change).
  *
  * It runs the DUPLICATE RULE ONLY. Rules A, B and C (amount over 500, food over
  * 50, missing amount) are not run, so no warning appears on an old document for
@@ -14,11 +15,12 @@
  *             reasons that remain, by the rule engine's own priority. With none
  *             left it is APPROVED.
  * Document.status is never written. review_action is never written, so a row
- * the owner kept stays kept.
+ * the owner kept stays kept. A row the ledger does not count by status is
+ * never written either (see the loop).
  */
 import { canonicalizeEntityName } from '../utils/canonicalName';
 import { CopyCandidate, findOriginal, resolvedAmount, toMilli } from './duplicateRule';
-import { DUPLICATE_REASON, KEEP_ACTION, LedgerFactInput } from './ledger/ledgerCore';
+import { COUNTED_STATUSES, DUPLICATE_REASON, KEEP_ACTION, LEDGER_FACT_KEYS, LedgerFactInput } from './ledger/ledgerCore';
 
 export type Decision = 'APPROVED' | 'NEEDS_REVIEW' | 'FLAGGED';
 
@@ -62,7 +64,7 @@ export interface Plan {
   originalOf: Map<string, string | null>;
 }
 
-const vendorKey = (name: string) => canonicalizeEntityName(name).toLowerCase();
+export const vendorKey = (name: string) => canonicalizeEntityName(name).toLowerCase();
 const factValue = (d: ReevalDoc, key: string) => d.facts.find(f => f.key === key)?.valueString ?? null;
 
 export function splitReasons(reason: string | null): string[] {
@@ -93,7 +95,7 @@ export function planDuplicateReevaluation(docs: ReevalDoc[]): Plan {
     let original: CopyCandidate | null = null;
     if (amount !== null && merchant) {
       const pool = (byVendor.get(`${d.organizationId}|${merchant}`) ?? []).map(asCandidate);
-      original = findOriginal({ id: d.id, uploadedAt: d.uploadedAt, amount }, pool);
+      original = findOriginal({ id: d.id, uploadedAt: d.uploadedAt, amount, facts: d.facts, status: d.status }, pool);
     }
     originalOf.set(d.id, original?.id ?? null);
 
@@ -103,6 +105,11 @@ export function planDuplicateReevaluation(docs: ReevalDoc[]): Plan {
     const wasDup = reasons.includes(DUPLICATE_REASON);
     const isDup = original !== null;
     if (wasDup === isDup) continue;
+    // A row the ledger does not count by status (REJECTED, FAILED,
+    // PROCESSING) is left as it is: its verdict moves no figure, and a first
+    // duplicate banner on a document the owner already rejected is noise.
+    // Accepting it again is a status change, which re-checks it then.
+    if (!(COUNTED_STATUSES as readonly string[]).includes(d.status)) continue;
 
     const unknown = reasons.filter(r => !(r in REASON_DECISION));
     if (unknown.length) {
@@ -142,6 +149,40 @@ export function applyPlan(docs: ReevalDoc[], plan: Plan): ReevalDoc[] {
 
 /** Rows a kept duplicate: the ledger counts them although they stay flagged. */
 export const isKept = (d: ReevalDoc) => factValue(d, 'review_action') === KEEP_ACTION;
+
+/** The fact keys a plan reads: the ledger's, plus the decision it rewrites. */
+export const REEVAL_FACT_KEYS = [...LEDGER_FACT_KEYS, 'decision'];
+
+/** The Prisma select that feeds rowToReevalDoc. */
+export const REEVAL_SELECT = {
+  id: true,
+  organizationId: true,
+  status: true,
+  uploadedAt: true,
+  facts: {
+    where: { key: { in: REEVAL_FACT_KEYS } },
+    select: { key: true, valueString: true, valueNumber: true, valueDate: true, currency: true, sourceSpan: true },
+  },
+  documentEntities: {
+    where: { entity: { entityType: 'VENDOR' } },
+    orderBy: { confidence: 'desc' as const },
+    select: { entity: { select: { canonicalName: true, displayName: true } } },
+  },
+};
+
+export interface ReevalRow {
+  id: string;
+  organizationId: string;
+  status: string;
+  uploadedAt: Date;
+  facts: LedgerFactInput[];
+  documentEntities: { entity: { canonicalName: string; displayName?: string | null } }[];
+}
+
+export const rowToReevalDoc = (r: ReevalRow): ReevalDoc => ({
+  id: r.id, organizationId: r.organizationId, status: r.status, uploadedAt: r.uploadedAt,
+  vendors: r.documentEntities.map(de => de.entity.canonicalName), facts: r.facts,
+});
 
 /** Rule D's own grouping: organisation, vendor, amount as the ledger reads it. */
 export function copyGroupKey(d: ReevalDoc): string | null {

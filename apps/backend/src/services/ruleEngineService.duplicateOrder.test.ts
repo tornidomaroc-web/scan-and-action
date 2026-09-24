@@ -64,7 +64,13 @@ function doc(id: string, o: { at: string; status?: string; amount?: number; manu
   const facts: StoredDoc['facts'] = [];
   if (o.amount !== undefined) facts.push({ key: 'TOTAL_AMOUNT', valueNumber: o.amount, currency: o.cur === undefined ? 'MAD' : o.cur });
   if (o.manual !== undefined) facts.push({ key: 'manual_amount', valueNumber: o.manual, currency: null });
-  if (o.kept) facts.push({ key: 'review_action', valueNumber: null, valueString: 'marked_valid', currency: null });
+  // A keep is only offered on a FLAGGED row (FixActionPanel.tsx), so a kept
+  // duplicate carries its duplicate flag: that is what makes it a copy the
+  // owner kept beside the receipt, rather than one he affirmed as the receipt.
+  if (o.kept) {
+    facts.push({ key: 'review_action', valueNumber: null, valueString: 'marked_valid', currency: null });
+    facts.push({ key: 'decision_reason', valueNumber: null, valueString: 'Possible duplicate expense', currency: null });
+  }
   return {
     id, organizationId: ORG, status: o.status ?? 'COMPLETED', uploadedAt: new Date(o.at), summary: null,
     documentEntities: [{ entity: { entityType: 'VENDOR', canonicalName: o.vendor ?? 'MARJANE' } }],

@@ -484,40 +484,86 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
      home. **EXPIRY:** it reads the ledger's rules, or the ask path stops
      answering money questions.
    - **Duplicates the rule engine never saw are counted: the re-evaluation
-     PR carries the fix; the WRITE waits for the owner's order.** Rule D now
-     flags only a LATER copy of an earlier COMPLETED or NEEDS_REVIEW document
-     with the same vendor and amount as the ledger reads it (`duplicateRule.ts`
-     says why for each condition, and why currency is not compared). Before it,
-     re-evaluating a group flagged every copy, the first included.
-     `scripts/duplicateReevaluate.ts` runs that rule ONLY over the owner's three
-     organisations and rewrites `decision` facts only; dry run by default.
-     Re-run it, never quote: the dry run prints the plan, the groups, and the
+     PR carries the fix; the WRITE waits for the owner's order.** In each
+     group of copies (same vendor, same amount as the ledger reads it) exactly
+     one COMPLETED or NEEDS_REVIEW copy stays counted, and every other copy is
+     flagged. Since the currency-ranking PR, the copy that stays counted is the
+     one the owner marked valid while it was not a duplicate, else the one with
+     the most specific currency (an ISO code other than USD, then USD, then
+     none), else the earliest (`duplicateRule.ts` says why for each condition,
+     and why currency still does not decide whether two copies are one
+     receipt). Before #243, re-evaluating a group flagged every copy, the first
+     included. `scripts/duplicateReevaluate.ts` runs that rule ONLY over the
+     owner's three organisations and rewrites `decision` facts only, never on a
+     row the ledger does not count by status; dry run by default. Re-run it,
+     never quote: the dry run prints the plan, the groups, each group whose
+     copies disagree on currency with the copy that stays counted, and the
      ledger before and after. **EXPIRY:** the write has run and the dry run,
-     re-run, plans 0 changes. Two limits it does not remove:
+     re-run, plans 0 changes. One limit it does not remove:
      - **A vendor misread escapes it.** Rule D matches the vendor string
        exactly, so a copy read as another vendor stays counted: the 467.85 MAD
        receipt has seven copies read as BIM MAROC (5), MHAMMADI and UNKNOWN, and
        after the write still counts three times (two in Feb 2026, one in Feb
        2024). **EXPIRY:** a rule for this is ruled on with its false-positive
        cost measured, or the owner rejects the extra copies by hand.
-     - **Rejecting an original drops the receipt.** A copy's flag is written
-       when the copy is evaluated. If its original is later REJECTED, the copy
-       stays flagged and the receipt leaves the ledger, silently. Re-running the
-       script repairs it. **EXPIRY:** a status change re-evaluates the later
-       copies of the document it changes.
+     - **CLOSED by the currency-ranking PR: "Rejecting an original drops the
+       receipt."** Any change to one copy now re-checks its whole group
+       (`duplicateGroupRecheck.ts`): an upload or re-extraction whatever its
+       outcome, a fix action, a status change, and the stale sweep. Rejecting
+       the copy that stays counted hands the count to the next copy, and a new
+       upload that outranks it takes the count over. Proved in
+       `duplicateCurrencyRank.test.ts` through `updateStatus` and
+       `processUploadAsync`.
    - **The amount-correction form says MAD, and the stored correction has no
      currency.** `FixActionPanel.tsx` labels the input `s.madUnit` whatever the
      receipt's currency. The ledger reads a correction in the currency of the
      document's extracted total (8 of the 9 stored corrections re-type that
      total exactly). **EXPIRY:** the form shows the document's currency.
-   - **A missing currency is stored as USD.** `normalizeCurrency` in
-     `geminiAdapter.ts` answers `'USD'` when the model returns no currency, or
-     anything that is not a known symbol or a 3-letter code (so `د.م.`, the
-     Arabic dirham sign, becomes USD). The ledger's unknown-currency line
-     therefore never sees those rows: they land in USD. Stored rows cannot be
-     told apart, because the model's raw answer is not kept. **EXPIRY:** the
-     adapter stores no currency when it cannot read one, and maps the dirham
-     in both scripts.
+   - **A missing currency is stored as USD: FIXED FOR NEW SCANS by the
+     currency-ranking PR, stored rows unchanged.** Until then
+     `normalizeCurrency` in `geminiAdapter.ts` answered `'USD'` for no answer,
+     for "UNKNOWN", for "Rs" and for `د.م.` (the Arabic dirham sign), and
+     stored any other 3-letter string as it came ("RS.", "TVA"). Now
+     `normalizeExtractedCurrency` keeps an ISO 4217 code, maps a symbol only
+     when it names one currency (`₹` INR, `د.م.` MAD, `د.إ` AED, `ر.س` SAR,
+     `C$` CAD, `A$` AUD, with `€`, `£` and `DH` as before), and stores no
+     currency for anything else, which the ledger shows on its unknown line.
+     "Rs" stores none: INR, PKR, LKR, NPR and MUR all print it.
+     - **Evidence that stored USD misplaces money**, from the receipt images
+       (read 2026-09-24, then deleted):
+       - BRIGHTPATH ANALYTICS 7282.31 is a Montreal invoice printing GST + QST
+         and a bare `$`, so CAD. Its three copies are stored CAD once and USD
+         twice.
+       - Flame Kitchen 290 is a Tamil Nadu bill printing "Grand Total : Rs
+         290.00", so INR. Its two copies are stored USD first and INR later.
+     - Whether those USD readings came from the adapter or from the model is
+       not provable: the model's raw answer is not kept, and the old adapter
+       gave USD for "$", "Rs" and "USD" alike. The adapter was a sufficient
+       cause; it is not a proven one.
+     - Of the owner's 144 amounts, 117 are stored USD and 4 of their texts print
+       a USD marker; 63 print only a bare `$` and 50 print neither (one of them
+       is the Rs bill). Instrument: from `apps/backend`, inside `SET
+       TRANSACTION READ ONLY` with `SHOW transaction_read_only` asserted `on`,
+       read the `TOTAL_AMOUNT` fact's `currency` and the document's `rawText`
+       for the three organisations, and match `\bUSD\b|US\$` and `\$` against
+       the text.
+     - **Stored rows are not rewritten.** The duplicate ranking repairs which
+       copy of a receipt counts, not a lone copy's currency. **EXPIRY:** a
+       stored row's currency is corrected by re-extraction or by the owner, or
+       the owner accepts USD on his old test receipts.
+   - **A bare `$` is stored as USD.** Ruled 2026-09-24: `$` keeps its USD
+     reading in the adapter until the prompt is changed, because storing it
+     as none today would put every US receipt, an App Store reviewer's first
+     scan among them, on the unknown line. The change: the prompt asks for the
+     ISO 4217 code decided from the whole document (a printed code, an
+     unambiguous symbol, the country of the merchant's address, tax names such
+     as GST/QST/HST, the phone format), and for the printed symbol only when
+     the document does not settle it; the adapter then maps a bare `$` to none.
+     **EXPIRY:** that prompt change is measured before it merges, on paced
+     uploads of the owner's `$` receipts that include non-US ones, read with
+     `extractionWatch.ts` and a currency census of the uploaded rows, and
+     reported with its population. It needs Gemini calls, so it needs the
+     owner's order.
    - **A note on a kept duplicate un-keeps it.** The ledger counts a flagged
      duplicate once its latest `review_action` is `marked_valid`.
      `applyFixAction` in `documentController.ts` replaces `review_action` on

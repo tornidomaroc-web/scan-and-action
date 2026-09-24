@@ -21,16 +21,16 @@
  */
 import 'dotenv/config';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { buildLedger, LedgerDocInput, LEDGER_FACT_KEYS } from '../src/services/ledger/ledgerCore';
+import { buildLedger, COUNTED_STATUSES, LedgerDocInput } from '../src/services/ledger/ledgerCore';
 import { readLedgerMonth } from '../src/services/ledger/ledgerService';
-import { comesFirst, resolvedAmount, copyCurrency } from '../src/services/duplicateRule';
-import { applyPlan, copyGroupKey, isKept, Plan, planDuplicateReevaluation, ReevalDoc } from '../src/services/duplicateReevaluation';
+import { comesFirst, resolvedAmount, copyCurrency, ownerMark } from '../src/services/duplicateRule';
+import { applyPlan, copyGroupKey, isKept, Plan, planDuplicateReevaluation, REEVAL_SELECT, ReevalDoc, rowToReevalDoc } from '../src/services/duplicateReevaluation';
+import { writePlannedChange } from '../src/services/duplicateGroupRecheck';
 
 // The same three prefixes as recategorize.ts; not imported, because importing
 // that file runs its main().
 const OUR_ORG_PREFIXES = ['d8b34ee3', '5ce3e185', '22d51116'] as const;
 const SOURCE = 'duplicate_reeval';
-const READ_KEYS = [...LEDGER_FACT_KEYS, 'decision'];
 
 type Db = Prisma.TransactionClient;
 
@@ -39,22 +39,9 @@ async function readScope(tx: Db) {
     SELECT id::text AS id FROM "Organization" WHERE left(id::text, 8) = ANY(${[...OUR_ORG_PREFIXES]}::text[])`;
   if (orgs.length !== OUR_ORG_PREFIXES.length) throw new Error(`scope control failed: ${orgs.length} organisations match ${OUR_ORG_PREFIXES.length} prefixes`);
   const orgIds = orgs.map(o => o.id).sort();
-  const rows = await tx.document.findMany({
-    where: { organizationId: { in: orgIds } },
-    select: {
-      id: true, organizationId: true, status: true, uploadedAt: true,
-      facts: { where: { key: { in: READ_KEYS } }, select: { key: true, valueString: true, valueNumber: true, valueDate: true, currency: true, sourceSpan: true } },
-      documentEntities: {
-        where: { entity: { entityType: 'VENDOR' } },
-        orderBy: { confidence: 'desc' },
-        select: { entity: { select: { canonicalName: true, displayName: true } } },
-      },
-    },
-  });
-  const docs: ReevalDoc[] = rows.map(r => ({
-    id: r.id, organizationId: r.organizationId, status: r.status, uploadedAt: r.uploadedAt,
-    vendors: r.documentEntities.map(de => de.entity.canonicalName), facts: r.facts,
-  }));
+  // The same select and mapping as the live re-check (duplicateGroupRecheck.ts).
+  const rows = await tx.document.findMany({ where: { organizationId: { in: orgIds } }, select: REEVAL_SELECT });
+  const docs: ReevalDoc[] = rows.map(rowToReevalDoc);
   const names = new Map(rows.map(r => [r.id, r.documentEntities[0]?.entity.displayName ?? r.documentEntities[0]?.entity.canonicalName ?? null]));
   return { orgIds, docs, names };
 }
@@ -118,16 +105,22 @@ function report(orgIds: string[], docs: ReevalDoc[], names: Map<string, string |
   const shown = [...groups.entries()].filter(([, m]) => m.length > 1 || m.some(d => changeOf.has(d.id)));
   console.log(`\ncopy groups (same organisation, vendor and amount) with 2+ members or a change: ${shown.length}\n`);
   let extraBefore = 0, extraAfter = 0;
+  const crossCurrency: { k: string; members: ReevalDoc[] }[] = [];
+  const counts = (d: ReevalDoc) => (COUNTED_STATUSES as readonly string[]).includes(d.status);
   for (const [k, members] of shown.sort(([a], [b]) => a.localeCompare(b))) {
     const [org] = k.split('|');
     const cur = [...new Set(members.map(d => copyCurrency(d.facts) ?? '???'))].join('/');
+    if (cur.includes('/')) crossCurrency.push({ k, members });
     members.sort((a, b) => (comesFirst(a, b) ? -1 : 1));
     const amt = resolvedAmount(members[0].facts)!;
     const nb = members.filter(d => countedBefore.has(d.id)).length;
     const na = members.filter(d => countedAfter.has(d.id)).length;
-    const kept = members.filter(d => isKept(d) && countedAfter.has(d.id) && plan.originalOf.get(d.id)).length;
-    const eligible = members.some(d => d.status === 'COMPLETED' || d.status === 'NEEDS_REVIEW');
-    const want = eligible ? 1 + kept : 0;
+    // Expected after the write: exactly one copy that stays counted (when any
+    // member counts by status), plus every copy the owner kept as a duplicate.
+    const keptCopies = members.filter(d => counts(d) && ownerMark(afterById.get(d.id)!.facts) === 'keptCopy').length;
+    const unflaggedAfter = members.filter(d => counts(d) && !isFlagged(afterById.get(d.id)!)).length;
+    const want = (members.some(counts) ? 1 : 0) + keptCopies;
+    if (members.some(counts) && unflaggedAfter !== 1) fail(`group ${k} leaves ${unflaggedAfter} counted copies unflagged after, expected exactly 1`);
     extraBefore += Math.max(0, nb - want);
     extraAfter += Math.max(0, na - want);
     console.log(`${org.slice(0, 8)} ${String(names.get(members[0].id) ?? '?').slice(0, 28).padEnd(28)} ${cur.padEnd(7)} ${amt.toFixed(2).padStart(10)}  counted ${nb} -> ${na}${na === want ? '' : `  (expected ${want})`}`);
@@ -143,6 +136,19 @@ function report(orgIds: string[], docs: ReevalDoc[], names: Map<string, string |
     if (na !== want) fail(`group ${k} counts ${na} after, expected ${want}`);
   }
   console.log(`\nextra copies counted: before ${extraBefore}, after ${extraAfter}`);
+
+  // Groups whose copies disagree on currency: the copy that stays counted,
+  // and so the currency the ledger shows the receipt in, before and after.
+  console.log(`\ncross-currency groups: ${crossCurrency.length}`);
+  const beforeById = new Map(docs.map(d => [d.id, d]));
+  const keeperOf = (members: ReevalDoc[], state: Map<string, ReevalDoc>, counted: Set<string>) =>
+    members.filter(d => counted.has(d.id) && !isFlagged(state.get(d.id)!)).map(d => `${d.id.slice(0, 8)} ${copyCurrency(d.facts) ?? '???'}`).join(' + ') || '(none)';
+  for (const { k, members } of crossCurrency) {
+    const [org] = k.split('|');
+    console.log(`  ${org.slice(0, 8)} ${String(names.get(members[0].id) ?? '?').slice(0, 28).padEnd(28)} ${resolvedAmount(members[0].facts)!.toFixed(2).padStart(10)}  ` +
+      `copies (upload order): ${members.map(d => `${d.id.slice(0, 8)} ${copyCurrency(d.facts) ?? '???'} ${d.status}`).join(', ')}`);
+    console.log(`      stays counted: before ${keeperOf(members, beforeById, countedBefore)}  ->  after ${keeperOf(members, afterById, countedAfter)}`);
+  }
   // Idempotence: the state this plan writes must plan nothing further, so a
   // second run after the write is a no-op and a check that it took.
   const again = planDuplicateReevaluation(after).changes.length;
@@ -152,14 +158,19 @@ function report(orgIds: string[], docs: ReevalDoc[], names: Map<string, string |
   if (stray.length) fail(`${stray.length} changes fall outside every group`);
 
   // The ledger before and after, per organisation and month, where it moves.
-  console.log(`\nledger totals that move (UTC), before -> after:`);
+  // Also printed when unchanged: every month holding a cross-currency copy.
+  const always = new Set(crossCurrency.flatMap(({ members }) => members.map(d => {
+    const td = d.facts.find(f => f.key === 'TRANSACTION_DATE')?.valueDate;
+    return `${d.organizationId}|${(td ?? d.uploadedAt).toISOString().slice(0, 7)}`;
+  })));
+  console.log(`\nledger totals that move, and every month holding a cross-currency copy (UTC), before -> after:`);
   for (const org of orgIds) {
     const b = beforeL.filter(d => docs.find(x => x.id === d.id)!.organizationId === org);
     const a = afterL.filter(d => after.find(x => x.id === d.id)!.organizationId === org);
     for (const m of monthsOf(b)) {
       const lb = buildLedger(b, m, 'UTC'), la = buildLedger(a, m, 'UTC');
       const fmt = (l: typeof lb) => l.currencies.map(c => `${c.currency ?? '???'} ${c.total.toFixed(2)} (${c.receiptCount})`).join(' | ') || '(nothing)';
-      if (fmt(lb) !== fmt(la) || m === '2026-02') console.log(`  ${org.slice(0, 8)} ${m}: ${fmt(lb)}  ->  ${fmt(la)}`);
+      if (fmt(lb) !== fmt(la) || m === '2026-02' || always.has(`${org}|${m}`)) console.log(`  ${org.slice(0, 8)} ${m}: ${fmt(lb)}  ->  ${fmt(la)}`);
     }
   }
   return failures;
@@ -211,11 +222,7 @@ async function main() {
       throw new Error(`scope moved: the dry run planned ${expectArg} changes, this run plans ${plan.changes.length}; nothing written`);
     }
     for (const c of plan.changes) {
-      await tx.documentFact.deleteMany({ where: { documentId: c.id, key: { in: ['decision', 'decision_reason'] } } });
-      await tx.documentFact.create({ data: { documentId: c.id, factType: 'RULE_RESULT', key: 'decision', valueString: c.after.decision, confidence: 1.0, sourceSpan: SOURCE, isReviewed: false } });
-      if (c.after.reason) {
-        await tx.documentFact.create({ data: { documentId: c.id, factType: 'RULE_RESULT', key: 'decision_reason', valueString: c.after.reason, confidence: 1.0, sourceSpan: SOURCE, isReviewed: false } });
-      }
+      await writePlannedChange(tx, c, SOURCE);
       console.log(`${c.id.slice(0, 8)} ${c.action} ${c.before.decision ?? 'none'} -> ${c.after.decision}`);
     }
     console.log(`written: ${plan.changes.length} documents, decision facts only`);

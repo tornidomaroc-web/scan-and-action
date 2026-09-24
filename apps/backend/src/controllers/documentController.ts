@@ -6,6 +6,7 @@ import { downloadFromSupabase } from '../services/storage/supabaseStorage';
 import { IngestionService } from '../services/ingestion/ingestionService';
 import { formatErrorForLog } from '../redaction';
 import { RuleEngineService } from '../services/ruleEngineService';
+import { recheckAfterChange } from '../services/duplicateGroupRecheck';
 import { computeDashboardAnalytics } from '../services/dashboardStatsService';
 
 const ingestionService = new IngestionService(prisma);
@@ -416,6 +417,12 @@ export class DocumentController {
         return doc;
       });
 
+      // A status change moves this copy into or out of the counted set, so its
+      // twins' verdicts are re-checked (duplicateGroupRecheck.ts): rejecting
+      // the copy that stays counted hands the count to the next copy instead
+      // of dropping the receipt. The vendors do not change here.
+      await recheckAfterChange(prisma, id as string, organizationId as string, []);
+
       console.log(`[DocumentController] Status updated successfully for ${id}`);
       return res.status(200).json(mapDocumentToDto(updated));
     } catch (error: any) {
@@ -777,6 +784,12 @@ export class DocumentController {
           });
         }
       }
+
+      // Every fix action can move this copy within its group: a correction
+      // changes its amount (the group it belongs to), a keep changes whether
+      // it can be the copy that stays counted. The twins are re-checked
+      // (duplicateGroupRecheck.ts); the vendors do not change here.
+      await recheckAfterChange(prisma, documentId, organizationId, []);
 
       return res.status(200).json({ success: true });
     } catch (error: any) {
