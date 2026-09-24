@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { matchesAnyKeyword } from '../utils/textMatch';
 import { canonicalizeEntityName } from '../utils/canonicalName';
+import { CopySelf, findOriginal } from './duplicateRule';
 
 export interface RuleResult {
   decision: 'APPROVED' | 'NEEDS_REVIEW' | 'FLAGGED';
@@ -30,7 +31,7 @@ export class RuleEngineService {
     // 0. Fetch summary for fallback detection
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
-      select: { summary: true }
+      select: { summary: true, uploadedAt: true }
     });
     const summary = doc?.summary || null;
 
@@ -83,7 +84,13 @@ export class RuleEngineService {
 
     // Rule D: duplicate merchant + amount -> FLAGGED
     if (merchantName && amount !== null) {
-      const isDuplicate = await this.checkDuplicate(documentId, organizationId, merchantName, amount);
+      // A document whose own upload time is unknown is treated as the newest,
+      // which is what it is on the ingestion path.
+      const isDuplicate = await this.checkDuplicate(documentId, organizationId, merchantName, {
+        id: documentId,
+        uploadedAt: doc?.uploadedAt instanceof Date ? doc.uploadedAt : new Date(8.64e15),
+        amount,
+      });
       if (isDuplicate) {
         setDecision('FLAGGED');
         reasons.push('Possible duplicate expense');
@@ -113,14 +120,15 @@ export class RuleEngineService {
   }
 
   /**
-   * Conservative duplicate check: Same merchant name, same amount, different document, same organization.
-   * It checks against both the extracted TOTAL_AMOUNT and 'manual_amount' in existing documents.
+   * Is this document a later copy of an earlier, counted receipt from the same
+   * vendor and amount? The rule itself is findOriginal in
+   * duplicateRule.ts; this method only fetches the same-vendor candidates.
    */
   private async checkDuplicate(
     documentId: string,
     organizationId: string,
     merchantName: string,
-    amount: number
+    self: CopySelf
   ): Promise<boolean> {
     // Compare like-vs-like: the stored Entity.canonicalName is the normalized
     // matching key, so the incoming merchant name must be run through the SAME
@@ -136,7 +144,7 @@ export class RuleEngineService {
     if (!canonicalMerchant) return false;
 
     // Find documents in the same organization with the same vendor name and amount
-    const duplicate = await this.prisma.document.findFirst({
+    const candidates = await this.prisma.document.findMany({
       where: {
         organizationId,
         id: { not: documentId },
@@ -166,16 +174,28 @@ export class RuleEngineService {
             }
           }
         },
+        // A superset: either amount key at this value. findOriginal then
+        // applies the amount as the ledger reads it, the status and the
+        // order.
         facts: {
           some: {
             key: { in: ['manual_amount', 'TOTAL_AMOUNT'] },
-            valueNumber: amount
+            valueNumber: self.amount
           }
+        }
+      },
+      select: {
+        id: true,
+        uploadedAt: true,
+        status: true,
+        facts: {
+          where: { key: { in: ['manual_amount', 'TOTAL_AMOUNT'] } },
+          select: { key: true, valueNumber: true, currency: true }
         }
       }
     });
 
-    return !!duplicate;
+    return findOriginal(self, candidates) !== null;
   }
 
   /**
