@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   categoryCards, currentMonth, figureSizeClass, moneyParts, monthTitle, receiptRows, shiftMonth,
 } from '../src/lib/ledgerView';
-import type { LedgerMonth } from '../src/services/ledgerService';
+import type { LedgerMonth } from '../src/lib/ledgerTypes';
 
 const CATS = ['Food', 'Transport', 'Travel', 'Shopping', 'Health', 'Bills', 'Office', 'Other'] as const;
 const lines = (m: Partial<Record<(typeof CATS)[number], [number, number]>>) =>
@@ -12,7 +12,7 @@ describe('the category list cannot drift from the backend\'s', () => {
   it('LEDGER_CATEGORIES equals EXPENSE_CATEGORIES in apps/backend, in order', async () => {
     const { readFileSync } = await import('node:fs');
     const { join } = await import('node:path');
-    const { LEDGER_CATEGORIES } = await import('../src/services/ledgerService');
+    const { LEDGER_CATEGORIES } = await import('../src/lib/ledgerTypes');
     const src = readFileSync(join(process.cwd(), '../backend/src/services/expenseCategories.ts'), 'utf8');
     const m = /export const EXPENSE_CATEGORIES = \[([^\]]+)\] as const/.exec(src);
     expect(m, 'EXPENSE_CATEGORIES declaration not found').toBeTruthy();

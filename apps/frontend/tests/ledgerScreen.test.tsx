@@ -15,15 +15,14 @@ import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
 
 const h = vi.hoisted(() => ({ getMonth: vi.fn() }));
 
-vi.mock('../src/services/ledgerService', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/services/ledgerService')>();
-  return { ...actual, ledgerService: { getMonth: h.getMonth } };
-});
+// The factory replaces the whole module, so the real one (and the Supabase
+// client behind apiConfig) is never loaded: CI has no Supabase env.
+vi.mock('../src/services/ledgerService', () => ({ ledgerService: { getMonth: h.getMonth } }));
 
 import { strings } from '../src/i18n/strings';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { LedgerScreen } from '../src/screens/LedgerScreen';
-import type { LedgerCurrency, LedgerMonth, LedgerReceipt } from '../src/services/ledgerService';
+import type { LedgerCurrency, LedgerMonth, LedgerReceipt } from '../src/lib/ledgerTypes';
 import { currentMonth, deviceTimeZone } from '../src/lib/ledgerView';
 
 type Lang = 'en' | 'fr' | 'ar';

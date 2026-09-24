@@ -8,7 +8,8 @@ import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { ErrorState } from '../components/ErrorState';
 import { isIdentityConflict } from '../lib/identityConflict';
-import { LedgerCategory, LedgerMonth, ledgerService } from '../services/ledgerService';
+import { ledgerService } from '../services/ledgerService';
+import type { LedgerCategory, LedgerMonth } from '../lib/ledgerTypes';
 import {
   Lang, categoryCards, currentMonth, dayLabel, deviceTimeZone, figureSizeClass, isEmptyMonth, isMonth,
   moneyParts, monthName, monthTitle, needsReviewCount, plural, receiptRows, shiftMonth,

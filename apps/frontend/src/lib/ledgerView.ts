@@ -14,7 +14,7 @@
 // enough: which digits it yields is the engine's CLDR data, not a promise.
 // ============================================================================
 
-import { LEDGER_CATEGORIES, LedgerCategory, LedgerMonth, LedgerReceipt } from '../services/ledgerService';
+import { LEDGER_CATEGORIES, LedgerCategory, LedgerMonth, LedgerReceipt } from './ledgerTypes';
 
 export type Lang = 'en' | 'fr' | 'ar';
 

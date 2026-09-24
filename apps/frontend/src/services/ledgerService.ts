@@ -1,47 +1,9 @@
 import { API_BASE_URL, getAuthHeaders } from './apiConfig';
+import type { LedgerMonth } from '../lib/ledgerTypes';
 
-// GET /api/ledger: the ONLY source of money figures for the ledger home.
-// These types mirror LedgerMonth in apps/backend/src/services/ledger/ledgerCore.ts,
-// which holds every rule (status, corrected amount, duplicates, month, currency,
-// category). The screen renders what this returns; it never recomputes a figure.
-
-export const LEDGER_CATEGORIES = ['Food', 'Transport', 'Travel', 'Shopping', 'Health', 'Bills', 'Office', 'Other'] as const;
-export type LedgerCategory = (typeof LEDGER_CATEGORIES)[number];
-
-export interface LedgerReceipt {
-  documentId: string;
-  date: string; // YYYY-MM-DD
-  dateSource: 'document' | 'uploaded';
-  amount: number;
-  amountSource: 'extracted' | 'corrected';
-  category: LedgerCategory | null;
-  merchant: string | null;
-  status: string;
-}
-
-export interface LedgerCategoryLine {
-  category: LedgerCategory;
-  total: number;
-  receiptCount: number;
-}
-
-export interface LedgerCurrency {
-  /** An ISO code, or null for receipts whose currency was not read. */
-  currency: string | null;
-  total: number;
-  receiptCount: number;
-  uncategorizedCount: number;
-  categories: LedgerCategoryLine[];
-  receipts: LedgerReceipt[];
-}
-
-export interface LedgerMonth {
-  month: string; // YYYY-MM
-  timeZone: string;
-  /** Largest total first; the unknown currency last whatever its size. */
-  currencies: LedgerCurrency[];
-  excluded: { status: number; duplicate: number; noAmount: number };
-}
+// GET /api/ledger: the ONLY source of money figures for the ledger home. The
+// screen renders what this returns; it never recomputes a figure. The response
+// shape is lib/ledgerTypes.ts.
 
 export const ledgerService = {
   async getMonth(month: string, timeZone: string): Promise<LedgerMonth> {
