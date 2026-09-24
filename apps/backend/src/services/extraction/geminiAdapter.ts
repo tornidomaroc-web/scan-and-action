@@ -3,6 +3,7 @@ import { categoryPromptFragment, normalizeCategory, ExpenseCategory } from '../e
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { formatErrorForLog } from '../../redaction';
 import { pinnedModelId } from './modelArm';
+import { isIsoCurrency } from '../ledger/ledgerCore';
 
 /**
  * Sentinel for "the response carried no usable resolved version".
@@ -39,8 +40,57 @@ function readModelVersion(response: unknown): string {
 }
 
 /**
+ * What the model answered for `currency` (the prompt allows "3-letter or
+ * symbol"), as the ISO 4217 code to store, or null when it names no one
+ * currency. Null is stored as no currency, which the ledger shows on its own
+ * unknown-currency line and the duplicate rule ranks below any code.
+ *
+ * Until 2026-09-24 this answered USD for anything it did not know: no answer,
+ * "UNKNOWN", "Rs", the Arabic dirham sign. So a stored USD can mean any of
+ * those: 117 of the owner's 144 amounts are stored USD, and 4 of their texts
+ * print a USD marker (read-only census, 2026-09-24). Now:
+ *   - an ISO 4217 code is kept (any case); another 3-letter word ("TVA",
+ *     "TTC") is not a currency;
+ *   - a symbol maps only when it names ONE currency. "Rs" does not (INR, PKR,
+ *     LKR, NPR and MUR all print it), nor "¥" (JPY, CNY), nor the bare word
+ *     "درهم" (MAD, AED): they store no currency, and when the document settles
+ *     it, the model's own ISO answer is what carries the code;
+ *   - TWO AMBIGUOUS SYMBOLS KEEP THEIR OLD READING, deliberately:
+ *       "$" -> USD. A bare $ is USD, CAD, AUD, MXN and more. Storing it as no
+ *       currency is right only once the prompt asks for an ISO code decided
+ *       from the whole document; before that, every US receipt (an App Store
+ *       reviewer's first scan among them) would land on the unknown line. That
+ *       prompt change is not measured: see "A bare $ is stored as USD" on the
+ *       board.
+ *       "DH" -> MAD. The UAE prints "Dhs" for AED; kept because every DH in
+ *       the owner's data is Moroccan (8 of 8 rows stored MAD).
+ */
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  '$': 'USD', 'US$': 'USD',
+  'C$': 'CAD', 'CA$': 'CAD',
+  'A$': 'AUD', 'AU$': 'AUD',
+  'NZ$': 'NZD', 'HK$': 'HKD', 'S$': 'SGD', 'R$': 'BRL', 'MX$': 'MXN',
+  '€': 'EUR', '£': 'GBP', '₹': 'INR', '₩': 'KRW', '₺': 'TRY', '₪': 'ILS',
+  '₱': 'PHP', '₦': 'NGN', '₫': 'VND', '฿': 'THB', '₴': 'UAH', '₽': 'RUB',
+  'DH': 'MAD', 'DHS': 'MAD',
+  'د.م.': 'MAD', 'د.م': 'MAD', 'درهم مغربي': 'MAD',
+  'د.إ.': 'AED', 'د.إ': 'AED',
+  'ر.س.': 'SAR', 'ر.س': 'SAR',
+};
+export function normalizeExtractedCurrency(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  // NFKC folds full-width forms; Arabic marks are also tried without the
+  // spaces a model sometimes puts between the letters and the dots.
+  const text = raw.normalize('NFKC').trim().replace(/\s+/g, ' ');
+  if (!text) return null;
+  const upper = text.toUpperCase();
+  if (isIsoCurrency(upper)) return upper;
+  return CURRENCY_SYMBOLS[upper] ?? CURRENCY_SYMBOLS[text] ?? CURRENCY_SYMBOLS[text.replace(/ /g, '')] ?? null;
+}
+
+/**
  * GeminiExtractionAdapter
- * 
+ *
  * Final Production Version (Stripe-grade).
  * Optimized for high-precision extraction, zero-tolerance for missing dates,
  * and professional observability.
@@ -73,10 +123,8 @@ export class GeminiExtractionAdapter {
     return 'UNKNOWN';
   }
 
-  private normalizeCurrency(raw: string | null): string {
-    const currency = (raw || 'USD').toUpperCase();
-    const map: Record<string, string> = { '$': 'USD', '€': 'EUR', '£': 'GBP', 'DH': 'MAD', 'MAD': 'MAD' };
-    return map[currency] || (currency.length === 3 ? currency : 'USD');
+  private normalizeCurrency(raw: unknown): string | null {
+    return normalizeExtractedCurrency(raw);
   }
 
   /**
@@ -303,7 +351,10 @@ export class GeminiExtractionAdapter {
           key: 'Total Amount',
           factType: 'AMOUNT',
           valueNumber: Number(rawJson.totalAmount),
-          currency: finalCurrency,
+          // undefined, never null: the schema parse below takes an optional
+          // string, and a null there would throw and discard the whole
+          // extraction through the catch.
+          currency: finalCurrency ?? undefined,
           sourceSpan: 'Primary Total',
           confidence: 0.99
         });

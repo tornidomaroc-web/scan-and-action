@@ -90,6 +90,16 @@ export class RuleEngineService {
         id: documentId,
         uploadedAt: doc?.uploadedAt instanceof Date ? doc.uploadedAt : new Date(8.64e15),
         amount,
+        // Its own currency and the owner's marks decide whether it outranks
+        // its twins (duplicateRule.ts). On the ingestion path these are the
+        // fresh extraction's facts; the group re-check that follows every
+        // change reads the stored ones.
+        facts: facts.map(f => ({
+          key: f.key,
+          valueNumber: f.valueNumber ?? null,
+          currency: f.currency ?? null,
+          valueString: f.valueString ?? null,
+        })),
       });
       if (isDuplicate) {
         setDecision('FLAGGED');
@@ -120,9 +130,9 @@ export class RuleEngineService {
   }
 
   /**
-   * Is this document a later copy of an earlier, counted receipt from the same
-   * vendor and amount? The rule itself is findOriginal in
-   * duplicateRule.ts; this method only fetches the same-vendor candidates.
+   * Is this document a copy of the same vendor and amount that is not the one
+   * that stays counted? The rule itself is findOriginal in duplicateRule.ts;
+   * this method only fetches the same-vendor candidates.
    */
   private async checkDuplicate(
     documentId: string,
@@ -176,7 +186,7 @@ export class RuleEngineService {
         },
         // A superset: either amount key at this value. findOriginal then
         // applies the amount as the ledger reads it, the status and the
-        // order.
+        // ranking.
         facts: {
           some: {
             key: { in: ['manual_amount', 'TOTAL_AMOUNT'] },
@@ -189,8 +199,8 @@ export class RuleEngineService {
         uploadedAt: true,
         status: true,
         facts: {
-          where: { key: { in: ['manual_amount', 'TOTAL_AMOUNT'] } },
-          select: { key: true, valueNumber: true, currency: true }
+          where: { key: { in: ['manual_amount', 'TOTAL_AMOUNT', 'decision_reason', 'review_action'] } },
+          select: { key: true, valueNumber: true, currency: true, valueString: true }
         }
       }
     });

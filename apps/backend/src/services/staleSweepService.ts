@@ -1,4 +1,5 @@
 import { prisma } from '../prismaClient';
+import { recheckAfterChange } from './duplicateGroupRecheck';
 
 // Documents get stuck in PROCESSING forever when the process dies
 // mid-extraction: the upload controller's catch handler (which writes
@@ -23,8 +24,13 @@ export const isStaleProcessing = (
 // No document content is read or returned, so org isolation is unaffected.
 export async function sweepStaleProcessing(now: Date = new Date()): Promise<number> {
   const cutoff = new Date(now.getTime() - STALE_PROCESSING_THRESHOLD_MS);
+  const where = { status: 'PROCESSING', uploadedAt: { lt: cutoff } };
+  // Read before the write, for the duplicate re-check below. A row read here
+  // that another writer moves before the update is re-checked needlessly,
+  // which is harmless: the re-check writes only verdicts that changed.
+  const stuck = await prisma.document.findMany({ where, select: { id: true, organizationId: true } });
   const result = await prisma.document.updateMany({
-    where: { status: 'PROCESSING', uploadedAt: { lt: cutoff } },
+    where,
     data: { status: 'FAILED', processedAt: now },
   });
   if (result.count > 0) {
@@ -32,6 +38,10 @@ export async function sweepStaleProcessing(now: Date = new Date()): Promise<numb
       `[StaleSweep] Marked ${result.count} stuck document(s) FAILED (uploaded before ${cutoff.toISOString()})`
     );
   }
+  // A re-extraction that died mid-run leaves the copy that stayed counted
+  // FAILED here, and its twins flagged: re-check them, so the receipt stays
+  // in the ledger (duplicateGroupRecheck.ts).
+  for (const d of stuck) await recheckAfterChange(prisma, d.id, d.organizationId, []);
   return result.count;
 }
 

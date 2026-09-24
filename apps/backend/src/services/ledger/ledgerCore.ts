@@ -171,6 +171,17 @@ const fromMilli = (m: number) => m / 1000;
 const isCategory = (v: string | null): v is ExpenseCategory =>
   v !== null && (EXPENSE_CATEGORIES as readonly string[]).includes(v);
 
+// Guarded: Intl.supportedValuesOf is Node 18+, and nothing in this repository
+// pins the production runtime. Without it, any 3-letter code passes.
+const ISO_CURRENCIES: ReadonlySet<string> | null =
+  typeof Intl.supportedValuesOf === 'function' ? new Set(Intl.supportedValuesOf('currency')) : null;
+
+/** A real ISO 4217 code, so a stray 3-letter word ("TVA", "TTC") is not a currency. */
+export function isIsoCurrency(code: string | null | undefined): code is string {
+  if (typeof code !== 'string') return false;
+  return ISO_CURRENCIES ? ISO_CURRENCIES.has(code) : /^[A-Z]{3}$/.test(code);
+}
+
 export function normalizeCurrencyCode(raw: string | null | undefined): string | null {
   if (typeof raw !== 'string') return null;
   const code = raw.trim().toUpperCase();

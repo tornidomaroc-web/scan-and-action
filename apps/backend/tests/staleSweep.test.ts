@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../src/prismaClient', () => ({
   prisma: {
-    document: { updateMany: vi.fn() },
+    // findMany: the rows the sweep re-checks for duplicates afterwards.
+    document: { updateMany: vi.fn(), findMany: vi.fn() },
   },
 }));
 
@@ -45,6 +46,7 @@ describe('sweepStaleProcessing — the database write', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (prisma.document.updateMany as any).mockResolvedValue({ count: 2 });
+    (prisma.document.findMany as any).mockResolvedValue([]);
   });
 
   it('updates only PROCESSING rows older than the cutoff, to FAILED with processedAt', async () => {
