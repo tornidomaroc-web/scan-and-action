@@ -154,6 +154,7 @@ describe('SectionHeading after the detail redraw', () => {
     const screen = read('../src/screens/DocumentDetailScreen.tsx');
     expect(screen).not.toContain("from '../components/SectionHeading'");
     expect(screen).not.toContain('<SectionHeading');
-    expect(read('../src/screens/SearchScreen.tsx') + read('../src/components/SharedComponents.tsx')).toContain('SectionHeading');
+    // The Search redraw (2026-09-25) dropped it too; the dashboard still draws its sections with it.
+    expect(read('../src/screens/DashboardScreen.tsx')).toContain('SectionHeading');
   });
 });

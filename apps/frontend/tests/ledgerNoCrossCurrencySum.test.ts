@@ -20,6 +20,9 @@ const SRC = join(process.cwd(), 'src');
 const FILES = [
   'lib/ledgerView.ts', 'lib/ledgerTypes.ts', 'screens/LedgerScreen.tsx', 'services/ledgerService.ts',
   'components/ui/CategoryIcon.tsx', 'components/ui/CountChip.tsx', 'components/ui/Panel.tsx',
+  // The Search screen (2026-09-25) shows figures under the same rule: GET /api/search's own lines.
+  'screens/SearchScreen.tsx', 'services/searchService.ts', 'lib/searchTypes.ts',
+  'components/ui/Money.tsx', 'components/ui/ReceiptRow.tsx',
 ];
 
 const stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');

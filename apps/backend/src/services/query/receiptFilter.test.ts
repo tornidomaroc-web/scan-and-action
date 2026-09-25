@@ -71,7 +71,10 @@ const run = async (question: string) => {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, 'error').mockImplementation(() => {});
-  findMany.mockImplementation(({ where }: any) => Promise.resolve(applyWhere(ROWS, where)));
+  // The rows carry no facts: the sum_expenses branch (since 2026-09-25 a read
+  // through the ledger's judge) sees documents with no amount, which is fine
+  // for a test about which documents QUALIFY.
+  findMany.mockImplementation(({ where }: any) => Promise.resolve(applyWhere(ROWS, where).map((r: any) => ({ facts: [], ...r }))));
   // The aggregate branches are not the subject here, but `execute` runs one of
   // them for a spend question, and a double that resolves `undefined` would
   // throw inside the executor and disguise itself as a real failure.

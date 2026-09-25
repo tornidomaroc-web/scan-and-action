@@ -1,389 +1,392 @@
-import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Search as SearchIcon,
-  Sparkles,
-  ArrowRight,
-  X,
-  History,
-  TrendingUp,
-  FileText,
-  ShieldAlert,
-} from 'lucide-react';
-import { AnswerCard } from '../components/AnswerCard';
-import { ResultTable } from '../components/ResultTable';
-import { ClarificationCard } from '../components/ClarificationCard';
-import { ErrorState } from '../components/ErrorState';
-import { EmptyState } from '../components/EmptyState';
-import { ChartPlaceholder, ReportCard } from '../components/SharedComponents';
-import { QueryResultDto } from '../types';
-import { searchService } from '../services/searchService';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, FileText, Receipt, Search as SearchIcon, X } from 'lucide-react';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
-import { isIdentityConflict } from '../lib/identityConflict';
+import { ErrorState } from '../components/ErrorState';
+import { CATEGORY_FILL, CategoryIcon } from '../components/ui/CategoryIcon';
+import { CountChip } from '../components/ui/CountChip';
 import { IconTile } from '../components/ui/IconTile';
-import { panelClass } from '../components/ui/Panel';
+import { Money } from '../components/ui/Money';
+import { Panel, panelClass } from '../components/ui/Panel';
+import { ReceiptRow } from '../components/ui/ReceiptRow';
+import { isIdentityConflict } from '../lib/identityConflict';
+import { isRequestTimeout } from '../lib/fetchWithTimeout';
+import { isConnectionFailure } from '../lib/requestErrors';
+import { searchService } from '../services/searchService';
+import { LEDGER_CATEGORIES, type LedgerCategory } from '../lib/ledgerTypes';
+import type { NotCountedHit, SearchParams, SearchResult } from '../lib/searchTypes';
+import { Lang, currentMonth, dayLabel, deviceTimeZone, isMonth, monthTitle, plural, shiftMonth } from '../lib/ledgerView';
 
-// A submit has THREE outcomes for its caller, not two: it succeeded, it failed
-// in a way worth relabelling, or it failed terminally and must be left alone.
-// A boolean forces the last two into one branch, and that collapse is exactly
-// what let handlePromptClick overwrite the lockout copy with s.autoRunFailed on
-// the autorun path — a screen telling a locked user to try again, above a live
-// retry button.
+// ============================================================================
+// Search: find a receipt, and know what was spent on what you found.
+// Redrawn from zero on 2026-09-25 (WORK-QUEUE step 6) after the owner
+// rejected the ask-a-question screen. Three controls and one list:
 //
-// Deliberately NOT read from the `locked` state in the caller: React state is
-// not updated synchronously within the tick, so `locked` read immediately after
-// `await submitQuery(...)` is the STALE value. That works in a hand test and
-// fails under timing. A ref would dodge it, but a ref introduced solely to
-// defeat state timing hides the design problem the return type should solve.
-type SubmitOutcome = 'ok' | 'error' | 'locked';
+//   the field      a merchant or a file name, matched as you type;
+//   the chips      the eight categories, one at a time, or all;
+//   the month      one month, stepped like the home, or every month;
+//   the rows       the same rows as the home (components/ui/ReceiptRow).
+//
+// With nothing asked it shows the newest receipts. With anything asked it
+// shows the whole match and, above it, what those receipts add up to, one
+// line per currency: the figures are GET /api/search's, computed by the
+// ledger's own rule (ledgerCore.judge), so they equal what the home would
+// say for the same receipts. Nothing here adds an amount, and nothing
+// compares amounts of different currencies (ledgerNoCrossCurrencySum.test.ts
+// scans this file). Receipts the ledger does not count (rejected, possible
+// duplicate, no amount) are still found, listed apart, and add to nothing.
+// There is no Pro or payment surface on this screen, on any platform.
+// ============================================================================
 
-interface SearchPrompt {
-  id: string;
-  label: string;
-  display: string;
-  query: string;
-  description?: string;
-  mode: 'autorun' | 'populate';
-  icon: React.ReactNode;
-}
+type Strings = ReturnType<typeof useStrings>;
+const DEBOUNCE_MS = 250;
 
-export const SearchScreen = () => {
+const categoryLabel = (s: Strings, c: LedgerCategory) => s[`cat${c}` as const];
+
+const readCategory = (v: string | null): LedgerCategory | null =>
+  (LEDGER_CATEGORIES as readonly string[]).includes(v ?? '') ? (v as LedgerCategory) : null;
+
+export const SearchScreen: React.FC = () => {
   const s = useStrings();
-  // The active UI language drives the search API language too. This previously
-  // came from App's never-updated state, so the API always got 'en'.
-  const { language: currentLanguage } = useLanguage();
-  const navigate = useNavigate();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [query, setQuery] = useState('');
-  const [result, setResult] = useState<QueryResultDto | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  // IDENTITY_EMAIL_CONFLICT is a property of the SESSION, not of this endpoint:
-  // authMiddleware raises it before any route handler runs. It is terminal —
-  // clearing it is an operator action against an orphaned row — so the screen
-  // must stop offering a retry that cannot succeed (lib/identityConflict.ts:15-18).
+  const { language } = useLanguage();
+  const lang = language as Lang;
+  const timeZone = useMemo(deviceTimeZone, []);
+  const thisMonth = useMemo(() => currentMonth(timeZone), [timeZone]);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // The URL holds the search, so the back button and a reload keep it.
+  const requestedMonth = searchParams.get('month');
+  const params: SearchParams = useMemo(() => ({
+    q: searchParams.get('q') ?? '',
+    category: readCategory(searchParams.get('category')),
+    month: isMonth(requestedMonth) && requestedMonth <= thisMonth ? requestedMonth : null,
+  }), [searchParams, requestedMonth, thisMonth]);
+
+  const [typed, setTyped] = useState(params.q);
+  const [data, setData] = useState<SearchResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
+  const [connectionLost, setConnectionLost] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const requestId = useRef(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const submitQuery = async (searchStr: string): Promise<SubmitOutcome> => {
-    // Behaviour-preserving: an empty query returned false before, so the autorun
-    // caller relabelled. It is unreachable from an autorun prompt (their queries
-    // are literals), and changing it is a behaviour change unrelated to this one.
-    if (!searchStr.trim()) return 'error';
-    setLoading(true);
-    setResult(null);
-    setErrorMsg('');
-    setLocked(false);
+  const setParams = useCallback((next: Partial<SearchParams>) => {
+    const merged = { ...params, ...next };
+    const sp = new URLSearchParams();
+    if (merged.q.trim()) sp.set('q', merged.q.trim());
+    if (merged.category) sp.set('category', merged.category);
+    if (merged.month) sp.set('month', merged.month);
+    setSearchParams(sp, { replace: true });
+  }, [params, setSearchParams]);
 
+  // Typing settles into the URL after a pause, so one request per thought,
+  // not per keystroke.
+  useEffect(() => {
+    if (typed.trim() === params.q.trim()) return;
+    const t = setTimeout(() => setParams({ q: typed }), DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [typed, params.q, setParams]);
+
+  const load = useCallback(async () => {
+    const id = ++requestId.current;
+    setBusy(true);
     try {
-      const payload = await searchService.executeQuery(searchStr, currentLanguage);
-      setResult(payload);
-      return 'ok';
-    } catch (err: any) {
-      // By EXACT code, never by status (lib/identityConflict.ts:20-22). A bare 409
-      // with no code — a proxy's conflict page, a future unrelated 409 — is NOT
-      // this condition and keeps the ordinary retryable treatment below.
-      if (isIdentityConflict(err)) {
-        setLocked(true);
-        setErrorMsg(s.accountLockedBody);
-        return 'locked';
-      }
-      setErrorMsg(s.searchFailed);
-      return 'error';
+      const result = await searchService.searchReceipts(params, timeZone);
+      if (id !== requestId.current) return; // a newer search was asked for
+      setData(result);
+      setError(null);
+      setLocked(false);
+    } catch (err) {
+      if (id !== requestId.current) return;
+      console.error('[Search] Search failed:', err);
+      const lockedNow = isIdentityConflict(err);
+      setLocked(lockedNow);
+      // "Connection interrupted" only when no response arrived. A status
+      // (404, 401, 500) came over a working connection and says so
+      // (lib/requestErrors.ts).
+      const connection = isConnectionFailure(err);
+      setConnectionLost(connection);
+      setError(lockedNow ? s.accountLockedBody
+        : isRequestTimeout(err) ? s.requestTimedOut
+        : connection ? s.searchNetworkError
+        : s.searchFailedBody);
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setBusy(false);
     }
-  };
+  }, [params, timeZone, s]);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e?.preventDefault();
-    submitQuery(query);
-  };
+  useEffect(() => { void load(); }, [load]);
 
-  // UNIFIED PROMPT HANDLER (single source of truth for all shortcuts).
-  const handlePromptClick = async (prompt: SearchPrompt) => {
-    setQuery(prompt.display);
-    setErrorMsg('');
-    setLocked(false);
-
-    // Always maintain focus for immediate manual correction.
+  const clearText = () => {
+    setTyped('');
+    setParams({ q: '' });
     inputRef.current?.focus();
-
-    if (prompt.mode === 'autorun') {
-      const outcome = await submitQuery(prompt.query);
-      // ONLY 'error' relabels. 'locked' leaves the terminal copy in place —
-      // relabelling it restores the exact clobber this shape exists to remove —
-      // and 'ok' has nothing to say. A test that drives an autorun prompt into a
-      // lockout is the only thing that covers this line; see
-      // tests/searchLockout.test.tsx.
-      if (outcome === 'error') {
-        setErrorMsg(s.autoRunFailed);
-      }
-    }
   };
 
-  const suggestionPrompts: SearchPrompt[] = [
-    { id: 'spend', label: s.totalSpend, display: s.totalSpendQuery, query: 'What is my total spend this month?', mode: 'populate', icon: <TrendingUp size={14} /> },
-    { id: 'invoices', label: s.recentInvoices, display: s.recentInvoicesQuery, query: 'Show my recent invoices', mode: 'populate', icon: <FileText size={14} /> },
-    { id: 'categories', label: s.expensesByCategory, display: s.expensesByCategoryQuery, query: 'Analyze expenses by category', mode: 'populate', icon: <History size={14} /> },
-  ];
-
-  const galleryPrompts: SearchPrompt[] = [
-    { id: 'monthly', label: s.monthlySpending, display: s.monthlySpendingQuery, description: s.monthlySpendingDesc, query: 'Summarize monthly spending across vendors', mode: 'populate', icon: <TrendingUp size={20} /> },
-    { id: 'recent', label: s.recentActivity, display: s.recentActivityQuery, description: s.recentActivityDesc, query: 'Show recent document activity', mode: 'autorun', icon: <FileText size={20} /> },
-    { id: 'atrisk', label: s.atRiskAssets, display: s.atRiskAssetsQuery, description: s.atRiskAssetsDesc, query: 'Identify high-risk audits needing review', mode: 'populate', icon: <ShieldAlert size={20} /> },
-  ];
+  const filtered = !!(params.q.trim() || params.category || params.month);
+  const loading = !data && !error;
+  const monthLabel = params.month ? monthTitle(params.month, lang) : s.searchAllMonths;
+  const navButton = 'flex h-11 w-11 flex-none items-center justify-center rounded-pill bg-surface-raised text-ink-secondary ring-1 ring-line transition-colors hover:text-ink active:scale-95 disabled:pointer-events-none disabled:opacity-30';
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 animate-in fade-in duration-500">
-      {/* Hero search experience */}
-      <div className={`transition-all duration-500 ease-in-out ${result || loading ? 'mb-10' : 'mb-12 mt-16'}`}>
-        <div className="mb-6 text-center">
-          <p className="mb-2 text-[13px] font-semibold text-accent-text">{s.intelligentSearch}</p>
-          {/* Render the translated headline cleanly. (The old split('data')
-              highlight trick appended a literal English "data", corrupting the
-              FR/AR strings.) */}
-          {/* Page title uses the shared `text-title-lg` (24px) token, matching the
-              Dashboard / Queue / Detail h1s. NOT a SectionHeading: that primitive
-              renders 16px section-level headings and would shrink this title. */}
-          <h1 className="text-title-lg font-semibold tracking-tight text-ink">{s.askAnything}</h1>
-        </div>
+    <div className="mx-auto w-full max-w-xl pb-6" data-search-screen>
+      <h1 className="sr-only">{s.searchTitle}</h1>
 
-        <form onSubmit={handleSearchSubmit} className="relative mx-auto max-w-3xl">
-          <div className="relative flex items-center">
-            <div className="pointer-events-none absolute start-4 text-ink-faint">
-              <SearchIcon size={20} />
-            </div>
-            <input
-              ref={inputRef}
-              type="text"
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={s.searchPlaceholder}
-              className="w-full rounded-pill border border-line bg-surface-raised py-3.5 ps-12 pe-24 text-base text-ink shadow-card outline-none transition-all placeholder:text-ink-faint focus:border-accent focus:ring-2 focus:ring-accent/20"
+      {/* ── The field ── */}
+      <form role="search" onSubmit={e => { e.preventDefault(); setParams({ q: typed }); }} className="relative">
+        <label htmlFor="search-q" className="sr-only">{s.searchPlaceholder}</label>
+        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 start-4 flex items-center text-ink-faint">
+          <SearchIcon size={20} strokeWidth={2.25} />
+        </span>
+        <input
+          ref={inputRef}
+          id="search-q"
+          type="search"
+          inputMode="search"
+          enterKeyHint="search"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          value={typed}
+          onChange={e => setTyped(e.target.value)}
+          placeholder={s.searchPlaceholder}
+          data-search-input
+          className="h-12 w-full rounded-pill bg-surface-raised ps-12 pe-12 text-[16px] font-medium text-ink shadow-card ring-1 ring-line outline-none transition-shadow placeholder:text-ink-faint focus:ring-2 focus:ring-accent [&::-webkit-search-cancel-button]:hidden"
+        />
+        {typed && (
+          <button
+            type="button"
+            onClick={clearText}
+            aria-label={s.searchClear}
+            data-search-clear
+            className="absolute inset-y-0 end-1 flex w-11 items-center justify-center text-ink-muted hover:text-ink"
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+        )}
+      </form>
+
+      {/* ── The chips: one category, or all ── */}
+      <div role="group" aria-label={s.categoryLabel} className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
+        <Chip on={params.category === null} onClick={() => setParams({ category: null })} data-search-category="all" className="bg-ink text-surface-raised">
+          {s.searchAllCategories}
+        </Chip>
+        {LEDGER_CATEGORIES.map(c => (
+          <Chip key={c} on={params.category === c} onClick={() => setParams({ category: params.category === c ? null : c })} data-search-category={c} className={`${CATEGORY_FILL[c]} text-white`}>
+            <span aria-hidden="true" className={`h-2.5 w-2.5 flex-none rounded-pill ${params.category === c ? 'border-2 border-current opacity-80' : CATEGORY_FILL[c]}`} />
+            {categoryLabel(s, c)}
+          </Chip>
+        ))}
+      </div>
+
+      {/* ── The month: one, stepped like the home, or every month ── */}
+      <div className="mt-3 flex items-center gap-2" role="group" aria-label={s.searchMonthLabel}>
+        <button
+          type="button"
+          onClick={() => setParams({ month: shiftMonth(params.month ?? thisMonth, params.month ? -1 : 0) })}
+          aria-label={s.ledgerPrevMonth}
+          data-search-prev
+          className={navButton}
+        >
+          <ChevronLeft size={20} className="rtl:-scale-x-100" aria-hidden="true" />
+        </button>
+        <span data-search-month className="flex h-11 min-w-0 flex-1 items-center justify-center rounded-pill bg-surface-raised px-3 text-[15px] font-bold text-ink ring-1 ring-line" aria-live="polite">
+          <span className="truncate">{monthLabel}</span>
+        </span>
+        <button
+          type="button"
+          onClick={() => setParams({ month: shiftMonth(params.month!, 1) })}
+          aria-label={s.ledgerNextMonth}
+          disabled={!params.month || params.month >= thisMonth}
+          data-search-next
+          className={navButton}
+        >
+          <ChevronRight size={20} className="rtl:-scale-x-100" aria-hidden="true" />
+        </button>
+        {params.month && (
+          <button type="button" onClick={() => setParams({ month: null })} data-search-all-months className={`${navButton} w-auto px-3 text-xs font-semibold`}>
+            {s.searchAllMonths}
+          </button>
+        )}
+      </div>
+
+      {loading && <SearchSkeleton label={s.searchLoading} />}
+
+      {error && !data && (
+        <div className="mt-6">
+          <ErrorState
+            title={locked ? s.accountLockedTitle : connectionLost ? s.connectionError : s.searchFailedTitle}
+            message={error}
+            onRetry={locked ? undefined : () => void load()}
+          />
+        </div>
+      )}
+
+      {data && (
+        <div aria-busy={busy} data-search-results>
+          {data.mode === 'recent' && <Recent data={data} s={s} lang={lang} />}
+          {data.mode === 'filtered' && (
+            <Filtered
+              data={data}
+              s={s}
+              lang={lang}
+              params={params}
+              onAllMonths={() => setParams({ month: null })}
+              onClear={() => { setTyped(''); setParams({ q: '', category: null, month: null }); }}
             />
-            {query && (
-              <button
-                type="button"
-                onClick={() => { setQuery(''); inputRef.current?.focus(); }}
-                className="absolute end-14 p-2 text-ink-faint transition-colors hover:text-ink"
-                aria-label={s.tryAgain}
-              >
-                <X size={18} />
-              </button>
-            )}
-            <button
-              type="submit"
-              className={`absolute end-2 flex items-center justify-center rounded-pill p-2.5 transition-colors ${
-                query.trim()
-                  ? 'bg-accent text-surface-raised hover:bg-accent-hover'
-                  : 'bg-surface-muted text-ink-faint'
-              }`}
-              aria-label={s.intelligentSearch}
-            >
-              <ArrowRight size={20} className="rtl:-scale-x-100" />
-            </button>
-          </div>
-        </form>
-
-        {/* Suggestion chips */}
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
-          {suggestionPrompts.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => handlePromptClick(p)}
-              className="inline-flex items-center gap-2 rounded-pill border border-line bg-surface-raised px-4 py-2 text-sm font-medium text-ink-secondary shadow-card transition-colors hover:border-line-strong hover:text-ink"
-            >
-              {p.icon}
-              {p.label}
-            </button>
-          ))}
+          )}
         </div>
-      </div>
-
-      {/* Main experience area */}
-      <div className="min-h-[500px]">
-        {loading && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Answer card skeleton */}
-            <div className={`p-6 ${panelClass}`}>
-              <div className="flex items-center gap-4">
-                <div className="skeleton h-10 w-10 rounded-btn" />
-                <div className="skeleton h-4 w-40 rounded" />
-              </div>
-              <div className="skeleton mt-5 h-5 w-full rounded" />
-              <div className="skeleton mt-3 h-5 w-2/3 rounded" />
-            </div>
-
-            {/* Table skeleton */}
-            <div className={`overflow-hidden ${panelClass}`}>
-              <div className="h-12 border-b border-divider bg-surface-alt" />
-              <div className="space-y-4 p-6">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex gap-6">
-                    <div className="skeleton h-4 w-1/4 rounded" />
-                    <div className="skeleton h-4 w-1/4 rounded" />
-                    <div className="skeleton h-4 w-1/4 rounded" />
-                    <div className="skeleton h-4 w-1/4 rounded" />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <p className="pt-2 text-center text-sm font-medium text-ink-muted">{s.analyzingDocs}</p>
-          </div>
-        )}
-
-        {errorMsg &&
-          (locked ? (
-            // onRetry omitted, so ErrorState renders NO button at all
-            // (components/ErrorState.tsx:23). The non-locked branch is unchanged.
-            <ErrorState title={s.accountLockedTitle} message={errorMsg} />
-          ) : (
-            <ErrorState message={errorMsg} onRetry={() => submitQuery(query)} />
-          ))}
-
-        {!loading && !errorMsg && result && (
-          <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-            {/* The "persistent intent confirmation" strip that used to sit here is
-                GONE, deliberately. It rendered `result.explanation`, which the
-                backend assembles in queryPlanner.ts:147-172 out of hardcoded
-                English fragments — so it read "Grouping expenses." / "Calculating
-                total spend from this month." in an Arabic session, and in a French
-                one too. Two of three locales, on every search.
-
-                Localizing it was rejected: the fragments are a verb, an optional
-                raw enum (`under NEEDS_REVIEW`, from intentParser.ts:87-89), and a
-                relative-date expression, so a translation means either three
-                parallel sentence assemblers on the backend or a new API contract
-                shipping structured intent to the client.
-
-                Deleted rather than translated because the line was REDUNDANT:
-                  * the user's query is still on screen, in the input above — see
-                    `value={query}` below; submitQuery never clears it;
-                  * the answer card already states the result in Arabic
-                    (answerFormatter.ts has real ar templates);
-                  * the clarification path renders from `answerText ||
-                    s.clarifyFailed`, which has its own ar template, so it is
-                    unaffected — see the block immediately below.
-                Do NOT reinstate a reader for `explanation`; see the note on the
-                field in src/types.ts. */}
-            {result.requiresClarification && (
-              <div className="mx-auto max-w-2xl">
-                <ClarificationCard message={result.answerText || s.clarifyFailed} />
-              </div>
-            )}
-
-            {!result.requiresClarification && (
-              <>
-                {/* Layer A: AI answer card */}
-                {result.outputFormat === 'short_answer' && result.answerText && (
-                  <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                    <AnswerCard text={result.answerText} meta={result} />
-                  </div>
-                )}
-
-                {/* Layer B: data table */}
-                {(result.outputFormat === 'table' || (result.outputFormat === 'short_answer' && result.data?.length > 0)) && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-2 px-1">
-                      <div className="flex items-center gap-2">
-                        <span className="h-1.5 w-1.5 flex-shrink-0 rounded-pill bg-accent" />
-                        {/* h2 (not h3): sits directly under the page h1, so a
-                            correct outline is h1 -> h2. Tag-only change; the
-                            classes keep the exact 13px muted-caption visual. */}
-                        <h2 className="text-[13px] font-semibold text-ink-tertiary">{s.resultsTitle}</h2>
-                      </div>
-                      <span className="rounded-pill bg-surface-muted px-2.5 py-1 text-xs font-medium text-ink-muted">
-                        {result.resultCount} {s.findingsLabel} &middot; {result.executionTimeMs} {s.msUnit}
-                      </span>
-                    </div>
-                    {/* Card chrome is desktop-only: on mobile the ResultTable
-                        renders its own stacked cards, so we avoid a card-in-card. */}
-                    <div className="md:overflow-hidden md:rounded-panel md:bg-surface-raised md:shadow-card md:ring-1 md:ring-line">
-                      <ResultTable
-                        data={result.data?.map(({ organizationId, userId, fileUrl, rawText, normalizedText, ...rest }: any) => rest)}
-                        onRowClick={(row) => row.id && navigate(`/documents/${row.id}`)}
-                        emptyStateComponent={
-                          <EmptyState message={s.noMatchingData} description={s.noMatchingDataDesc}>
-                            <div className="mx-auto mt-5 flex max-w-sm flex-wrap justify-center gap-2">
-                              {suggestionPrompts.map((p) => (
-                                <button
-                                  key={p.id}
-                                  onClick={() => handlePromptClick(p)}
-                                  className="rounded-pill border border-line bg-surface-raised px-3.5 py-1.5 text-xs font-medium text-ink-secondary transition-colors hover:border-line-strong hover:text-ink"
-                                >
-                                  {p.label}
-                                </button>
-                              ))}
-                            </div>
-                          </EmptyState>
-                        }
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {result.outputFormat === 'chart_ready_data' && (
-                  <div className={`p-6 ${panelClass}`}>
-                    <ChartPlaceholder data={result.data} />
-                  </div>
-                )}
-
-                {/* Trust footer */}
-                <div className="border-t border-divider pt-8">
-                  <p className="flex items-center justify-center gap-2 text-xs font-medium text-ink-muted">
-                    <span className="h-1.5 w-1.5 flex-shrink-0 rounded-pill bg-accent" />
-                    {s.poweredBy}
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {!loading && !result && !errorMsg && (
-          <div className="py-12 text-center animate-in fade-in duration-500">
-            <div className="mx-auto mb-6 flex justify-center">
-              <IconTile icon={Sparkles} tone="accent" size="lg" />
-            </div>
-            {/* Empty-state hero heading. h2 (not h3): it sits directly under the
-                page h1, so a correct outline is h1 -> h2. The level is a tag-only
-                change — it still steps down to text-section (15px) so it sits
-                UNDER the 24px page h1 above it (otherwise the two near-duplicate
-                headings render at the same size), matching the shared EmptyState
-                component's `text-section font-semibold text-ink` (no
-                tracking-tight, which the section token never pairs with). */}
-            <h2 className="text-section font-semibold text-ink">{s.askDocs}</h2>
-            <p className="mx-auto mt-2 max-w-sm text-sm text-ink-muted">{s.workspaceIndexed}</p>
-
-            <div className="mx-auto mt-10 max-w-4xl">
-              <div className="mb-4 flex items-center justify-between px-1">
-                <span className="text-[13px] font-semibold text-ink-tertiary">{s.insightsGallery}</span>
-                <button
-                  onClick={() => handlePromptClick({ id: 'browse', label: s.browseAll, display: s.browseAllQuery, query: 'Explore all intelligence reports', mode: 'populate', icon: <ArrowRight size={14} /> })}
-                  className="inline-flex items-center gap-1 text-[13px] font-semibold text-accent-text transition-opacity hover:opacity-80"
-                >
-                  {s.browseAll}
-                  <ArrowRight size={14} className="rtl:-scale-x-100" />
-                </button>
-              </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {galleryPrompts.map((p) => (
-                  <ReportCard
-                    key={p.id}
-                    title={p.label}
-                    description={p.description || ''}
-                    icon={p.icon}
-                    onClick={() => handlePromptClick(p)}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };
+
+const Chip: React.FC<{ on: boolean; onClick: () => void; className: string; children: React.ReactNode } & Record<string, unknown>> = ({
+  on, onClick, className, children, ...rest
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={on}
+    {...rest}
+    className={`inline-flex h-9 flex-none items-center gap-2 whitespace-nowrap rounded-pill px-3.5 text-[13px] font-semibold transition-colors active:scale-95 ${
+      on ? className : 'bg-surface-raised text-ink-secondary ring-1 ring-line'
+    }`}
+  >
+    {children}
+  </button>
+);
+
+const SearchSkeleton: React.FC<{ label: string }> = ({ label }) => (
+  <div className="mt-6 animate-pulse" aria-busy="true" aria-label={label} data-search-loading>
+    <div className="h-3.5 w-32 rounded-pill bg-line" />
+    <div className={`mt-3 divide-y divide-divider overflow-hidden ${panelClass}`}>
+      {[0, 1, 2, 3, 4].map(i => <div key={i} className="h-16" />)}
+    </div>
+  </div>
+);
+
+const Rows: React.FC<{ data: SearchResult; s: Strings; lang: Lang }> = ({ data, s, lang }) => (
+  <ul className={`mt-3 divide-y divide-divider overflow-hidden ${panelClass}`}>
+    {data.receipts.map(r => <li key={r.documentId}><ReceiptRow r={r} lang={lang} s={s} /></li>)}
+  </ul>
+);
+
+const Recent: React.FC<{ data: SearchResult; s: Strings; lang: Lang }> = ({ data, s, lang }) => (
+  <section className="mt-6" aria-labelledby="search-recent" data-search-recent>
+    <h2 id="search-recent" className="text-[15px] font-bold text-ink">{s.searchRecent}</h2>
+    {data.receipts.length > 0 ? (
+      <Rows data={data} s={s} lang={lang} />
+    ) : (
+      <Panel className="mt-3 p-8 text-center" data-search-empty>
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-tile bg-accent text-surface-raised">
+          <Receipt size={26} aria-hidden="true" />
+        </div>
+        <h3 className="mt-4 text-[17px] font-bold text-ink">{s.searchEmptyTitle}</h3>
+        <p className="mx-auto mt-1 max-w-xs text-sm text-ink-secondary">{s.searchEmptyBody}</p>
+      </Panel>
+    )}
+  </section>
+);
+
+const Filtered: React.FC<{
+  data: SearchResult; s: Strings; lang: Lang; params: SearchParams; onAllMonths: () => void; onClear: () => void;
+}> = ({ data, s, lang, params, onAllMonths, onClear }) => {
+  const nothing = data.receipts.length === 0 && data.notCounted.length === 0;
+  // What the figure is for, in the reader's words: the category, the month
+  // and the typed text, whichever were asked.
+  const scope = [
+    params.category ? categoryLabel(s, params.category) : null,
+    params.month ? monthTitle(params.month, lang) : s.searchAllMonths,
+    params.q.trim() ? `“${params.q.trim()}”` : null,
+  ].filter(Boolean).join(' · ');
+
+  if (nothing) {
+    return (
+      <Panel className="mt-6 p-8 text-center" data-search-none>
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-tile bg-surface-muted text-ink-secondary">
+          <SearchIcon size={26} aria-hidden="true" />
+        </div>
+        <h2 className="mt-4 text-[17px] font-bold text-ink">{s.searchNoResultsTitle}</h2>
+        <p className="mx-auto mt-1 max-w-xs text-sm text-ink-secondary">{s.searchNoResultsBody.replace('{scope}', scope)}</p>
+        <div className="mt-6 flex flex-col items-center gap-2">
+          {params.month && (
+            <button type="button" onClick={onAllMonths} data-search-try-all className="inline-flex min-h-[48px] items-center rounded-pill bg-accent px-6 text-sm font-bold text-surface-raised shadow-card transition-all hover:bg-accent-hover active:scale-95">
+              {s.searchTryAllMonths}
+            </button>
+          )}
+          <button type="button" onClick={onClear} data-search-clear-all className="min-h-[44px] px-3 text-sm font-semibold text-accent-text">
+            {s.searchClearFilters}
+          </button>
+        </div>
+      </Panel>
+    );
+  }
+
+  return (
+    <>
+      {data.receipts.length > 0 && (
+        <section className="mt-6" aria-labelledby="search-total">
+          <Panel className="p-4" data-search-total>
+            <p id="search-total" className="text-sm font-semibold text-ink-secondary">{s.searchTotalHeading}</p>
+            <p className="mt-0.5 truncate text-xs font-medium text-ink-muted" data-search-scope>{scope}</p>
+            <ul className="mt-2 flex flex-col gap-2">
+              {data.currencies.map(c => (
+                <li key={c.currency ?? 'none'} data-search-currency={c.currency ?? 'none'} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <Money
+                    amount={c.total}
+                    currency={c.currency}
+                    lang={lang}
+                    noCurrency={s.ledgerNoCurrency}
+                    numberClass={`text-[28px] font-extrabold leading-none tracking-tight ${c.currency ? 'text-ink' : 'text-ink-secondary'}`}
+                    codeClass={`text-sm font-bold tracking-wide ${c.currency ? 'text-ink-muted' : 'text-warning-text'}`}
+                  />
+                  <CountChip>{plural(c.receiptCount, lang, s.ledgerReceiptCount)}</CountChip>
+                </li>
+              ))}
+            </ul>
+            {data.currencies.length > 1 && (
+              <p className="mt-2 text-xs font-medium text-ink-muted" data-search-separate>{s.ledgerSeparateCurrencies}</p>
+            )}
+          </Panel>
+          <Rows data={data} s={s} lang={lang} />
+        </section>
+      )}
+
+      {data.notCounted.length > 0 && (
+        <section className="mt-6" aria-labelledby="search-not-counted" data-search-not-counted>
+          <h2 id="search-not-counted" className="text-[15px] font-bold text-ink">{s.searchNotCounted}</h2>
+          <p className="mt-0.5 text-xs font-medium text-ink-muted">{s.searchNotCountedBody}</p>
+          <ul className={`mt-3 divide-y divide-divider overflow-hidden ${panelClass}`}>
+            {data.notCounted.map(h => <li key={h.documentId}><NotCountedRow h={h} s={s} lang={lang} /></li>)}
+          </ul>
+        </section>
+      )}
+    </>
+  );
+};
+
+const REASON_KEY = { status: 'searchReasonStatus', duplicate: 'searchReasonDuplicate', noAmount: 'searchReasonNoAmount' } as const;
+
+const NotCountedRow: React.FC<{ h: NotCountedHit; s: Strings; lang: Lang }> = ({ h, s, lang }) => (
+  <Link to={`/documents/${h.documentId}`} data-search-not-counted-row={h.documentId} className="flex min-h-[64px] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-alt active:bg-surface-alt">
+    {/* Its own category's tile, as it would wear if counted. None, or a
+        backend that does not send one yet, gets the neutral tile: never Other,
+        which reads as a category the receipt does not have. */}
+    {h.category ? <CategoryIcon category={h.category} size="sm" /> : <IconTile icon={FileText} tone="neutral" size="sm" />}
+    <span className="min-w-0 flex-1">
+      <span dir="auto" className={`block truncate text-[15px] font-semibold ${h.merchant ? 'text-ink' : 'text-ink-secondary'}`}>
+        {h.merchant ?? h.fileName ?? s.ledgerUnknownVendor}
+      </span>
+      <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-ink-muted">
+        <span>{dayLabel(h.date, lang)}</span>
+        <CountChip tone="warning">{s[REASON_KEY[h.reason]]}</CountChip>
+      </span>
+    </span>
+    <ChevronRight size={18} className="flex-none text-ink-faint rtl:-scale-x-100" aria-hidden="true" />
+  </Link>
+);
+
+export default SearchScreen;

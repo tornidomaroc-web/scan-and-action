@@ -1,6 +1,7 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { QueryPlan, QueryIntent, QueryResultDto } from '../../types/querySchemas';
 import { scrubString } from '../../redaction';
+import { judge, LEDGER_FACT_KEYS } from '../ledger/ledgerCore';
 
 export class QueryExecutor {
   private prisma: PrismaClient;
@@ -55,17 +56,33 @@ export class QueryExecutor {
       switch (intent.intent) {
         
         case 'sum_expenses': {
-           const amounts = await this.prisma.documentFact.groupBy({
-             by: ['currency'],
-             _sum: { valueNumber: true },
-             where: { 
-               factType: 'AMOUNT',
-               key: 'TOTAL_AMOUNT',
-               document: baseWhere
-             }
+           // The ledger's rules, applied by the ledger's own judge: a REJECTED
+           // or unread row does not count, a flagged duplicate does not count
+           // until it is kept, a correction beats the extraction, and the
+           // currency is normalised. Until 2026-09-25 this summed every
+           // TOTAL_AMOUNT fact the documents carried, whatever the status,
+           // which read USD 64,825.49 for an organisation whose ledger says
+           // 32,992.35 (board item (f)). The remaining difference from
+           // GET /api/ledger is the period: the planner's date filters are
+           // on uploadedAt, the ledger's month is the printed date.
+           const rows = await this.prisma.document.findMany({
+             where: baseWhere,
+             select: {
+               id: true, status: true, uploadedAt: true,
+               facts: {
+                 where: { key: { in: [...LEDGER_FACT_KEYS] } },
+                 select: { key: true, valueString: true, valueNumber: true, valueDate: true, currency: true, sourceSpan: true },
+               },
+             },
            });
-           
-           data = amounts.map(a => ({ currency: a.currency || 'UNKNOWN', sum: a._sum.valueNumber || 0 }));
+           const milli = new Map<string, number>();
+           for (const d of rows) {
+             const v = judge({ ...d, merchant: null }, 'UTC');
+             if (!v.counted) continue;
+             const currency = v.currency ?? 'UNKNOWN';
+             milli.set(currency, (milli.get(currency) ?? 0) + Math.round(v.receipt.amount * 1000));
+           }
+           data = [...milli.entries()].map(([currency, m]) => ({ currency, sum: m / 1000 }));
            metadata.currencies = data.map((d: any) => d.currency);
            metadata.isMixedCurrency = data.length > 1;
            resultCount = data.length;

@@ -296,18 +296,11 @@ describe('Document Detail — both fact-value sites, per value', () => {
 describe('the sweep stopped where it was supposed to', () => {
   const QUEUE = readSrc('../src/screens/ReviewQueueScreen.tsx');
   const DETAIL = readSrc('../src/screens/DocumentDetailScreen.tsx');
-  const TABLE = readSrc('../src/components/ResultTable.tsx');
 
   it('the truncating name/vendor/type boxes keep dir="auto" — they hold Arabic text', () => {
     expect(QUEUE).toMatch(/truncate text-sm font-semibold text-ink" dir="auto">\{name\}/);
     expect(QUEUE.match(/dir="auto"/g)!.length).toBeGreaterThanOrEqual(4);
     expect(DETAIL).toMatch(/dir="auto"/);
-  });
-
-  it('ResultTable is UNTOUCHED — its mobile card is correct by having no isolate', () => {
-    // Explicitly out of scope. Named here so a later sweep does not "finish the
-    // job" by adding the idiom to the one site that never had it.
-    expect(TABLE).not.toMatch(/<bdi>/);
   });
 
   it('no isolate element wraps a currency value anywhere in the two swept screens', () => {
