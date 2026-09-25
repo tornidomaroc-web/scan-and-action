@@ -63,38 +63,43 @@
   6. Submission, once design steps 1 to 5 are done and every APPLE TRACK blocker
      is closed.
 
-## NOW 2026-09-25 — every request waits ~2 s; the order to fix it
+## NOW 2026-09-25 — the ~2 s wait is fixed; next, Detail then Search, from zero
 
 **The owner could not judge the redesign (#246) on his iPhone: Home and Queue
 sat on their skeletons.** Measured from his signed-in browser against
-production, every authenticated route answers in 1.75 to 2.5 s to first byte,
-whatever it returns. Detail and numbers under "Every authenticated request
+production, every authenticated route answered in 1.75 to 2.5 s to first byte,
+whatever it returned. Detail and numbers under "Every authenticated request
 cost 1.75 to 2.5 s" in the DESIGN TRACK, Step 3 inputs. **Ruled order, not to
 be reshuffled:**
 
-1. **The perf PR** (this entry's PR): the per-token auth context cache and
+1. **The perf PR** (#247): the per-token auth context cache and
    request timeouts, with the screens naming a timeout instead of showing grey
    blocks. Code only.
-2. **The region move: PENDING THE OWNER'S DECISION.** It is a Railway setting,
-   so no session makes it.
+   **DONE:** merged as #247 (`1d569e9`).
+2. **The region move.** **DONE 2026-09-25, by the owner:** the backend runs in
+   **EU West (Amsterdam, `europe-west4`)**, one replica; `us-east4` was removed.
+   Nothing else changed.
    - **The database** is Supabase in **AWS eu-west-1 (Ireland)**, reached
      through the Supavisor pooler: runtime `DATABASE_URL` on port 6543
      (transaction mode, `pgbouncer=true`), `DIRECT_URL` on the same pooler,
-     port 5432 (session mode).
-   - **Read from `apps/backend/.env`, the local copy.** Railway's own variables
-     are dashboard-only; the host is confirmed by the production bundle.
-   - **The backend's region is INFERRED, not read: outside Europe, to be
-     confirmed** at Railway, service Settings, Region.
-   - **Why the inference.** One statement costs ~126 ms of network and under
-     1 ms of execution. From Morocco, Railway's Paris edge (`x-railway-edge:
-     cdg1`) connects in ~50 ms but first-byte on a trivial route takes 240 to
-     330 ms, while the Ireland pooler connects in 67 to 81 ms.
-   - **The move.** The backend moves, never the database: it is stateless, one
-     redeploy, no data touched, hostname unchanged. Check the price in Railway's
-     region selector before choosing.
-   - **Expected effect:** ~126 ms per statement falls to ~5 to 40 ms.
-3. **The owner judges #246 on his phone**, against the faster backend.
-4. **Then #246 merges.**
+     port 5432 (session mode). This is read from `apps/backend/.env`, the local
+     copy: Railway's own variables are dashboard-only.
+   - **The measured effect:** the Railway edge-to-backend leg fell from ~130 ms
+     to 55 to 64 ms, and a database query from the backend from ~280 ms to
+     ~80 ms. Numbers are under "Every authenticated request cost 1.75 to 2.5 s"
+     (DESIGN TRACK, Step 3 inputs).
+3. **The owner judged #246 on his iPhone, 2026-09-25, at `81a2b6d`.**
+   - **Approved:** Home, Queue, Activity, Settings and the tab bar.
+   - **NOT approved:** Search and the receipt Detail screen, especially Detail's
+     top part above the receipt image. His words: they "do not reach the level
+     of a product people pay for", are "complicated and disorganised", their
+     "design is not modern", and they "look as if they belong to another app".
+   - #246 gives those two screens the shared surfaces only. Its diff leaves
+     their structure and copy as in production.
+4. **#246 merges** with that recorded.
+5. **Next, the Detail PR:** the result screen redrawn from zero (DESIGN TRACK,
+   step 3). **Then the Search PR:** Search redrawn from zero (step 6). Each is
+   its own PR and its own judgement on the owner's phone.
 
 **Prisma `relationJoins`: REJECTED 2026-09-25.** It cut the review, detail and
 ledger reads from 4 statements to 1, but it is a preview feature (since 5.7.0,
@@ -465,6 +470,12 @@ restyled.** Do not start at login, although a reviewer sees it first:
     structure: the result screen is step 3's, redrawn from zero. Settings loses
     the "System information / Coming soon" panel (see APPLE TRACK 2.1(a)).
     `designRollout.test.tsx` holds it. **EXPIRY:** that PR merges.
+  - **The owner's judgement of the rollout (2026-09-25, iPhone, `81a2b6d`).**
+    Home, Queue, Activity, Settings and the tab bar are approved. **Search and
+    Detail are NOT:** "complicated and disorganised", "not modern", "look as if
+    they belong to another app". The rollout gives them shared surfaces only;
+    each is redrawn from zero in its own PR, Detail under step 3 and Search
+    under step 6.
   - **Bills moved off amber in the rollout PR.** `#B7791F` sat 7.4 ΔE from the
     amber review-chip text (`--sa-warning-text`) and read as the same colour
     (owner, 2026-09-25). It is `#5C940D` now, 61 away; `categoryPalette.test.ts`
@@ -484,6 +495,25 @@ restyled.** Do not start at login, although a reviewer sees it first:
     what needs the owner.
   - Measure extraction success and the "Needs review" rate on his real receipts,
     judged only on rows the current code wrote.
+  - **The result screen (Detail) goes first, in its own PR, the NEXT PR.** The
+    owner rejected the current one on 2026-09-25 (see "The owner's judgement of
+    the rollout" under step 2). Redrawn from zero, not restyled.
+    - **What is wrong above the image.** The title is the file name. "Verified
+      AI intelligence extraction" appears on documents that say "Needs review".
+      The status is shown three times: the badge, the decision banner and the
+      Status tile. The Date tile is the UPLOAD date, while the ledger dates the
+      same receipt by `TRANSACTION_DATE`. The amount, the one figure a money
+      app leads with, first appears in the facts below the image.
+    - **What it must keep, behaviour unchanged:** Approve, Reject and Retry
+      extraction (the `reextractable` gate included); the fix actions and what
+      they write; the facts allowlist in `detailFacts.ts`; the lockout
+      handling; the image fallback; RTL.
+    - **Money rule:** the amount at the top is the one the ledger counts (a
+      correction beats the extraction, in the extraction's currency, marked
+      "Edited" as on Home).
+    - **The native scanner and the reading state stay in this step** and wait
+      for the iOS build (THE STAGE, item 4). This PR redraws the result screen
+      only.
   - **EXPIRY:** it ships on both native builds, with that measurement.
 - [x] **4. Home: the ledger home. DONE: approved by the owner on his iPhone at
   `5a4eec1` (English and Arabic, 2026-09-25) and merged as #245 (`5b46645`).**
@@ -519,6 +549,17 @@ restyled.** Do not start at login, although a reviewer sees it first:
   deleted, and the in-app privacy link.
 - [ ] **6. The rest.** Documents and search, the review queue, settings with
   account deletion reachable, and the web-only paywall.
+  - **Search is redrawn from zero in its own PR, after the Detail PR.** The
+    owner rejected the current screen on 2026-09-25 (see "The owner's judgement
+    of the rollout" under step 2).
+    - **What is wrong with it.** Today it is an "ask your workspace" tool:
+      "Workspace insights gallery", "At risk assets", "Executive summary",
+      response times in ms. It is not a way to find a receipt. No model is
+      called per search, and that stays true.
+    - **What it carries:** the ask path's money answer, (f) under Step 1, and
+      the row-amount defect beside it.
+    - **What it becomes:** a search field, category chips and a month filter,
+      with results as the same rows as Home.
 - [ ] **7. Store screenshots**, taken from the finished UI.
 
 ### Inputs, filed under the step that redraws them — not a checklist
@@ -592,6 +633,25 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
      date. So the ask path's "how much did I spend" disagrees with the ledger
      home. **EXPIRY:** it reads the ledger's rules, or the ask path stops
      answering money questions.
+   - **A corrected receipt can show the wrong amount on a Queue or Search row:
+     OPEN money defect, live in production today (recorded 2026-09-25).**
+     - **The mechanism.** `searchResultCard.getAmount` returns the FIRST fact
+       whose `factType` is `AMOUNT`. A correction is written as a SECOND
+       `AMOUNT` fact, `key: 'manual_amount'` with no `currency`
+       (`documentController.ts`, the fix-action path). So a corrected
+       receipt's row shows the old extracted amount, or a bare number with no
+       currency, depending on the order the facts arrive.
+     - **The ledger does the opposite** (`ledgerCore.ts` rule 2): the
+       correction wins, read in the extracted total's currency. Home and the row
+       can therefore disagree for the same receipt.
+     - **Where it shows:** the Queue (an approved screen) and Search both use
+       `getAmount`. The board records 9 stored corrections.
+     - **Not yet measured:** how many of those rows show the wrong figure today.
+       Re-run, never quote: read the fact order the queue and search endpoints
+       return for the corrected documents.
+     - **EXPIRY:** one shared helper applies the ledger's amount rule, and the
+       Queue and Search rows both use it, tested with a corrected document
+       whose facts arrive in either order. This belongs to the Search PR.
    - **Duplicates the rule engine never saw are counted: the re-evaluation
      PR carries the fix; the WRITE waits for the owner's order.** In each
      group of copies (same vendor, same amount as the ledger reads it) exactly
@@ -853,9 +913,24 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
     routes three times each and read the time to first byte. From
     `apps/backend`, inside `SET TRANSACTION READ ONLY`, replay the handler's
     query with Prisma's query log on.
-  - **EXPIRY:** after the perf PR and the region move, the production reading
-    is under 0.6 s for each of the four authenticated routes on a repeat
-    request.
+  - **EXPIRY MET 2026-09-25:** after #247 and the region move, a repeat request
+    reads 0.25 to 0.48 s on the four authenticated routes, three runs each from
+    the owner's signed-in browser:
+
+    | Route | Repeat request |
+    |---|---|
+    | stats | 252, 447, 258 ms |
+    | ledger | 390, 383, 400 ms |
+    | review | 378, 399, 383 ms |
+    | detail | 424, 456, 483 ms |
+
+    - **First request after 62 s idle:** 0.9 to 1.4 s, against 2.8 to 3.8 s on
+      US East. One 4.2 s outlier fell in a slow two-minute stretch that did not
+      recur.
+    - **What remains:** a query still costs ~80 ms against a ~20 ms round trip,
+      i.e. about four round trips per query through the transaction pooler.
+      That is the next lever if speed matters again; measure it before blaming
+      distance.
 - **Row-lock contention (UNCONFIRMED, DORMANT since 2026-09-23).** Ledger-first
   scans one receipt at a time, so its trigger does not fire. It wakes only if
   batch capture is ever added.
