@@ -63,6 +63,55 @@
   6. Submission, once design steps 1 to 5 are done and every APPLE TRACK blocker
      is closed.
 
+## NOW 2026-09-25 — every request waits ~2 s; the order to fix it
+
+**The owner could not judge the redesign (#246) on his iPhone: Home and Queue
+sat on their skeletons.** Measured from his signed-in browser against
+production, every authenticated route answers in 1.75 to 2.5 s to first byte,
+whatever it returns. Detail and numbers under "Every authenticated request
+cost 1.75 to 2.5 s" in the DESIGN TRACK, Step 3 inputs. **Ruled order, not to
+be reshuffled:**
+
+1. **The perf PR** (this entry's PR): the per-token auth context cache and
+   request timeouts, with the screens naming a timeout instead of showing grey
+   blocks. Code only.
+2. **The region move: PENDING THE OWNER'S DECISION.** It is a Railway setting,
+   so no session makes it.
+   - **The database** is Supabase in **AWS eu-west-1 (Ireland)**, reached
+     through the Supavisor pooler: runtime `DATABASE_URL` on port 6543
+     (transaction mode, `pgbouncer=true`), `DIRECT_URL` on the same pooler,
+     port 5432 (session mode).
+   - **Read from `apps/backend/.env`, the local copy.** Railway's own variables
+     are dashboard-only; the host is confirmed by the production bundle.
+   - **The backend's region is INFERRED, not read: outside Europe, to be
+     confirmed** at Railway, service Settings, Region.
+   - **Why the inference.** One statement costs ~126 ms of network and under
+     1 ms of execution. From Morocco, Railway's Paris edge (`x-railway-edge:
+     cdg1`) connects in ~50 ms but first-byte on a trivial route takes 240 to
+     330 ms, while the Ireland pooler connects in 67 to 81 ms.
+   - **The move.** The backend moves, never the database: it is stateless, one
+     redeploy, no data touched, hostname unchanged. Check the price in Railway's
+     region selector before choosing.
+   - **Expected effect:** ~126 ms per statement falls to ~5 to 40 ms.
+3. **The owner judges #246 on his phone**, against the faster backend.
+4. **Then #246 merges.**
+
+**Prisma `relationJoins`: REJECTED 2026-09-25.** It cut the review, detail and
+ledger reads from 4 statements to 1, but it is a preview feature (since 5.7.0,
+still preview on the installed 6.19.2). Enabling it makes `join` the default
+for EVERY top-level relation query in the backend: eleven call sites,
+`exportCsv`, the ask path and billing's `resolveBillingOrg` among them, not
+only the three it was meant for.
+- **The evidence it is equivalent covers today's rows only.** Responses were
+  byte-identical, and `ledgerReconcile.ts` found 0 mismatches over 161
+  documents in 42 months.
+- **Nested arrays have no guaranteed order** under either strategy, and facts
+  are read with `find` by key.
+- **The region move removes most of its value.** Four statements at ~20 ms is
+  80 ms.
+- **If the three reads still matter after the move,** write them as raw SQL
+  rather than flip a global flag.
+
 ## DECIDED 2026-09-23 — ledger-first
 
 **The owner chose ledger-first** after running all three direction prototypes
@@ -765,6 +814,48 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
   - Per-stage durations say which part can shrink. One candidate is the
     `isSingleDocument` validation call: a separate Gemini call on every document,
     before extraction.
+- **Every authenticated request cost 1.75 to 2.5 s to first byte, whatever it
+  returned.** Measured 2026-09-25 from the owner's signed-in browser against
+  production, three runs each:
+
+  | Route | Size | Time to first byte |
+  |---|---|---|
+  | stats | 420 bytes | 1.75 s |
+  | ledger | | 2.1 s |
+  | review | | 2.1 s |
+  | detail | | 2.2 s |
+  | `/api/version`, no auth, no database | | 0.15 s |
+
+  - **The time is round trips, not work.** One statement costs ~126 ms of
+    network and under 1 ms of execution: `EXPLAIN ANALYZE` reads 0.27 ms on
+    the review base query, and every index the queries need exists.
+  - **Where the round trips come from.**
+    - Before every handler, the auth middleware makes a Supabase `getUser`
+      call, then a User upsert with nested includes.
+    - Each `include` then runs as 4 sequential statements.
+  - **Root cause: the backend and the database sit in different regions.** See
+    "NOW 2026-09-25" at the top.
+  - **Fixed in the perf PR (code only):**
+    - A one-minute per-token context cache in the middleware
+      (`authContextCache.ts`). It never outlives the token's `exp`, and account
+      deletion clears it at once. A repeat request skips `getUser`, `ensureUser`
+      and `ensureOrganization`.
+    - 20 s request timeouts on the ledger, review, stats, detail and activity
+      reads, and 10 s on the session read, each named on screen.
+    - On the detail screen, the receipt image holds a frame while it loads and
+      says "preview unavailable" when it fails.
+  - **What the cache serves stale, for at most 60 s.**
+    - Only `{id, email, organizationId}`.
+    - Plan, billing and money are read from the database on every request.
+    - A signed-out token was already honoured by Supabase until its 1-hour
+      `exp`, so the cache adds at most one minute to that.
+  - **Re-measure, never quote.** From a signed-in tab, time `fetch` to the five
+    routes three times each and read the time to first byte. From
+    `apps/backend`, inside `SET TRANSACTION READ ONLY`, replay the handler's
+    query with Prisma's query log on.
+  - **EXPIRY:** after the perf PR and the region move, the production reading
+    is under 0.6 s for each of the four authenticated routes on a repeat
+    request.
 - **Row-lock contention (UNCONFIRMED, DORMANT since 2026-09-23).** Ledger-first
   scans one receipt at a time, so its trigger does not fire. It wakes only if
   batch capture is ever added.
