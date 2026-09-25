@@ -524,6 +524,7 @@ export const strings = {
     catBills: "Bills",
     catOffice: "Office",
     catOther: "Other",
+    requestTimedOut: "The server did not answer within 20 seconds. Check your connection and try again.",
   },
   fr: {
     header: 'Scanner et Agir',
@@ -999,6 +1000,7 @@ export const strings = {
     catBills: "Factures",
     catOffice: "Bureau",
     catOther: "Autre",
+    requestTimedOut: "Le serveur n’a pas répondu en 20 secondes. Vérifiez votre connexion et réessayez.",
   },
   ar: {
     header: 'المسح والإجراء',
@@ -1494,5 +1496,6 @@ export const strings = {
     catBills: "فواتير",
     catOffice: "مكتب",
     catOther: "أخرى",
+    requestTimedOut: "لم يستجب الخادم خلال 20 ثانية. تحقق من اتصالك وحاول مرة أخرى.",
   },
 };
