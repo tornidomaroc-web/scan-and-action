@@ -90,14 +90,19 @@ describe('logical direction — the physical tokens fixed in this PR stay fixed'
     it(`${rel}: the logical replacements are actually present`, () => {
       // Asserting only ABSENCE would pass if someone deleted the attribute
       // outright instead of reverting it, so the positive form is asserted too.
-      expect(src).toMatch(/\btext-start\b/);
+      // SettingsScreen lost its text-start sites with the amber callouts in the
+      // design rollout (2026-09-25); its logical marker is the flipped chevron.
+      expect(src).toMatch(rel === 'screens/SettingsScreen.tsx' ? /rtl:-scale-x-100/ : /\btext-start\b/);
     });
   }
 
-  it('SettingsScreen: both amber callouts use the logical bar and radius', () => {
+  it('SettingsScreen: the amber callouts are gone, and nothing physical replaced them', () => {
+    // The design rollout (2026-09-25) replaced the side-bar callout with a
+    // tinted tile (rounded-tile bg-warning-tint), which has no edge to mirror.
     const src = stripComments(read('screens/SettingsScreen.tsx'));
-    expect(src.match(/\bborder-s-4\b/g) ?? [], 'both FREE-branch callouts (:183 native, :201 web)').toHaveLength(2);
-    expect(src.match(/\brounded-e-2xl\b/g) ?? []).toHaveLength(2);
+    expect(src.match(/\bborder-s-4\b/g) ?? []).toHaveLength(0);
+    expect(src.match(/\brounded-e-2xl\b/g) ?? []).toHaveLength(0);
+    expect(src.match(/\bbg-warning-tint\b/g) ?? [], 'both FREE-branch notes (native, web)').toHaveLength(2);
   });
 
   it('AuthScreen: the password toggle is positioned by the logical end edge', () => {

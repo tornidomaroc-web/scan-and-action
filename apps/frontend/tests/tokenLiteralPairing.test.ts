@@ -143,7 +143,6 @@ function scan(): Hit[] {
 // — an entry whose violation no longer exists fails as loudly as a new one — so
 // this list cannot quietly outlive the defect it records.
 const KNOWN: string[] = [
-  'components/BottomTabBar.tsx :: bg-warning + text-white',
   'components/FixActionPanel.tsx :: bg-success + text-white',
   'screens/DocumentDetailScreen.tsx :: bg-success + text-white',
   'screens/DocumentDetailScreen.tsx :: bg-danger + text-white',

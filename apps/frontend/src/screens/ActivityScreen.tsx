@@ -1,16 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, ArrowLeft, Activity, Loader2, RefreshCw } from 'lucide-react';
+import { FileText, ArrowLeft, RefreshCw } from 'lucide-react';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
 import { EmptyState } from '../components/EmptyState';
+import { DocumentIcon } from '../components/ui/DocumentIcon';
+import { CountChip } from '../components/ui/CountChip';
+import { panelClass } from '../components/ui/Panel';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getStatus } from '../lib/searchResultCard';
+import { getDocumentCategory } from '../lib/documentCategory';
 import { isIdentityConflict } from '../lib/identityConflict';
 import { formatDateValue } from '../lib/formatCellValue';
 import { formatCount } from '../lib/formatNumber';
 
+// Every document, newest first, on the ledger home's visual language: one
+// grouped Panel of rows, each with its category tile (or a neutral document
+// tile when no category was read), the name, the date and the category name,
+// and the status. The count is a CountChip in the header.
 export const ActivityScreen = () => {
   const s = useStrings();
   const { language } = useLanguage();
@@ -59,16 +67,17 @@ export const ActivityScreen = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="mb-4 animate-spin text-accent" size={40} />
-        <p className="text-sm font-medium text-ink-muted">{s.loadingActivity}</p>
+      <div className="mx-auto w-full max-w-xl animate-pulse" aria-busy="true" aria-label={s.loadingActivity}>
+        <div className="h-3.5 w-24 rounded-pill bg-line" />
+        <div className="mt-3 h-7 w-48 rounded-btn bg-line" />
+        <div className={`mt-6 h-[264px] ${panelClass}`} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="mx-auto max-w-[1200px] py-12">
+      <div className="mx-auto w-full max-w-xl py-12">
         {locked ? (
           // onRetry omitted, so ErrorState renders NO button at all
           // (components/ErrorState.tsx:24). Activity has ONE failure surface and
@@ -83,92 +92,83 @@ export const ActivityScreen = () => {
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <header className="mb-10">
+    <div className="mx-auto w-full max-w-xl pb-6 animate-in fade-in duration-500">
+      <header className="mb-6">
         <button
           onClick={() => navigate('/')}
-          className="group mb-4 flex items-center gap-2 text-sm font-medium text-ink-muted transition-colors hover:text-ink"
+          className="group mb-4 flex min-h-[44px] items-center gap-2 text-sm font-semibold text-ink-secondary transition-colors hover:text-ink"
         >
-          <ArrowLeft
-            size={18}
-            className="transition-transform group-hover:-translate-x-0.5 rtl:-scale-x-100"
-          />
+          <ArrowLeft size={18} className="rtl:-scale-x-100" aria-hidden="true" />
           {s.backToCenter}
         </button>
-        <h1 className="mb-1 text-title-lg font-semibold tracking-tight text-ink">{s.activityHistory}</h1>
-        <p className="text-sm text-ink-muted">{s.auditDesc}</p>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-title-lg font-semibold tracking-tight text-ink">{s.activityHistory}</h1>
+          <CountChip>{formatCount(activity.length, language)} {s.records}</CountChip>
+        </div>
+        <p className="mt-1 text-sm text-ink-muted">{s.auditDesc}</p>
       </header>
 
-      <div className="rounded-card border border-line bg-surface-raised p-6 shadow-card md:p-8">
-        {/* Bespoke card-header toolbar row (icon + heading + count badge). Kept bespoke
-            because SectionHeading's block layout has no trailing-action slot; the h2
-            carries the SectionHeading visual (text-base font-semibold text-ink). */}
-        <div className="mb-6 flex items-center gap-2.5 border-b border-divider pb-5">
-          <Activity size={18} className="flex-shrink-0 text-ink-faint" aria-hidden="true" />
-          <h2 className="text-base font-semibold text-ink">{s.historicalIntel}</h2>
-          <span className="ms-auto flex-shrink-0 rounded-pill bg-surface-muted px-2.5 py-1 text-xs font-medium text-ink-muted">
-            {formatCount(activity.length, language)} {s.records}
-          </span>
-        </div>
-
-        {activity.length === 0 ? (
+      {activity.length === 0 ? (
+        <div className={panelClass}>
           <EmptyState
             message={s.noActivity}
             description={s.activityEmptyBody}
             icon={<FileText size={26} />}
           />
-        ) : (
-          <div>
-            {activity.map((item) => {
-              const status = getStatus(item, s as any);
-              const dateStr = formatDateValue(item.uploadedAt, language) ?? s.recently;
-              return (
-                <div
-                  key={item.id}
+        </div>
+      ) : (
+        <ul className={`divide-y divide-divider overflow-hidden ${panelClass}`}>
+          {activity.map((item) => {
+            const status = getStatus(item, s as any);
+            const dateStr = formatDateValue(item.uploadedAt, language) ?? s.recently;
+            const category = getDocumentCategory(item);
+            const categoryLabel = category ? (s as any)[`cat${category}`] : null;
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
                   onClick={() => navigate(`/documents/${item.id}`)}
-                  className="flex cursor-pointer items-center justify-between gap-3 border-b border-divider px-3 py-4 transition-colors last:border-b-0 hover:bg-surface-alt md:px-4"
+                  className="flex min-h-[64px] w-full items-center gap-3 px-4 py-3 text-start transition-colors hover:bg-surface-alt active:bg-surface-alt"
                 >
-                  <div className="flex min-w-0 items-center gap-3 md:gap-4">
-                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-btn border border-line bg-surface text-ink-faint md:h-12 md:w-12">
-                      <FileText className="h-[18px] w-[18px] md:h-5 md:w-5" />
-                    </span>
-                    <div className="min-w-0">
-                      {/* No <bdi> here: it is a bidi isolate, so dir="auto" on the
-                          truncating element would scan past it, find no strong
-                          character, and fall back to LTR. The box would then clip the
-                          leading (identifying) end of an Arabic filename instead of the
-                          trailing end. The value is the sole content of the block, so
-                          the block already isolates it and dir="auto" applies. */}
-                      <p className="truncate text-sm font-semibold text-ink md:text-base" dir="auto">
-                        {item.originalFileName || s.unnamedDocument}
-                      </p>
-                      <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">
-                        {dateStr}
-                      </p>
-                      {/* The LIST is where a user reconciling against an old
-                          total FINDS the documents whose amounts changed;
-                          detail is where they read why. Detail alone would make
-                          them open rows one at a time to stumble on it. */}
-                      {item.reprocessed && (
-                        <span className="mt-1 inline-flex max-w-full items-center gap-1 rounded-pill bg-accent-tint px-2 py-0.5 text-[11px] font-medium text-accent">
-                          <RefreshCw className="h-3 w-3 flex-shrink-0" />
-                          <span className="truncate">{s.reprocessedBadge}</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  <DocumentIcon doc={item} size="sm" />
+                  <span className="min-w-0 flex-1">
+                    {/* No <bdi> here: it is a bidi isolate, so dir="auto" on the
+                        truncating element would scan past it, find no strong
+                        character, and fall back to LTR. The box would then clip the
+                        leading (identifying) end of an Arabic filename instead of the
+                        trailing end. The value is the sole content of the block, so
+                        the block already isolates it and dir="auto" applies. */}
+                    <p className="truncate text-[15px] font-semibold text-ink" dir="auto">
+                      {item.originalFileName || s.unnamedDocument}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs font-medium text-ink-muted" dir="auto">
+                      {dateStr}{categoryLabel ? ` · ${categoryLabel}` : ''}
+                    </p>
+                    {/* The LIST is where a user reconciling against an old
+                        total FINDS the documents whose amounts changed;
+                        detail is where they read why. Detail alone would make
+                        them open rows one at a time to stumble on it. */}
+                    {item.reprocessed && (
+                      <span className="mt-1.5 block">
+                        <CountChip>
+                          <RefreshCw className="me-1 h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                          {s.reprocessedBadge}
+                        </CountChip>
+                      </span>
+                    )}
+                  </span>
                   {status && (
                     <span className="inline-flex min-w-0 flex-shrink-0 items-center gap-2">
                       <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-pill ${status.dot}`} />
                       <span className={`truncate text-xs font-medium ${status.text}`}>{status.label}</span>
                     </span>
                   )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 };

@@ -52,17 +52,22 @@ const humanizeEnum = (v: string): string =>
     .toLowerCase()
     .replace(/^./, (c) => c.toUpperCase());
 
+// The ledger home's money rule, applied to every other screen (design rollout,
+// 2026-09-25): the ISO code, never a symbol ($ is USD, CAD and AUD; د.م. is a
+// word in other contexts), and Western digits on every engine. A bare 'ar'
+// locale leaves the digits to the engine's CLDR data, and WebKit's answer is
+// Arabic-Indic; `numberingSystem: 'latn'` is the only spelling that settles it.
 const formatCurrency = (value: number, currency: unknown, language: string): string => {
   const locale = language || 'en';
   const code = typeof currency === 'string' ? currency.toUpperCase() : '';
   if (/^[A-Z]{3}$/.test(code)) {
     try {
-      return new Intl.NumberFormat(locale, { style: 'currency', currency: code }).format(value);
+      return new Intl.NumberFormat(locale, { style: 'currency', currency: code, currencyDisplay: 'code', numberingSystem: 'latn' }).format(value);
     } catch {
       /* invalid currency code -> fall through to a plain number */
     }
   }
-  const n = new Intl.NumberFormat(locale).format(value);
+  const n = new Intl.NumberFormat(locale, { numberingSystem: 'latn' }).format(value);
   return code ? `${n} ${code}` : n;
 };
 

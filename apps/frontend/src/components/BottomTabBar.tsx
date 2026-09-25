@@ -12,6 +12,11 @@ interface BottomTabBarProps {
 // Mobile-only (<md) bottom navigation. Activity is intentionally absent:
 // on mobile it lives inside Home's Recent Activity section. The desktop
 // sidebar is a separate component and keeps its own nav.
+//
+// On the visual language of the ledger home: the active tab's icon sits in
+// an accent-tint pill (the app's tile shape), labels are sentence case at
+// the meta size, and the Queue count is a CountChip-shaped badge in the
+// accent. The camera in the centre is the app's one scan button on a phone.
 export const BottomTabBar: React.FC<BottomTabBarProps> = ({ pendingCount = 0, onScan }) => {
   const s = useStrings();
 
@@ -29,25 +34,27 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({ pendingCount = 0, on
       <NavLink
         to={to}
         className={({ isActive }) =>
-          `relative flex flex-col items-center gap-1 py-2.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
-            isActive
-              ? 'text-accent'
-              : 'text-ink-faint hover:text-ink-secondary'
+          `relative flex min-h-[56px] flex-col items-center justify-center gap-1 pb-1 pt-1.5 text-[11px] font-semibold transition-colors ${
+            isActive ? 'text-accent-text' : 'text-ink-muted hover:text-ink'
           }`
         }
       >
-        <span className="relative">
-          <Icon size={22} strokeWidth={2.5} />
-          {badge != null && badge > 0 && (
-            <span
-              data-testid="queue-badge"
-              className="absolute -top-1.5 -end-2.5 min-w-[18px] h-[18px] px-1 rounded-pill bg-warning text-white text-[10px] font-black flex items-center justify-center leading-none"
-            >
-              {badge > 9 ? '9+' : badge}
+        {({ isActive }) => (
+          <>
+            <span className={`relative flex h-7 w-14 items-center justify-center rounded-pill transition-colors ${isActive ? 'bg-accent-tint' : ''}`}>
+              <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+              {badge != null && badge > 0 && (
+                <span
+                  data-testid="queue-badge"
+                  className="absolute -top-1.5 end-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-pill bg-accent px-1 text-[10px] font-bold leading-none tabular-nums text-surface-raised ring-2 ring-surface-raised"
+                >
+                  {badge > 9 ? '9+' : badge}
+                </span>
+              )}
             </span>
-          )}
-        </span>
-        {label}
+            {label}
+          </>
+        )}
       </NavLink>
     </li>
   );

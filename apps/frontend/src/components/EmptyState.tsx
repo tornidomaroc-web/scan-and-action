@@ -13,7 +13,7 @@ interface EmptyStateProps {
 export const EmptyState: React.FC<EmptyStateProps> = ({ message, description, icon, children }) => {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-card bg-surface-muted text-ink-faint">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-tile bg-surface-muted text-ink-secondary">
         {icon || <Inbox size={26} />}
       </div>
       <h3 className="text-section font-semibold text-ink">{message}</h3>

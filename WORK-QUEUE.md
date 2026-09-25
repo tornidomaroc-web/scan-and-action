@@ -240,9 +240,12 @@ a store screenshot.**
 - [ ] **Placeholder text that 2.1(a) forbids is reachable today.** Apple 2.1(a):
   *"placeholder text, empty websites, and other temporary content should be
   scrubbed before submission."*
-  - `SettingsScreen.tsx`: the `s.comingSoon` panel lists invoice history, team
-    management, API key generation and webhook configuration under "Coming
-    soon:". Its container carries no platform or width guard.
+  - `SettingsScreen.tsx`: **CLOSED by the design rollout PR (2026-09-25).** The
+    "System information / Coming soon" panel and its seven strings
+    (`comingSoon`, `systemInfo`, `v1Preview`, `invoiceHistory`,
+    `teamManagement`, `apiKeyGen`, `webhookConfig`) are deleted from the screen
+    and from all three catalogues; `designRollout.test.tsx` asserts the keys
+    no longer exist.
   - `DashboardScreen.tsx`: `s.dataComingSoon` ("Data coming soon") appears at two
     sites, one in each panel without data. That describes a new account's first
     screen.
@@ -403,9 +406,21 @@ restyled.** Do not start at login, although a reviewer sees it first:
 - [ ] **2. The design system, in code.**
   - **Started in the ledger-home PR (2026-09-24):** `components/ui/`
     (`CategoryIcon`, `Panel`, `CountChip`) and the figure / code / label / meta /
-    count hierarchy written in `CountChip.tsx`. **Next: one rollout PR, after the
-    ledger home merges,** moves Search, Queue, Detail, Activity, Settings and the
-    tab bar onto those pieces. **EXPIRY:** that PR merges.
+    count hierarchy written in `CountChip.tsx`. **The rollout PR (opened
+    2026-09-25, after #245 merged as `5b46645`)** moves Search, Queue, Detail,
+    Activity, Settings, the result table and the tab bar onto those pieces,
+    adds `IconTile` (every non-category icon in a tile) and `DocumentIcon`
+    (the category tile from the `category` fact, else a neutral document tile,
+    never an invented "Other"), and `lib/documentCategory.ts`, so a receipt is
+    the same category on the home, its row and its detail. Detail keeps its
+    structure: the result screen is step 3's, redrawn from zero. Settings loses
+    the "System information / Coming soon" panel (see APPLE TRACK 2.1(a)).
+    `designRollout.test.tsx` holds it. **EXPIRY:** that PR merges.
+  - **Bills moved off amber in the rollout PR.** `#B7791F` sat 7.4 ΔE from the
+    amber review-chip text (`--sa-warning-text`) and read as the same colour
+    (owner, 2026-09-25). It is `#5C940D` now, 61 away; `categoryPalette.test.ts`
+    compares every fill against the warning text too, with the old Bills as
+    the control that fails.
   - Tokens, a type scale, and core components: sheet, list row, field, button,
     tab bar, nav bar.
   - Colour tokens are defined as channels, so opacity modifiers work. Today
@@ -421,8 +436,12 @@ restyled.** Do not start at login, although a reviewer sees it first:
   - Measure extraction success and the "Needs review" rate on his real receipts,
     judged only on rows the current code wrote.
   - **EXPIRY:** it ships on both native builds, with that measurement.
-- [ ] **4. Home: the ledger home. BUILT in the ledger-home PR; open until the
-  owner has judged it on his iPhone.** Its precondition held: the duplicate
+- [x] **4. Home: the ledger home. DONE: approved by the owner on his iPhone at
+  `5a4eec1` (English and Arabic, 2026-09-25) and merged as #245 (`5b46645`).**
+  His words on the last judgement: the coloured tiles, the four treatments
+  inside each card, the plurals, the review card and the single scan button
+  all work; the one change asked for, "Other" off grey, went in before the
+  merge. Its precondition held: the duplicate
   write ran 2026-09-24 and the dry run, re-run, planned 0 changes. What it
   shows: one figure per currency, category cards, what needs him, and the
   receipts as transactions (`LedgerScreen.tsx`; every rule and its evidence
@@ -445,7 +464,7 @@ restyled.** Do not start at login, although a reviewer sees it first:
     The "needs review" card names both of its numbers: this month's receipts
     and the Queue's total over all months (`GET /api/stats` pendingCount, the
     badge).
-  - **EXPIRY:** the owner has used it on his iPhone and ruled on it.
+  - **EXPIRY MET 2026-09-25:** the owner used it on his iPhone and ruled on it.
 - [ ] **5. First run.** Login and signup, an email confirmation that returns to
   the app, the icon and splash, every "coming soon" removed, `ProfileScreen.tsx`
   deleted, and the in-app privacy link.

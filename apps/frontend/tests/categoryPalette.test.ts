@@ -107,9 +107,11 @@ describe('category colours', () => {
     for (const c of LEDGER_CATEGORIES) expect(chroma(root[tokenOf(c)]), c).toBeGreaterThanOrEqual(CHROMA_FLOOR);
   });
 
-  it('every fill stays apart from every other fill and from the warning, danger and success fills (control: a near twin fails)', () => {
+  it('every fill stays apart from every other fill and from the warning fill, the warning text, danger and success (controls: a near twin and the old Bills fail)', () => {
     expect(deltaE('#E8590C', root['--sa-cat-food'])).toBeLessThan(DISTANCE_FLOOR);
-    const others = [...LEDGER_CATEGORIES.map(tokenOf), '--sa-warning', '--sa-danger', '--sa-success'];
+    // The first Bills fill, against the amber text of the review chips: 7.4.
+    expect(deltaE('#B7791F', root['--sa-warning-text'])).toBeLessThan(DISTANCE_FLOOR);
+    const others = [...LEDGER_CATEGORIES.map(tokenOf), '--sa-warning', '--sa-warning-text', '--sa-danger', '--sa-success'];
     for (const c of LEDGER_CATEGORIES) {
       for (const o of others.filter(t => t !== tokenOf(c))) {
         expect(deltaE(root[tokenOf(c)], root[o]), `${c} vs ${o}`).toBeGreaterThanOrEqual(DISTANCE_FLOOR);

@@ -1,5 +1,7 @@
 import React from 'react';
-import { ChevronRight, FileText } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
+import { DocumentIcon } from './ui/DocumentIcon';
+import { panelClass } from './ui/Panel';
 import { EmptyState } from './EmptyState';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -233,14 +235,12 @@ export const ResultTable = ({ data, emptyStateComponent, onRowClick }: ResultTab
               key={row.id ?? i}
               type={isClickable ? 'button' : undefined}
               onClick={isClickable ? () => onRowClick!(row) : undefined}
-              className={`flex w-full flex-col gap-3 rounded-card border border-line bg-surface-raised p-4 text-start shadow-card transition-colors ${
+              className={`flex w-full flex-col gap-3 p-4 text-start transition-colors ${panelClass} ${
                 isClickable ? 'cursor-pointer active:bg-surface-alt' : ''
               }`}
             >
               <div className="flex items-start gap-3">
-                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-btn border border-line bg-surface text-ink-faint">
-                  <FileText size={16} />
-                </span>
+                <DocumentIcon doc={row} size="sm" />
                 <div className="min-w-0 flex-1">
                   {/* dir="auto" on the truncating box: without it the box inherits
                       the page direction, so in Arabic a Latin filename/vendor
@@ -249,7 +249,7 @@ export const ResultTable = ({ data, emptyStateComponent, onRowClick }: ResultTab
                   {vendor && <div className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">{vendor}</div>}
                 </div>
                 {amount && (
-                  <span className="flex-shrink-0 text-sm font-semibold text-ink" dir="ltr">
+                  <span className="flex-shrink-0 text-[15px] font-bold tabular-nums text-ink" dir="ltr">
                     {amount}
                   </span>
                 )}

@@ -1,6 +1,8 @@
 import React from 'react';
 import { Sparkles, Clock } from 'lucide-react';
 import { useStrings } from '../i18n/useStrings';
+import { IconTile } from './ui/IconTile';
+import { panelClass } from './ui/Panel';
 
 // AI answer card, restyled onto the --sa-* token system (calm indigo, sentence
 // case, token radii + quiet elevation). Renders ONLY the backend answer text —
@@ -9,11 +11,9 @@ import { useStrings } from '../i18n/useStrings';
 export const AnswerCard = ({ text, meta }: { text: string; meta?: any }) => {
   const s = useStrings();
   return (
-    <div className="rounded-card border border-line bg-surface-raised p-6 shadow-card lg:p-8">
+    <div className={`p-5 lg:p-8 ${panelClass}`}>
       <div className="flex items-start gap-4">
-        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-btn bg-accent-tint text-accent">
-          <Sparkles size={20} />
-        </span>
+        <IconTile icon={Sparkles} tone="accent" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
