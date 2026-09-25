@@ -4,6 +4,7 @@ import { SearchScreen } from './screens/SearchScreen';
 import { DocumentDetailScreen } from './screens/DocumentDetailScreen';
 import { ReviewQueueScreen } from './screens/ReviewQueueScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
+import { LedgerScreen } from './screens/LedgerScreen';
 import { ActivityScreen } from './screens/ActivityScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { AuthScreen } from './screens/AuthScreen';
@@ -123,7 +124,13 @@ function App() {
             {/* Protected Routes */}
             {user ? (
               <Route element={<Layout />}>
-                <Route path="dashboard" element={<DashboardScreen />} />
+                {/* The ledger is the home (ledger-first, ruled 2026-09-23). The path
+                    stays /dashboard: login, the native "/" redirect, the Paddle
+                    success URL and the catch-all below all land here. The old
+                    workspace dashboard keeps its content (CSV export, activity,
+                    stats) at /overview, one tap from the ledger's footer. */}
+                <Route path="dashboard" element={<LedgerScreen />} />
+                <Route path="overview" element={<DashboardScreen />} />
                 <Route path="activity" element={<ActivityScreen />} />
                 <Route path="search" element={<SearchScreen />} />
                 <Route path="queue" element={<ReviewQueueScreen />} />

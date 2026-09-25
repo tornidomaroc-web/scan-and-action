@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
+  Home,
   Search,
   ClipboardList,
   Settings,
@@ -48,7 +49,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
   };
 
   const navItems = [
-    { to: '/dashboard', icon: <LayoutDashboard size={20} />, label: s.dashboard, end: true },
+    // /dashboard is the ledger home; the old dashboard lives at /overview.
+    { to: '/dashboard', icon: <Home size={20} />, label: s.home, end: true },
+    { to: '/overview', icon: <LayoutDashboard size={20} />, label: s.dashboard },
     { to: '/activity', icon: <Activity size={20} />, label: s.recentActivity },
     { to: '/search', icon: <Search size={20} />, label: s.search },
     { to: '/queue', icon: <ClipboardList size={20} />, label: s.queue },
