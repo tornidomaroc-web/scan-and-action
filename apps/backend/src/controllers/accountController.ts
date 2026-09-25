@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../prismaClient';
 import { deleteAuthUser, deleteStorageObjects } from '../services/accountDeletionService';
+import { invalidateUser } from '../middleware/authContextCache';
 
 /**
  * DELETE /api/account
@@ -89,6 +90,9 @@ export class AccountController {
           });
         }
         await deleteAuthUser(userId);
+      // A cached context for this user would outlive the rows for up to a
+      // minute; the deletion is the one event that must not wait that long.
+      invalidateUser(userId);
         return res.status(200).json({ ok: true, alreadyDeleted: true });
       }
 
@@ -154,6 +158,9 @@ export class AccountController {
 
       // 3) Finally remove the Supabase auth identity (idempotent).
       await deleteAuthUser(userId);
+      // A cached context for this user would outlive the rows for up to a
+      // minute; the deletion is the one event that must not wait that long.
+      invalidateUser(userId);
 
       return res.status(200).json({ ok: true });
     } catch (err) {

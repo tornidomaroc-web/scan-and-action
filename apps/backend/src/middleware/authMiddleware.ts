@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { prisma } from '../prismaClient';
 import { sendWelcomeEmailOnce } from '../services/email/welcomeEmail';
 import { formatErrorForLog } from '../redaction';
+import { cacheAuthContext, getCachedAuthContext } from './authContextCache';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -339,6 +340,15 @@ export const authMiddleware = async (
 
   const token = authHeader.split(' ')[1];
 
+  // A token seen within the last minute skips the Supabase round trip and
+  // the provisioning upsert: authContextCache.ts has the measurement and the
+  // staleness bound.
+  const cached = getCachedAuthContext(token);
+  if (cached) {
+    req.user = { ...cached };
+    return next();
+  }
+
   // Genuine authentication failures (invalid/expired token) are handled inline
   // with an explicit 401 below. Everything inside this try that THROWS is an
   // unexpected/transient fault (DB blip, Prisma timeout, an unrecovered P2002,
@@ -415,6 +425,7 @@ export const authMiddleware = async (
       email,
       organizationId
     };
+    cacheAuthContext(token, req.user);
 
     next();
   } catch (error: any) {
