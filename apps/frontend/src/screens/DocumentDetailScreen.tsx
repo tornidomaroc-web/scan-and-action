@@ -1,24 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, CheckCircle, XCircle, FileText, Network, Sparkles, ListChecks, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, CheckCircle, XCircle, FileText, RefreshCw, ArrowUpRight } from 'lucide-react';
 import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
-import { SectionHeading } from '../components/SectionHeading';
-import { ReviewBadge } from '../components/SharedComponents';
 import { DocumentIcon } from '../components/ui/DocumentIcon';
 import { IconTile } from '../components/ui/IconTile';
+import { CountChip } from '../components/ui/CountChip';
 import { panelClass } from '../components/ui/Panel';
-import { DecisionBanner } from '../components/DecisionBanner';
+import { translateDecisionReasons } from '../components/DecisionBanner';
 import { FixActionPanel } from '../components/FixActionPanel';
 import { useToast } from '../contexts/ToastContext';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
-import { getStatus, getDocTypeLabel, getEntityRoleLabel, formatFactValue, factValueDir } from '../lib/searchResultCard';
-import { formatDateValue } from '../lib/formatCellValue';
+import { getStatus, getDocTypeLabel, getVendor, formatFactValue, factValueDir } from '../lib/searchResultCard';
 import { isIdentityConflict } from '../lib/identityConflict';
 import { isRequestTimeout } from '../lib/fetchWithTimeout';
 import { visibleDetailFacts, detailFactLabel } from '../lib/detailFacts';
 import { getDocumentCategory } from '../lib/documentCategory';
+import { documentCurrency, ledgerAmount } from '../lib/ledgerAmount';
+import { Lang, figureSizeClass, fullDayLabel, moneyParts } from '../lib/ledgerView';
 import {
   isSourceFileUnavailable,
   isReextractionInProgress,
@@ -27,24 +27,43 @@ import {
   isDocumentNotSingle,
 } from '../lib/reextractErrors';
 
-// Document detail, restyled onto the --sa-* token system (PR-D3).
-//  - Calm flat surfaces (rounded-card, quiet shadow) instead of the old
-//    oversized mega-card; every color is a token (no raw palette and no
-//    per-component theme variants), matching the D2 Search page.
-//  - The meta-grid status reuses the SAME shared status config as the Search
-//    card (getStatus), so it reads Processed / Needs review / Rejected with the
-//    same dot colors and Arabic, instead of the raw enum.
-//  - Mixed-direction values (file name, fact values, currency, entity names)
-//    are bidi-isolated so numerals and Latin text do not scramble in Arabic RTL.
-//  - All copy is i18n (three locales); no hardcoded English remains.
+// ============================================================================
+// The receipt: the screen every scan lands on. Design step 3's result screen,
+// redrawn from zero on 2026-09-25 after the owner rejected the previous one
+// on his iPhone ("complicated and disorganised, not modern, looks as if it
+// belongs to another app").
+//
+// Top to bottom, on the ledger home's visual language:
+//   1. Who, how much, when, one status. The category tile, the merchant, the
+//      amount the LEDGER counts (lib/ledgerAmount.ts: a correction beats the
+//      extraction, in the extraction's currency, marked "Edited"), the date
+//      printed on the receipt (TRANSACTION_DATE; the upload day only when no
+//      date was read, said so), and the lifecycle status once.
+//   2. What needs the person, as plain sentences, with the fix actions and
+//      the retry inside the same card. Nothing when nothing does.
+//   3. The receipt, a card that opens the original on tap.
+//   4. The facts, as rows: only what lib/detailFacts.ts allows, and the file.
+//   5. Approve / Reject, sticky, while the document waits for review.
+//
+// Gone, on the owner's ruling: the file name as the title, "Verified AI
+// intelligence extraction", the 83% badge, the per-fact "99% match" labels,
+// the relationships section, and the status repeated three times.
+//
+// Behaviour is untouched: the review actions, the re-extraction gate (the
+// server's own `reextractable`), the fix-action writes, the facts allowlist,
+// the lockout handling and the image fallback are the same code paths as
+// before; tests pin each. No amount is added or converted here: the figure is
+// one document's own, read by the ledger's rule.
+// ============================================================================
 export const DocumentDetailScreen = () => {
   const s = useStrings();
   const { language } = useLanguage();
-  // The label for an Extracted-Facts row. Backed by the ALLOWLIST in
-  // lib/detailFacts, which is also what decides whether the row renders at all,
-  // so the two can never disagree. It has no raw-key fallback on purpose: the
-  // `map[key] || key` that used to live here is what rendered `extraction_model`
-  // and `extraction_recovered` to a user in an Arabic UI.
+  const lang = language as Lang;
+  // The label for a facts row. Backed by the ALLOWLIST in lib/detailFacts,
+  // which is also what decides whether the row renders at all, so the two can
+  // never disagree. It has no raw-key fallback on purpose: the `map[key] ||
+  // key` that used to live here is what rendered `extraction_model` and
+  // `extraction_recovered` to a user in an Arabic UI.
   const fieldLabel = (key: string): string => detailFactLabel(key, s as any) ?? '';
   const { id: documentId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -200,22 +219,21 @@ export const DocumentDetailScreen = () => {
   }, [doc?.signedFileUrl]);
 
   const DocumentDetailSkeleton = () => (
-    <div className="mx-auto max-w-[1000px] animate-in fade-in duration-500">
-      <div className="skeleton mb-8 h-6 w-32 rounded-btn" />
-      <div className={`p-5 md:p-8 ${panelClass}`}>
-        <div className="mb-8 flex items-start justify-between">
-          <div className="space-y-3">
-            <div className="skeleton h-9 w-64 rounded-btn" />
-            <div className="skeleton h-4 w-40 rounded-btn" />
+    // The same shapes as the loaded screen, in the same surfaces.
+    <div className="mx-auto w-full max-w-xl animate-pulse" aria-busy="true">
+      <div className="h-11 w-11 rounded-pill bg-line" />
+      <div className={`mt-4 p-4 ${panelClass}`}>
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 rounded-tile bg-line" />
+          <div className="flex-1 space-y-2">
+            <div className="h-5 w-40 rounded-pill bg-line" />
+            <div className="h-3 w-28 rounded-pill bg-line" />
           </div>
-          <div className="skeleton h-8 w-28 rounded-pill" />
         </div>
-        <div className="mb-10 grid grid-cols-2 gap-3 md:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-16 rounded-card" />)}
-        </div>
-        <div className="skeleton mb-8 h-[360px] rounded-card" />
-        <div className="skeleton h-28 rounded-card" />
+        <div className="mt-5 h-9 w-44 rounded-btn bg-line" />
       </div>
+      <div className={`mt-4 h-[280px] ${panelClass}`} />
+      <div className={`mt-4 h-[132px] ${panelClass}`} />
     </div>
   );
 
@@ -223,7 +241,7 @@ export const DocumentDetailScreen = () => {
 
   if (errorMsg)
     return (
-      <div className="mx-auto max-w-[1000px] py-12">
+      <div className="mx-auto w-full max-w-xl py-12">
         {locked ? (
           // onRetry omitted, so ErrorState renders NO button at all
           // (components/ErrorState.tsx:24). That matters more here than on any
@@ -240,370 +258,277 @@ export const DocumentDetailScreen = () => {
         )}
       </div>
     );
-  if (!doc) return <div className="mx-auto max-w-[1000px] py-12"><ErrorState title={s.errorTitle} message={s.docNotFound} /></div>;
+  if (!doc) return <div className="mx-auto w-full max-w-xl py-12"><ErrorState title={s.errorTitle} message={s.docNotFound} /></div>;
 
   const isImageFile = typeof doc.signedFileUrl === 'string' && /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.originalFileName || '');
-  const isPdfFile = typeof doc.signedFileUrl === 'string' && /\.pdf$/i.test(doc.originalFileName || '');
 
   const decisionFact = doc.facts?.find((f: any) => f.key === 'decision');
   const reasonFact = doc.facts?.find((f: any) => f.key === 'decision_reason');
   const decision = decisionFact?.valueString || null;
-  const reason = reasonFact?.valueString || undefined;
+  const reason: string | undefined = reasonFact?.valueString || undefined;
 
-  // Reuse the Search card's status config so the label + dot match the card the
-  // user tapped to arrive here (Processed / Needs review / Rejected, translated).
+  // The ONE status on the screen, in the same vocabulary as every list
+  // (Processed / Needs review / Rejected, translated).
   const status = getStatus(doc, s as any);
+  const statusTone = status?.key === 'NEEDS_REVIEW' ? 'warning'
+    : status?.key === 'REJECTED' || status?.key === 'FAILED' ? 'danger'
+    : status?.key === 'COMPLETED' ? 'success' : 'neutral';
 
   // Localized, honest fact value (shared with Search): preserves a numeric 0,
   // Intl-formats amounts, and renders dates human-readable instead of raw ISO.
   const factValue = (fact: any): string => formatFactValue(fact, s as any, language);
 
-  // WHICH facts this table may show is an ALLOWLIST that fails closed — see
+  // WHICH facts the rows may show is an ALLOWLIST that fails closed — see
   // lib/detailFacts for the production census behind it and the reason each key
-  // is in or out. This replaces a two-key DENYLIST whose default was "render it
-  // with its raw key", which is how `extraction_model`, `extraction_recovered`
-  // and `category` reached a user's screen. A fact key nobody has thought about
-  // yet now renders nowhere.
+  // is in or out. A fact key nobody has thought about yet renders nowhere.
   const visibleFacts: any[] = visibleDetailFacts(doc.facts, s as any);
 
-  // The category, as the ledger home shows it: the tile in the header and its
-  // NAME in the meta grid, so colour is never the only carrier. It replaces the
-  // language cell, which read `detectedLanguage`: that column is written by the
-  // failure path and defaulted to 'EN', a claim about the document nobody made.
   const category = getDocumentCategory(doc);
+  const merchant = getVendor(doc);
+  const typeLabel = getDocTypeLabel(doc.documentType, s as any);
+  const amount = ledgerAmount(doc.facts);
+  const money = amount ? moneyParts(amount.amount, amount.currency, lang) : null;
+  // The fact that IS the figure at the top does not repeat as a row: the
+  // correction when one exists, else the extracted total. The other one still
+  // shows (a corrected receipt keeps its extracted total as a row).
+  const shownAtTop = amount ? (amount.source === 'corrected' ? 'manual_amount' : 'TOTAL_AMOUNT') : null;
+  const rowFacts = shownAtTop ? visibleFacts.filter((f: any) => f.key !== shownAtTop) : visibleFacts;
 
-  // Data-relationships layout: a few entities read best as wrapping cards; past a
-  // handful they read better as a stacked list (one row each). Either way the full
-  // name wraps and is never truncated.
-  const manyEntities: boolean = (doc.entities?.length || 0) > 4;
+  // The date on the receipt, as the ledger dates it. The upload day only when
+  // no date was read, and then the line says so (the same copy as Home).
+  const printed = doc.facts?.find((f: any) => f.key === 'TRANSACTION_DATE' && f.valueDate)?.valueDate ?? null;
+  const dateText = printed
+    ? fullDayLabel(printed, lang)
+    : doc.uploadedAt ? s.ledgerNoDate.replace('{day}', fullDayLabel(doc.uploadedAt, lang, 'local')) : null;
+  const metaLine = [category ? (s as any)[`cat${category}`] : null, typeLabel, dateText].filter(Boolean);
+
+  // What needs the person, as sentences. Each rule-engine reason is one
+  // sentence in the reader's language (the raw English enum never renders).
+  const reasons = reason ? reason.split(', ').map((part) => translateDecisionReasons(part.trim(), s as any, language)) : [];
+  const issues: string[] = [];
+  if (doc.status === 'FAILED') issues.push(s.detailExtractionFailed);
+  if (decision === 'FLAGGED') issues.push(s.decisionFlaggedDesc, ...reasons);
+  else if (decision === 'NEEDS_REVIEW') issues.push(...(reasons.length ? reasons : [s.expenseAttention]));
+  else if (decision === 'APPROVED' && doc.status === 'NEEDS_REVIEW') issues.push(s.decisionApprovedNeedsReviewDesc);
+  else if (!decision && doc.status === 'NEEDS_REVIEW') issues.push(s.expenseAttention);
+  // THE RETRY GATE IS `doc.reextractable`, WHICH THE SERVER COMPUTES. The
+  // FAILED branch deliberately does not consult it: the server admits FAILED
+  // unconditionally, and a response served before the flag existed carries no
+  // such field, so reading it there would make the button vanish from a path
+  // that already worked.
+  const canRetry = doc.status === 'FAILED' || (doc.status === 'NEEDS_REVIEW' && doc.reextractable === true);
+  const showFix = !!decision && decision !== 'APPROVED';
+  const showIssues = issues.length > 0 || showFix || canRetry;
 
   return (
-    <div className="mx-auto max-w-[1000px] animate-in fade-in slide-in-from-bottom-4 pb-20 duration-500">
+    <div className="mx-auto w-full max-w-xl pb-40" data-detail-screen>
       <button
+        type="button"
         onClick={() => navigate(-1)}
-        className="group mb-8 inline-flex items-center gap-2 text-sm font-medium text-ink-secondary transition-colors hover:text-ink"
+        aria-label={s.backToSearch}
+        className="flex h-11 w-11 items-center justify-center rounded-pill bg-surface-raised text-ink-secondary ring-1 ring-line transition-colors hover:text-ink active:scale-95"
       >
-        <span className="flex h-8 w-8 items-center justify-center rounded-btn border border-line bg-surface-raised text-ink-faint shadow-card transition-colors group-hover:border-line-strong">
-          <ChevronLeft size={16} className="rtl:-scale-x-100" />
-        </span>
-        {s.backToSearch}
+        <ChevronLeft size={20} className="rtl:-scale-x-100" aria-hidden="true" />
       </button>
 
-      <div className={`p-5 md:p-8 ${panelClass}`}>
-        <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row">
-          {/* self-stretch bounds this wrapper to the card width in the mobile
-              column layout (items-start would otherwise size it to the file
-              name's max-content and let a long unbroken name overflow the card);
-              the h1 truncate then produces a clean ellipsis. On desktop the row
-              layout already shrinks via min-w-0, and self-stretch only affects
-              cross-axis height there, so it does not regress. */}
-          <div className="min-w-0 self-stretch">
-            {/* No <bdi> on a TRUNCATING box: the isolate hides the text from
-                dir="auto", which then falls back to LTR and clips the leading
-                (identifying) end of an Arabic filename. The value is the sole
-                content of the heading, so the block already isolates it. */}
-            <h1 className="mb-2 truncate text-title-lg font-semibold tracking-tight text-ink" dir="auto">
-              {doc.originalFileName || `${s.errorTitle} ${doc.id}`}
+      {/* ── Who, how much, when, one status ── */}
+      <section className={`mt-4 p-4 ${panelClass}`} data-detail-header aria-labelledby="detail-title">
+        <div className="flex items-start gap-3">
+          <DocumentIcon doc={doc} />
+          <div className="min-w-0 flex-1">
+            {/* A merchant name is natural language of unknown direction, kept
+                whole: it wraps, it is never cut. dir="auto" on the element
+                itself, with no isolate child to swallow it. */}
+            <h1 id="detail-title" dir="auto" className="break-words text-title-lg font-semibold tracking-tight text-ink">
+              {merchant ?? <span className="text-ink-muted">{s.ledgerUnknownVendor}</span>}
             </h1>
-            <div className="flex items-center gap-2">
-              <DocumentIcon doc={doc} size="sm" />
-              <p className="text-label font-medium text-ink-tertiary">{s.verifiedExtraction}</p>
-            </div>
-          </div>
-          <div className="flex-shrink-0">
-            <ReviewBadge confidence={doc.overallConfidence} status={doc.status} />
-          </div>
-        </div>
-
-        {/* RE-PROCESSED NOTICE. Sits ABOVE the decision banner deliberately.
-            A document recovered by the re-extraction endpoint gains its amounts,
-            and sum_expenses groups TOTAL_AMOUNT facts with NO status filter — so
-            those amounts enter the user's expense total the moment they land. On
-            2026-09-09 that moved one organisation's summable total by 20,644.74
-            with nothing in the product saying why, and a money figure that moves
-            unexplained reads as a bug. This is the explanation, so it comes
-            before the decision the user is being asked to act on. */}
-        {doc.reprocessed && (
-          <div className="mb-6 flex items-start gap-3 rounded-tile bg-surface-muted p-4">
-            <IconTile icon={RefreshCw} tone="accent" size="sm" />
-            <div className="min-w-0">
-              <p className="text-label font-semibold text-ink">{s.reprocessedBadge}</p>
-              <p className="mt-1 text-sm leading-relaxed text-ink-secondary">
-                <bdi dir="auto">
-                  {s.reprocessedNotice.replace(
-                    '{date}',
-                    formatDateValue(doc.processedAt, language) ?? s.recently
-                  )}
-                </bdi>
+            {metaLine.length > 0 && (
+              <p className="mt-0.5 text-xs font-medium text-ink-muted" data-detail-meta>
+                {metaLine.map((part, i) => (
+                  <React.Fragment key={i}>
+                    {i > 0 && <span aria-hidden="true"> · </span>}
+                    <span>{part}</span>
+                  </React.Fragment>
+                ))}
               </p>
-            </div>
-          </div>
-        )}
-
-        <DecisionBanner decision={decision} reason={reason} status={doc.status} />
-
-        <FixActionPanel
-          documentId={doc.id}
-          decision={decision}
-          reason={reason}
-          onSuccess={handleRefresh}
-        />
-
-        <div className="mb-10 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="rounded-tile bg-surface-muted p-4">
-            <span className="mb-1.5 block text-label font-medium text-ink-tertiary">{s.status}</span>
-            {status ? (
-              <span className="inline-flex min-w-0 items-center gap-2">
-                <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-pill ${status.dot}`} />
-                <span className={`truncate text-sm font-medium ${status.text}`}>{status.label}</span>
-              </span>
-            ) : (
-              <span className="text-sm font-medium text-ink-muted">{s.notAvailable}</span>
             )}
           </div>
-          {[
-            { label: s.type, value: getDocTypeLabel(doc.documentType, s as any) || s.notAvailable },
-            { label: s.date, value: formatDateValue(doc.uploadedAt, language) ?? s.notAvailable },
-            { label: s.categoryLabel, value: category ? (s as any)[`cat${category}`] : s.notAvailable },
-          ].map((item, i) => (
-            <div key={i} className="rounded-tile bg-surface-muted p-4">
-              <span className="mb-1.5 block text-label font-medium text-ink-tertiary">{item.label}</span>
-              <span className="block truncate text-sm font-medium text-ink" dir="auto">{item.value}</span>
-            </div>
-          ))}
         </div>
-
-        {doc.signedFileUrl && (
-          <div className="mb-10">
-            <SectionHeading icon={FileText}>{s.sourceVisualization}</SectionHeading>
-            <div className="overflow-hidden rounded-card border border-line bg-surface">
-              {isImageFile && imageState !== 'failed' ? (
-                <div className={imageState === 'loading' ? 'skeleton min-h-[240px]' : ''} data-detail-image={imageState}>
-                  <img
-                    src={doc.signedFileUrl}
-                    alt={doc.originalFileName || s.sourceVisualization}
-                    onLoad={() => setImageState('loaded')}
-                    onError={() => setImageState('failed')}
-                    className={`mx-auto h-auto max-h-[800px] w-full object-contain ${imageState === 'loading' ? 'opacity-0' : ''}`}
-                  />
-                </div>
-              ) : isPdfFile ? (
-                <iframe
-                  src={doc.signedFileUrl}
-                  title={doc.originalFileName || s.sourceVisualization}
-                  className="h-[700px] w-full border-none"
-                />
-              ) : (
-                <div className="p-16 text-center">
-                  <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-card bg-surface-muted text-ink-faint">
-                    <FileText size={32} />
-                  </div>
-                  <p className="mb-5 text-sm font-medium text-ink">{s.previewUnavailable}</p>
-                  <a
-                    href={doc.signedFileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-btn bg-accent px-6 text-sm font-semibold text-surface-raised transition-colors hover:bg-accent-hover"
-                  >
-                    {s.openOriginalSource}
-                  </a>
-                </div>
-              )}
+        <div className="mt-4 flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+          {money && amount ? (
+            <div className="flex flex-wrap items-baseline gap-x-2" aria-label={`${money.number} ${money.name ?? money.code ?? s.ledgerNoCurrency}`}>
+              <bdi dir="ltr" data-detail-amount className={`${figureSizeClass(money.number)} font-extrabold leading-none tracking-tight tabular-nums text-ink`}>
+                {money.number}
+              </bdi>
+              <span className={`text-base font-bold tracking-wide ${amount.currency ? 'text-ink-muted' : 'text-warning-text'}`}>
+                {money.code ?? s.ledgerNoCurrency}
+              </span>
+              {amount.source === 'corrected' && <CountChip data-detail-edited>{s.ledgerCorrectedTag}</CountChip>}
             </div>
-          </div>
-        )}
-
-        {/* AI analysis: the heading is promoted to the shared section-heading level
-            (was a ~12px h4 — the inverted hierarchy). The synthesis text keeps its
-            calm accent-tinted body so it still reads as AI-generated content. */}
-        {doc.summary && (
-          <div className="mb-10">
-            <SectionHeading icon={Sparkles}>{s.aiSynthesis}</SectionHeading>
-            <div className="rounded-card border border-accent-border bg-accent-tint p-5 text-start">
-              <p className="text-sm leading-relaxed text-ink-secondary"><bdi dir="auto">{doc.summary}</bdi></p>
-            </div>
-          </div>
-        )}
-
-        <div className="mb-10">
-          <SectionHeading icon={ListChecks}>{s.extractedFacts}</SectionHeading>
-
-          {visibleFacts.length > 0 ? (
-            <>
-              {/* Mobile: stacked label/value rows (the 3-column table clips at phone widths). */}
-              <div className={`divide-y divide-divider overflow-hidden md:hidden ${panelClass}`}>
-                {visibleFacts.map((fact: any, i: number) => (
-                  <div key={i} className="p-4">
-                    <div className="mb-1.5 flex items-center justify-between gap-3">
-                      <span className="text-label font-medium text-ink-tertiary">{fieldLabel(fact.key)}</span>
-                      <span className={`inline-flex flex-shrink-0 items-center gap-1.5 rounded-pill px-2 py-0.5 text-label font-medium ${
-                        fact.confidence > 0.9 ? 'text-success-text' : 'text-warning-text'
-                      }`}>
-                        <span className={`h-1.5 w-1.5 rounded-pill ${fact.confidence > 0.9 ? 'bg-success' : 'bg-warning'}`} />
-                        <span dir="ltr">{Math.round(fact.confidence * 100)}%</span> {s.match}
-                      </span>
-                    </div>
-                    {/* Direction is DATA, not a property of this box: the same
-                        element renders an Arabic string value, a localized Arabic
-                        date, a placeholder, and an Intl currency string. Only the
-                        numeric branch is pinned ltr (searchResultCard.factValueDir,
-                        whose precedence mirrors formatFactValue's). A blanket
-                        dir="ltr" here would be actively wrong on Arabic prose.
-                        No <bdi>: it is an isolate with dir auto and would re-run
-                        the detection the pin exists to override. */}
-                    <p className="break-words text-sm font-medium text-ink" dir={factValueDir(fact)}>{factValue(fact)}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className={`hidden overflow-hidden md:block ${panelClass}`}>
-                <table className="w-full border-collapse text-start">
-                  <thead>
-                    <tr className="border-b border-divider bg-surface-alt">
-                      <th className="px-6 py-3.5 text-start text-label font-semibold text-ink-tertiary">{s.factLabel}</th>
-                      <th className="px-6 py-3.5 text-start text-label font-semibold text-ink-tertiary">{s.dataValue}</th>
-                      <th className="px-6 py-3.5 text-start text-label font-semibold text-ink-tertiary">{s.precision}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-divider">
-                    {visibleFacts.map((fact: any, i: number) => (
-                      <tr key={i} className="transition-colors hover:bg-surface-alt">
-                        <td className="px-6 py-3.5 text-sm font-medium text-ink">{fieldLabel(fact.key)}</td>
-                        <td className="px-6 py-3.5 text-sm text-ink-secondary" dir={factValueDir(fact)}>{factValue(fact)}</td>
-                        <td className="px-6 py-3.5">
-                          <span className={`inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-label font-medium ${
-                            fact.confidence > 0.9 ? 'text-success-text' : 'text-warning-text'
-                          }`}>
-                            <span className={`h-1.5 w-1.5 rounded-pill ${fact.confidence > 0.9 ? 'bg-success' : 'bg-warning'}`} />
-                            <span dir="ltr">{Math.round(fact.confidence * 100)}%</span> {s.match}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
           ) : (
-            <div className="rounded-card border border-dashed border-line bg-surface p-8 text-center text-sm font-medium text-ink-muted">
-              {s.noFacts}
-            </div>
+            <p className="text-lg font-semibold text-ink-muted" data-detail-amount-missing>{s.detailNoAmount}</p>
+          )}
+          {status && (
+            <CountChip tone={statusTone} data-detail-status className="max-w-full">
+              <span className="truncate">{status.label}</span>
+            </CountChip>
           )}
         </div>
+        {/* RE-PROCESSED NOTICE. A document recovered by the re-extraction
+            endpoint gains its amounts, and they enter the totals the moment
+            they land; a money figure that moves unexplained reads as a bug.
+            This is the explanation. */}
+        {doc.reprocessed && (
+          <p className="mt-3 text-xs font-medium leading-relaxed text-ink-secondary" data-detail-reprocessed>
+            <CountChip className="me-1.5 align-middle">{s.reprocessedBadge}</CountChip>
+            <bdi dir="auto">{s.reprocessedNotice.replace('{date}', fullDayLabel(doc.processedAt, lang, 'local') || s.recently)}</bdi>
+          </p>
+        )}
+      </section>
 
-        {/* No top divider/separator line (locked spec): the 40px section rhythm
-            (mb-10 on the sections above) carries the separation instead. */}
-        <div>
-          <SectionHeading icon={Network}>{s.graphRelationships}</SectionHeading>
-          {doc.entities && doc.entities.length > 0 ? (
-            manyEntities ? (
-              /* Many entities: a stacked list (role + full wrapped name). A grid of
-                 wrapping cards would get ragged at scale, so each entity is one row
-                 whose name wraps freely — never truncated. */
-              <div className="divide-y divide-divider overflow-hidden rounded-card border border-line bg-surface-raised">
-                {doc.entities.map((ent: any, i: number) => (
-                  <div key={i} className="flex flex-col gap-1 p-4 sm:flex-row sm:items-baseline sm:gap-3">
-                    <span className="flex-shrink-0 text-label font-medium text-ink-muted sm:w-28">{getEntityRoleLabel(ent.role, s as any)}</span>
-                    {/* Full name, no truncation: break-words wraps a long value onto
-                        as many lines as it needs. dir="auto" on the wrapping span +
-                        <bdi> isolates each value's direction so numerals/Latin do not
-                        scramble under Arabic RTL. */}
-                    <span className="min-w-0 break-words text-sm font-medium text-ink" dir="auto"><bdi>{ent.displayName ?? ent.aliases?.[0] ?? ent.name}</bdi></span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              /* Few entities: cards that wrap to two (or more) lines. max-w-md bounds
-                 the card so a long name wraps within it instead of stretching the row;
-                 break-words + no truncate means the whole name is always visible. */
-              <div className="flex flex-wrap gap-2.5">
-                {doc.entities.map((ent: any, i: number) => (
-                  <div key={i} className="flex max-w-full items-baseline gap-2 rounded-card border border-line bg-surface px-4 py-2.5 text-start transition-colors hover:border-line-strong sm:max-w-md">
-                    <span className="flex-shrink-0 text-label font-medium text-ink-muted">{getEntityRoleLabel(ent.role, s as any)}</span>
-                    <span className="min-w-0 break-words text-sm font-medium text-ink" dir="auto"><bdi>{ent.displayName ?? ent.aliases?.[0] ?? ent.name}</bdi></span>
-                  </div>
-                ))}
-              </div>
-            )
-          ) : (
-            <p className="text-sm font-medium text-ink-muted">{s.noEntities}</p>
+      {/* ── What needs the person ── */}
+      {showIssues && (
+        <section className={`mt-4 p-4 ${panelClass}`} data-detail-issues aria-labelledby="detail-issues">
+          <h2 id="detail-issues" className="flex items-center gap-3 text-[15px] font-bold text-ink">
+            <IconTile icon={AlertTriangle} tone="warning" size="sm" />
+            {s.detailNeedsYou}
+          </h2>
+          {issues.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {issues.map((sentence, i) => (
+                <li key={i} className="flex gap-2.5 text-sm leading-relaxed text-ink-secondary">
+                  <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 flex-none rounded-pill bg-warning" />
+                  <bdi dir="auto">{sentence}</bdi>
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
-      </div>
-
-      {/* Sticky review actions: bottom-20 clears the mobile tab bar; md:bottom-6
-          sits above the viewport edge on desktop. */}
-      {/* THE RENDER GATE IS `doc.reextractable`, WHICH THE SERVER COMPUTES.
-          documentController's getDocumentDetail runs the endpoint's own refusal
-          predicate and sends the answer, so this button appears on exactly the
-          rows POST /:id/reextract would accept. The alternative — restating the
-          rules here — is a second copy that drifts the first time either side
-          moves, and it cannot be written correctly anyway: the DTO carries no
-          rawText, so a client cannot tell an empty NEEDS_REVIEW row from one
-          holding content.
-
-          Until this change the gate was `status === 'FAILED'`, and production
-          held ZERO FAILED rows — so the button rendered for nobody and the
-          endpoint had never once run for a real user. The refusal copy below
-          exists because the codes were reachable from the server before they
-          were reachable from a tap.
-
-          THE FAILED BRANCH DELIBERATELY DOES NOT CONSULT `reextractable`. The
-          server admits FAILED unconditionally, so the flag is always true for
-          those rows and adding it here would buy nothing — while costing the
-          one thing that matters: a response served before this deploy, or from
-          a cache, carries no such field, and `undefined` would make the button
-          vanish from a path that already worked. Additive here means additive.  */}
-      {doc.status === 'FAILED' && (
-        <div className="sticky bottom-20 z-40 mt-6 md:bottom-6">
-          <div className="flex gap-3 rounded-card border border-line bg-surface-raised/95 p-3 shadow-lg backdrop-blur">
+          <FixActionPanel
+            documentId={doc.id}
+            decision={decision}
+            reason={reason}
+            currency={documentCurrency(doc.facts)}
+            onSuccess={handleRefresh}
+          />
+          {canRetry && (
             <button
+              type="button"
               onClick={handleReextract}
               disabled={actioning}
-              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-accent text-sm font-semibold text-surface-raised transition-colors active:scale-[0.99] disabled:opacity-50"
+              className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-pill bg-surface-muted text-sm font-semibold text-ink transition-colors hover:bg-surface-alt active:scale-[0.99] disabled:opacity-50"
             >
-              <RefreshCw size={18} />
+              <RefreshCw size={18} aria-hidden="true" />
               {s.retryExtraction}
             </button>
-          </div>
-        </div>
+          )}
+        </section>
       )}
 
-      {doc.status === 'NEEDS_REVIEW' && (
-        <div className="sticky bottom-20 z-40 mt-6 md:bottom-6">
-          <div className="flex flex-col gap-3 rounded-card border border-line bg-surface-raised/95 p-3 shadow-lg backdrop-blur">
-            {/* Its OWN row, full width, above approve/reject. Three buttons on
-                one line leaves ~120px each at 400px, which truncates the labels
-                in all three languages — Arabic worst. Stacking costs one row of
-                height on a bar that is already sticky. */}
-            {doc.reextractable && (
-              <button
-                onClick={handleReextract}
-                disabled={actioning}
-                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-btn border border-line bg-surface text-sm font-semibold text-ink transition-colors active:scale-[0.99] disabled:opacity-50"
+      {/* ── The receipt ── */}
+      {doc.signedFileUrl && (
+        <section className={`mt-4 overflow-hidden ${panelClass}`} data-detail-receipt>
+          {isImageFile && imageState !== 'failed' ? (
+            // A preview at a fixed, modest height (the top of the receipt,
+            // cropped), never the full image inline: a tall receipt pushed
+            // everything below it off the screen. The whole card is the tap
+            // target and opens the original full size.
+            <a href={doc.signedFileUrl} target="_blank" rel="noreferrer" className="block" aria-label={s.openOriginalSource}>
+              <div className={`relative h-44 ${imageState === 'loading' ? 'skeleton' : 'bg-surface-muted'}`} data-detail-image={imageState}>
+                <img
+                  src={doc.signedFileUrl}
+                  alt={doc.originalFileName || s.sourceVisualization}
+                  onLoad={() => setImageState('loaded')}
+                  onError={() => setImageState('failed')}
+                  className={`h-full w-full object-cover object-top ${imageState === 'loading' ? 'opacity-0' : ''}`}
+                />
+              </div>
+              <span className="flex items-center justify-between gap-3 border-t border-divider px-4 py-2.5 text-xs font-semibold text-ink">
+                <span className="flex min-w-0 items-center gap-2">
+                  <IconTile icon={FileText} size="sm" />
+                  <span className="truncate">{s.openOriginalSource}</span>
+                </span>
+                <ArrowUpRight size={16} className="flex-none text-ink-muted" aria-hidden="true" />
+              </span>
+            </a>
+          ) : (
+            <div className="flex items-center gap-3 p-4">
+              <IconTile icon={FileText} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-ink" dir="auto">{doc.originalFileName}</span>
+                <span className="mt-0.5 block text-xs font-medium text-ink-muted">{s.previewUnavailable}</span>
+              </span>
+              <a
+                href={doc.signedFileUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-[40px] flex-none items-center gap-1 rounded-pill bg-surface-muted px-3.5 text-xs font-semibold text-ink"
               >
-                <RefreshCw size={18} />
-                {s.retryExtraction}
-              </button>
-            )}
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleReviewAction('approve')}
-                disabled={actioning}
-                className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-success text-sm font-semibold text-white transition-colors active:scale-[0.99] disabled:opacity-50"
-              >
-                <CheckCircle size={18} />
-                {s.approve}
-              </button>
-              <button
-                onClick={() => handleReviewAction('reject')}
-                disabled={actioning}
-                className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-danger text-sm font-semibold text-white transition-colors active:scale-[0.99] disabled:opacity-50"
-              >
-                <XCircle size={18} />
-                {s.reject}
-              </button>
+                {s.openOriginalSource}
+                <ArrowUpRight size={14} aria-hidden="true" />
+              </a>
             </div>
+          )}
+        </section>
+      )}
+
+      {/* ── The facts, as rows ── */}
+      <section className={`mt-4 ${panelClass}`} data-detail-facts>
+        <ul className="divide-y divide-divider">
+          {rowFacts.map((fact: any, i: number) => (
+            <li key={i} className="flex items-baseline justify-between gap-3 px-4 py-3">
+              <span className="flex-none text-xs font-medium text-ink-muted">{fieldLabel(fact.key)}</span>
+              {/* Direction is DATA, not a property of this box: the same
+                  element renders an Arabic string value, a localized Arabic
+                  date, a placeholder, and an Intl currency string. Only the
+                  numeric branch is pinned ltr (searchResultCard.factValueDir,
+                  whose precedence mirrors formatFactValue's). No <bdi>: it is
+                  an isolate with dir auto and would re-run the detection the
+                  pin exists to override. */}
+              <span className="min-w-0 break-words text-end text-sm font-semibold text-ink" dir={factValueDir(fact)}>{factValue(fact)}</span>
+            </li>
+          ))}
+          {rowFacts.length === 0 && (
+            <li className="px-4 py-3 text-sm font-medium text-ink-muted">{s.noFacts}</li>
+          )}
+          {doc.originalFileName && (
+            <li className="flex items-baseline justify-between gap-3 px-4 py-3">
+              <span className="flex-none text-xs font-medium text-ink-muted">{s.fileNameLabel}</span>
+              <span className="min-w-0 break-all text-end text-sm font-medium text-ink-secondary" dir="auto">{doc.originalFileName}</span>
+            </li>
+          )}
+        </ul>
+      </section>
+
+      {/* Approve / Reject, FIXED to the viewport while the document waits.
+          Not `sticky`: Layout's <main> is `overflow-y-auto`, which makes it a
+          scroll container that never scrolls (the page does), and a sticky
+          child of such a container sticks to nothing. On the owner's iPhone
+          the bar sat at the bottom of the page after a long scroll
+          (2026-09-25). Its bottom clears the tab bar (~4.5rem) plus the safe
+          area on a phone, and sits 1.5rem up on desktop, where the tab bar is
+          hidden and the sidebar takes the start edge. */}
+      {doc.status === 'NEEDS_REVIEW' && (
+        <div
+          className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+4.5rem)] z-40 px-4 md:start-[280px] md:bottom-6 md:px-8"
+          data-detail-actions
+        >
+          <div className={`mx-auto flex max-w-xl gap-3 p-3 shadow-lg ${panelClass}`}>
+            <button
+              onClick={() => handleReviewAction('approve')}
+              disabled={actioning}
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-pill bg-success text-sm font-bold text-surface-raised transition-colors active:scale-[0.99] disabled:opacity-50"
+            >
+              <CheckCircle size={18} aria-hidden="true" />
+              {s.approve}
+            </button>
+            <button
+              onClick={() => handleReviewAction('reject')}
+              disabled={actioning}
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-pill bg-danger text-sm font-bold text-surface-raised transition-colors active:scale-[0.99] disabled:opacity-50"
+            >
+              <XCircle size={18} aria-hidden="true" />
+              {s.reject}
+            </button>
           </div>
         </div>
       )}

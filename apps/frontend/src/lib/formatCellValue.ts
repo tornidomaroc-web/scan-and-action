@@ -33,7 +33,10 @@ export const formatDateValue = (value: unknown, locale: string): string | null =
   if (value == null || value === '') return null;
   const d = value instanceof Date ? value : new Date(value as string | number);
   if (isNaN(d.getTime())) return null;
-  return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric' }).format(d);
+  // numberingSystem 'latn': a bare 'ar' leaves the digits to the engine's CLDR
+  // data, and WebKit's answer is Arabic-Indic. Western digits everywhere is a
+  // rule of this app (lib/ledgerView.ts says why).
+  return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric', numberingSystem: 'latn' }).format(d);
 };
 
 // Table-cell date path: same localization, but an unparseable ISO-shaped string

@@ -145,12 +145,13 @@ const text = () => container.textContent ?? '';
 // The two fact-table layouts, by the classes DocumentDetailScreen renders them
 // with. Both must exist, or a "no leak" assertion could pass by querying a
 // container that is not there.
+// Since the 2026-09-25 redraw the facts are ONE list of rows on every width
+// (`[data-detail-facts]`); the two names below both point at it so every
+// assertion written for two layouts still runs against the one that exists.
 const layouts = (): { mobile: HTMLElement; desktop: HTMLElement } => {
-  const mobile = container.querySelector('.md\\:hidden') as HTMLElement | null;
-  const desktop = container.querySelector('.hidden.md\\:block') as HTMLElement | null;
-  expect(mobile, 'mobile fact list not found').not.toBeNull();
-  expect(desktop, 'desktop fact table not found').not.toBeNull();
-  return { mobile: mobile!, desktop: desktop! };
+  const list = container.querySelector('[data-detail-facts]') as HTMLElement | null;
+  expect(list, 'facts list not found').not.toBeNull();
+  return { mobile: list!, desktop: list! };
 };
 
 beforeEach(() => {
@@ -187,17 +188,16 @@ describe('the canary row renders no raw key, no empty value and no over-claim', 
       expect(desktop.textContent).not.toContain(strings[lang].notAvailable);
     });
 
-    it(`${lang.toUpperCase()}: the two real facts DO still render, in BOTH layouts`, async () => {
+    it(`${lang.toUpperCase()}: the two real facts DO still render: the total as the figure at the top, the date as a row`, async () => {
       mount('doc-canary', lang);
       await vi.waitFor(() => expect(text()).toContain('canary.jpg'));
-      const { mobile, desktop } = layouts();
-      // The positive half. Without it, every assertion above would pass against a
-      // screen that renders no facts at all.
-      for (const el of [mobile, desktop]) {
-        expect(el.textContent).toContain(strings[lang].totalAmount);
-        expect(el.textContent).toContain(strings[lang].transactionDate);
-        expect(el.textContent).toContain('84.8');
-      }
+      // The figure at the top IS the total (the row would repeat it, so it is
+      // not a row); the date is a row.
+      const header = container.querySelector('[data-detail-header]') as HTMLElement;
+      expect(header.querySelector('[data-detail-amount]')!.textContent).toMatch(/84[.,]8/);
+      const { mobile } = layouts();
+      expect(mobile.textContent).not.toContain(strings[lang].totalAmount);
+      expect(mobile.textContent).toContain(strings[lang].transactionDate);
     });
 
     it(`${lang.toUpperCase()}: the banner does not claim "no issues" beside Needs review`, async () => {
@@ -213,15 +213,20 @@ describe('the canary row renders no raw key, no empty value and no over-claim', 
   }
 });
 
-// ── 2. A COMPLETED + APPROVED DOCUMENT KEEPS ITS BANNER ────────────────────
-describe('a COMPLETED + APPROVED document still shows its approved banner', () => {
-  it('renders the approved title and the unqualified scoped subtitle', async () => {
+// ── 2. A COMPLETED + APPROVED DOCUMENT HAS NOTHING TO SAY ──────────────────
+// The redraw (2026-09-25) shows a "needs your attention" card only when
+// something does. A processed document with no rule fired gets no card and
+// no claim, in either direction: the over-claim ("no issues detected") is
+// gone, and so is the scoped subtitle that replaced it.
+describe('a COMPLETED + APPROVED document shows no issues card and no claim', () => {
+  it('renders neither the approved banner copy nor the needs-review qualification', async () => {
     mount('doc-ok', 'en');
     await vi.waitFor(() => expect(text()).toContain('clean.pdf'));
-    expect(text()).toContain(strings.en.statusApproved);
-    expect(text()).toContain(strings.en.decisionApprovedDesc);
-    // The needs-review qualification belongs only to a NEEDS_REVIEW row.
+    expect(container.querySelector('[data-detail-issues]')).toBeNull();
+    expect(text()).not.toContain(strings.en.statusApproved);
+    expect(text()).not.toContain(strings.en.decisionApprovedDesc);
     expect(text()).not.toContain(strings.en.decisionApprovedNeedsReviewDesc);
+    expect(text()).toContain(strings.en.statusProcessed); // the ONE status
   });
 });
 
@@ -239,7 +244,12 @@ describe('a fact key nobody anticipated renders nowhere', () => {
       expect(el.textContent).not.toContain('amount_corrected');
       // The positive half: what the USER themselves entered is still shown,
       // labelled, so "hide by default" has not swallowed their own work.
-      expect(el.textContent).toContain(strings.en.correctedAmount);
+      // The correction is the figure at the top, marked Edited, so it is not
+      // a row; this fixture has no extracted total, so the rows are the note
+      // and the tax.
+      expect(el.textContent).not.toContain(strings.en.correctedAmount);
+      expect(container.querySelector('[data-detail-edited]')).not.toBeNull();
+      expect(container.querySelector('[data-detail-amount]')!.textContent).toMatch(/41[.,]20/);
       expect(el.textContent).toContain(strings.en.reviewNote);
       expect(el.textContent).toContain('Client dinner, approved by finance.');
       expect(el.textContent).toContain(strings.en.taxAmount);

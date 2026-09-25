@@ -62,6 +62,18 @@ export function monthName(month: string, lang: Lang): string {
   return new Intl.DateTimeFormat(lang, { month: 'long', timeZone: 'UTC' }).format(monthDate(month));
 }
 
+/**
+ * A day with its year, "Sep 21, 2026" / "21 sept. 2026" / "21 سبتمبر 2026",
+ * Western digits. A printed date is a calendar day, so UTC; an instant such
+ * as the upload time is read in the device's zone ('local').
+ */
+export function fullDayLabel(value: string | Date, lang: Lang, zone: 'utc' | 'local' = 'utc'): string {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const timeZone = zone === 'utc' ? 'UTC' : deviceTimeZone();
+  return new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'short', year: 'numeric', timeZone, numberingSystem: 'latn' }).format(d);
+}
+
 /** A printed or upload day, "29 May" / "29 mai" / "29 مايو". The date is a calendar day, so UTC. */
 export function dayLabel(date: string, lang: Lang): string {
   return new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'short', timeZone: 'UTC', numberingSystem: 'latn' }).format(new Date(`${date}T00:00:00Z`));

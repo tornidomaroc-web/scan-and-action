@@ -232,7 +232,9 @@ describe('Detail follow-ups: localized fact date, filtered decision, translated 
     await vi.waitFor(() => expect(text()).toContain('facture-fevrier.pdf'));
     expect(text()).toContain(strings.en.docTypeInvoice); // INVOICE -> Invoice
     expect(text()).not.toContain('INVOICE');
-    expect(text()).toContain(strings.en.entityRoleVendor); // VENDOR -> Vendor
+    // The relationships section and its role label are gone (redraw,
+    // 2026-09-25): the vendor is the screen's title instead.
+    expect(text()).not.toContain(strings.en.entityRoleVendor);
     expect(text()).not.toContain('VENDOR');
   });
 
@@ -240,7 +242,7 @@ describe('Detail follow-ups: localized fact date, filtered decision, translated 
     mount('/documents/doc-nr', 'ar');
     await vi.waitFor(() => expect(text()).toContain('facture-fevrier.pdf'));
     expect(text()).toContain(strings.ar.docTypeInvoice);
-    expect(text()).toContain(strings.ar.entityRoleVendor);
+    expect(text()).not.toContain(strings.ar.entityRoleVendor);
     expect(text()).not.toContain('INVOICE');
     expect(text()).not.toContain('VENDOR');
   });
@@ -285,13 +287,16 @@ describe('Detail follow-ups: entity chip shows the human name via the displayNam
     expect(text()).not.toContain('SRM legacy alias');
   });
 
-  it('falls back to aliases[0] when there is no displayName', async () => {
+  it('falls back to aliases[0] when the vendor has no displayName', async () => {
+    (documentService.getDocumentDetail as any).mockResolvedValue({ ...ALIASED_ENTITY_DOC, entities: [ALIASED_ENTITY_DOC.entities[1]] });
     mount('/documents/doc-ent', 'ar');
     await vi.waitFor(() => expect(text()).toContain('facture-electricite.pdf'));
-    expect(text()).toContain('Contoso SARL');
+    expect(container.querySelector('h1')!.textContent).toBe('Contoso SARL');
+    expect(text()).not.toContain('CONTOSO SA');
   });
 
-  it('falls back to ent.name when there is neither displayName nor alias', async () => {
+  it('falls back to ent.name when the vendor has neither displayName nor alias', async () => {
+    (documentService.getDocumentDetail as any).mockResolvedValue({ ...ALIASED_ENTITY_DOC, entities: [{ role: 'VENDOR', name: 'Fallback Co', aliases: [] }] });
     mount('/documents/doc-ent', 'ar');
     await vi.waitFor(() => expect(text()).toContain('facture-electricite.pdf'));
     expect(text()).toContain('Fallback Co');
@@ -339,40 +344,8 @@ const MANY_ENTITIES_DOC = {
   ],
 };
 
-describe('Detail — data relationships show the full entity name (TASK 3, no truncation)', () => {
-  afterEach(() => { root.unmount(); container.remove(); });
-
-  it('few entities: renders the full long name in a wrapping card, role translated (RTL)', async () => {
-    vi.clearAllMocks(); localStorage.clear();
-    (documentService.getDocumentDetail as any).mockResolvedValue({ ...FEW_ENTITIES_DOC });
-    mount('/documents/doc-few', 'ar');
-    await vi.waitFor(() => expect(text()).toContain('facture-longue.pdf'));
-    // The entire name is present — not clipped to a 192px prefix.
-    expect(text()).toContain(LONG_NAME);
-    expect(text()).toContain(strings.ar.entityRoleVendor);
-    // The name span wraps (break-words) and is NEVER truncated.
-    const nameEl = [...container.querySelectorAll('bdi')].find((b) => b.textContent === LONG_NAME);
-    expect(nameEl).toBeTruthy();
-    const wrapper = nameEl!.parentElement as HTMLElement;
-    expect(wrapper.className).toContain('break-words');
-    expect(wrapper.className).not.toContain('truncate');
-    expect(wrapper.getAttribute('dir')).toBe('auto'); // bidi isolation preserved
-  });
-
-  it('many entities: renders a stacked list with every full name present', async () => {
-    vi.clearAllMocks(); localStorage.clear();
-    (documentService.getDocumentDetail as any).mockResolvedValue({ ...MANY_ENTITIES_DOC });
-    mount('/documents/doc-many', 'en');
-    await vi.waitFor(() => expect(text()).toContain('facture-multi.pdf'));
-    for (const name of [LONG_NAME, 'Aurora Studios International', 'Globex Corporation Limited', 'Umbrella Holdings']) {
-      expect(text()).toContain(name);
-    }
-    // No entity name is truncated in the stacked list either.
-    const names = [...container.querySelectorAll('bdi')].filter((b) => b.textContent === LONG_NAME);
-    expect(names.length).toBeGreaterThan(0);
-    expect((names[0].parentElement as HTMLElement).className).not.toContain('truncate');
-  });
-});
+// The data-relationships section was removed in the 2026-09-25 redraw: the
+// vendor is the screen's title (tests above), and no other entity renders.
 
 describe('Detail follow-ups: decision reason translation helper (FIX 2c, unit)', () => {
   it('translates a single known reason and drops the raw English in Arabic', () => {
@@ -426,7 +399,7 @@ describe('Detail restyle — MAD correction input is a non-overlapping input-gro
     flushSync(() => {
       root.render(
         <LanguageProvider>
-          <FixActionPanel documentId="doc-1" decision="NEEDS_REVIEW" reason="missing amount" onSuccess={() => {}} />
+          <FixActionPanel documentId="doc-1" decision="NEEDS_REVIEW" reason="missing amount" currency="MAD" onSuccess={() => {}} />
         </LanguageProvider>
       );
     });
@@ -442,10 +415,11 @@ describe('Detail restyle — MAD correction input is a non-overlapping input-gro
     expect(group.getAttribute('dir')).toBe('ltr');
     // Border + focus ring moved onto the wrapper.
     expect(group.className).toContain('focus-within:');
-    // The unit is a following sibling carrying the MAD label, and it is NOT an
+    // The unit is a following sibling carrying the document's own currency as
+    // its ISO code (the ledger's rule: never a symbol), and it is NOT an
     // absolutely-positioned overlay (which is what let it hide behind the value).
     const unit = group.querySelector('span') as HTMLElement;
-    expect(unit.textContent).toContain(strings.ar.madUnit);
+    expect(unit.textContent).toBe('MAD');
     expect(unit.className).not.toContain('absolute');
     // The old overlay reserved space with pe-16 on the input; that is gone.
     expect(input.className).not.toContain('pe-16');
@@ -496,41 +470,23 @@ describe('Detail restyle — touched source is on tokens, bidi-isolated (source 
     expect(files.screen).toContain('rtl:-scale-x-100');
   });
 
-  // FIX 2: the title wrapper is bounded in the mobile column layout so the
-  // existing truncate can ellipsize a long file name inside the card.
-  it('title wrapper is width-bounded on mobile (self-stretch) with truncate kept', () => {
-    expect(files.screen).toContain('min-w-0 self-stretch');
-    expect(files.screen).toContain('truncate text-title-lg');
-    // The main card was NOT given overflow-hidden as a shortcut.
-    // The main card is the shared Panel since the design rollout (2026-09-25).
-    expect(files.screen).toContain('className={`p-5 md:p-8 ${panelClass}`}');
-  });
-
-  // TASK 3 (section-heading redesign): the entity name is now shown IN FULL — the
-  // old max-w cap + truncate clipped long vendor names at 192px so the user never
-  // saw the whole name (an honesty defect). The name wraps via break-words instead;
-  // the cap and the ellipsis are gone from every entity render site.
-  it('entity name is shown in full (wraps, never truncated)', () => {
-    // The entity value now wraps (break-words) instead of clipping at a cap.
-    expect(files.screen).toContain('break-words text-sm font-medium text-ink" dir="auto"><bdi>');
-    // The old 192px cap + ellipsis on the entity name are gone entirely.
-    expect(files.screen).not.toContain('max-w-[12rem] truncate');
-    expect(files.screen).not.toContain('max-w-[12rem]');
+  // The redraw (2026-09-25): the merchant name is the h1, kept whole (wraps,
+  // never cut), inside the shared Panel.
+  it('the title is the merchant, wrapping, never truncated, in the shared Panel', () => {
+    expect(files.screen).toContain('break-words text-title-lg font-semibold tracking-tight text-ink');
+    expect(files.screen).not.toContain('truncate text-title-lg');
+    expect(files.screen).toContain('${panelClass}');
   });
 
   // Bidi isolation is preserved on the wrapping value: dir="auto" sits on the
   // wrapping span with an inner <bdi>, so numerals/Latin in a name do not scramble
   // under Arabic RTL even though the value now wraps freely.
-  it('entity name keeps bidi isolation (dir="auto" + bdi) while wrapping', () => {
-    expect(files.screen).toContain('break-words text-sm font-medium text-ink" dir="auto"><bdi>');
-    // The old (buggy) pattern (dir on the inner bdi of the chip) is still absent.
-    expect(files.screen).not.toContain('<bdi dir="auto">{ent.name}</bdi>');
-  });
 
   // Type + role render through the shared translated helpers (no raw enum sites).
-  it('detail screen renders type + role via the shared translated helpers', () => {
+  it('detail screen renders the type and the vendor via the shared translated helpers', () => {
     expect(files.screen).toContain('getDocTypeLabel(doc.documentType');
-    expect(files.screen).toContain('getEntityRoleLabel(ent.role');
+    expect(files.screen).toContain('getVendor(doc)');
+    expect(files.screen).not.toContain('getEntityRoleLabel(');
     // The raw `{ent.role}` render site is gone.
     expect(files.screen).not.toContain('>{ent.role}<');
   });
