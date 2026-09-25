@@ -59,6 +59,10 @@ vi.mock('../prismaClient', () => {
 vi.mock('../services/email/mailer', () => ({ sendTransactionalEmail: h.sendMail }));
 
 import { authMiddleware, IdentityEmailConflictError } from './authMiddleware';
+import { clearAuthContextCache } from './authContextCache';
+// The context cache (2026-09-25) would let a token reused across these tests
+// skip the very calls they assert on; each test starts cold.
+beforeEach(() => clearAuthContextCache());
 
 const ID_A = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa'; // the caller, already provisioned
 const ID_B = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb'; // an ordinary second user

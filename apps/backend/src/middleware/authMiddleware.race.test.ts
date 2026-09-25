@@ -34,6 +34,10 @@ vi.mock('../services/email/mailer', () => ({
 }));
 
 import { authMiddleware } from './authMiddleware';
+import { clearAuthContextCache } from './authContextCache';
+// The context cache (2026-09-25) would let a token reused across these tests
+// skip the very calls they assert on; each test starts cold.
+beforeEach(() => clearAuthContextCache());
 
 const USER_ID = '7f1e2d3c-4b5a-4678-9abc-def012345678';
 const EMAIL = 'new.user@example.com';

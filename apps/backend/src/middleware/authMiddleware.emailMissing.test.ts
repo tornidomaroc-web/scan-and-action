@@ -56,6 +56,10 @@ import {
   IdentityEmailConflictError,
   IdentityEmailMissingError,
 } from './authMiddleware';
+import { clearAuthContextCache } from './authContextCache';
+// The context cache (2026-09-25) would let a token reused across these tests
+// skip the very calls they assert on; each test starts cold.
+beforeEach(() => clearAuthContextCache());
 
 const ID_A = '11111111-1111-4111-8111-111111111111';
 const ID_B = '22222222-2222-4222-8222-222222222222';
