@@ -355,6 +355,34 @@ string appear or disappear", which is rarely the question.
 
 Recorded 2026-09-05.
 
+### A full-page screenshot cannot tell a bar that sticks from a bar at the bottom of the page
+
+A headless full-page capture (`--window-size=485,2100`) renders the whole
+document inside one tall viewport. A `position: sticky` bar that is the last
+element of the page then sits at the bottom of the image in **both** cases:
+when it sticks to the viewport, and when it never sticks and merely ends the
+page. The image reads as "the actions are visible", and nothing in it says
+which.
+
+The way it did not stick here: `Layout.tsx`'s `<main>` is `overflow-y-auto`.
+That makes it a scroll container even though it never scrolls (the document
+does), and a sticky child of a scroll container that does not scroll sticks
+to nothing. A harness shell without that class showed the bar stuck; the
+owner's iPhone showed it after a long scroll (2026-09-25, #248).
+
+Two instruments, both required:
+
+- capture at a **phone viewport** (`--window-size=485,844`, root pinned to
+  390px with its own `height` and `overflow-y:auto`), so "on the first
+  screen" is a fact about the image;
+- mount inside the **real `Layout`** or copy its `<main>` classes verbatim
+  into the harness, so the ancestor that breaks sticky is present.
+
+`position: fixed` with a bottom that clears the tab bar and
+`env(safe-area-inset-bottom)` is what the detail screen uses now.
+
+Recorded 2026-09-25.
+
 ### `String()` in a log-capture harness cannot see an object dump
 
 A test that captures `console.*` with `args.map(String).join(' ')` renders an

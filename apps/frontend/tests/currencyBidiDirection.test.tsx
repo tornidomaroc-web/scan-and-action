@@ -256,15 +256,17 @@ describe('Document Detail — both fact-value sites, per value', () => {
     mountDetail('ar');
     await vi.waitFor(() => expect(amountEls().length).toBeGreaterThan(0));
     const els = amountEls();
-    expect(els.length, 'expected both detail fact sites').toBe(2);
+    // Since the 2026-09-25 redraw the amount renders ONCE: the figure at the
+    // top (the row would repeat it).
+    expect(els.length, 'expected the one detail amount site').toBe(1);
     return els;
   };
 
-  it('DIRECTION: a CURRENCY fact pins ltr at both sites', async () => {
+  it('DIRECTION: a CURRENCY fact pins ltr at its site', async () => {
     for (const el of await mountCurrency()) expect(el.getAttribute('dir')).toBe('ltr');
   });
 
-  it('ISOLATE: neither site wraps the currency value in an isolate element', async () => {
+  it('ISOLATE: the site does not wrap the currency value in an isolate element', async () => {
     for (const el of await mountCurrency()) {
       expect(el.querySelector('bdi'), 'an isolate element came back inside the amount').toBeNull();
     }

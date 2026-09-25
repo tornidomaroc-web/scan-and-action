@@ -288,6 +288,11 @@ export const DocumentDetailScreen = () => {
   const typeLabel = getDocTypeLabel(doc.documentType, s as any);
   const amount = ledgerAmount(doc.facts);
   const money = amount ? moneyParts(amount.amount, amount.currency, lang) : null;
+  // The fact that IS the figure at the top does not repeat as a row: the
+  // correction when one exists, else the extracted total. The other one still
+  // shows (a corrected receipt keeps its extracted total as a row).
+  const shownAtTop = amount ? (amount.source === 'corrected' ? 'manual_amount' : 'TOTAL_AMOUNT') : null;
+  const rowFacts = shownAtTop ? visibleFacts.filter((f: any) => f.key !== shownAtTop) : visibleFacts;
 
   // The date on the receipt, as the ledger dates it. The upload day only when
   // no date was read, and then the line says so (the same copy as Home).
@@ -316,7 +321,7 @@ export const DocumentDetailScreen = () => {
   const showIssues = issues.length > 0 || showFix || canRetry;
 
   return (
-    <div className="mx-auto w-full max-w-xl pb-28" data-detail-screen>
+    <div className="mx-auto w-full max-w-xl pb-40" data-detail-screen>
       <button
         type="button"
         onClick={() => navigate(-1)}
@@ -423,16 +428,27 @@ export const DocumentDetailScreen = () => {
       {doc.signedFileUrl && (
         <section className={`mt-4 overflow-hidden ${panelClass}`} data-detail-receipt>
           {isImageFile && imageState !== 'failed' ? (
+            // A preview at a fixed, modest height (the top of the receipt,
+            // cropped), never the full image inline: a tall receipt pushed
+            // everything below it off the screen. The whole card is the tap
+            // target and opens the original full size.
             <a href={doc.signedFileUrl} target="_blank" rel="noreferrer" className="block" aria-label={s.openOriginalSource}>
-              <div className={imageState === 'loading' ? 'skeleton min-h-[240px]' : ''} data-detail-image={imageState}>
+              <div className={`relative h-44 ${imageState === 'loading' ? 'skeleton' : 'bg-surface-muted'}`} data-detail-image={imageState}>
                 <img
                   src={doc.signedFileUrl}
                   alt={doc.originalFileName || s.sourceVisualization}
                   onLoad={() => setImageState('loaded')}
                   onError={() => setImageState('failed')}
-                  className={`mx-auto h-auto max-h-[70vh] w-full object-contain ${imageState === 'loading' ? 'opacity-0' : ''}`}
+                  className={`h-full w-full object-cover object-top ${imageState === 'loading' ? 'opacity-0' : ''}`}
                 />
               </div>
+              <span className="flex items-center justify-between gap-3 border-t border-divider px-4 py-2.5 text-xs font-semibold text-ink">
+                <span className="flex min-w-0 items-center gap-2">
+                  <IconTile icon={FileText} size="sm" />
+                  <span className="truncate">{s.openOriginalSource}</span>
+                </span>
+                <ArrowUpRight size={16} className="flex-none text-ink-muted" aria-hidden="true" />
+              </span>
             </a>
           ) : (
             <div className="flex items-center gap-3 p-4">
@@ -458,7 +474,7 @@ export const DocumentDetailScreen = () => {
       {/* ── The facts, as rows ── */}
       <section className={`mt-4 ${panelClass}`} data-detail-facts>
         <ul className="divide-y divide-divider">
-          {visibleFacts.map((fact: any, i: number) => (
+          {rowFacts.map((fact: any, i: number) => (
             <li key={i} className="flex items-baseline justify-between gap-3 px-4 py-3">
               <span className="flex-none text-xs font-medium text-ink-muted">{fieldLabel(fact.key)}</span>
               {/* Direction is DATA, not a property of this box: the same
@@ -471,23 +487,32 @@ export const DocumentDetailScreen = () => {
               <span className="min-w-0 break-words text-end text-sm font-semibold text-ink" dir={factValueDir(fact)}>{factValue(fact)}</span>
             </li>
           ))}
-          {visibleFacts.length === 0 && (
+          {rowFacts.length === 0 && (
             <li className="px-4 py-3 text-sm font-medium text-ink-muted">{s.noFacts}</li>
           )}
           {doc.originalFileName && (
             <li className="flex items-baseline justify-between gap-3 px-4 py-3">
-              <span className="flex-none text-xs font-medium text-ink-muted">{s.nameLabel}</span>
+              <span className="flex-none text-xs font-medium text-ink-muted">{s.fileNameLabel}</span>
               <span className="min-w-0 break-all text-end text-sm font-medium text-ink-secondary" dir="auto">{doc.originalFileName}</span>
             </li>
           )}
         </ul>
       </section>
 
-      {/* Sticky review actions: bottom-20 clears the mobile tab bar; md:bottom-6
-          sits above the viewport edge on desktop. */}
+      {/* Approve / Reject, FIXED to the viewport while the document waits.
+          Not `sticky`: Layout's <main> is `overflow-y-auto`, which makes it a
+          scroll container that never scrolls (the page does), and a sticky
+          child of such a container sticks to nothing. On the owner's iPhone
+          the bar sat at the bottom of the page after a long scroll
+          (2026-09-25). Its bottom clears the tab bar (~4.5rem) plus the safe
+          area on a phone, and sits 1.5rem up on desktop, where the tab bar is
+          hidden and the sidebar takes the start edge. */}
       {doc.status === 'NEEDS_REVIEW' && (
-        <div className="sticky bottom-20 z-40 mt-6 md:bottom-6">
-          <div className={`flex gap-3 p-3 shadow-lg ${panelClass}`}>
+        <div
+          className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+4.5rem)] z-40 px-4 md:start-[280px] md:bottom-6 md:px-8"
+          data-detail-actions
+        >
+          <div className={`mx-auto flex max-w-xl gap-3 p-3 shadow-lg ${panelClass}`}>
             <button
               onClick={() => handleReviewAction('approve')}
               disabled={actioning}

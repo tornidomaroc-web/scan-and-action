@@ -521,6 +521,27 @@ restyled.** Do not start at login, although a reviewer sees it first:
       each): Approve, Reject and Retry; the fix-action writes; the
       `detailFacts.ts` allowlist; the lockout handling; the image fallback;
       the money rules; RTL.
+    - **The owner's second judgement (2026-09-25, Arabic, the Joe's Pizza
+      invoice): the top card approved; four defects fixed in the same PR:**
+      the image no longer renders full size inline (a fixed-height cropped
+      card that opens the original); Approve / Reject are `fixed` to the
+      viewport, clear of the tab bar and the safe area (a `sticky` child of
+      Layout's `overflow-y-auto` main never stuck; CLAUDE.md records how the
+      screenshot missed it); the total no longer repeats as a row and the file
+      row says "file"; every reason and fix-action sentence rewritten in
+      plain, specific en/fr/ar.
+    - **What the rule engine does not carry, and the smallest change that
+      would.** `decision_reason` is a fixed English phrase per rule
+      (`ruleEngineService.ts`: A amount > 500, B food and > 50, C no amount,
+      D same merchant and amount as another document). So a sentence can
+      name the CHECK ("the amount is above the review limit", "another
+      receipt has the same merchant and amount") but not the FIGURE (the
+      limit, the other receipt). Proposal, not done here and not a rule
+      change: the engine writes one more fact, `decision_detail`, a JSON
+      string per fired rule (`{ rule: 'A', limit: 500 }`,
+      `{ rule: 'D', documentId }`), and the screen reads it to say "above
+      500 MAD" and to link the other receipt. Nothing reads or counts that
+      fact, so it moves no money.
     - **EXPIRY:** the owner has judged it on his iPhone.
     - **What is wrong above the image.** The title is the file name. "Verified
       AI intelligence extraction" appears on documents that say "Needs review".

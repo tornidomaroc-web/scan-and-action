@@ -94,6 +94,24 @@ describe('who, how much, when, one status', () => {
     });
   }
 
+  it('Approve and Reject are fixed to the viewport, above the tab bar and the safe area', async () => {
+    mount('en', FLAGGED);
+    await settled('BIM MAROC');
+    const bar = q('[data-detail-actions]')!;
+    expect(bar.className).toContain('fixed');
+    expect(bar.className).toContain('safe-area-inset-bottom');
+    expect(bar.className).not.toContain('sticky');
+    expect([...bar.querySelectorAll('button')].map(b => b.textContent)).toEqual([strings.en.approve, strings.en.reject]);
+  });
+
+  it('an uncorrected flagged receipt shows its total once: at the top, not as a row', async () => {
+    mount('en', FLAGGED);
+    await settled('BIM MAROC');
+    expect(q('[data-detail-amount]')!.textContent).toBe('467.85');
+    expect(q('[data-detail-facts]')!.textContent).not.toContain(strings.en.totalAmount);
+    expect(q('[data-detail-facts]')!.textContent).not.toContain('467.85');
+  });
+
   it('a corrected receipt shows the correction, its currency, and an Edited mark; never the extraction', async () => {
     mount('en', CORRECTED);
     await settled('BIM MAROC');
@@ -187,11 +205,17 @@ describe('the receipt and the facts', () => {
     expect(link.getAttribute('target')).toBe('_blank');
     expect(link.querySelector('img')).not.toBeNull();
     const rows = qa('[data-detail-facts] li').map(li => li.textContent);
+    // The correction is the figure at the top; the extracted total is a row;
+    // the file name is the last row, labelled as a file.
     expect(rows[0]).toContain(strings.en.totalAmount);
     expect(rows[0]).toContain('698.35');
-    expect(rows[1]).toContain(strings.en.correctedAmount);
-    expect(rows[1]).toContain('689.35');
+    expect(rows.some(r => r!.includes(strings.en.correctedAmount))).toBe(false);
+    expect(rows[rows.length - 1]).toContain(strings.en.fileNameLabel);
     expect(rows[rows.length - 1]).toContain('marjane.jpg');
+    expect(rows[rows.length - 1]).not.toContain(strings.en.nameLabel);
     expect(q('[data-detail-facts]')!.textContent).not.toContain('%');
+    // The preview is a fixed-height crop, not the full image inline.
+    expect(q('[data-detail-image]')!.className).toContain('h-44');
+    expect(link.querySelector('img')!.className).toContain('object-cover');
   });
 });

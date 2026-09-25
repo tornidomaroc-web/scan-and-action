@@ -82,7 +82,9 @@ export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, 
     <div className="mt-4 border-t border-divider pt-4 text-start" data-fix-actions>
       {isMissingAmount && (
         <div className="flex flex-col gap-3">
-          <p className="text-sm leading-relaxed text-ink-secondary">{s.reviewActionDesc}</p>
+          {/* The card above already says what is wrong; this is the field's
+              label, not a second sentence about it. */}
+          <label htmlFor="fix-amount" className="text-xs font-medium text-ink-muted">{s.reviewActionDesc}</label>
           <div className="flex flex-col gap-3 sm:flex-row">
             {/* Input-group, not an overlay: the input and the unit are flex
                 siblings, so the unit can never sit on top of the typed digits
@@ -94,6 +96,7 @@ export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, 
               className="flex flex-1 items-center rounded-pill bg-surface-muted pe-4 transition-colors focus-within:ring-2 focus-within:ring-accent"
             >
               <input
+                id="fix-amount"
                 type="number"
                 inputMode="decimal"
                 placeholder="0.00"

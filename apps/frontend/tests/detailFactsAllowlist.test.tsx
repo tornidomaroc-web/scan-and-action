@@ -188,17 +188,16 @@ describe('the canary row renders no raw key, no empty value and no over-claim', 
       expect(desktop.textContent).not.toContain(strings[lang].notAvailable);
     });
 
-    it(`${lang.toUpperCase()}: the two real facts DO still render, in BOTH layouts`, async () => {
+    it(`${lang.toUpperCase()}: the two real facts DO still render: the total as the figure at the top, the date as a row`, async () => {
       mount('doc-canary', lang);
       await vi.waitFor(() => expect(text()).toContain('canary.jpg'));
-      const { mobile, desktop } = layouts();
-      // The positive half. Without it, every assertion above would pass against a
-      // screen that renders no facts at all.
-      for (const el of [mobile, desktop]) {
-        expect(el.textContent).toContain(strings[lang].totalAmount);
-        expect(el.textContent).toContain(strings[lang].transactionDate);
-        expect(el.textContent).toContain('84.8');
-      }
+      // The figure at the top IS the total (the row would repeat it, so it is
+      // not a row); the date is a row.
+      const header = container.querySelector('[data-detail-header]') as HTMLElement;
+      expect(header.querySelector('[data-detail-amount]')!.textContent).toMatch(/84[.,]8/);
+      const { mobile } = layouts();
+      expect(mobile.textContent).not.toContain(strings[lang].totalAmount);
+      expect(mobile.textContent).toContain(strings[lang].transactionDate);
     });
 
     it(`${lang.toUpperCase()}: the banner does not claim "no issues" beside Needs review`, async () => {
@@ -245,7 +244,12 @@ describe('a fact key nobody anticipated renders nowhere', () => {
       expect(el.textContent).not.toContain('amount_corrected');
       // The positive half: what the USER themselves entered is still shown,
       // labelled, so "hide by default" has not swallowed their own work.
-      expect(el.textContent).toContain(strings.en.correctedAmount);
+      // The correction is the figure at the top, marked Edited, so it is not
+      // a row; this fixture has no extracted total, so the rows are the note
+      // and the tax.
+      expect(el.textContent).not.toContain(strings.en.correctedAmount);
+      expect(container.querySelector('[data-detail-edited]')).not.toBeNull();
+      expect(container.querySelector('[data-detail-amount]')!.textContent).toMatch(/41[.,]20/);
       expect(el.textContent).toContain(strings.en.reviewNote);
       expect(el.textContent).toContain('Client dinner, approved by finance.');
       expect(el.textContent).toContain(strings.en.taxAmount);
