@@ -14,6 +14,9 @@ import { join } from 'node:path';
 // ============================================================================
 
 const h = vi.hoisted(() => ({ searchReceipts: vi.fn() }));
+// CI has no Supabase env and lib/supabase.ts creates the client at import time;
+// the ledger home imported below reaches it through ledgerService -> apiConfig.
+vi.mock('../src/lib/supabase', () => ({ supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } }));
 vi.mock('../src/services/searchService', () => ({ searchService: { searchReceipts: h.searchReceipts } }));
 
 import { strings } from '../src/i18n/strings';
