@@ -12,6 +12,7 @@ import { Panel, panelClass } from '../components/ui/Panel';
 import { ReceiptRow } from '../components/ui/ReceiptRow';
 import { isIdentityConflict } from '../lib/identityConflict';
 import { isRequestTimeout } from '../lib/fetchWithTimeout';
+import { isConnectionFailure } from '../lib/requestErrors';
 import { searchService } from '../services/searchService';
 import { LEDGER_CATEGORIES, type LedgerCategory } from '../lib/ledgerTypes';
 import type { NotCountedHit, SearchParams, SearchResult } from '../lib/searchTypes';
@@ -66,6 +67,7 @@ export const SearchScreen: React.FC = () => {
   const [data, setData] = useState<SearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
+  const [connectionLost, setConnectionLost] = useState(false);
   const [busy, setBusy] = useState(false);
   const requestId = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -101,7 +103,15 @@ export const SearchScreen: React.FC = () => {
       console.error('[Search] Search failed:', err);
       const lockedNow = isIdentityConflict(err);
       setLocked(lockedNow);
-      setError(lockedNow ? s.accountLockedBody : isRequestTimeout(err) ? s.requestTimedOut : s.searchLoadError);
+      // "Connection interrupted" only when no response arrived. A status
+      // (404, 401, 500) came over a working connection and says so
+      // (lib/requestErrors.ts).
+      const connection = isConnectionFailure(err);
+      setConnectionLost(connection);
+      setError(lockedNow ? s.accountLockedBody
+        : isRequestTimeout(err) ? s.requestTimedOut
+        : connection ? s.searchNetworkError
+        : s.searchFailedBody);
     } finally {
       if (id === requestId.current) setBusy(false);
     }
@@ -207,7 +217,7 @@ export const SearchScreen: React.FC = () => {
       {error && !data && (
         <div className="mt-6">
           <ErrorState
-            title={locked ? s.accountLockedTitle : s.connectionError}
+            title={locked ? s.accountLockedTitle : connectionLost ? s.connectionError : s.searchFailedTitle}
             message={error}
             onRetry={locked ? undefined : () => void load()}
           />

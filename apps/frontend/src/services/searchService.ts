@@ -1,6 +1,7 @@
 import { API_BASE_URL, getAuthHeaders } from './apiConfig';
 import type { SearchParams, SearchResult } from '../lib/searchTypes';
 import { fetchWithTimeout } from '../lib/fetchWithTimeout';
+import { fetchOrNetworkError, HttpStatusError } from '../lib/requestErrors';
 
 // GET /api/search: the ONLY source of the Search screen's rows and figures.
 // The backend applies the ledger's rules to every row (receiptSearch.ts), so
@@ -18,15 +19,17 @@ export const searchService = {
     if (params.category) q.set('category', params.category);
     if (params.month) q.set('month', params.month);
     // With a timeout: a request that never settles must become an error the
-    // screen can show, not a skeleton forever (lib/fetchWithTimeout.ts).
-    const res = await fetchWithTimeout(`${API_BASE_URL}/search?${q.toString()}`, {
-      headers: await getAuthHeaders(),
-    });
+    // screen can show, not a skeleton forever (lib/fetchWithTimeout.ts). A
+    // rejection is a NetworkError and a bad status an HttpStatusError, so the
+    // screen can say which one happened (lib/requestErrors.ts).
+    const url = `${API_BASE_URL}/search?${q.toString()}`;
+    const headers = await getAuthHeaders();
+    const res = await fetchOrNetworkError(url, () => fetchWithTimeout(url, { headers }));
     // The body is read on failure so a code the UI acts on
     // (IDENTITY_EMAIL_CONFLICT) survives to the screen.
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Failed to search');
+      throw new HttpStatusError(res.status, errorData.error || `HTTP_${res.status}`);
     }
     return res.json();
   },

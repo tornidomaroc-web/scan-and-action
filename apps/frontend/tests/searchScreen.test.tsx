@@ -25,6 +25,7 @@ import { SearchScreen } from '../src/screens/SearchScreen';
 import { LedgerScreen } from '../src/screens/LedgerScreen';
 import { IDENTITY_EMAIL_CONFLICT } from '../src/lib/identityConflict';
 import { RequestTimeoutError } from '../src/lib/fetchWithTimeout';
+import { HttpStatusError, NetworkError } from '../src/lib/requestErrors';
 import { currentMonth, deviceTimeZone, monthTitle, shiftMonth } from '../src/lib/ledgerView';
 import type { SearchHit, SearchResult } from '../src/lib/searchTypes';
 
@@ -257,22 +258,65 @@ describe('failures', () => {
     expect(qa('button').map(b => b.textContent)).not.toContain(strings.en.tryAgain);
   });
 
-  it('a timeout says the server did not answer, with a retry that asks again', async () => {
+  it('a timeout says the connection, and the server did not answer, with a retry that asks again', async () => {
     h.searchReceipts.mockRejectedValueOnce(new RequestTimeoutError('search', 20000));
     mount();
     await vi.waitFor(() => expect(text()).toContain(strings.en.requestTimedOut));
+    expect(text()).toContain(strings.en.connectionError);
     h.searchReceipts.mockResolvedValue(recent([hit('a')]));
     const retry = qa('button').find(b => b.textContent === strings.en.tryAgain) as HTMLButtonElement;
     flushSync(() => retry.click());
     await vi.waitFor(() => expect(q('[data-ledger-row="a"]')).not.toBeNull());
   });
 
-  it('any other failure gets the search copy and a retry', async () => {
-    h.searchReceipts.mockRejectedValue(new Error('boom'));
+  it('no response at all says the connection, with a retry', async () => {
+    h.searchReceipts.mockRejectedValue(new NetworkError('search', new TypeError('Load failed')));
     mount();
-    await vi.waitFor(() => expect(text()).toContain(strings.en.searchLoadError));
+    await vi.waitFor(() => expect(text()).toContain(strings.en.searchNetworkError));
+    expect(text()).toContain(strings.en.connectionError);
+    expect(text()).not.toContain(strings.en.searchFailedTitle);
     expect(qa('button').map(b => b.textContent)).toContain(strings.en.tryAgain);
   });
+
+  // The owner's 2026-09-25 case: the #250 preview against a backend without
+  // the route answered 404 "Cannot GET /api/search", and the screen said the
+  // connection was interrupted. A status came over a working connection.
+  for (const status of [404, 401, 500, 503]) {
+    it(`a ${status} says the search could not be completed, never the connection, with a retry`, async () => {
+      h.searchReceipts.mockRejectedValue(new HttpStatusError(status, `HTTP_${status}`));
+      mount();
+      await vi.waitFor(() => expect(text()).toContain(strings.en.searchFailedTitle));
+      expect(text()).toContain(strings.en.searchFailedBody);
+      expect(text()).not.toContain(strings.en.connectionError);
+      expect(text()).not.toContain(strings.en.searchNetworkError);
+      expect(qa('button').map(b => b.textContent)).toContain(strings.en.tryAgain);
+    });
+  }
+
+  it('an unexpected failure (not a status, not the network) is not called a connection problem either', async () => {
+    h.searchReceipts.mockRejectedValue(new SyntaxError('Unexpected token < in JSON'));
+    mount();
+    await vi.waitFor(() => expect(text()).toContain(strings.en.searchFailedTitle));
+    expect(text()).not.toContain(strings.en.connectionError);
+  });
+
+  for (const lang of ['en', 'fr', 'ar'] as Lang[]) {
+    it(`${lang}: each failure reads in the language, and only a lost connection says so`, async () => {
+      const s = strings[lang];
+      h.searchReceipts.mockRejectedValue(new HttpStatusError(404, 'HTTP_404'));
+      mount(lang);
+      await vi.waitFor(() => expect(text()).toContain(s.searchFailedTitle));
+      expect(text()).toContain(s.searchFailedBody);
+      expect(text()).not.toContain(s.connectionError);
+      root.unmount(); container.remove(); container = undefined as unknown as HTMLDivElement;
+
+      h.searchReceipts.mockRejectedValue(new NetworkError('search', new TypeError('Failed to fetch')));
+      mount(lang);
+      await vi.waitFor(() => expect(text()).toContain(s.searchNetworkError));
+      expect(text()).toContain(s.connectionError);
+      expect(text()).not.toContain(s.searchFailedTitle);
+    });
+  }
 });
 
 describe('in three languages', () => {
