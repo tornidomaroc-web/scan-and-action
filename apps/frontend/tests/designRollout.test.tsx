@@ -21,6 +21,12 @@ const h = vi.hoisted(() => ({
   getReviewQueue: vi.fn(), getAllActivity: vi.fn(), getDocumentDetail: vi.fn(), updateStatus: vi.fn(), getStats: vi.fn(),
   executeQuery: vi.fn(),
 }));
+// CI has no Supabase env, and `lib/supabase.ts` creates the client at import
+// time, so any screen whose tree reaches `apiConfig.ts` (PaywallModal,
+// DeleteAccountModal, FixActionPanel...) throws "supabaseUrl is required"
+// before a single test runs. Replacing the module is what keeps this file
+// runnable without credentials; nothing here ever calls it.
+vi.mock('../src/lib/supabase', () => ({ supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } }));
 vi.mock('../src/services/documentService', () => ({ documentService: h }));
 vi.mock('../src/services/searchService', () => ({ searchService: { executeQuery: h.executeQuery } }));
 vi.mock('../src/contexts/AuthContext', () => ({
