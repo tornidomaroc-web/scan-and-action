@@ -502,7 +502,8 @@ describe('Detail restyle — touched source is on tokens, bidi-isolated (source 
     expect(files.screen).toContain('min-w-0 self-stretch');
     expect(files.screen).toContain('truncate text-title-lg');
     // The main card was NOT given overflow-hidden as a shortcut.
-    expect(files.screen).toContain('rounded-card border border-line bg-surface-raised p-5 shadow-card md:p-8');
+    // The main card is the shared Panel since the design rollout (2026-09-25).
+    expect(files.screen).toContain('className={`p-5 md:p-8 ${panelClass}`}');
   });
 
   // TASK 3 (section-heading redesign): the entity name is now shown IN FULL — the

@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { CheckCircle, XCircle, FileText, ChevronRight } from 'lucide-react';
+import { CheckCircle, XCircle, ChevronRight } from 'lucide-react';
+import { DocumentIcon } from '../components/ui/DocumentIcon';
+import { CountChip } from '../components/ui/CountChip';
+import { panelClass } from '../components/ui/Panel';
+import { getDocumentCategory } from '../lib/documentCategory';
 import { documentService } from '../services/documentService';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
@@ -166,7 +170,7 @@ export const ReviewQueueScreen = () => {
     body = (
       <div className="space-y-3">
         {[1, 2, 3, 4].map(i => (
-          <div key={i} className="skeleton h-24 rounded-card border border-line" />
+          <div key={i} className="skeleton h-28 rounded-panel" />
         ))}
       </div>
     );
@@ -182,7 +186,7 @@ export const ReviewQueueScreen = () => {
     );
   } else if (docs.length === 0) {
     body = (
-      <div className="rounded-card border border-dashed border-line bg-surface py-16">
+      <div className={`${panelClass} py-6`}>
         <EmptyState
           message={s.allCaughtUp}
           description={s.allCaughtUpDesc}
@@ -210,6 +214,8 @@ export const ReviewQueueScreen = () => {
             const amount = getAmount(doc, language);
             const dateStr = formatDate(doc.uploadedAt);
             const typeLabel = getDocTypeLabel(doc.documentType, s as any);
+            const category = getDocumentCategory(doc);
+            const categoryLabel = category ? (s as any)[`cat${category}`] : null;
             return (
               <article
                 key={doc.id}
@@ -217,12 +223,10 @@ export const ReviewQueueScreen = () => {
                 tabIndex={0}
                 onClick={() => navigate(`/documents/${doc.id}`)}
                 onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/documents/${doc.id}`); }}
-                className="cursor-pointer rounded-card border border-line bg-surface-raised p-4 shadow-card transition-colors active:bg-surface-alt"
+                className={`cursor-pointer p-4 transition-colors active:bg-surface-alt ${panelClass}`}
               >
                 <div className="flex items-start gap-3">
-                  <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-btn border border-line bg-surface text-ink-faint">
-                    <FileText size={16} />
-                  </span>
+                  <DocumentIcon doc={doc} size="sm" />
                   <div className="min-w-0 flex-1">
                     {/* No <bdi> on a TRUNCATING box: the isolate hides the text from
                         dir="auto", which then falls back to LTR and clips the leading
@@ -238,6 +242,9 @@ export const ReviewQueueScreen = () => {
                     {vendor && (
                       <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">{vendor}</p>
                     )}
+                    {categoryLabel && (
+                      <span className="mt-1.5 block"><CountChip>{categoryLabel}</CountChip></span>
+                    )}
                   </div>
                   {amount && (
                     // dir="ltr" with NO isolate. <bdi> is by definition an isolate
@@ -248,7 +255,7 @@ export const ReviewQueueScreen = () => {
                     // unicode-bidi: isolate, so no wrapper is needed to protect the
                     // neighbours. `amount` is ALWAYS a currency string here
                     // (getAmount), so a static dir is correct at this site.
-                    <span className="flex-shrink-0 text-sm font-semibold tabular-nums text-ink" dir="ltr">{amount}</span>
+                    <span className="flex-shrink-0 text-[15px] font-bold tabular-nums text-ink" dir="ltr">{amount}</span>
                   )}
                   <ChevronRight size={16} className="flex-shrink-0 text-ink-fainter rtl:-scale-x-100" />
                 </div>
@@ -291,7 +298,7 @@ export const ReviewQueueScreen = () => {
         </div>
 
         {/* Desktop table (>= md), restyled onto tokens. */}
-        <div className="hidden overflow-hidden rounded-card border border-line bg-surface-raised shadow-card md:block">
+        <div className={`hidden overflow-hidden md:block ${panelClass}`}>
           <table className="w-full border-collapse text-start">
             <thead>
               <tr className="border-b border-divider bg-surface-alt">
@@ -318,9 +325,7 @@ export const ReviewQueueScreen = () => {
                   >
                     <td className="px-6 py-4 align-top">
                       <div className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-btn border border-line bg-surface text-ink-faint">
-                          <FileText size={18} />
-                        </span>
+                        <DocumentIcon doc={doc} />
                         <div className="min-w-0">
                           {/* dir="auto" must sit on the truncating element with no
                               <bdi> isolate inside it — see the mobile card above. */}

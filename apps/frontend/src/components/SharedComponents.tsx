@@ -2,6 +2,7 @@ import React from 'react';
 import { Sparkles, BarChart3 } from 'lucide-react';
 import { useStrings } from '../i18n/useStrings';
 import { SectionHeading } from './SectionHeading';
+import { panelClass } from './ui/Panel';
 
 // Insights-gallery card, restyled onto the --sa-* tokens (calm card, accent
 // icon tile, subtle hover). Aligns by logical `start` so it mirrors in RTL. It
@@ -10,12 +11,12 @@ export const ReportCard = ({ title, description, onClick, icon }: any) => (
   <button
     type="button"
     onClick={onClick}
-    className="group flex h-full flex-col items-start gap-2 rounded-card border border-line bg-surface-raised p-5 text-start shadow-card transition-colors hover:border-line-strong hover:bg-surface-alt"
+    className={`group flex h-full flex-col items-start gap-2 p-5 text-start transition-colors hover:bg-surface-alt ${panelClass}`}
   >
-    <span className="flex h-10 w-10 items-center justify-center rounded-btn bg-accent-tint text-accent">
+    <span aria-hidden="true" className="flex h-10 w-10 items-center justify-center rounded-tile bg-accent text-surface-raised">
       {icon || <Sparkles size={20} />}
     </span>
-    <h4 className="mt-1 text-sm font-semibold text-ink">{title}</h4>
+    <h4 className="mt-1 text-[15px] font-semibold text-ink">{title}</h4>
     {description && <p className="text-[13px] leading-relaxed text-ink-muted">{description}</p>}
   </button>
 );

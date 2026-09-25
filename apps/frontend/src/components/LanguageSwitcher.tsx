@@ -1,6 +1,8 @@
 import React from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 
+// A segmented control on the tokens: the chosen language is the raised
+// segment, the others sit on the muted track. Both sides flip together.
 export const LanguageSwitcher: React.FC = () => {
   const { language, setLanguage } = useLanguage();
 
@@ -11,15 +13,17 @@ export const LanguageSwitcher: React.FC = () => {
   ];
 
   return (
-    <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit border border-slate-200 dark:border-slate-700">
+    <div className="flex w-fit gap-1 rounded-pill bg-surface-muted p-1" role="group">
       {langs.map((lang) => (
         <button
           key={lang.code}
+          type="button"
           onClick={() => setLanguage(lang.code)}
-          className={`px-3 py-1.5 rounded-md text-xs font-black transition-all ${
+          aria-pressed={language === lang.code}
+          className={`min-h-[36px] rounded-pill px-3.5 text-xs font-bold transition-colors ${
             language === lang.code
-              ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
-              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              ? 'bg-surface-raised text-ink shadow-card ring-1 ring-line'
+              : 'text-ink-muted hover:text-ink'
           }`}
         >
           {lang.label}

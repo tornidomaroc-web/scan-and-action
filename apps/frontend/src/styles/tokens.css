@@ -81,13 +81,15 @@
      category like the rest, so it has a hue of its own (fuchsia), never
      grey: a grey tile among coloured ones reads as disabled (owner, 2026-09-25).
      The test also holds every fill to a chroma floor and a distance from the
-     others. */
+     others, including the warning TEXT: the first Bills (#B7791F) sat 7.4 ΔE
+     from the amber review-chip text and read as the same colour (owner,
+     2026-09-25); lime is 61 away and still the nearest thing to a bill. */
   --sa-cat-food: #D9480F;
   --sa-cat-transport: #1C7ED6;
   --sa-cat-travel: #0C8599;
   --sa-cat-shopping: #D6336C;
   --sa-cat-health: #2B8A3E;
-  --sa-cat-bills: #B7791F;
+  --sa-cat-bills: #5C940D;
   --sa-cat-office: #8B5CF6;
   --sa-cat-other: #C026D3;
 

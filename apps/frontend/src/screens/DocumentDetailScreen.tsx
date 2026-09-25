@@ -5,6 +5,9 @@ import { documentService } from '../services/documentService';
 import { ErrorState } from '../components/ErrorState';
 import { SectionHeading } from '../components/SectionHeading';
 import { ReviewBadge } from '../components/SharedComponents';
+import { DocumentIcon } from '../components/ui/DocumentIcon';
+import { IconTile } from '../components/ui/IconTile';
+import { panelClass } from '../components/ui/Panel';
 import { DecisionBanner } from '../components/DecisionBanner';
 import { FixActionPanel } from '../components/FixActionPanel';
 import { useToast } from '../contexts/ToastContext';
@@ -15,6 +18,7 @@ import { formatDateValue } from '../lib/formatCellValue';
 import { isIdentityConflict } from '../lib/identityConflict';
 import { isRequestTimeout } from '../lib/fetchWithTimeout';
 import { visibleDetailFacts, detailFactLabel } from '../lib/detailFacts';
+import { getDocumentCategory } from '../lib/documentCategory';
 import {
   isSourceFileUnavailable,
   isReextractionInProgress,
@@ -198,7 +202,7 @@ export const DocumentDetailScreen = () => {
   const DocumentDetailSkeleton = () => (
     <div className="mx-auto max-w-[1000px] animate-in fade-in duration-500">
       <div className="skeleton mb-8 h-6 w-32 rounded-btn" />
-      <div className="rounded-card border border-line bg-surface-raised p-5 shadow-card md:p-8">
+      <div className={`p-5 md:p-8 ${panelClass}`}>
         <div className="mb-8 flex items-start justify-between">
           <div className="space-y-3">
             <div className="skeleton h-9 w-64 rounded-btn" />
@@ -262,6 +266,12 @@ export const DocumentDetailScreen = () => {
   // yet now renders nowhere.
   const visibleFacts: any[] = visibleDetailFacts(doc.facts, s as any);
 
+  // The category, as the ledger home shows it: the tile in the header and its
+  // NAME in the meta grid, so colour is never the only carrier. It replaces the
+  // language cell, which read `detectedLanguage`: that column is written by the
+  // failure path and defaulted to 'EN', a claim about the document nobody made.
+  const category = getDocumentCategory(doc);
+
   // Data-relationships layout: a few entities read best as wrapping cards; past a
   // handful they read better as a stacked list (one row each). Either way the full
   // name wraps and is never truncated.
@@ -279,7 +289,7 @@ export const DocumentDetailScreen = () => {
         {s.backToSearch}
       </button>
 
-      <div className="rounded-card border border-line bg-surface-raised p-5 shadow-card md:p-8">
+      <div className={`p-5 md:p-8 ${panelClass}`}>
         <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row">
           {/* self-stretch bounds this wrapper to the card width in the mobile
               column layout (items-start would otherwise size it to the file
@@ -296,9 +306,7 @@ export const DocumentDetailScreen = () => {
               {doc.originalFileName || `${s.errorTitle} ${doc.id}`}
             </h1>
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-btn bg-accent-tint text-accent">
-                <FileText size={15} />
-              </span>
+              <DocumentIcon doc={doc} size="sm" />
               <p className="text-label font-medium text-ink-tertiary">{s.verifiedExtraction}</p>
             </div>
           </div>
@@ -316,10 +324,8 @@ export const DocumentDetailScreen = () => {
             unexplained reads as a bug. This is the explanation, so it comes
             before the decision the user is being asked to act on. */}
         {doc.reprocessed && (
-          <div className="mb-6 flex items-start gap-3 rounded-card border border-line bg-surface-alt p-4">
-            <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-btn bg-accent-tint text-accent">
-              <RefreshCw size={15} />
-            </span>
+          <div className="mb-6 flex items-start gap-3 rounded-tile bg-surface-muted p-4">
+            <IconTile icon={RefreshCw} tone="accent" size="sm" />
             <div className="min-w-0">
               <p className="text-label font-semibold text-ink">{s.reprocessedBadge}</p>
               <p className="mt-1 text-sm leading-relaxed text-ink-secondary">
@@ -344,7 +350,7 @@ export const DocumentDetailScreen = () => {
         />
 
         <div className="mb-10 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="rounded-card border border-line bg-surface p-4">
+          <div className="rounded-tile bg-surface-muted p-4">
             <span className="mb-1.5 block text-label font-medium text-ink-tertiary">{s.status}</span>
             {status ? (
               <span className="inline-flex min-w-0 items-center gap-2">
@@ -358,9 +364,9 @@ export const DocumentDetailScreen = () => {
           {[
             { label: s.type, value: getDocTypeLabel(doc.documentType, s as any) || s.notAvailable },
             { label: s.date, value: formatDateValue(doc.uploadedAt, language) ?? s.notAvailable },
-            { label: s.docLanguage, value: doc.detectedLanguage?.toUpperCase() || 'EN' },
+            { label: s.categoryLabel, value: category ? (s as any)[`cat${category}`] : s.notAvailable },
           ].map((item, i) => (
-            <div key={i} className="rounded-card border border-line bg-surface p-4">
+            <div key={i} className="rounded-tile bg-surface-muted p-4">
               <span className="mb-1.5 block text-label font-medium text-ink-tertiary">{item.label}</span>
               <span className="block truncate text-sm font-medium text-ink" dir="auto">{item.value}</span>
             </div>
@@ -425,7 +431,7 @@ export const DocumentDetailScreen = () => {
           {visibleFacts.length > 0 ? (
             <>
               {/* Mobile: stacked label/value rows (the 3-column table clips at phone widths). */}
-              <div className="divide-y divide-divider overflow-hidden rounded-card border border-line bg-surface-raised md:hidden">
+              <div className={`divide-y divide-divider overflow-hidden md:hidden ${panelClass}`}>
                 {visibleFacts.map((fact: any, i: number) => (
                   <div key={i} className="p-4">
                     <div className="mb-1.5 flex items-center justify-between gap-3">
@@ -450,7 +456,7 @@ export const DocumentDetailScreen = () => {
                 ))}
               </div>
 
-              <div className="hidden overflow-hidden rounded-card border border-line bg-surface-raised md:block">
+              <div className={`hidden overflow-hidden md:block ${panelClass}`}>
                 <table className="w-full border-collapse text-start">
                   <thead>
                     <tr className="border-b border-divider bg-surface-alt">

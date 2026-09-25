@@ -21,6 +21,8 @@ import { searchService } from '../services/searchService';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { isIdentityConflict } from '../lib/identityConflict';
+import { IconTile } from '../components/ui/IconTile';
+import { panelClass } from '../components/ui/Panel';
 
 // A submit has THREE outcomes for its caller, not two: it succeeded, it failed
 // in a way worth relabelling, or it failed terminally and must be left alone.
@@ -159,7 +161,7 @@ export const SearchScreen = () => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={s.searchPlaceholder}
-              className="w-full rounded-card border border-line bg-surface-raised py-4 ps-12 pe-24 text-base text-ink shadow-card outline-none transition-all placeholder:text-ink-faint focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className="w-full rounded-pill border border-line bg-surface-raised py-3.5 ps-12 pe-24 text-base text-ink shadow-card outline-none transition-all placeholder:text-ink-faint focus:border-accent focus:ring-2 focus:ring-accent/20"
             />
             {query && (
               <button
@@ -173,9 +175,9 @@ export const SearchScreen = () => {
             )}
             <button
               type="submit"
-              className={`absolute end-2 flex items-center justify-center rounded-btn p-2.5 transition-colors ${
+              className={`absolute end-2 flex items-center justify-center rounded-pill p-2.5 transition-colors ${
                 query.trim()
-                  ? 'bg-accent text-white hover:bg-accent-hover'
+                  ? 'bg-accent text-surface-raised hover:bg-accent-hover'
                   : 'bg-surface-muted text-ink-faint'
               }`}
               aria-label={s.intelligentSearch}
@@ -205,7 +207,7 @@ export const SearchScreen = () => {
         {loading && (
           <div className="space-y-6 animate-in fade-in duration-300">
             {/* Answer card skeleton */}
-            <div className="rounded-card border border-line bg-surface-raised p-6 shadow-card">
+            <div className={`p-6 ${panelClass}`}>
               <div className="flex items-center gap-4">
                 <div className="skeleton h-10 w-10 rounded-btn" />
                 <div className="skeleton h-4 w-40 rounded" />
@@ -215,7 +217,7 @@ export const SearchScreen = () => {
             </div>
 
             {/* Table skeleton */}
-            <div className="overflow-hidden rounded-card border border-line bg-surface-raised shadow-card">
+            <div className={`overflow-hidden ${panelClass}`}>
               <div className="h-12 border-b border-divider bg-surface-alt" />
               <div className="space-y-4 p-6">
                 {[1, 2, 3].map((i) => (
@@ -299,7 +301,7 @@ export const SearchScreen = () => {
                     </div>
                     {/* Card chrome is desktop-only: on mobile the ResultTable
                         renders its own stacked cards, so we avoid a card-in-card. */}
-                    <div className="md:overflow-hidden md:rounded-card md:border md:border-line md:bg-surface-raised md:shadow-card">
+                    <div className="md:overflow-hidden md:rounded-panel md:bg-surface-raised md:shadow-card md:ring-1 md:ring-line">
                       <ResultTable
                         data={result.data?.map(({ organizationId, userId, fileUrl, rawText, normalizedText, ...rest }: any) => rest)}
                         onRowClick={(row) => row.id && navigate(`/documents/${row.id}`)}
@@ -324,7 +326,7 @@ export const SearchScreen = () => {
                 )}
 
                 {result.outputFormat === 'chart_ready_data' && (
-                  <div className="rounded-card border border-line bg-surface-raised p-6 shadow-card">
+                  <div className={`p-6 ${panelClass}`}>
                     <ChartPlaceholder data={result.data} />
                   </div>
                 )}
@@ -343,8 +345,8 @@ export const SearchScreen = () => {
 
         {!loading && !result && !errorMsg && (
           <div className="py-12 text-center animate-in fade-in duration-500">
-            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-card border border-line bg-surface-raised text-accent shadow-card">
-              <Sparkles size={28} />
+            <div className="mx-auto mb-6 flex justify-center">
+              <IconTile icon={Sparkles} tone="accent" size="lg" />
             </div>
             {/* Empty-state hero heading. h2 (not h3): it sits directly under the
                 page h1, so a correct outline is h1 -> h2. The level is a tag-only
