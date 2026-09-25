@@ -26,8 +26,10 @@ async function ask(q: string, lang = 'en') {
 
 beforeEach(() => {
   vi.spyOn(console, 'log').mockImplementation(() => {});
-  db.documentFact.groupBy.mockReset().mockResolvedValue([{ currency: 'USD', _sum: { valueNumber: 1234.5 } }]);
-  db.document.findMany.mockReset().mockResolvedValue([{ id: 'd1' }]);
+  db.documentFact.groupBy.mockReset().mockResolvedValue([]);
+  // Since 2026-09-25 the total is read through the ledger's judge: one counted
+  // row of 1234.5 USD (a fact-less row would be a document with no amount).
+  db.document.findMany.mockReset().mockResolvedValue([{ id: 'd1', status: 'COMPLETED', uploadedAt: new Date('2026-09-10T00:00:00Z'), facts: [{ key: 'TOTAL_AMOUNT', valueString: null, valueNumber: 1234.5, valueDate: null, currency: 'USD', sourceSpan: 'x' }] }]);
   db.document.count.mockReset().mockResolvedValue(7);
   db.queryLog.create.mockReset().mockResolvedValue({});
 });
@@ -54,6 +56,7 @@ describe('grouping questions in search', () => {
   it('control: the same question without the grouping words is answered with the total', async () => {
     const out = await ask('how much did I spend');
     expect(out.answerText).toBe('You have spent a total of 1234.50 USD.');
-    expect(db.documentFact.groupBy).toHaveBeenCalledTimes(1);
+    expect(db.document.findMany).toHaveBeenCalledTimes(1);
+    expect(db.documentFact.groupBy).not.toHaveBeenCalled();
   });
 });

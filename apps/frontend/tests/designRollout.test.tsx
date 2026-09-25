@@ -19,7 +19,7 @@ import { join } from 'node:path';
 
 const h = vi.hoisted(() => ({
   getReviewQueue: vi.fn(), getAllActivity: vi.fn(), getDocumentDetail: vi.fn(), updateStatus: vi.fn(), getStats: vi.fn(),
-  executeQuery: vi.fn(),
+  searchReceipts: vi.fn(),
 }));
 // CI has no Supabase env, and `lib/supabase.ts` creates the client at import
 // time, so any screen whose tree reaches `apiConfig.ts` (PaywallModal,
@@ -28,7 +28,7 @@ const h = vi.hoisted(() => ({
 // runnable without credentials; nothing here ever calls it.
 vi.mock('../src/lib/supabase', () => ({ supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } }));
 vi.mock('../src/services/documentService', () => ({ documentService: h }));
-vi.mock('../src/services/searchService', () => ({ searchService: { executeQuery: h.executeQuery } }));
+vi.mock('../src/services/searchService', () => ({ searchService: { searchReceipts: h.searchReceipts } }));
 vi.mock('../src/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { email: 'rollout@example.com' }, signOut: vi.fn() }),
   AuthProvider: ({ children }: any) => children,
@@ -108,12 +108,11 @@ describe('the category reader', () => {
 
 describe('source: every screen in the rollout reaches the shared pieces and has left the raw palette', () => {
   const SCREENS = {
-    'screens/SearchScreen.tsx': ['components/ui/IconTile', 'components/ui/Panel'],
+    'screens/SearchScreen.tsx': ['components/ui/Panel', 'components/ui/ReceiptRow', 'components/ui/CategoryIcon', 'components/ui/CountChip'],
     'screens/ReviewQueueScreen.tsx': ['components/ui/DocumentIcon', 'components/ui/CountChip', 'components/ui/Panel'],
     'screens/DocumentDetailScreen.tsx': ['components/ui/DocumentIcon', 'components/ui/IconTile', 'components/ui/Panel'],
     'screens/ActivityScreen.tsx': ['components/ui/DocumentIcon', 'components/ui/CountChip', 'components/ui/Panel'],
     'screens/SettingsScreen.tsx': ['components/ui/IconTile', 'components/ui/CountChip', 'components/ui/Panel'],
-    'components/ResultTable.tsx': ['ui/DocumentIcon', 'ui/Panel'],
     'components/BottomTabBar.tsx': [],
     'components/LanguageSwitcher.tsx': [],
   };
@@ -178,23 +177,27 @@ describe('render: a categorized document shows its tile AND its name; an uncateg
       expect(text()).toContain(`2 ${strings[lang].records}`);
     });
 
-    it(`${lang}: the search result card`, async () => {
-      h.executeQuery.mockResolvedValue({ outputFormat: 'table', data: [FOOD, CARD], resultCount: 2, executionTimeMs: 12 });
-      mount(lang, '/search', <Route path="/search" element={<SearchScreen />} />);
-      const form = container.querySelector('form')!;
-      const input = container.querySelector('input')!;
-      flushSync(() => {
-        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
-        setter.call(input, 'food');
-        input.dispatchEvent(new Event('input', { bubbles: true }));
+    it(`${lang}: the search rows (the home's rows since the 2026-09-25 redraw)`, async () => {
+      // Search lists RECEIPTS the ledger judged, in the home's row: a counted
+      // receipt with no category sits under Other and says "not yet sorted",
+      // exactly as the home shows it. A business card is not a receipt and
+      // never reaches this list.
+      h.searchReceipts.mockResolvedValue({
+        mode: 'recent', q: '', category: null, month: null, timeZone: 'UTC', currencies: [], notCounted: [],
+        receipts: [
+          { documentId: 'food-1', date: '2026-09-21', dateSource: 'document', amount: 467.85, amountSource: 'extracted', category: 'Food', merchant: 'Bim', status: 'NEEDS_REVIEW', currency: 'MAD' },
+          { documentId: 'other-1', date: '2026-09-20', dateSource: 'document', amount: 5, amountSource: 'extracted', category: null, merchant: 'Kiosk', status: 'COMPLETED', currency: 'MAD' },
+        ],
       });
-      flushSync(() => { form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
-      await vi.waitFor(() => expect(text()).toContain('bim-maroc.jpg'));
-      const cards = [...container.querySelectorAll('div.md\\:hidden > button')];
-      const food = cards.find(c => c.textContent?.includes('bim-maroc.jpg'))!;
+      mount(lang, '/search', <Route path="/search" element={<SearchScreen />} />);
+      await vi.waitFor(() => expect(text()).toContain('Bim'));
+      const food = q('[data-ledger-row="food-1"]')!;
       expect(food.querySelector('[data-category-icon="Food"]')).not.toBeNull();
-      const card = cards.find(c => c.textContent?.includes('card.jpg'))!;
-      expect(card.querySelector('[data-icon-tile="neutral"]')).not.toBeNull();
+      expect(food.textContent).toContain(strings[lang].catFood);
+      const other = q('[data-ledger-row="other-1"]')!;
+      expect(other.querySelector('[data-category-icon="Other"]')).not.toBeNull();
+      expect(other.textContent).toContain(strings[lang].ledgerNotSortedTag);
+      expect(other.textContent).not.toContain(strings[lang].catOther);
     });
 
     it(`${lang}: the detail names the category in the meta grid, beside the tile`, async () => {

@@ -6,13 +6,15 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { ErrorState } from '../components/ErrorState';
 import { CategoryIcon, CATEGORY_RING } from '../components/ui/CategoryIcon';
 import { CountChip } from '../components/ui/CountChip';
+import { Money } from '../components/ui/Money';
 import { Panel, panelClass } from '../components/ui/Panel';
+import { ReceiptRow } from '../components/ui/ReceiptRow';
 import { isIdentityConflict } from '../lib/identityConflict';
 import { isRequestTimeout } from '../lib/fetchWithTimeout';
 import { ledgerService } from '../services/ledgerService';
 import type { LedgerCategory, LedgerMonth } from '../lib/ledgerTypes';
 import {
-  Lang, categoryCards, currentMonth, dayLabel, deviceTimeZone, figureSizeClass, isEmptyMonth, isMonth,
+  Lang, categoryCards, currentMonth, deviceTimeZone, figureSizeClass, isEmptyMonth, isMonth,
   moneyParts, monthName, monthTitle, needsReviewCount, plural, receiptRows, shiftMonth,
 } from '../lib/ledgerView';
 
@@ -32,26 +34,14 @@ import {
 //
 // The visual language (components/ui): a category is a solid colour tile with
 // a white glyph and always its name beside it; a card is a Panel; a count is a
-// CountChip; figure, code, label and meta each have their own weight, size and
-// colour (CountChip.tsx lists them).
+// CountChip; a receipt in a list is a ReceiptRow, shared with Search; figure,
+// code, label and meta each have their own weight, size and colour
+// (CountChip.tsx lists them).
 // ============================================================================
 
 type Strings = ReturnType<typeof useStrings>;
 
 const categoryLabel = (s: Strings, c: LedgerCategory) => s[`cat${c}` as const];
-
-/** An amount and its code, laid out for either direction: the number is isolated LTR. */
-const Money: React.FC<{ amount: number; currency: string | null; lang: Lang; s: Strings; numberClass?: string; codeClass?: string }> = ({
-  amount, currency, lang, s, numberClass = '', codeClass = '',
-}) => {
-  const p = moneyParts(amount, currency, lang);
-  return (
-    <span className="inline-flex flex-wrap items-baseline gap-x-1" aria-label={`${p.number} ${p.name ?? p.code ?? s.ledgerNoCurrency}`}>
-      <bdi dir="ltr" data-ledger-amount className={`tabular-nums ${numberClass}`}>{p.number}</bdi>
-      <span className={codeClass}>{p.code ?? s.ledgerNoCurrency}</span>
-    </span>
-  );
-};
 
 export const LedgerScreen: React.FC = () => {
   const s = useStrings();
@@ -338,7 +328,7 @@ const LedgerBody: React.FC<{
                       amount={line.total}
                       currency={line.currency}
                       lang={lang}
-                      s={s}
+                      noCurrency={s.ledgerNoCurrency}
                       numberClass="text-xl font-extrabold leading-tight tracking-tight text-ink"
                       codeClass={`text-[11px] font-bold tracking-wide ${line.currency ? 'text-ink-muted' : 'text-warning-text'}`}
                     />
@@ -380,41 +370,7 @@ const LedgerBody: React.FC<{
         <ul className={`mt-3 divide-y divide-divider overflow-hidden ${panelClass}`}>
           {shown.map(r => (
             <li key={r.documentId}>
-              <Link
-                to={`/documents/${r.documentId}`}
-                data-ledger-row={r.documentId}
-                className="flex min-h-[64px] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-alt active:bg-surface-alt"
-              >
-                <CategoryIcon category={r.category ?? 'Other'} size="sm" />
-                <span className="min-w-0 flex-1">
-                  <span
-                    dir="auto"
-                    className={`block truncate text-[15px] font-semibold ${r.merchant ? 'text-ink' : 'text-ink-muted'}`}
-                    title={r.merchant ?? undefined}
-                  >
-                    {r.merchant ?? s.ledgerUnknownVendor}
-                  </span>
-                  <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-ink-muted">
-                    <span data-ledger-date>
-                      {r.dateSource === 'uploaded' ? s.ledgerNoDate.replace('{day}', dayLabel(r.date, lang)) : dayLabel(r.date, lang)}
-                    </span>
-                    <span aria-hidden="true">·</span>
-                    <span>{r.category ? categoryLabel(s, r.category) : s.ledgerNotSortedTag}</span>
-                    {r.status === 'NEEDS_REVIEW' && <CountChip tone="warning">{s.ledgerNeedsReviewTag}</CountChip>}
-                    {r.amountSource === 'corrected' && <CountChip>{s.ledgerCorrectedTag}</CountChip>}
-                  </span>
-                </span>
-                <span className="flex-none text-end">
-                  <Money
-                    amount={r.amount}
-                    currency={r.currency}
-                    lang={lang}
-                    s={s}
-                    numberClass="text-[15px] font-bold text-ink"
-                    codeClass={`text-[11px] font-bold tracking-wide ${r.currency ? 'text-ink-muted' : 'text-warning-text'}`}
-                  />
-                </span>
-              </Link>
+              <ReceiptRow r={r} lang={lang} s={s} />
             </li>
           ))}
         </ul>

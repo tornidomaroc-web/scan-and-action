@@ -169,7 +169,6 @@ describe('RTL truncation — Class B: a truncating filename/email box must state
     // fire on. Each is read from the real file, confirmed to truncate, confirmed
     // to carry no dir, and confirmed to produce zero offenders.
     const LABEL_SITES = [
-      ['components/ResultTable.tsx', 'status.label'],
       ['screens/ActivityScreen.tsx', 'status.label'],
       ['screens/DashboardScreen.tsx', 'meta.label'],
       ['screens/DocumentDetailScreen.tsx', 'status.label'],

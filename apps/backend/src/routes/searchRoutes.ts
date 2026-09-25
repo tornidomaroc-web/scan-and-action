@@ -5,14 +5,15 @@ import { searchLimiter } from '../middleware/rateLimits';
 
 const router = Router();
 
-// GET /api/search?q=&category=&month=&tz= : the Search screen of the
-// 2026-09-25 redraw (#250). A read on the ledger's rules, like GET /api/ledger,
-// and like it unlimited: the screen asks on every settled keystroke. Merged
-// ahead of that screen so the new frontend never reaches a backend without it.
+// GET /api/search?q=&category=&month=&tz= : the Search screen since the
+// 2026-09-25 redraw. A read on the ledger's rules, like GET /api/ledger, and
+// like it unlimited: the screen asks on every settled keystroke.
 router.get('/', ReceiptSearchController.search);
 
-// POST /api/search: the ask path, which the Search screen on main still calls
-// and the Android closed-testing build calls until that build is superseded.
+// POST /api/search: the ask path of the Search screen before the redraw. No
+// screen in this bundle calls it; the Android closed-testing build of that
+// screen still does (Capacitor ships the bundle it was built with), so it
+// stays until that build is superseded.
 router.post('/', searchLimiter, SearchController.executeSearch);
 
 export default router;
