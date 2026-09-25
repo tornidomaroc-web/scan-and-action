@@ -145,12 +145,13 @@ const text = () => container.textContent ?? '';
 // The two fact-table layouts, by the classes DocumentDetailScreen renders them
 // with. Both must exist, or a "no leak" assertion could pass by querying a
 // container that is not there.
+// Since the 2026-09-25 redraw the facts are ONE list of rows on every width
+// (`[data-detail-facts]`); the two names below both point at it so every
+// assertion written for two layouts still runs against the one that exists.
 const layouts = (): { mobile: HTMLElement; desktop: HTMLElement } => {
-  const mobile = container.querySelector('.md\\:hidden') as HTMLElement | null;
-  const desktop = container.querySelector('.hidden.md\\:block') as HTMLElement | null;
-  expect(mobile, 'mobile fact list not found').not.toBeNull();
-  expect(desktop, 'desktop fact table not found').not.toBeNull();
-  return { mobile: mobile!, desktop: desktop! };
+  const list = container.querySelector('[data-detail-facts]') as HTMLElement | null;
+  expect(list, 'facts list not found').not.toBeNull();
+  return { mobile: list!, desktop: list! };
 };
 
 beforeEach(() => {
@@ -213,15 +214,20 @@ describe('the canary row renders no raw key, no empty value and no over-claim', 
   }
 });
 
-// ── 2. A COMPLETED + APPROVED DOCUMENT KEEPS ITS BANNER ────────────────────
-describe('a COMPLETED + APPROVED document still shows its approved banner', () => {
-  it('renders the approved title and the unqualified scoped subtitle', async () => {
+// ── 2. A COMPLETED + APPROVED DOCUMENT HAS NOTHING TO SAY ──────────────────
+// The redraw (2026-09-25) shows a "needs your attention" card only when
+// something does. A processed document with no rule fired gets no card and
+// no claim, in either direction: the over-claim ("no issues detected") is
+// gone, and so is the scoped subtitle that replaced it.
+describe('a COMPLETED + APPROVED document shows no issues card and no claim', () => {
+  it('renders neither the approved banner copy nor the needs-review qualification', async () => {
     mount('doc-ok', 'en');
     await vi.waitFor(() => expect(text()).toContain('clean.pdf'));
-    expect(text()).toContain(strings.en.statusApproved);
-    expect(text()).toContain(strings.en.decisionApprovedDesc);
-    // The needs-review qualification belongs only to a NEEDS_REVIEW row.
+    expect(container.querySelector('[data-detail-issues]')).toBeNull();
+    expect(text()).not.toContain(strings.en.statusApproved);
+    expect(text()).not.toContain(strings.en.decisionApprovedDesc);
     expect(text()).not.toContain(strings.en.decisionApprovedNeedsReviewDesc);
+    expect(text()).toContain(strings.en.statusProcessed); // the ONE status
   });
 });
 

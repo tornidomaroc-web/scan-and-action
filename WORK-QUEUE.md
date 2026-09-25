@@ -495,9 +495,33 @@ restyled.** Do not start at login, although a reviewer sees it first:
     what needs the owner.
   - Measure extraction success and the "Needs review" rate on his real receipts,
     judged only on rows the current code wrote.
-  - **The result screen (Detail) goes first, in its own PR, the NEXT PR.** The
-    owner rejected the current one on 2026-09-25 (see "The owner's judgement of
-    the rollout" under step 2). Redrawn from zero, not restyled.
+  - **The result screen (Detail): REDRAWN FROM ZERO in the detail PR
+    (opened 2026-09-25); open until the owner has judged it on his iPhone.**
+    The owner rejected the previous one on 2026-09-25 (see "The owner's
+    judgement of the rollout" under step 2).
+    - **What it shows now, top to bottom** (`DocumentDetailScreen.tsx`): the
+      category tile, the merchant as the title, the amount the ledger counts
+      (`lib/ledgerAmount.ts`, "Edited" when corrected), the date printed on
+      the receipt, ONE status; then "Needs your attention" as plain sentences
+      with the fix actions and the retry inside it, only when something needs
+      him; the receipt as a card that opens the original; the facts as rows
+      with the file name last; Approve / Reject sticky while it waits.
+    - **Cut:** the file name as the title, "Verified AI intelligence
+      extraction", the 83% badge, the "99% match" labels, the relationships
+      section, the status shown three times.
+    - **What the leading apps showed (help pages read 2026-09-25).** Dext:
+      one state (To review / Ready) and a list naming the exact missing
+      fields. Expensify: the failure names the missing fields, errors sit on
+      the field they concern. Ramp: a "(required)" label per field, actions in
+      one sheet. QuickBooks: the status label under the amount. None shows a
+      per-field confidence to the user. Taken: one state, a named list with
+      the fix in place. Improved on: the amount leads (none of them puts it
+      first), and problems are sentences a person can read, not labels.
+    - **Kept, proved byte for byte or by unchanged tests** (the PR lists
+      each): Approve, Reject and Retry; the fix-action writes; the
+      `detailFacts.ts` allowlist; the lockout handling; the image fallback;
+      the money rules; RTL.
+    - **EXPIRY:** the owner has judged it on his iPhone.
     - **What is wrong above the image.** The title is the file name. "Verified
       AI intelligence extraction" appears on documents that say "Needs review".
       The status is shown three times: the badge, the decision banner and the
@@ -646,12 +670,21 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
        can therefore disagree for the same receipt.
      - **Where it shows:** the Queue (an approved screen) and Search both use
        `getAmount`. The board records 9 stored corrections.
-     - **Not yet measured:** how many of those rows show the wrong figure today.
-       Re-run, never quote: read the fact order the queue and search endpoints
-       return for the corrected documents.
-     - **EXPIRY:** one shared helper applies the ledger's amount rule, and the
-       Queue and Search rows both use it, tested with a corrected document
-       whose facts arrive in either order. This belongs to the Search PR.
+     - **MEASURED 2026-09-25, read-only:** 391 documents; 10 carry a
+       `manual_amount`; all 10 count in the ledger by status; **2 of the 10
+       showed the wrong amount** on their Queue / Search row (the extraction,
+       the correction ignored; one in `5ce3e185`, one in another
+       organisation), 8 matched because the correction re-typed the total.
+       The bare-number case has 0 instances: `TOTAL_AMOUNT` always comes
+       first in the include order. Re-run, never quote: replay the queue's
+       include and compare the first AMOUNT fact with the ledger's rule.
+     - **FIXED in the detail PR, not the Search PR** (ruled 2026-09-25 on that
+       measurement: a live money defect on a screen the owner approved, and
+       the detail needed the same helper): `lib/ledgerAmount.ts` applies the
+       ledger's rule, `getAmount` (the Queue and Search rows) and the detail's
+       top figure both use it, tested with a corrected document whose facts
+       arrive in either order (`ledgerAmount.test.ts`). **EXPIRY MET** on
+       merge.
    - **Duplicates the rule engine never saw are counted: the re-evaluation
      PR carries the fix; the WRITE waits for the owner's order.** In each
      group of copies (same vendor, same amount as the ledger reads it) exactly

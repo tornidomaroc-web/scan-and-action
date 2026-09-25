@@ -280,7 +280,9 @@ describe('Document Detail — both fact-value sites, per value', () => {
     const arabicEls = [...container.querySelectorAll('[dir]')].filter((el) =>
       (el.textContent ?? '').includes('شركة الفواتير')
     );
-    expect(arabicEls.length, 'expected both detail fact sites to render the Arabic value').toBe(2);
+    // One facts layout since the 2026-09-25 redraw (the amount keeps two sites:
+    // the figure at the top and its row).
+    expect(arabicEls.length, 'expected the detail facts row to render the Arabic value').toBe(1);
     for (const el of arabicEls) {
       expect(el.getAttribute('dir')).toBe('auto');
     }

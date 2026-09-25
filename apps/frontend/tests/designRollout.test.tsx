@@ -202,8 +202,7 @@ describe('render: a categorized document shows its tile AND its name; an uncateg
       mount(lang, '/documents/food-1', <Route path="/documents/:id" element={<DocumentDetailScreen />} />);
       await vi.waitFor(() => expect(text()).toContain('bim-maroc.jpg'));
       expect(q('[data-category-icon="Food"]')).not.toBeNull();
-      expect(text()).toContain(strings[lang].categoryLabel);
-      expect(text()).toContain(strings[lang].catFood);
+      expect(q('[data-detail-meta]')!.textContent).toContain(strings[lang].catFood);
       // The language cell is gone: nothing on the screen claims 'EN'.
       expect(text()).not.toContain(strings[lang].docLanguage);
     });

@@ -146,33 +146,14 @@ describe('SectionHeading — source is token-only (no raw palette)', () => {
   });
 });
 
-// ── The four File-Detail sections all route through SectionHeading, and the
-//    old inconsistent heading markup is gone (source scan). ──────────────────
-describe('File Detail — all four sections use the shared SectionHeading', () => {
-  const screen = read('../src/screens/DocumentDetailScreen.tsx');
-
-  it('imports SectionHeading and uses it four times (one per section)', () => {
-    expect(screen).toContain("import { SectionHeading } from '../components/SectionHeading'");
-    const uses = screen.match(/<SectionHeading /g) || [];
-    expect(uses.length).toBe(4);
-  });
-
-  it('no section heading is left at the old 12/15px level (text-section / h4 label)', () => {
-    // The four headings no longer use text-section, and the AI h4 is gone.
-    expect(screen).not.toContain('text-section font-semibold text-ink');
-    expect(screen).not.toContain('text-label font-semibold text-accent-text');
-  });
-
-  it('AI-analysis heading is promoted (no longer the smallest ~12px h4)', () => {
-    expect(screen).toContain('<SectionHeading icon={Sparkles}>{s.aiSynthesis}</SectionHeading>');
-  });
-
-  it('the data-relationships section draws no top divider/separator line', () => {
-    expect(screen).not.toContain('mt-12 border-t border-divider pt-8');
-    expect(screen).toContain('<SectionHeading icon={Network}>{s.graphRelationships}</SectionHeading>');
-  });
-
-  it('the page h1 (title-lg) is untouched — one step larger than the sections', () => {
-    expect(screen).toContain('truncate text-title-lg font-semibold tracking-tight text-ink');
+// ── The detail screen was redrawn from zero on 2026-09-25 and has no titled
+//    sections any more; SectionHeading stays the primitive for the screens that
+//    still have them. ──────────────────────────────────────────────────────
+describe('SectionHeading after the detail redraw', () => {
+  it('the detail screen no longer imports it, and the primitive is still in use elsewhere', () => {
+    const screen = read('../src/screens/DocumentDetailScreen.tsx');
+    expect(screen).not.toContain("from '../components/SectionHeading'");
+    expect(screen).not.toContain('<SectionHeading');
+    expect(read('../src/screens/SearchScreen.tsx') + read('../src/components/SharedComponents.tsx')).toContain('SectionHeading');
   });
 });

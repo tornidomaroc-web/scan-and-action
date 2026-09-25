@@ -6,15 +6,21 @@ type Props = {
   documentId: string;
   decision: 'APPROVED' | 'NEEDS_REVIEW' | 'FLAGGED' | null;
   reason?: string;
+  /** The document's own currency (the extracted total's), shown beside the
+   *  amount field. Null when none was read: the field then carries no unit
+   *  rather than a wrong one. The correction itself is stored without a
+   *  currency, as before; the ledger reads it in the extracted total's. */
+  currency?: string | null;
   onSuccess: () => void;
 };
 
-// Correction panel for documents the rule engine could not resolve, restyled
-// onto the --sa-* tokens with all copy moved to i18n (three locales). The amount
-// field is a neutral DATA-CORRECTION input: it carries a plain MAD unit label,
-// never a currency/price affordance, and nothing here reads as pricing, a
-// checkout, or an upgrade. The unit stays on the logical end so it mirrors in RTL.
-export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, onSuccess }) => {
+// The fix actions, rendered INSIDE the detail's "needs your attention" card
+// (2026-09-25 redraw): no card of its own, no heading, the sentences the card
+// already gives context to. What it WRITES is unchanged: the same three
+// actions with the same payloads to documentService.applyFixAction. The
+// amount field is a neutral DATA-CORRECTION input; nothing here reads as
+// pricing, a checkout, or an upgrade.
+export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, currency = null, onSuccess }) => {
   const s = useStrings();
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState('');
@@ -69,26 +75,23 @@ export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, 
     }
   };
 
-  return (
-    <div className="mb-8 rounded-card border border-dashed border-line-strong bg-surface-raised p-5 text-start">
-      <div className="mb-4 flex items-center gap-2.5">
-        <span className="h-5 w-1 flex-shrink-0 rounded-pill bg-accent" />
-        <h3 className="text-section font-semibold text-ink">{s.reviewActionRequired}</h3>
-      </div>
+  const primary = 'inline-flex min-h-[44px] items-center justify-center rounded-pill bg-accent px-6 text-sm font-bold text-surface-raised transition-colors hover:bg-accent-hover disabled:opacity-50';
+  const secondary = 'inline-flex min-h-[44px] items-center justify-center rounded-pill bg-surface-muted px-6 text-sm font-semibold text-ink transition-colors hover:bg-surface-alt disabled:opacity-50';
 
+  return (
+    <div className="mt-4 border-t border-divider pt-4 text-start" data-fix-actions>
       {isMissingAmount && (
         <div className="flex flex-col gap-3">
           <p className="text-sm leading-relaxed text-ink-secondary">{s.reviewActionDesc}</p>
           <div className="flex flex-col gap-3 sm:flex-row">
             {/* Input-group, not an overlay: the input and the unit are flex
-                siblings, so the MAD label can never sit on top of the typed
-                digits (any locale / font size / zoom). The whole group is LTR so
-                the number and its trailing unit read left-to-right; the border
-                and focus ring live on the wrapper via focus-within. It stays a
-                neutral data field, never a price or checkout affordance. */}
+                siblings, so the unit can never sit on top of the typed digits
+                (any locale / font size / zoom). The whole group is LTR so the
+                number and its trailing unit read left-to-right; the border and
+                focus ring live on the wrapper via focus-within. */}
             <div
               dir="ltr"
-              className="flex flex-1 items-center rounded-btn border border-line bg-surface pe-4 transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20"
+              className="flex flex-1 items-center rounded-pill bg-surface-muted pe-4 transition-colors focus-within:ring-2 focus-within:ring-accent"
             >
               <input
                 type="number"
@@ -98,13 +101,9 @@ export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, 
                 onChange={(e) => setAmount(e.target.value)}
                 className="min-w-0 flex-1 bg-transparent py-3 ps-4 pe-2 text-ink outline-none placeholder:text-ink-faint"
               />
-              <span className="flex-shrink-0 text-xs font-medium text-ink-faint">{s.madUnit}</span>
+              {currency && <span className="flex-shrink-0 text-xs font-bold tracking-wide text-ink-muted">{currency}</span>}
             </div>
-            <button
-              onClick={() => handleAction('amount_corrected')}
-              disabled={loading}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-btn bg-accent px-6 text-sm font-semibold text-surface-raised transition-colors hover:bg-accent-hover disabled:opacity-50"
-            >
+            <button onClick={() => handleAction('amount_corrected')} disabled={loading} className={primary}>
               {loading ? s.fixProcessing : s.saveCorrection}
             </button>
           </div>
@@ -117,21 +116,13 @@ export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, 
           <textarea
             value={justification}
             onChange={(e) => setJustification(e.target.value)}
-            className="min-h-[100px] w-full resize-none rounded-btn border border-line bg-surface px-4 py-3 text-ink outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20"
+            className="min-h-[96px] w-full resize-none rounded-tile bg-surface-muted px-4 py-3 text-ink outline-none transition-colors focus:ring-2 focus:ring-accent"
           />
           <div className="flex flex-col gap-3 sm:flex-row">
-            <button
-              onClick={() => handleAction('marked_valid')}
-              disabled={loading}
-              className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-btn bg-success px-6 text-sm font-semibold text-white transition-colors disabled:opacity-50"
-            >
+            <button onClick={() => handleAction('marked_valid')} disabled={loading} className={`${primary} flex-1`}>
               {s.fixMarkValid}
             </button>
-            <button
-              onClick={() => handleAction('note_added')}
-              disabled={loading}
-              className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-btn border border-line bg-surface px-6 text-sm font-semibold text-ink transition-colors hover:bg-surface-alt disabled:opacity-50"
-            >
+            <button onClick={() => handleAction('note_added')} disabled={loading} className={`${secondary} flex-1`}>
               {s.fixSaveNote}
             </button>
           </div>

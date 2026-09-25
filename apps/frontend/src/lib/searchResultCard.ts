@@ -13,6 +13,7 @@
 
 import { formatCellValue, formatDateValue } from './formatCellValue';
 import { formatPercent } from './formatNumber';
+import { ledgerAmount } from './ledgerAmount';
 
 export interface CardStatus {
   key: string;
@@ -72,25 +73,31 @@ const formatCurrency = (value: number, currency: unknown, language: string): str
 };
 
 export const getVendor = (row: any): string | null => {
-  const entities = Array.isArray(row?.documentEntities) ? row.documentEntities : [];
+  // The detail DTO carries the same relationship twice: `documentEntities`
+  // (role + nested entity) and the flattened `entities` (role + name fields).
+  // Either shape answers; the nested one first, as the queue and search rows
+  // only carry that one.
+  const nested = Array.isArray(row?.documentEntities) ? row.documentEntities : [];
+  const entities = nested.length ? nested : Array.isArray(row?.entities) ? row.entities : [];
   const match = entities.find((e: any) => e && VENDOR_ROLES.has(String(e.role || '').toUpperCase()));
   // Prefer the human-readable name over the normalized canonicalName matching
   // key. `displayName` is set by the DTO (Queue path); `aliases[0]` covers the
   // raw search-executor rows that are not DTO-mapped; canonicalName / name
   // remain as a last-resort fallback so a missing display name still shows
   // something real, never nothing. The canonicalName value itself is unchanged.
-  const e = match?.entity;
+  const e = match?.entity ?? match;
   const name = e?.displayName ?? e?.aliases?.[0] ?? e?.canonicalName ?? e?.name;
   return name != null && name !== '' ? String(name) : null;
 };
 
+// The amount the ledger counts (lib/ledgerAmount.ts): a correction beats the
+// extraction, in the extraction's currency. Until 2026-09-25 this took the
+// FIRST fact of type AMOUNT, which is the extraction, so a corrected receipt's
+// row showed its old amount while Home counted the correction.
 export const getAmount = (row: any, language: string): string | null => {
-  const facts = Array.isArray(row?.facts) ? row.facts : [];
-  const amt = facts.find(
-    (f: any) => String(f?.factType || f?.key || '').toUpperCase() === 'AMOUNT' && f?.valueNumber != null
-  );
-  if (!amt) return null;
-  return formatCurrency(Number(amt.valueNumber), amt.currency, language);
+  const a = ledgerAmount(row?.facts);
+  if (!a) return null;
+  return formatCurrency(a.amount, a.currency, language);
 };
 
 export const getStatus = (row: any, s: Strings): CardStatus | null => {

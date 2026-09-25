@@ -14,14 +14,20 @@ import React from 'react';
 // Four treatments, so no two kinds of information on a card look alike.
 // ============================================================================
 
-export const CountChip: React.FC<{ children: React.ReactNode; tone?: 'neutral' | 'warning' } & React.HTMLAttributes<HTMLSpanElement>> = ({
+const TONE = {
+  neutral: 'bg-surface-muted text-ink-secondary',
+  warning: 'bg-warning-tint text-warning-text',
+  success: 'bg-success-tint text-success-text',
+  danger: 'bg-danger-tint text-danger-text',
+  accent: 'bg-accent-tint text-accent-text',
+} as const;
+
+export const CountChip: React.FC<{ children: React.ReactNode; tone?: keyof typeof TONE } & React.HTMLAttributes<HTMLSpanElement>> = ({
   children, tone = 'neutral', className = '', ...rest
 }) => (
   <span
     {...rest}
-    className={`inline-flex items-center whitespace-nowrap rounded-pill px-2 py-0.5 text-[11px] font-semibold leading-4 tabular-nums ${
-      tone === 'warning' ? 'bg-warning-tint text-warning-text' : 'bg-surface-muted text-ink-secondary'
-    } ${className}`}
+    className={`inline-flex items-center whitespace-nowrap rounded-pill px-2 py-0.5 text-[11px] font-semibold leading-4 tabular-nums ${TONE[tone]} ${className}`}
   >
     {children}
   </span>
