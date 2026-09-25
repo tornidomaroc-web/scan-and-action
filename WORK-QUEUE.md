@@ -105,7 +105,16 @@ be reshuffled:**
    - **Home**, rejected by the owner on 2026-09-25 although approved at #245
      (step 4).
    - **Login**, rejected by the owner on 2026-09-25 (step 5).
-   - The order is the owner's to rule.
+   - **ORDER RULED by the owner on 2026-09-25: Search, then Login, then
+     Home.** Each is its own PR.
+     1. **Search first.** It holds the last live wrong-money figure on a
+        screen: its spend answer (`sum_expenses`, (f) under Step 1) counts
+        rejected receipts and flagged duplicates and ignores corrections. Its
+        design is already specified under step 6.
+     2. **Login second.** Its urgency is App Store review, and submission
+        still waits on the iOS build (THE STAGE, item 4).
+     3. **Home last.** The owner gives his reasons first. **Home is not to be
+        started before he has.**
 
 **Prisma `relationJoins`: REJECTED 2026-09-25.** It cut the review, detail and
 ledger reads from 4 statements to 1, but it is a preview feature (since 5.7.0,
@@ -601,6 +610,8 @@ restyled.** Do not start at login, although a reviewer sees it first:
   - **EXPIRY MET 2026-09-25:** the owner used it on his iPhone and ruled on it.
   - **REOPENED 2026-09-25: the owner is not satisfied with the Home screen's
     design,** although he approved it at #245. It is redrawn in its own PR.
+    - **Third in the ruled order (Search, Login, Home), and NOT to be started
+      until the owner has given his reasons** (ruled 2026-09-25).
     - **His reasons are not yet recorded.** Ask them before designing: a
       redraw without them risks a third round on the screen he opens every
       day.
