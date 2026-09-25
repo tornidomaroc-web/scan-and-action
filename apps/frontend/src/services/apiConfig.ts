@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { withTimeout } from '../lib/fetchWithTimeout';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -14,8 +15,12 @@ if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
   );
 }
 
+/** The session read runs under the Supabase client's own lock; a stall there
+ *  would hold every request behind it. Bounded like the requests themselves. */
+export const SESSION_TIMEOUT_MS = 10_000;
+
 export const getAuthHeaders = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await withTimeout(supabase.auth.getSession(), SESSION_TIMEOUT_MS, 'auth session');
   const token = session?.access_token;
 
   return {

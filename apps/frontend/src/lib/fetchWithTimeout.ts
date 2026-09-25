@@ -36,6 +36,20 @@ export const isRequestTimeout = (err: unknown): err is RequestTimeoutError =>
   err instanceof RequestTimeoutError || (typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 'REQUEST_TIMEOUT');
 
 /**
+ * Any promise, given `ms` to settle; past that it rejects with
+ * RequestTimeoutError named for `label`. For the steps in front of a fetch
+ * that can stall on their own, such as reading the auth session.
+ */
+export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expiry = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new RequestTimeoutError(label, ms)), ms);
+  });
+  promise.catch(() => {});
+  return Promise.race([promise, expiry]).finally(() => clearTimeout(timer));
+}
+
+/**
  * `fetch(url, init)` that rejects with RequestTimeoutError when no response
  * headers have arrived within `ms`. The body read is the caller's, as before.
  */

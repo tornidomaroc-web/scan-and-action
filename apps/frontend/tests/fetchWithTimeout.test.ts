@@ -9,11 +9,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // way out. The screen half is tests/requestTimeout.test.tsx.
 // ============================================================================
 
-vi.mock('../src/lib/supabase', () => ({ supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } }));
+const sb = vi.hoisted(() => ({ getSession: vi.fn(async () => ({ data: { session: null } })) }));
+vi.mock('../src/lib/supabase', () => ({ supabase: { auth: sb } }));
 
-import { fetchWithTimeout, isRequestTimeout, RequestTimeoutError, REQUEST_TIMEOUT_MS } from '../src/lib/fetchWithTimeout';
+import { fetchWithTimeout, isRequestTimeout, RequestTimeoutError, REQUEST_TIMEOUT_MS, withTimeout } from '../src/lib/fetchWithTimeout';
 import { ledgerService } from '../src/services/ledgerService';
 import { documentService } from '../src/services/documentService';
+import { getAuthHeaders, SESSION_TIMEOUT_MS } from '../src/services/apiConfig';
 
 /** A fetch double that ignores its abort signal, as a hung connection effectively does. */
 const never = () => new Promise<Response>(() => {});
@@ -60,6 +62,28 @@ describe('fetchWithTimeout', () => {
 
   it('the default is 20 s', () => {
     expect(REQUEST_TIMEOUT_MS).toBe(20_000);
+  });
+});
+
+describe('the session read in front of every request is bounded too', () => {
+  it(`getAuthHeaders rejects as a timeout after ${SESSION_TIMEOUT_MS} ms when getSession never settles`, async () => {
+    sb.getSession.mockImplementationOnce(() => new Promise(() => {}) as any);
+    const p = getAuthHeaders();
+    const settled = vi.fn();
+    p.then(settled, settled);
+    await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS - 1);
+    expect(settled).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    const err = await p.catch(e => e);
+    expect(isRequestTimeout(err)).toBe(true);
+    expect(err).toMatchObject({ url: 'auth session', ms: SESSION_TIMEOUT_MS });
+  });
+
+  it('a session that arrives in time yields the bearer header (control), and withTimeout keeps a fast value', async () => {
+    sb.getSession.mockResolvedValueOnce({ data: { session: { access_token: 'tok' } } } as any);
+    await expect(getAuthHeaders()).resolves.toEqual({ Authorization: 'Bearer tok' });
+    await expect(withTimeout(Promise.resolve(42), 1_000, 'x')).resolves.toBe(42);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
 
