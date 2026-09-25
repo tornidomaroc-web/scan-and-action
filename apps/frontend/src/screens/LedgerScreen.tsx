@@ -8,7 +8,6 @@ import { CategoryIcon, CATEGORY_RING } from '../components/ui/CategoryIcon';
 import { CountChip } from '../components/ui/CountChip';
 import { Panel, panelClass } from '../components/ui/Panel';
 import { isIdentityConflict } from '../lib/identityConflict';
-import { isRequestTimeout } from '../lib/fetchWithTimeout';
 import { ledgerService } from '../services/ledgerService';
 import type { LedgerCategory, LedgerMonth } from '../lib/ledgerTypes';
 import {
@@ -86,7 +85,7 @@ export const LedgerScreen: React.FC = () => {
       console.error('[Ledger] Month fetch failed:', err);
       const lockedNow = isIdentityConflict(err);
       setLocked(lockedNow);
-      setError(lockedNow ? s.accountLockedBody : isRequestTimeout(err) ? s.requestTimedOut : s.ledgerLoadError);
+      setError(lockedNow ? s.accountLockedBody : s.ledgerLoadError);
     }
   }, [month, timeZone, s]);
 

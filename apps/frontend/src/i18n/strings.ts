@@ -518,7 +518,6 @@ export const strings = {
     catOffice: "Office",
     catOther: "Other",
     categoryLabel: "Category",
-    requestTimedOut: "The server did not answer within 20 seconds. Check your connection and try again.",
   },
   fr: {
     header: 'Scanner et Agir',
@@ -988,7 +987,6 @@ export const strings = {
     catOffice: "Bureau",
     catOther: "Autre",
     categoryLabel: "Catégorie",
-    requestTimedOut: "Le serveur n’a pas répondu en 20 secondes. Vérifiez votre connexion et réessayez.",
   },
   ar: {
     header: 'المسح والإجراء',
@@ -1478,6 +1476,5 @@ export const strings = {
     catOffice: "مكتب",
     catOther: "أخرى",
     categoryLabel: "الفئة",
-    requestTimedOut: "لم يستجب الخادم خلال 20 ثانية. تحقق من اتصالك وحاول مرة أخرى.",
   },
 };

@@ -22,10 +22,6 @@ const MAX_ZONE_OFFSET_MS = 14 * 60 * 60 * 1000;
 export async function readLedgerMonth(db: Db, organizationId: string, month: string, timeZone: string): Promise<LedgerMonth> {
   const { start, end } = monthBounds(month);
   const rows = await db.document.findMany({
-    // One statement with lateral joins for the nested facts and vendor, in
-    // place of three sequential round trips (~126 ms each, measured
-    // 2026-09-25). `relationJoins` is enabled in schema.prisma.
-    relationLoadStrategy: 'join',
     where: {
       organizationId,
       OR: [

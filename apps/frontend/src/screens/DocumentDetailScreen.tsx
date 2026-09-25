@@ -16,7 +16,6 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { getStatus, getDocTypeLabel, getEntityRoleLabel, formatFactValue, factValueDir } from '../lib/searchResultCard';
 import { formatDateValue } from '../lib/formatCellValue';
 import { isIdentityConflict } from '../lib/identityConflict';
-import { isRequestTimeout } from '../lib/fetchWithTimeout';
 import { visibleDetailFacts, detailFactLabel } from '../lib/detailFacts';
 import { getDocumentCategory } from '../lib/documentCategory';
 import {
@@ -60,11 +59,6 @@ export const DocumentDetailScreen = () => {
   // clearing it is an operator action against an orphaned row — so the screen
   // must stop offering a retry that cannot succeed (lib/identityConflict.ts:15-18).
   const [locked, setLocked] = useState(false);
-  // The receipt image is a second request, to Supabase storage, after the
-  // document itself. Until it arrives the frame holds its space; if it fails
-  // (an expired signed URL, a dropped connection) the frame says so and
-  // offers the original, instead of an empty box where a picture should be.
-  const [imageState, setImageState] = useState<'loading' | 'loaded' | 'failed'>('loading');
 
   // Same review actions as the queue, surfaced here so a mobile user who
   // tapped through to the detail can resolve the document in place.
@@ -178,10 +172,6 @@ export const DocumentDetailScreen = () => {
       .catch((err: unknown) => {
         const lockedNow = isIdentityConflict(err);
         setLocked(lockedNow);
-        if (!lockedNow && isRequestTimeout(err)) {
-          setErrorMsg(s.requestTimedOut);
-          return;
-        }
         setErrorMsg(lockedNow ? s.accountLockedBody : s.somethingWrong);
       })
       .finally(() => setLoading(false));
@@ -369,16 +359,12 @@ export const DocumentDetailScreen = () => {
           <div className="mb-10">
             <SectionHeading icon={FileText}>{s.sourceVisualization}</SectionHeading>
             <div className="overflow-hidden rounded-card border border-line bg-surface">
-              {isImageFile && imageState !== 'failed' ? (
-                <div className={imageState === 'loading' ? 'skeleton min-h-[240px]' : ''} data-detail-image={imageState}>
-                  <img
-                    src={doc.signedFileUrl}
-                    alt={doc.originalFileName || s.sourceVisualization}
-                    onLoad={() => setImageState('loaded')}
-                    onError={() => setImageState('failed')}
-                    className={`mx-auto h-auto max-h-[800px] w-full object-contain ${imageState === 'loading' ? 'opacity-0' : ''}`}
-                  />
-                </div>
+              {isImageFile ? (
+                <img
+                  src={doc.signedFileUrl}
+                  alt={doc.originalFileName || s.sourceVisualization}
+                  className="mx-auto h-auto max-h-[800px] w-full object-contain"
+                />
               ) : isPdfFile ? (
                 <iframe
                   src={doc.signedFileUrl}

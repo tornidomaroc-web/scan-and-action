@@ -1,10 +1,9 @@
 import { DocumentDto } from '../types';
 import { API_BASE_URL, getJsonHeaders, getAuthHeaders } from './apiConfig';
-import { fetchWithTimeout } from '../lib/fetchWithTimeout';
 
 export const documentService = {
   async getDocumentDetail(id: string): Promise<any> {
-    const res = await fetchWithTimeout(`${API_BASE_URL}/documents/${id}`, {
+    const res = await fetch(`${API_BASE_URL}/documents/${id}`, {
       headers: await getAuthHeaders(),
     });
 
@@ -17,8 +16,7 @@ export const documentService = {
   },
 
   async getReviewQueue(): Promise<DocumentDto[]> {
-    // With a timeout, as the ledger read: see lib/fetchWithTimeout.ts.
-    const res = await fetchWithTimeout(`${API_BASE_URL}/review`, {
+    const res = await fetch(`${API_BASE_URL}/review`, {
       method: 'GET',
       headers: await getAuthHeaders()
     });
@@ -45,7 +43,7 @@ export const documentService = {
     monthlySeries?: Array<{ month: string, count: number }>,
     periods?: { thisMonth: { processed: number }, lastMonth: { processed: number } },
   }> {
-    const res = await fetchWithTimeout(`${API_BASE_URL}/documents/stats`, {
+    const res = await fetch(`${API_BASE_URL}/documents/stats`, {
       method: 'GET',
       headers: await getAuthHeaders()
     });
@@ -63,7 +61,7 @@ export const documentService = {
   },
 
   async getRecentActivity(): Promise<any[]> {
-    const res = await fetchWithTimeout(`${API_BASE_URL}/documents/recent`, {
+    const res = await fetch(`${API_BASE_URL}/documents/recent`, {
       headers: await getAuthHeaders(),
     });
 
@@ -76,7 +74,7 @@ export const documentService = {
   },
 
   async getAllActivity(): Promise<any[]> {
-    const res = await fetchWithTimeout(`${API_BASE_URL}/documents/all`, {
+    const res = await fetch(`${API_BASE_URL}/documents/all`, {
       headers: await getAuthHeaders(),
     });
 

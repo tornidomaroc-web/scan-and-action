@@ -765,25 +765,6 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
   - Per-stage durations say which part can shrink. One candidate is the
     `isSingleDocument` validation call: a separate Gemini call on every document,
     before extraction.
-- **Every authenticated request cost 1.75 to 2.5 s to first byte, whatever it
-  returned (measured 2026-09-25 from the owner's signed-in browser against
-  production: stats 420 bytes 1.75 s, ledger 2.1 s, review 2.1 s, detail
-  2.2 s; unauthenticated `/api/version` 0.15 s).** The time is round trips,
-  not work: one statement costs ~126 ms of network and under 1 ms of
-  execution (`EXPLAIN ANALYZE` 0.27 ms on the review base query; every index
-  the queries need exists), and Prisma ran an `include` as four sequential
-  statements while the auth middleware ran a Supabase `getUser` plus a User
-  upsert with nested includes before every handler. **Fixed in the design
-  rollout PR (code only):** a one-minute per-token context cache in the
-  middleware (`authContextCache.ts`, bounded by the token's `exp`, cleared on
-  account deletion) and Prisma's `relationJoins` on the review, detail and
-  ledger reads (4 statements → 1: review 526 → 223 ms, detail 514 → 204 ms,
-  ledger 518 → 147 ms, read-only replays on the owner's rows). Re-measure,
-  never quote: from a signed-in tab, time `fetch` to the five routes three
-  times each and read `ttfb`; from `apps/backend`, `SET TRANSACTION READ
-  ONLY` then replay the handler's query with Prisma's query log on.
-  **EXPIRY:** the production reading after the merge is under 0.6 s for each
-  of the four authenticated routes on a repeat request.
 - **Row-lock contention (UNCONFIRMED, DORMANT since 2026-09-23).** Ledger-first
   scans one receipt at a time, so its trigger does not fire. It wakes only if
   batch capture is ever added.

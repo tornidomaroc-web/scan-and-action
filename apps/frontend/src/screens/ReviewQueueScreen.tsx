@@ -14,7 +14,6 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { getVendor, getAmount, getStatus, getDocTypeLabel } from '../lib/searchResultCard';
 import { formatDateValue } from '../lib/formatCellValue';
 import { isIdentityConflict } from '../lib/identityConflict';
-import { isRequestTimeout } from '../lib/fetchWithTimeout';
 
 // Review Queue, restyled onto the --sa-* token system (PR-D4).
 //  - Calm flat surfaces (rounded-card, quiet shadow), token colors only (no raw
@@ -99,7 +98,7 @@ export const ReviewQueueScreen = () => {
       // this condition and keeps the ordinary retryable treatment below.
       const lockedNow = isIdentityConflict(err);
       setLocked(lockedNow);
-      setErrorMsg(lockedNow ? s.accountLockedBody : isRequestTimeout(err) ? s.requestTimedOut : s.queueFetchError);
+      setErrorMsg(lockedNow ? s.accountLockedBody : s.queueFetchError);
     } finally {
       setLoading(false);
     }
