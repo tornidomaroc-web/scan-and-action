@@ -22,6 +22,8 @@ export interface NotCountedHit {
   fileName: string | null;
   status: string;
   reason: 'status' | 'duplicate' | 'noAmount';
+  /** Its own category, the tile it would wear if counted; null when it has none. */
+  category: LedgerCategory | null;
 }
 
 export interface SearchResult {

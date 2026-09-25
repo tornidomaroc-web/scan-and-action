@@ -126,12 +126,36 @@ describe('a search total is the ledger total for the same receipts', () => {
   });
 });
 
+describe('the category a not-counted row carries', () => {
+  const rows = [
+    doc('n1', 'COMPLETED', { total: 30, cat: 'Transport', date: '2026-09-05', dup: true, merchant: 'Tilden Cabs' }),
+    doc('n2', 'COMPLETED', { total: 30, cat: 'Other', date: '2026-09-05', dup: true, merchant: 'Tilden Cabs' }),
+    doc('n3', 'COMPLETED', { total: 30, cat: 'Groceries', date: '2026-09-05', dup: true, merchant: 'Tilden Cabs' }),
+    doc('n4', 'REJECTED', { total: 30, date: '2026-09-05', merchant: 'Tilden Cabs' }),
+  ];
+  const ask = (category: null | 'Transport' | 'Other') =>
+    searchReceipts(rows, { q: 'tilden', category, month: null, timeZone: TZ }).notCounted.map(x => `${x.documentId}:${x.category}`);
+
+  it('is the stored one when it names one of the eight, Other included; none for an off-list value or no fact', () => {
+    expect(ask(null)).toEqual(['n1:Transport', 'n2:Other', 'n3:null', 'n4:null']);
+  });
+
+  it('the chips still read a missing category as Other, as the ledger does, while the row says none', () => {
+    expect(ask('Transport')).toEqual(['n1:Transport']);
+    expect(ask('Other')).toEqual(['n2:Other', 'n3:null', 'n4:null']);
+  });
+});
+
 describe('text: what a query matches, and where', () => {
   it('a merchant word, case- and accent-insensitive, across months, with the not-counted rows apart', () => {
     const r = searchReceipts(FIXTURE, { q: 'MARJANE', category: null, month: null, timeZone: TZ });
     expect(r.mode).toBe('filtered');
     expect(r.receipts.map(x => x.documentId)).toEqual(['d15', 'd09', 'u05', 'd01']);
     expect(r.notCounted.map(x => `${x.documentId}:${x.reason}`)).toEqual(['d16:noAmount', 'd08:duplicate', 'd04:status', 'd05:status']);
+    // Each not-counted row carries its own category, the one it would show if
+    // it were counted; none when it has none. Until 2026-09-26 the route left
+    // it off, and the screen drew every such row as Other.
+    expect(r.notCounted.map(x => `${x.documentId}:${x.category}`)).toEqual(['d16:Food', 'd08:Food', 'd04:Food', 'd05:null']);
     // The rejected 999, the duplicate 45 and the unread row add to nothing.
     expect(r.currencies).toEqual([
       { currency: 'MAD', total: 235.5, receiptCount: 3 },

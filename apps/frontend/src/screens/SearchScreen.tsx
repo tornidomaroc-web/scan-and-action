@@ -372,7 +372,10 @@ const REASON_KEY = { status: 'searchReasonStatus', duplicate: 'searchReasonDupli
 
 const NotCountedRow: React.FC<{ h: NotCountedHit; s: Strings; lang: Lang }> = ({ h, s, lang }) => (
   <Link to={`/documents/${h.documentId}`} data-search-not-counted-row={h.documentId} className="flex min-h-[64px] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-alt active:bg-surface-alt">
-    {h.merchant ? <CategoryIcon category="Other" size="sm" /> : <IconTile icon={FileText} tone="neutral" size="sm" />}
+    {/* Its own category's tile, as it would wear if counted. None, or a
+        backend that does not send one yet, gets the neutral tile: never Other,
+        which reads as a category the receipt does not have. */}
+    {h.category ? <CategoryIcon category={h.category} size="sm" /> : <IconTile icon={FileText} tone="neutral" size="sm" />}
     <span className="min-w-0 flex-1">
       <span dir="auto" className={`block truncate text-[15px] font-semibold ${h.merchant ? 'text-ink' : 'text-ink-secondary'}`}>
         {h.merchant ?? h.fileName ?? s.ledgerUnknownVendor}

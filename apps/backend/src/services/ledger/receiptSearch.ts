@@ -57,6 +57,8 @@ export interface NotCountedHit {
   fileName: string | null;
   status: string;
   reason: 'status' | 'duplicate' | 'noAmount';
+  /** Its own category, read as a counted row's is (ledgerCore): null when the fact is missing or off the list. */
+  category: ExpenseCategory | null;
 }
 
 export interface SearchResult {
@@ -140,11 +142,14 @@ export function searchReceipts(docs: SearchDocInput[], query: SearchQuery): Sear
       }
     } else if (filtered) {
       // Not counted, still findable. Its category is read from the fact
-      // directly, since the verdict carries none for an uncounted row.
+      // directly, since the verdict carries none for an uncounted row, and
+      // travels with the row so the screen draws the tile it would draw if
+      // the row were counted. The chip filter reads a missing one as Other,
+      // as the ledger's card filter does; the row itself says none.
       const raw = doc.facts.find(f => f.key === 'category')?.valueString ?? null;
-      const category: ExpenseCategory = isCategory(raw) ? raw : 'Other';
-      if (query.category !== null && category !== query.category) continue;
-      notCounted.push({ documentId: doc.id, date, merchant: doc.merchant, fileName: doc.fileName, status: doc.status, reason: v.reason });
+      const category: ExpenseCategory | null = isCategory(raw) ? raw : null;
+      if (query.category !== null && (category ?? 'Other') !== query.category) continue;
+      notCounted.push({ documentId: doc.id, date, merchant: doc.merchant, fileName: doc.fileName, status: doc.status, reason: v.reason, category });
     }
   }
 

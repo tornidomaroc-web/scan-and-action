@@ -189,6 +189,32 @@ describe('what the screen draws', () => {
     expect(q('[data-search-scope]')!.textContent).toBe(`${strings.en.catFood} · ${strings.en.searchAllMonths}`);
   });
 
+  // Seen by the owner on 2026-09-26: every not-counted row wore the fuchsia
+  // Other tile, the copies of a Food and a Transport receipt included, which
+  // reads as a different category. The row carries its own, as it would if it
+  // were counted; a row with none gets the neutral document tile, never Other.
+  it('a not-counted row wears its own category tile; one with none wears the neutral tile, never Other', async () => {
+    h.searchReceipts.mockResolvedValue(filtered({
+      q: 'pizza',
+      notCounted: [
+        { documentId: 'food', date: '2026-09-12', merchant: "JOE'S PIZZA RESTAURANT", fileName: 'a.jpg', status: 'NEEDS_REVIEW', reason: 'duplicate', category: 'Food' },
+        { documentId: 'cab', date: '2026-09-11', merchant: 'TILDEN CITY CABS', fileName: 'b.jpg', status: 'COMPLETED', reason: 'duplicate', category: 'Transport' },
+        { documentId: 'other', date: '2026-09-10', merchant: "JOE'S PIZZA RESTAURANT", fileName: 'c.jpg', status: 'NEEDS_REVIEW', reason: 'duplicate', category: 'Other' },
+        { documentId: 'none', date: '2026-09-09', merchant: 'Some Shop', fileName: 'd.jpg', status: 'REJECTED', reason: 'status', category: null },
+        { documentId: 'bare', date: '2026-09-08', merchant: null, fileName: 'malformed-test.jpg', status: 'FAILED', reason: 'status', category: null },
+      ],
+    }));
+    mount('en', '/search?q=pizza');
+    await settle();
+    const tile = (id: string) => q(`[data-search-not-counted-row="${id}"] [data-category-icon]`)?.getAttribute('data-category-icon') ?? null;
+    expect(tile('food')).toBe('Food');
+    expect(tile('cab')).toBe('Transport');
+    expect(tile('other')).toBe('Other');
+    expect(tile('none')).toBeNull();
+    expect(tile('bare')).toBeNull();
+    expect(q('[data-search-not-counted-row="none"] svg')).not.toBeNull();
+  });
+
   it('receipts the ledger does not count are listed apart with their reason, and add to nothing', async () => {
     h.searchReceipts.mockResolvedValue(filtered({
       q: 'marjane',
