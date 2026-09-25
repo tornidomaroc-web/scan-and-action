@@ -97,9 +97,15 @@ be reshuffled:**
    - #246 gives those two screens the shared surfaces only. Its diff leaves
      their structure and copy as in production.
 4. **#246 merges** with that recorded.
-5. **Next, the Detail PR:** the result screen redrawn from zero (DESIGN TRACK,
-   step 3). **Then the Search PR:** Search redrawn from zero (step 6). Each is
-   its own PR and its own judgement on the owner's phone.
+5. **The Detail PR: DONE.** Approved by the owner on his iPhone at
+   `8dbda49` on 2026-09-25 ("simple and good"), merged as #248 (`cc8b0c9`).
+6. **Next: three redesigns, each in its own PR and its own judgement on the
+   owner's phone.**
+   - **Search**, planned under step 6.
+   - **Home**, rejected by the owner on 2026-09-25 although approved at #245
+     (step 4).
+   - **Login**, rejected by the owner on 2026-09-25 (step 5).
+   - The order is the owner's to rule.
 
 **Prisma `relationJoins`: REJECTED 2026-09-25.** It cut the review, detail and
 ledger reads from 4 statements to 1, but it is a preview feature (since 5.7.0,
@@ -542,7 +548,11 @@ restyled.** Do not start at login, although a reviewer sees it first:
       `{ rule: 'D', documentId }`), and the screen reads it to say "above
       500 MAD" and to link the other receipt. Nothing reads or counts that
       fact, so it moves no money.
-    - **EXPIRY:** the owner has judged it on his iPhone.
+    - **APPROVED by the owner on his iPhone at `8dbda49` on 2026-09-25**
+      (Arabic, the Joe's Pizza invoice: the amount, one status, specific
+      sentences, the compact receipt card, and Approve and Reject without
+      scrolling; "simple and good"). Merged as #248 (`cc8b0c9`). **EXPIRY
+      MET.**
     - **What is wrong above the image.** The title is the file name. "Verified
       AI intelligence extraction" appears on documents that say "Needs review".
       The status is shown three times: the badge, the decision banner and the
@@ -589,20 +599,43 @@ restyled.** Do not start at login, although a reviewer sees it first:
     and the Queue's total over all months (`GET /api/stats` pendingCount, the
     badge).
   - **EXPIRY MET 2026-09-25:** the owner used it on his iPhone and ruled on it.
+  - **REOPENED 2026-09-25: the owner is not satisfied with the Home screen's
+    design,** although he approved it at #245. It is redrawn in its own PR.
+    - **His reasons are not yet recorded.** Ask them before designing: a
+      redraw without them risks a third round on the screen he opens every
+      day.
+    - **What must hold:** the money rules of step 4 (one figure per currency,
+      never summed; money only from `/api/ledger`) and the ledger and
+      no-cross-currency tests, unedited.
+    - **EXPIRY:** the owner approves a redrawn Home on his iPhone.
 - [ ] **5. First run.** Login and signup, an email confirmation that returns to
   the app, the icon and splash, every "coming soon" removed, `ProfileScreen.tsx`
   deleted, and the in-app privacy link.
+  - **Login rejected by the owner on 2026-09-25.** It is redrawn in its own
+    PR.
+    - **What it shows today** (`AuthScreen.tsx`): a dark panel reading "Turn
+      documents into actionable intelligence" and "Intellectual automation",
+      and a "Continue to dashboard" button. That is the admin-panel vocabulary
+      the DESIGN TRACK ruling names.
+    - **Why it matters:** Login is the first screen an App Store reviewer and
+      every new user sees.
+    - **What must hold:** the password policy (`passwordPolicy.ts` and its
+      drift test), the recovery routing, the error localisation tests.
+    - **EXPIRY:** the owner approves a redrawn Login on his iPhone.
 - [ ] **6. The rest.** Documents and search, the review queue, settings with
   account deletion reachable, and the web-only paywall.
-  - **Search is redrawn from zero in its own PR, after the Detail PR.** The
-    owner rejected the current screen on 2026-09-25 (see "The owner's judgement
-    of the rollout" under step 2).
+  - **Search is redrawn from zero in its own PR.** The Detail PR it waited
+    for merged as #248. The owner rejected the current screen on 2026-09-25
+    (see "The owner's judgement of the rollout" under step 2).
     - **What is wrong with it.** Today it is an "ask your workspace" tool:
       "Workspace insights gallery", "At risk assets", "Executive summary",
       response times in ms. It is not a way to find a receipt. No model is
       called per search, and that stays true.
-    - **What it carries:** the ask path's money answer, (f) under Step 1, and
-      the row-amount defect beside it.
+    - **What it carries:** the ask path's money answer, (f) under Step 1,
+      still live. Read 2026-09-25: `sum_expenses` (`queryExecutor.ts`) sums
+      `TOTAL_AMOUNT` alone, so it also ignores corrections, on top of the
+      statuses and duplicates (f) records. The row-amount defect beside it
+      was closed by #248.
     - **What it becomes:** a search field, category chips and a month filter,
       with results as the same rows as Home.
 - [ ] **7. Store screenshots**, taken from the finished UI.
@@ -704,8 +737,15 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
        the detail needed the same helper): `lib/ledgerAmount.ts` applies the
        ledger's rule, `getAmount` (the Queue and Search rows) and the detail's
        top figure both use it, tested with a corrected document whose facts
-       arrive in either order (`ledgerAmount.test.ts`). **EXPIRY MET** on
-       merge.
+       arrive in either order (`ledgerAmount.test.ts`).
+     - **CLOSED by #248 (`cc8b0c9`), 2026-09-25.** A read-only replay of the
+       shipped helper against production's corrected receipts gave 10
+       corrected. The old row rule was wrong on 2 (`32425a09`, `3110b78d`),
+       the shipped helper on 0: both now show the correction with its
+       currency, marked corrected. The production bundle carries the helper.
+       The rendered row was not seen on production: the owner's Chrome is not
+       signed in there, and `32425a09` belongs to an organisation outside his
+       three.
    - **Duplicates the rule engine never saw are counted: the re-evaluation
      PR carries the fix; the WRITE waits for the owner's order.** In each
      group of copies (same vendor, same amount as the ledger reads it) exactly
