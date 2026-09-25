@@ -1,5 +1,6 @@
 import { DocumentDto } from '../types';
 import { API_BASE_URL, getJsonHeaders, getAuthHeaders } from './apiConfig';
+import { fetchWithTimeout } from '../lib/fetchWithTimeout';
 
 export const documentService = {
   async getDocumentDetail(id: string): Promise<any> {
@@ -16,7 +17,8 @@ export const documentService = {
   },
 
   async getReviewQueue(): Promise<DocumentDto[]> {
-    const res = await fetch(`${API_BASE_URL}/review`, {
+    // With a timeout, as the ledger read: see lib/fetchWithTimeout.ts.
+    const res = await fetchWithTimeout(`${API_BASE_URL}/review`, {
       method: 'GET',
       headers: await getAuthHeaders()
     });
@@ -43,7 +45,7 @@ export const documentService = {
     monthlySeries?: Array<{ month: string, count: number }>,
     periods?: { thisMonth: { processed: number }, lastMonth: { processed: number } },
   }> {
-    const res = await fetch(`${API_BASE_URL}/documents/stats`, {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/documents/stats`, {
       method: 'GET',
       headers: await getAuthHeaders()
     });
