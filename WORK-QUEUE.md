@@ -107,14 +107,40 @@ be reshuffled:**
    - **Login**, rejected by the owner on 2026-09-25 (step 5).
    - **ORDER RULED by the owner on 2026-09-25: Search, then Login, then
      Home.** Each is its own PR.
-     1. **Search first.** It holds the last live wrong-money figure on a
-        screen: its spend answer (`sum_expenses`, (f) under Step 1) counts
-        rejected receipts and flagged duplicates and ignores corrections. Its
-        design is already specified under step 6.
-     2. **Login second.** Its urgency is App Store review, and submission
-        still waits on the iOS build (THE STAGE, item 4).
+     1. **Search first. DONE:** approved by the owner on his iPhone on
+        2026-09-26, with his real data, at `4796d30`: September 2026 read
+        USD 2,989.92 from 5 receipts, as the ledger does; "Pizza" read
+        USD 750.00 from 1 receipt, its copies under "Found, not counted".
+        One defect he found there (every uncounted row wore the Other tile)
+        was fixed in the same PR at `1032852`, proven by tests that fail on
+        `4796d30`. The backend route went first as #251 (`7e3172e`), so the
+        new screen never reached a backend without it; the screen merged as
+        #250 (`4c6772a`). Board item (f) closed with it (Step 1 inputs).
+     2. **Login second: NEXT.** Its urgency is App Store review, and
+        submission still waits on the iOS build (THE STAGE, item 4).
      3. **Home last.** The owner gives his reasons first. **Home is not to be
-        started before he has.**
+        started before he has.** They are still not recorded (2026-09-26).
+
+**Error copy that blames the connection when the connection is fine: OPEN on
+three screens (recorded 2026-09-26).** Search showed "Connection interrupted"
+for a `404` from a backend without its route. #250 fixed Search only:
+`lib/requestErrors.ts` tells no response (a rejected fetch or a timeout) from
+a status, and only the first says "connection". The same mislabel remains on:
+- **Home:** `title={locked ? s.accountLockedTitle : s.connectionError}` in
+  `LedgerScreen.tsx`. Every failure, a `500` or a `401` included, is titled
+  "Connection interrupted".
+- **Queue:** `s.queueFetchError` in `ReviewQueueScreen.tsx`. The title is
+  neutral, but the message tells the user to check the connection for every
+  failure.
+- **Overview:** `setError(s.dashboardConnectionError)` and the same
+  `s.connectionError` title in `DashboardScreen.tsx`. When both of its calls
+  fail, for any reason, it says it could not connect.
+- **Not affected:** Detail (a timeout alone mentions the connection).
+- **The fix is Search's:** the service throws `HttpStatusError` or
+  `NetworkError` through `fetchOrNetworkError`; the screen asks
+  `isConnectionFailure`. Home's belongs to the Home redesign; Queue and
+  Overview can go in any small PR.
+- **EXPIRY:** no screen says "connection" for a response that arrived.
 
 **Prisma `relationJoins`: REJECTED 2026-09-25.** It cut the review, detail and
 ledger reads from 4 statements to 1, but it is a preview feature (since 5.7.0,
@@ -618,6 +644,15 @@ restyled.** Do not start at login, although a reviewer sees it first:
     - **What must hold:** the money rules of step 4 (one figure per currency,
       never summed; money only from `/api/ledger`) and the ledger and
       no-cross-currency tests, unedited.
+    - **Also for this PR: the row tiles a receipt with no category as Other
+      (recorded 2026-09-26).** `category={r.category ?? 'Other'}` in
+      `components/ui/ReceiptRow.tsx` draws the fuchsia Other tile beside the
+      "Not sorted" label. The owner's rule, set on Search's "Found, not
+      counted" rows the same day: a receipt with no category wears the
+      neutral document tile, never Other, which reads as a category it does
+      not have. The row is shared, so Search's counted list changes with it.
+      The Other card on Home still totals those receipts (the ledger's
+      rule); only the row's tile changes.
     - **EXPIRY:** the owner approves a redrawn Home on his iPhone.
 - [ ] **5. First run.** Login and signup, an email confirmation that returns to
   the app, the icon and splash, every "coming soon" removed, `ProfileScreen.tsx`
@@ -635,7 +670,14 @@ restyled.** Do not start at login, although a reviewer sees it first:
     - **EXPIRY:** the owner approves a redrawn Login on his iPhone.
 - [ ] **6. The rest.** Documents and search, the review queue, settings with
   account deletion reachable, and the web-only paywall.
-  - **Search is redrawn from zero in its own PR.** The Detail PR it waited
+  - **Search is redrawn from zero in its own PR. DONE: approved by the owner
+    on his iPhone on 2026-09-26 and merged as #250 (`4c6772a`),** after its
+    route went first as #251 (`7e3172e`). What it is now: one field
+    (merchant or file name), the eight category chips, a month or every
+    month, the home's own rows (`components/ui/ReceiptRow.tsx`), a total per
+    currency, and the receipts the ledger does not count listed apart with
+    their reason and their own category tile. The notes below are the brief
+    it was built to. The Detail PR it waited
     for merged as #248. The owner rejected the current screen on 2026-09-25
     (see "The owner's judgement of the rollout" under step 2).
     - **What is wrong with it.** Today it is an "ask your workspace" tool:
@@ -722,6 +764,32 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
      date. So the ask path's "how much did I spend" disagrees with the ledger
      home. **EXPIRY:** it reads the ledger's rules, or the ask path stops
      answering money questions.
+     **CLOSED 2026-09-26 by #250 (`4c6772a`).** Both halves of the expiry:
+     - **No screen asks the ask path for money any more.** Search reads
+       `GET /api/search` (`services/ledger/receiptSearch.ts`), which applies
+       `ledgerCore.judge` to every row, so a Search total is the ledger's
+       total for the same receipts.
+     - **`sum_expenses` itself now reads through `judge`** (`queryExecutor.ts`,
+       pinned by `queryExecutor.sumExpenses.test.ts`), for its two remaining
+       callers: `POST /api/search`, which the Android closed-testing bundle
+       still calls, and `GET /api/reports/:id` (`reportController.ts`), which
+       no screen calls.
+     - **The measurement that ruled it** (read-only, 2026-09-25, recorded in
+       #250's description; the script was not kept): in the owner's
+       organisation `5ce3e185`, the old answer read USD **64,825.49** where
+       the ledger reads **32,992.35**, CAD 9,638.87 against 8,067.83, CHF
+       218.00 against 54.50. Across production, 3 of 24 organisations with
+       money differed, 9 of 40 currency lines. The cause: 59 flagged
+       duplicates and 8 rejected or unread rows carried a `TOTAL_AMOUNT`,
+       and 6 corrections were ignored.
+     - **The equivalence** (read-only replay on the owner's organisation, same
+       day): Search against `readLedgerMonth` over 18 months, each whole month
+       and each of the 8 categories, **162 comparisons, 0 mismatches**.
+       `receiptSearch.test.ts` holds the same property on the ledger's own
+       fixture, with a control that fails.
+     - **Residual, named:** the ask path's period is still the upload date,
+       not the printed one. Only the Android bundle and the unused reports
+       route can see it.
    - **A corrected receipt can show the wrong amount on a Queue or Search row:
      OPEN money defect, live in production today (recorded 2026-09-25).**
      - **The mechanism.** `searchResultCard.getAmount` returns the FIRST fact
