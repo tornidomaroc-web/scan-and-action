@@ -23,7 +23,13 @@ module.exports = {
           tint: 'var(--sa-accent-tint)',
           'tint-2': 'var(--sa-accent-tint-2)',
           border: 'var(--sa-accent-border)',
+          // The design's chart blue: charts and icons only, never the fill
+          // under a label (tokens.css, adjustment 1).
+          bright: 'var(--sa-accent-bright)',
         },
+        // Text on the accent fill, in both themes (kitLanguage.test.ts holds
+        // it at 4.5:1 or more). `bg-accent text-on-accent` is the pairing.
+        'on-accent': 'var(--sa-on-accent)',
         surface: {
           DEFAULT: 'var(--sa-surface)',
           raised: 'var(--sa-surface-raised)',

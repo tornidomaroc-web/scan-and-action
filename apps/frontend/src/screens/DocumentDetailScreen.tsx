@@ -509,14 +509,14 @@ export const DocumentDetailScreen = () => {
           hidden and the sidebar takes the start edge. */}
       {doc.status === 'NEEDS_REVIEW' && (
         <div
-          className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+4.5rem)] z-40 px-4 md:start-[280px] md:bottom-6 md:px-8"
+          className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+5.75rem)] z-40 px-4 md:start-24 md:bottom-6 md:px-8"
           data-detail-actions
         >
           <div className={`mx-auto flex max-w-xl gap-3 p-3 shadow-lg ${panelClass}`}>
             <button
               onClick={() => handleReviewAction('approve')}
               disabled={actioning}
-              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-pill bg-success text-sm font-bold text-surface-raised transition-colors active:scale-[0.99] disabled:opacity-50"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-pill bg-success-tint text-sm font-bold text-success-text ring-1 ring-line transition-colors hover:ring-success active:scale-[0.99] motion-reduce:transition-none disabled:opacity-50"
             >
               <CheckCircle size={18} aria-hidden="true" />
               {s.approve}
@@ -524,7 +524,7 @@ export const DocumentDetailScreen = () => {
             <button
               onClick={() => handleReviewAction('reject')}
               disabled={actioning}
-              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-pill bg-danger text-sm font-bold text-surface-raised transition-colors active:scale-[0.99] disabled:opacity-50"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-pill bg-danger-tint text-sm font-bold text-danger-text ring-1 ring-line transition-colors hover:ring-danger active:scale-[0.99] motion-reduce:transition-none disabled:opacity-50"
             >
               <XCircle size={18} aria-hidden="true" />
               {s.reject}

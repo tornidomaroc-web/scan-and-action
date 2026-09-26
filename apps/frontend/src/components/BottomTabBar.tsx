@@ -9,14 +9,16 @@ interface BottomTabBarProps {
   onScan?: () => void;
 }
 
-// Mobile-only (<md) bottom navigation. Activity is intentionally absent:
-// on mobile it lives inside Home's Recent Activity section. The desktop
-// sidebar is a separate component and keeps its own nav.
+// Mobile-only (<md) navigation, in the visual language of 2026-09-26: a
+// floating pill, lifted off the page by the raised shadow and a hairline
+// ring, with four round buttons and the scan button as the accent circle at
+// its centre. Activity is intentionally absent: on mobile it lives inside
+// Home. The desktop rail is a separate component and keeps its own nav.
 //
-// On the visual language of the ledger home: the active tab's icon sits in
-// an accent-tint pill (the app's tile shape), labels are sentence case at
-// the meta size, and the Queue count is a CountChip-shaped badge in the
-// accent. The camera in the centre is the app's one scan button on a phone.
+// Each tab is a circle: the active one is filled with the accent tint and
+// draws the icon in the accent text colour; the others draw it muted. The
+// label is for screen readers, the way the design's rail names nothing on
+// screen. The Queue count is a small accent badge on its circle.
 export const BottomTabBar: React.FC<BottomTabBarProps> = ({ pendingCount = 0, onScan }) => {
   const s = useStrings();
 
@@ -30,30 +32,25 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({ pendingCount = 0, on
   ];
 
   const renderTab = ({ to, icon: Icon, label, badge }: { to: string; icon: typeof Home; label: string; badge?: number }) => (
-    <li key={to} className="flex-1">
+    <li key={to} className="flex flex-1 justify-center">
       <NavLink
         to={to}
-        className={({ isActive }) =>
-          `relative flex min-h-[56px] flex-col items-center justify-center gap-1 pb-1 pt-1.5 text-[11px] font-semibold transition-colors ${
-            isActive ? 'text-accent-text' : 'text-ink-muted hover:text-ink'
-          }`
-        }
+        aria-label={label}
+        className={({ isActive }) => `flex items-center justify-center transition-colors motion-reduce:transition-none ${isActive ? 'text-accent-text' : 'text-ink-muted hover:text-ink'}`}
       >
         {({ isActive }) => (
-          <>
-            <span className={`relative flex h-7 w-14 items-center justify-center rounded-pill transition-colors ${isActive ? 'bg-accent-tint' : ''}`}>
-              <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
-              {badge != null && badge > 0 && (
-                <span
-                  data-testid="queue-badge"
-                  className="absolute -top-1.5 end-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-pill bg-accent px-1 text-[10px] font-bold leading-none tabular-nums text-surface-raised ring-2 ring-surface-raised"
-                >
-                  {badge > 9 ? '9+' : badge}
-                </span>
-              )}
-            </span>
-            {label}
-          </>
+          <span className={`relative flex h-12 w-12 items-center justify-center rounded-nav ${isActive ? 'bg-accent-tint' : ''}`}>
+            <Icon size={22} strokeWidth={isActive ? 2.5 : 2} aria-hidden="true" />
+            <span className="sr-only">{label}</span>
+            {badge != null && badge > 0 && (
+              <span
+                data-testid="queue-badge"
+                className="absolute -top-0.5 -end-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-pill bg-accent px-1 text-[10px] font-bold leading-none tabular-nums text-on-accent ring-2 ring-surface-raised"
+              >
+                {badge > 9 ? '9+' : badge}
+              </span>
+            )}
+          </span>
         )}
       </NavLink>
     </li>
@@ -62,19 +59,21 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({ pendingCount = 0, on
   return (
     <nav
       aria-label="Primary"
-      className="md:hidden fixed bottom-0 inset-x-0 z-[60] bg-surface-raised border-t border-line pb-[env(safe-area-inset-bottom)]"
+      className="md:hidden fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] z-[60] rounded-pill bg-surface-raised px-2 py-2 shadow-raised ring-1 ring-line"
+      data-tab-bar
     >
-      <ul className="flex items-stretch justify-around">
+      <ul className="flex items-center justify-around">
         {leftTabs.map(renderTab)}
-        {/* Center Scan slot: fires the camera input directly. */}
-        <li className="flex-1 flex justify-center">
+        {/* Centre scan slot: the one scan button on a phone, the accent circle. */}
+        <li className="flex flex-1 justify-center">
           <button
+            type="button"
             onClick={onScan}
             aria-label={s.scanWithCamera}
             data-testid="scan-slot"
-            className="-mt-5 w-14 h-14 rounded-full bg-accent hover:bg-accent-hover text-surface-raised shadow-lg border-4 border-surface-raised flex items-center justify-center transition-all active:scale-95"
+            className="flex h-14 w-14 items-center justify-center rounded-nav bg-accent text-on-accent shadow-raised transition-all hover:bg-accent-hover active:scale-95 motion-reduce:transition-none"
           >
-            <Camera size={24} strokeWidth={2.5} />
+            <Camera size={24} strokeWidth={2.5} aria-hidden="true" />
           </button>
         </li>
         {rightTabs.map(renderTab)}

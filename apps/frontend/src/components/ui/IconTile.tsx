@@ -19,7 +19,7 @@ import type { LucideIcon } from 'lucide-react';
 export type IconTone = 'accent' | 'neutral' | 'warning' | 'danger' | 'success';
 
 const TONE: Record<IconTone, string> = {
-  accent: 'bg-accent text-surface-raised',
+  accent: 'bg-accent text-on-accent',
   neutral: 'bg-surface-muted text-ink-secondary',
   warning: 'bg-warning-tint text-warning-text',
   danger: 'bg-danger-tint text-danger-text',

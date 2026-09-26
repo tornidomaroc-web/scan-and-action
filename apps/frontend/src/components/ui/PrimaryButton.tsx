@@ -12,7 +12,7 @@ import { Loader2 } from 'lucide-react';
 // ============================================================================
 
 export const primaryButtonClass =
-  'flex min-h-[52px] w-full items-center justify-center gap-2 rounded-btn bg-accent px-5 text-[15px] font-semibold text-surface-raised shadow-card transition-all hover:bg-accent-hover active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60';
+  'flex min-h-[52px] w-full items-center justify-center gap-2 rounded-btn bg-accent px-5 text-[15px] font-semibold text-on-accent shadow-card transition-all hover:bg-accent-hover active:scale-[0.98] motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-60';
 
 export interface PrimaryButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;

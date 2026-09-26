@@ -290,14 +290,14 @@ export const DashboardScreen = () => {
             <button
               onClick={() => setPeriod('all')}
               aria-pressed={period === 'all'}
-              className={`rounded-[calc(var(--sa-radius-btn)-2px)] px-3 py-1.5 transition-colors ${period === 'all' ? 'bg-accent text-surface-raised' : 'text-ink-tertiary hover:text-ink'}`}
+              className={`rounded-[calc(var(--sa-radius-btn)-2px)] px-3 py-1.5 transition-colors ${period === 'all' ? 'bg-accent text-on-accent' : 'text-ink-tertiary hover:text-ink'}`}
             >
               {s.allTime}
             </button>
             <button
               onClick={() => setPeriod('month')}
               aria-pressed={period === 'month'}
-              className={`rounded-[calc(var(--sa-radius-btn)-2px)] px-3 py-1.5 transition-colors ${period === 'month' ? 'bg-accent text-surface-raised' : 'text-ink-tertiary hover:text-ink'}`}
+              className={`rounded-[calc(var(--sa-radius-btn)-2px)] px-3 py-1.5 transition-colors ${period === 'month' ? 'bg-accent text-on-accent' : 'text-ink-tertiary hover:text-ink'}`}
             >
               {s.thisMonth}
             </button>
@@ -488,7 +488,7 @@ export const DashboardScreen = () => {
               <p className="mt-1 max-w-xs text-sm text-ink-muted">{s.emptyBody}</p>
               <button
                 onClick={onNewScan}
-                className="mt-5 inline-flex items-center gap-2 rounded-btn bg-accent px-5 py-2.5 text-sm font-semibold text-surface-raised shadow-card transition-colors hover:bg-accent-hover"
+                className="mt-5 inline-flex items-center gap-2 rounded-btn bg-accent px-5 py-2.5 text-sm font-semibold text-on-accent shadow-card transition-colors hover:bg-accent-hover"
               >
                 <ScanLine size={16} />
                 {s.newScan}

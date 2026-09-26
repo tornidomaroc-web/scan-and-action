@@ -1,85 +1,100 @@
 /* =============================================================================
    Scan & Action — Design Tokens (authoritative source of truth)
    =============================================================================
-   Extracted from the approved Claude Design file "Dashboard redesign.dc.html".
-   This is the ONE place brand values live for the redesign. Screens migrate onto
-   these `--sa-*` tokens starting in PR-B; the Tailwind config maps utility color
-   names to them so `bg-accent`, `text-ink`, etc. resolve here.
+   The visual language of the app, in one place. The Tailwind config maps
+   utility names to these `--sa-*` variables, so `bg-accent`, `text-ink`,
+   `rounded-panel` and the rest resolve here, and a value changed here changes
+   every screen at once.
 
-   Reconciliation with the pre-existing index.css variables (--background, --card,
-   --accent, …): those legacy vars still drive the current component classes
-   (.saas-card, .btn-primary, .nav-item, .badge-*) and are LEFT UNCHANGED in this
-   PR so the app does not visibly restyle before the screens are migrated. They
-   are marked deprecated in index.css and will be repointed to / replaced by these
-   tokens per-screen in PR-B, then deleted once nothing consumes them. Both layers
-   are toggled by the same `.dark` class, so light/dark remains ONE system.
+   THE LANGUAGE (2026-09-26). Dark first: the values in `.dark` are read from
+   the design the owner chose, a dark dashboard with an electric-blue accent,
+   quiet near-black surfaces, hairline rings, round icons and pill controls.
+   Every number was read out of the design file itself (colours, radii, stroke
+   opacities, shadows, type) rather than judged by eye; none of that file is in
+   this repository. Three adjustments were ruled before anything was built:
 
-   Accent = indigo #635BFF (locked decision), exactly as in the approved design.
+     1. Buttons take the accent one step darker (#3563F0) than the design's
+        chart blue (#3B6CFF): white text on the chart blue measures 4.40:1,
+        under the 4.5 that normal text needs; on #3563F0 it measures 5.01:1.
+        The chart blue survives as `--sa-accent-bright`, for charts and icons,
+        never as the fill under a label. `kitLanguage.test.ts` holds the
+        button ratio.
+     2. A category icon never sits on a surface where its fill drops under
+        3:1. Every surface token below is checked against every category fill,
+        in both themes, by the same test.
+     3. Light mode is our inversion of the design, which is dark only: the
+        design's own light ink (#F5F6FA) becomes the page, its page (#0F1014)
+        becomes the ink, and the same accent, radii and shadows carry over.
+
+   `:root` is light, `.dark` is the design, `.theme-dark` is the same palette
+   for one subtree (the sign-in screens, which are dark in both themes; the
+   test holds the two blocks byte-identical). Both layers are toggled by the
+   `dark` class on <html>, set by index.html from the stored theme or the
+   system setting.
+
+   The legacy vars in index.css (--background, --card, --accent, ...) bridge
+   onto these tokens (tokenBridge.test.ts), so the few old component classes
+   still in use follow the language too.
    ============================================================================= */
 
 :root {
-  /* ── Brand accent (indigo) ─────────────────────────────────────────── */
-  --sa-accent: #635BFF;          /* primary actions, active nav, chart line   */
-  --sa-accent-hover: #5147E8;    /* hover/pressed                              */
-  --sa-accent-text: #4A3FE0;     /* accent text/links on light                */
-  --sa-accent-tint: #EEEDFE;     /* icon-tile / chip background               */
-  --sa-accent-tint-2: #F1F0FE;   /* active nav background                     */
-  --sa-accent-border: #E4E2FB;   /* border on tinted accent surfaces          */
+  /* ── Accent (the design's blue, one step darker for text on it) ──────── */
+  --sa-accent: #3563F0;          /* primary actions, active nav               */
+  --sa-accent-hover: #2F5BE6;    /* hover / pressed                            */
+  --sa-accent-text: #2F5BE6;     /* accent text and links on light            */
+  --sa-accent-tint: #E8EEFF;     /* tinted chip / tile background             */
+  --sa-accent-tint-2: #EEF2FF;   /* active nav background                     */
+  --sa-accent-border: #C9D6FF;   /* border on tinted accent surfaces          */
+  --sa-accent-bright: #3B6CFF;   /* the design's chart blue: charts and icons ONLY, never under a label */
+  --sa-on-accent: #FFFFFF;       /* text on the accent, in both themes (5.01:1 on #3563F0) */
 
-  /* ── Surfaces & lines (cool neutral) ───────────────────────────────── */
-  --sa-surface: #F5F7FA;         /* app background                            */
-  --sa-surface-raised: #FFFFFF;  /* cards, sidebar                            */
-  --sa-surface-alt: #FBFCFE;     /* subtle hover on white                     */
-  --sa-surface-muted: #F1F3F7;   /* neutral icon-tile / inset                 */
-  --sa-line: #E9EBF0;            /* default card border                       */
-  --sa-line-strong: #E4E7EC;     /* button border / stronger divider         */
-  --sa-line-sidebar: #EAECF1;    /* sidebar edge                             */
-  --sa-divider: #F0F2F6;         /* in-card row dividers                      */
+  /* ── Surfaces & lines (the design inverted: its ink is our page) ───────── */
+  --sa-surface: #F5F6FA;         /* app background                            */
+  --sa-surface-raised: #FFFFFF;  /* cards, the rail                           */
+  --sa-surface-alt: #FAFBFD;     /* subtle hover on a card                    */
+  --sa-surface-muted: #EEF0F5;   /* neutral icon circle / inset               */
+  --sa-line: #E4E6EE;            /* card ring                                 */
+  --sa-line-strong: #D9DCE6;     /* button border / stronger divider          */
+  --sa-line-sidebar: #E8EAF1;    /* rail edge                                 */
+  --sa-divider: #EEF0F5;         /* in-card row dividers                      */
 
-  /* ── Overlay / scrim (added D8b PR-2) ──────────────────────────────── */
-  /* Codifies the value EVERY modal scrim already ships: slate-900/60, i.e.
-     rgb(15,23,42) at 60%. Deliberately ONE value for light and dark — no scrim
-     in the app has ever carried a `dark:` variant, so a single value is the
-     faithful transcription and adopting this token changes ZERO pixels.
-     This is not a new brand colour: per the header above, these values come
-     from the approved design file. Inventing a hue (e.g. a saturated
-     --sa-danger-solid for a filled destructive header) would be a design
-     decision, not a restyle — see docs/D8B_PR2_DELETE_ACCOUNT_RESTYLE.md §2.2. */
-  --sa-overlay: rgba(15, 23, 42, 0.6);
+  /* ── Overlay / scrim ───────────────────────────────────────────────────── */
+  /* One value for light and dark, as every modal scrim in the app ships. */
+  --sa-overlay: rgba(15, 16, 20, 0.6);
 
-  /* ── Text ramp ─────────────────────────────────────────────────────── */
-  --sa-ink: #1A1F36;             /* primary text, headings                    */
-  --sa-ink-secondary: #5A6273;   /* body                                      */
-  --sa-ink-tertiary: #6B7385;    /* labels                                    */
-  --sa-ink-muted: #868FA0;       /* captions / meta                          */
-  --sa-ink-faint: #98A2B3;       /* icons, placeholders                       */
-  --sa-ink-fainter: #AEB6C2;     /* axis labels                              */
+  /* ── Text ramp (the design's ramp, inverted) ───────────────────────────── */
+  --sa-ink: #0F1014;             /* primary text, headings                    */
+  --sa-ink-secondary: #5F6373;   /* body                                      */
+  --sa-ink-tertiary: #6B7085;    /* labels                                    */
+  --sa-ink-muted: #858A99;       /* captions / meta                           */
+  --sa-ink-faint: #A0A5B3;       /* icons, placeholders                       */
+  --sa-ink-fainter: #B5B9C6;     /* axis labels                               */
 
-  /* ── Semantic (desaturated) ────────────────────────────────────────── */
-  --sa-success: #2E9E6B;
-  --sa-success-strong: #3E9E6B;
+  /* ── Semantic ──────────────────────────────────────────────────────────── */
+  --sa-success: #1FA873;
+  --sa-success-strong: #2FC48E;
   --sa-success-text: #157347;
-  --sa-success-tint: #EAF6EF;
+  --sa-success-tint: #E3F7EE;
   --sa-warning: #E0A33E;
   --sa-warning-text: #B26A0A;
   --sa-warning-tint: #FBEBD0;
-  --sa-danger: #D9584A;
-  --sa-danger-text: #B23A2E;
-  --sa-danger-tint: #FBECEA;
+  --sa-danger: #E4404E;
+  --sa-danger-text: #B8303C;
+  --sa-danger-tint: #FDECEE;
 
-  /* ── Category colours (added with the ledger home, 2026-09-24) ─────── */
-  /* A colour per spending category, carrying MEANING, not brand: it is the
-     fill of the category's icon tile, always with a white glyph and always
-     beside the category's name, so colour is never the only carrier.
+  /* ── Category colours (unchanged by the language, 2026-09-26) ──────────── */
+  /* A colour per spending category, carrying MEANING, not brand: the fill of
+     the category's icon circle, always with a white glyph and always beside
+     the category's name, so colour is never the only carrier.
      ONE value serves both themes, deliberately: each fill sits in a luminance
-     window where the white glyph clears 3:1 (WCAG 1.4.11) AND the tile clears
-     3:1 against every card and page surface, light and dark.
-     `categoryPalette.test.ts` computes those ratios from this file; move a
-     value outside the window and it fails. Hues follow common meaning where it
-     helps (food orange, transport blue, health green as a pharmacy cross);
+     window where the white glyph clears 3:1 (WCAG 1.4.11) AND the fill clears
+     3:1 against every surface token, light and dark. `categoryPalette.test.ts`
+     and `kitLanguage.test.ts` compute those ratios from this file; move a
+     value outside the window and they fail. Hues follow common meaning where
+     it helps (food orange, transport blue, health green as a pharmacy cross);
      none reuses a status colour (warning amber, danger red). Other is a
-     category like the rest, so it has a hue of its own (fuchsia), never
-     grey: a grey tile among coloured ones reads as disabled (owner, 2026-09-25).
+     category like the rest, so it has a hue of its own (fuchsia), never grey:
+     a grey circle among coloured ones reads as disabled (owner, 2026-09-25).
      The test also holds every fill to a chroma floor and a distance from the
      others, including the warning TEXT: the first Bills (#B7791F) sat 7.4 ΔE
      from the amber review-chip text and read as the same colour (owner,
@@ -93,22 +108,22 @@
   --sa-cat-office: #8B5CF6;
   --sa-cat-other: #C026D3;
 
-  /* ── Radius scale ──────────────────────────────────────────────────── */
+  /* ── Radius scale (read from the design: cards 26, inner tiles 13, everything that is a control is a pill, every icon is a circle) ── */
   --sa-radius-sm: 6px;
-  --sa-radius-nav: 8px;
-  --sa-radius-btn: 9px;          /* buttons, icon tiles                       */
-  --sa-radius-card: 12px;        /* cards                                     */
-  --sa-radius-tile: 12px;        /* category icon tile (36-44px squircle)     */
-  --sa-radius-panel: 20px;       /* the ledger's cards; the app's, from the rollout PR */
+  --sa-radius-nav: 999px;        /* rail and tab buttons: circles              */
+  --sa-radius-btn: 999px;        /* buttons: pills                             */
+  --sa-radius-card: 13px;        /* inner tiles, fields, notices               */
+  --sa-radius-tile: 999px;       /* category and icon circles                  */
+  --sa-radius-panel: 26px;       /* the cards                                  */
   --sa-radius-pill: 999px;
 
-  /* ── Elevation (quiet) ─────────────────────────────────────────────── */
-  --sa-shadow-card: 0 1px 2px rgba(20, 28, 54, 0.04);
-  --sa-shadow-raised: 0 1px 2px rgba(20, 28, 54, 0.06);
-  --sa-shadow-lg: 0 26px 60px -24px rgba(20, 28, 54, 0.30),
-                  0 10px 24px -16px rgba(20, 28, 54, 0.14);
+  /* ── Elevation (read from the design: a hairline lift, and a soft drop under floating things) ── */
+  --sa-shadow-card: 0 1px 2px rgba(20, 20, 30, 0.04);
+  --sa-shadow-raised: 0 12px 32px -12px rgba(20, 20, 30, 0.12);
+  --sa-shadow-lg: 0 26px 60px -24px rgba(20, 20, 30, 0.30),
+                  0 10px 24px -16px rgba(20, 20, 30, 0.14);
 
-  /* ── Typography ────────────────────────────────────────────────────── */
+  /* ── Typography (the design is set in Inter, which the app already uses) ── */
   --sa-font-sans: 'Inter', 'IBM Plex Sans Arabic', system-ui, -apple-system,
                   BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
@@ -123,44 +138,86 @@
   --sa-tracking-wide: 0.06em;   /* small uppercase eyebrows */
 }
 
-/* Dark palette. NOTE: the approved design provided light frames only, so these
-   dark values are DERIVED to stay coherent with the app's existing dark mode
-   (slate-based surfaces) while keeping the indigo accent. Revisit if a dark
-   design frame is produced. */
+/* The design, as read from its file. Page #0F1014, card #191A21, inner tile
+   #21222B, hairline white at 8%, ink #F5F6FA, muted #858A99, faint #606474,
+   green #35D49A, red #FF5F6D. */
 .dark {
-  --sa-accent: #A7A1FF;
-  --sa-accent-hover: #6F67FF;
-  --sa-accent-text: #A7A1FF;
-  --sa-accent-tint: rgba(99, 91, 255, 0.16);
-  --sa-accent-tint-2: rgba(99, 91, 255, 0.12);
-  --sa-accent-border: rgba(99, 91, 255, 0.32);
+  --sa-accent: #3563F0;
+  --sa-accent-hover: #2F5BE6;
+  --sa-accent-text: #7F9FFF;
+  --sa-accent-tint: rgba(59, 108, 255, 0.18);
+  --sa-accent-tint-2: rgba(59, 108, 255, 0.12);
+  --sa-accent-border: rgba(59, 108, 255, 0.35);
+  --sa-accent-bright: #3B6CFF;
+  --sa-on-accent: #FFFFFF;
 
-  --sa-surface: #0F172A;
-  --sa-surface-raised: #1E293B;
-  --sa-surface-alt: #24324a;
-  --sa-surface-muted: #24324a;
-  --sa-line: #334155;
-  --sa-line-strong: #3b4a63;
-  --sa-line-sidebar: #26324a;
-  --sa-divider: #2a3852;
+  --sa-surface: #0F1014;
+  --sa-surface-raised: #191A21;
+  --sa-surface-alt: #21222B;
+  --sa-surface-muted: #21222B;
+  --sa-line: #24252E;
+  --sa-line-strong: #2E2F3A;
+  --sa-line-sidebar: #1E1F27;
+  --sa-divider: #21222B;
 
-  --sa-ink: #F8FAFC;
-  --sa-ink-secondary: #CBD5E1;
-  --sa-ink-tertiary: #AFBACA;
-  --sa-ink-muted: #94A3B8;
-  --sa-ink-faint: #7C8AA0;
-  --sa-ink-fainter: #64748B;
+  --sa-ink: #F5F6FA;
+  --sa-ink-secondary: #C5C8D2;
+  --sa-ink-tertiary: #A7ABB8;
+  --sa-ink-muted: #858A99;
+  --sa-ink-faint: #606474;
+  --sa-ink-fainter: #4B4F5C;
 
-  --sa-success: #4ADE80;
-  --sa-success-strong: #34D399;
-  --sa-success-text: #6EE7B7;
-  --sa-success-tint: rgba(34, 197, 94, 0.12);
+  --sa-success: #35D49A;
+  --sa-success-strong: #2FC48E;
+  --sa-success-text: #35D49A;
+  --sa-success-tint: rgba(53, 212, 154, 0.14);
   --sa-warning: #F5C368;
-  --sa-warning-text: #FBBF24;
-  --sa-warning-tint: rgba(234, 179, 8, 0.12);
-  --sa-danger: #F87171;
-  --sa-danger-text: #FCA5A5;
-  --sa-danger-tint: rgba(239, 68, 68, 0.12);
+  --sa-warning-text: #F5C368;
+  --sa-warning-tint: rgba(234, 179, 8, 0.14);
+  --sa-danger: #FF5F6D;
+  --sa-danger-text: #FF7A85;
+  --sa-danger-tint: rgba(255, 95, 109, 0.14);
+}
+
+/* The same palette for one subtree, whatever the page theme: the sign-in
+   screens are dark in both themes (components/auth/AuthFrame.tsx). Byte for
+   byte the `.dark` block above; kitLanguage.test.ts fails if they drift. */
+.theme-dark {
+  --sa-accent: #3563F0;
+  --sa-accent-hover: #2F5BE6;
+  --sa-accent-text: #7F9FFF;
+  --sa-accent-tint: rgba(59, 108, 255, 0.18);
+  --sa-accent-tint-2: rgba(59, 108, 255, 0.12);
+  --sa-accent-border: rgba(59, 108, 255, 0.35);
+  --sa-accent-bright: #3B6CFF;
+  --sa-on-accent: #FFFFFF;
+
+  --sa-surface: #0F1014;
+  --sa-surface-raised: #191A21;
+  --sa-surface-alt: #21222B;
+  --sa-surface-muted: #21222B;
+  --sa-line: #24252E;
+  --sa-line-strong: #2E2F3A;
+  --sa-line-sidebar: #1E1F27;
+  --sa-divider: #21222B;
+
+  --sa-ink: #F5F6FA;
+  --sa-ink-secondary: #C5C8D2;
+  --sa-ink-tertiary: #A7ABB8;
+  --sa-ink-muted: #858A99;
+  --sa-ink-faint: #606474;
+  --sa-ink-fainter: #4B4F5C;
+
+  --sa-success: #35D49A;
+  --sa-success-strong: #2FC48E;
+  --sa-success-text: #35D49A;
+  --sa-success-tint: rgba(53, 212, 154, 0.14);
+  --sa-warning: #F5C368;
+  --sa-warning-text: #F5C368;
+  --sa-warning-tint: rgba(234, 179, 8, 0.14);
+  --sa-danger: #FF5F6D;
+  --sa-danger-text: #FF7A85;
+  --sa-danger-tint: rgba(255, 95, 109, 0.14);
 }
 
 /* ===========================================================================
@@ -170,74 +227,25 @@
    token the landing route uses whose value DIFFERS between `:root` and `.dark`.
    It defines no new token, invents no colour, and changes neither block above.
 
-   WHY IT EXISTS. The landing route is a light-only page: eight of its nine
-   top-level sections are hardcoded palette (`bg-white`, `bg-slate-50`,
-   `bg-slate-900`) and it carries ZERO `dark:` variants. #208 and #209 then
-   introduced dark-aware tokens into it. The tokens obey `.dark`, which
-   index.html sets on <html> from prefers-color-scheme on EVERY route; the rest
-   of the page does not. Measured on production (d25691a) in a real browser:
-
-     header "Start free"   bg #F8FAFC on fg #FFFFFF   1.05:1   (light: 16.24:1)
-     hero CTA              bg #F8FAFC on fg #FFFFFF   1.05:1
-     "Upgrade Now"         bg #F8FAFC on fg #FFFFFF   1.05:1
-     final CTA             bg #F8FAFC on fg #FFFFFF   1.05:1
-     "Fix required" label  #FBBF24 on #FFFFFF         1.67:1   (light: 4.23:1)
-
-   `bg-ink` is the cause: tailwind.config.cjs emits the ink token as BOTH a text
-   and a background utility, so `bg-ink` paints the background with the primary
-   TEXT colour. Paired with a literal `text-white` it inverts into itself. The
-   one CTA that still reads in dark mode is the one that was never migrated
-   (`bg-slate-100 text-slate-900`, two literals) — the migrated buttons are the
-   broken ones.
-
-   WHY NOT `dark:` VARIANTS. Giving this page a real dark appearance means
-   editing eight section backgrounds and the 75 palette usages inside them, and
-   there is nothing designed to migrate TO: the `.dark` block above says its own
-   values are DERIVED, because the approved design provided light frames only.
-   That work is the step-3 colour migration.
-
-   WHEN TO DELETE THIS. The moment a dark design frame for the marketing page
-   exists. Until then this class is what makes the code state, once, what the
-   page already is.
-
-   THE COUNT IS NOT FIXED, AND THIS PROSE HAS ALREADY BEEN WRONG ABOUT IT. Do
-   not read a number here as current. `landingLightPin.test.tsx` recomputes the
-   required set from the route's source on every run, so the DECLARATIONS below
-   are the only statement of the count that cannot drift; this paragraph is
-   history. The trail: eight, then six when #214 de-tokenised the hero mock,
-   then seven when #219 unfroze `--sa-accent`, then EIGHT again with
-   `--sa-surface`, which the rebuilt section 2 reaches through `bg-surface`. The
-   two sentences that said "six" while seven were declared are rewritten here
-   for that reason and not as tidying.
-
-   WHY #214's TWO WENT. `--sa-warning` and `--sa-warning-text` were pinned
-   because the hero mock consumed them. It no longer does: that mock is a
-   PICTURE of the product, built from palette literals (`bg-amber-50`,
-   `text-amber-800`, `bg-amber-400`), and two of its elements had been tokenised
-   by accident — which is exactly why they flipped with the app's theme while the
-   picture around them did not. They are literals again, so the route reaches
-   neither token and the pin no longer declares them.
-
-   WHY THE CTA TOKENS STAY, measured on production with the CTA fix applied and
-   the pin removed, dark mode, transitions disabled:
-     hero CTA     button #F8FAFC on its bg-white section = SHAPE 1.05
-     Upgrade Now  button #F8FAFC on its bg-white section = SHAPE 1.05
-   The foreground fix makes the TEXT legible (13.98:1) but the BUTTON stops
-   existing as an object, because the sections under it are `bg-white` literals
-   that cannot flip. The pin is what keeps those two buttons visible. It goes when
-   step 3 migrates those sections, not before.
+   WHY IT EXISTS. The landing route is a light-only page: most of its sections
+   are hardcoded palette (`bg-white`, `bg-slate-50`, `bg-slate-900`) and it
+   carries ZERO `dark:` variants, while the token utilities it reaches obey the
+   `dark` class that index.html sets from the system setting on every route.
+   Measured on production before the pin, a tokenised CTA on a `bg-white`
+   section inverted into its own background (1.05:1). The pin keeps that
+   page's tokens light until the page itself is redrawn in the language.
 
    DRIFT: every value below is byte-copied from `:root`, and the set is exactly
-   the differing tokens the route reaches. `landingLightPin.test.tsx` recomputes
-   both from source and fails on any mismatch — do not edit either by hand.
+   the differing tokens the route reaches. `landingLightPin.test.tsx`
+   recomputes both from source and fails on any mismatch; do not edit either
+   by hand without running it.
    =========================================================================== */
 .sa-pin-light {
-  --sa-accent: #635BFF;
-  --sa-accent-tint: #EEEDFE;
-  --sa-accent-border: #E4E2FB;
-  --sa-surface: #F5F7FA;
+  --sa-accent-tint: #E8EEFF;
+  --sa-accent-border: #C9D6FF;
+  --sa-surface: #F5F6FA;
   --sa-surface-raised: #FFFFFF;
-  --sa-line: #E9EBF0;
-  --sa-ink: #1A1F36;
-  --sa-ink-secondary: #5A6273;
+  --sa-line: #E4E6EE;
+  --sa-ink: #0F1014;
+  --sa-ink-secondary: #5F6373;
 }

@@ -20,10 +20,11 @@ import { IconTile } from '../components/ui/IconTile';
  * the whole hazard, so the single job here is to make them commit a NEW
  * password before anything else in the app becomes reachable.
  *
- * Redrawn onto the sign-in screen's pieces on 2026-09-26. The logic is the
- * one from before, line for line: the length and match checks, updateUser,
- * the generic catalog error, and clearRecovery() only after the password has
- * actually changed (passwordRecoveryRouting.test.tsx holds it).
+ * Drawn on the sign-in screen's pieces (AuthFrame, the pill fields, the accent
+ * pill). The logic is the one from before, line for line: the length and
+ * match checks, updateUser, the generic catalog error, and clearRecovery()
+ * only after the password has actually changed
+ * (passwordRecoveryRouting.test.tsx holds it).
  *
  * Every user-visible string comes from the s.* catalog. Supabase's own error
  * text is deliberately NOT surfaced: it is server-side English.
@@ -74,14 +75,13 @@ export const ResetPasswordScreen: React.FC = () => {
 
   if (done) {
     return (
-      <AuthFrame>
-        <div data-reset-done>
+      <AuthFrame title={s.resetPasswordSuccessTitle}>
+        <div data-reset-done className="rounded-panel bg-surface-raised p-5 ring-1 ring-line">
           <IconTile icon={CheckCircle2} tone="success" size="lg" />
-          <h1 className="mt-4 text-start text-title-lg font-semibold text-ink">{s.resetPasswordSuccessTitle}</h1>
           {/* text-balance evens the two lines out. TYPOGRAPHY ONLY: the catalog
               string is byte-identical in all three locales and must stay so
               (resetPasswordSuccessWrap.test.tsx). */}
-          <p className="text-balance mt-2 text-start text-sm leading-relaxed text-ink-secondary">{s.resetPasswordSuccessBody}</p>
+          <p className="text-balance mt-4 text-start text-sm leading-relaxed text-ink-secondary">{s.resetPasswordSuccessBody}</p>
           <PrimaryButton type="button" onClick={handleContinue} className="mt-6">
             {s.resetPasswordContinueCta}
             <ArrowRight size={18} className="rtl:rotate-180" aria-hidden="true" />
@@ -92,13 +92,11 @@ export const ResetPasswordScreen: React.FC = () => {
   }
 
   return (
-    <AuthFrame>
-      <h1 className="text-start text-title-lg font-semibold text-ink">{s.resetPasswordTitle}</h1>
-      <p className="mt-1 text-start text-sm text-ink-secondary">{s.resetPasswordSubtitle}</p>
-
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4" data-reset-form>
+    <AuthFrame title={s.resetPasswordTitle} subtitle={s.resetPasswordSubtitle}>
+      <form onSubmit={handleSubmit} className="space-y-4" data-reset-form>
         <TextField
           id="new-password"
+          shape="pill"
           label={s.resetPasswordNewLabel}
           type="password"
           autoComplete="new-password"
@@ -113,6 +111,7 @@ export const ResetPasswordScreen: React.FC = () => {
         />
         <TextField
           id="confirm-password"
+          shape="pill"
           label={s.resetPasswordConfirmLabel}
           type="password"
           autoComplete="new-password"

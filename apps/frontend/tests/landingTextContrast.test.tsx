@@ -499,7 +499,9 @@ describe('the closing band CTA has an edge', () => {
 
   it('POSITIVE CONTROL: the fill it replaced fails that floor, so this can go red', () => {
     const r = contrast(rgb(resolve('bg-ink')), rgb(resolve('bg-slate-900')));
-    expect(r).toBeCloseTo(1.10, 2);
+    // 1.10 with the earlier ink (#1A1F36); 1.06 with the ink of the language
+    // chosen 2026-09-26 (#0F1014). Either way, nowhere near an edge.
+    expect(r).toBeCloseTo(1.065, 2);
     expect(r).toBeLessThan(3);
   });
 

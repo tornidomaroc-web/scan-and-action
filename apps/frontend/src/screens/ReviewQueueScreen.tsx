@@ -277,7 +277,7 @@ export const ReviewQueueScreen = () => {
                     onClick={(e) => { e.stopPropagation(); handleAction(doc.id, 'approve'); }}
                     disabled={actioningId === doc.id}
                     aria-label={`${s.approve} ${name}`}
-                    className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-success text-sm font-semibold text-white transition-colors active:scale-[0.99] disabled:opacity-50"
+                    className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-success-tint text-sm font-semibold text-success-text ring-1 ring-line transition-colors hover:ring-success active:scale-[0.99] motion-reduce:transition-none disabled:opacity-50"
                   >
                     <CheckCircle size={18} />
                     {s.approve}
@@ -286,7 +286,7 @@ export const ReviewQueueScreen = () => {
                     onClick={(e) => { e.stopPropagation(); handleAction(doc.id, 'reject'); }}
                     disabled={actioningId === doc.id}
                     aria-label={`${s.reject} ${name}`}
-                    className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-danger text-sm font-semibold text-white transition-colors active:scale-[0.99] disabled:opacity-50"
+                    className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-danger-tint text-sm font-semibold text-danger-text ring-1 ring-line transition-colors hover:ring-danger active:scale-[0.99] motion-reduce:transition-none disabled:opacity-50"
                   >
                     <XCircle size={18} />
                     {s.reject}

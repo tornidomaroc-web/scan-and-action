@@ -64,7 +64,7 @@ export const AppCrashFallback: React.FC = () => {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="w-full min-h-[44px] bg-accent hover:bg-accent-hover text-surface-raised py-3 rounded-btn font-semibold shadow-card active:scale-[0.98] transition-all"
+          className="w-full min-h-[44px] bg-accent hover:bg-accent-hover text-on-accent py-3 rounded-btn font-semibold shadow-card active:scale-[0.98] transition-all"
         >
           {s.appCrashReload}
         </button>

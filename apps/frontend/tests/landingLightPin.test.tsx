@@ -117,8 +117,10 @@ describe('the pin invents nothing', () => {
   });
 
   it('changes neither :root nor .dark — --sa-ink still flips for the rest of the app', () => {
-    expect(root['--sa-ink']).toBe('#1A1F36');
-    expect(dark['--sa-ink']).toBe('#F8FAFC');
+    // The ink of the language chosen 2026-09-26 (tokens.css): the design's
+    // page becomes our light ink, and its ink our dark one.
+    expect(root['--sa-ink']).toBe('#0F1014');
+    expect(dark['--sa-ink']).toBe('#F5F6FA');
   });
 });
 

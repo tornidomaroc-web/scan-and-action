@@ -15,25 +15,23 @@ import { Notice } from '../components/ui/Notice';
 import { IconTile } from '../components/ui/IconTile';
 
 // ============================================================================
-// Sign in and sign up, redrawn from zero on 2026-09-26 (board, step 5).
+// Sign in and sign up, in the visual language of 2026-09-26.
 //
-// One column: the app's mark, a title, the two fields, the button. The
-// fields come first so that on a phone they and the button sit above the
-// keyboard. No feature list, no claims: the person came to sign in.
+// The anatomy: a dark page; the brand, the title and one line in the big
+// accent card (AuthFrame); a pill switch between "Sign in" and "Create
+// account"; the two fields as pills; the one button as the accent pill. The
+// fields still come first under the card, so on a phone they and the button
+// sit above the keyboard.
 //
 // WHAT DID NOT CHANGE, on purpose, and is held by the tests named:
 //   the sign-up length guard and the sign-in path that is never gated on
 //   length (authPasswordLength.test.tsx); every error rendered from the
 //   catalog through translateAuthError (authErrorI18n.test.tsx); the
 //   forgot-password wiring, its enumeration-safe copy and its three rate
-//   limits (forgotPasswordWiring.test.tsx); the recovery redirect URL below.
-//
-// WHAT IS NEW in behaviour: a request that never answers ends in the
-// timeout copy after REQUEST_TIMEOUT_MS instead of a button that spins
-// forever, and a sign-up that succeeds replaces the form with "check your
-// inbox" (the toast is kept). Only a rejected fetch (status 0) or a timeout
-// says anything about the connection; a status that arrived is a server
-// answer and is worded as one (lib/serverErrors.ts).
+//   limits (forgotPasswordWiring.test.tsx); the recovery redirect URL below;
+//   and the behaviour the first redraw added (authScreenRedraw.test.tsx):
+//   the 20 s timeout, the truthful error copy, the autofill attributes, the
+//   "check your inbox" state, the language switcher on the first screen.
 // ============================================================================
 
 // Where the password-reset email lands. ABSOLUTE and CANONICAL, deliberately
@@ -154,11 +152,10 @@ export const AuthScreen: React.FC = () => {
 
   if (signedUpEmail !== null) {
     return (
-      <AuthFrame>
-        <div data-auth-check-inbox>
+      <AuthFrame title={s.authCheckInboxTitle}>
+        <div data-auth-check-inbox className="rounded-panel bg-surface-raised p-5 ring-1 ring-line">
           <IconTile icon={Mail} tone="success" size="lg" />
-          <h1 className="mt-4 text-start text-title-lg font-semibold text-ink">{s.authCheckInboxTitle}</h1>
-          <p dir="ltr" className="mt-2 break-all text-start font-semibold text-ink">
+          <p dir="ltr" className="mt-4 break-all text-start font-semibold text-ink">
             <bdi>{signedUpEmail}</bdi>
           </p>
           <p className="mt-2 text-start text-sm leading-relaxed text-ink-secondary">{s.authCheckInboxBody}</p>
@@ -170,14 +167,30 @@ export const AuthScreen: React.FC = () => {
     );
   }
 
-  return (
-    <AuthFrame>
-      <h1 className="text-start text-title-lg font-semibold text-ink">{isLogin ? s.authSignInTitle : s.authSignUpTitle}</h1>
-      <p className="mt-1 text-start text-sm text-ink-secondary">{isLogin ? s.authSignInSubtitle : s.authSignUpSubtitle}</p>
+  const segment = (active: boolean) =>
+    `flex-1 rounded-pill py-2 text-center text-sm font-semibold transition-colors motion-reduce:transition-none ${active ? 'bg-ink text-surface shadow-card' : 'text-ink-secondary hover:text-ink'}`;
 
-      <form onSubmit={handleAuth} noValidate={false} className="mt-6 space-y-4" data-auth-form={mode}>
+  return (
+    <AuthFrame title={isLogin ? s.authSignInTitle : s.authSignUpTitle} subtitle={isLogin ? s.authSignInSubtitle : s.authSignUpSubtitle}>
+      {/* The pill switch: two segments, the active one raised. The segments
+          carry the two CTA strings, so the tests that flip the mode by its
+          catalog label find them here. */}
+      <div role="radiogroup" aria-label={s.authSignInTitle} className="flex gap-1 rounded-pill bg-surface-raised p-1 ring-1 ring-line" data-auth-mode-switch>
+        <button type="button" role="radio" aria-checked={isLogin} onClick={() => switchMode('login')} className={segment(isLogin)}>
+          {s.authSignInCta}
+        </button>
+        <button type="button" role="radio" aria-checked={!isLogin} onClick={() => switchMode('signup')} className={segment(!isLogin)}>
+          {s.authCreateAccountCta}
+        </button>
+      </div>
+
+      {/* mt-4 and space-y-3: with the frame's short card these put the
+          button's bottom at 483 px (sign-in) and 505 px (sign-up) on a
+          390 x 844 phone, above the 508 px a 336 pt keyboard leaves. */}
+      <form onSubmit={handleAuth} className="mt-4 space-y-3" data-auth-form={mode}>
         <TextField
           id="email"
+          shape="pill"
           label={s.authEmailLabel}
           type="email"
           inputMode="email"
@@ -201,6 +214,7 @@ export const AuthScreen: React.FC = () => {
 
         <TextField
           id="password"
+          shape="pill"
           label={s.authPasswordLabel}
           type={showPassword ? 'text' : 'password'}
           autoComplete={isLogin ? 'current-password' : 'new-password'}
@@ -271,13 +285,6 @@ export const AuthScreen: React.FC = () => {
           </p>
         )}
       </form>
-
-      <p className="mt-6 text-start text-sm text-ink-secondary">
-        {isLogin ? s.authNoAccount : s.authHaveAccount}{' '}
-        <button type="button" onClick={() => switchMode(isLogin ? 'signup' : 'login')} className="font-semibold text-accent-text hover:underline">
-          {isLogin ? s.authCreateAccountCta : s.authSignInCta}
-        </button>
-      </p>
     </AuthFrame>
   );
 };

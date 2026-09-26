@@ -10,7 +10,12 @@ import React from 'react';
 // ============================================================================
 
 export const fieldClass =
-  'h-[52px] w-full rounded-card bg-surface-raised px-4 text-[16px] font-medium text-ink shadow-card ring-1 outline-none transition-shadow placeholder:text-ink-faint focus:ring-2';
+  'w-full bg-surface-raised text-[16px] font-medium text-ink shadow-card ring-1 outline-none transition-shadow motion-reduce:transition-none placeholder:text-ink-faint focus:ring-2';
+
+/** The two shapes a field takes: the 52px card-cornered field, or the 48px
+ *  pill the sign-in screens use, where every control is a pill and the form
+ *  has to stay above a phone keyboard (the language of 2026-09-26). */
+const SHAPE = { card: 'h-[52px] rounded-card px-4', pill: 'h-12 rounded-pill px-5' } as const;
 
 export interface TextFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'id' | 'className'> {
   id: string;
@@ -23,14 +28,15 @@ export interface TextFieldProps extends Omit<React.InputHTMLAttributes<HTMLInput
   end?: React.ReactNode;
   /** A control on the label row's end edge: the forgot-password link. */
   labelEnd?: React.ReactNode;
+  shape?: keyof typeof SHAPE;
   className?: string;
 }
 
-export const TextField: React.FC<TextFieldProps> = ({ id, label, invalid = false, hint, end, labelEnd, className = '', ...input }) => {
+export const TextField: React.FC<TextFieldProps> = ({ id, label, invalid = false, hint, end, labelEnd, shape = 'card', className = '', ...input }) => {
   const hintId = hint ? `${id}-hint` : undefined;
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between gap-3">
+      <div className="mb-1 flex items-center justify-between gap-3">
         <label htmlFor={id} className="text-start text-label font-semibold text-ink-secondary">
           {label}
         </label>
@@ -46,7 +52,7 @@ export const TextField: React.FC<TextFieldProps> = ({ id, label, invalid = false
           id={id}
           aria-invalid={invalid || undefined}
           aria-describedby={hintId}
-          className={`${fieldClass} ${invalid ? 'ring-2 ring-danger focus:ring-danger' : 'ring-line focus:ring-accent'} ${className}`}
+          className={`${fieldClass} ${SHAPE[shape]} ${invalid ? 'ring-2 ring-danger focus:ring-danger' : 'ring-line focus:ring-accent'} ${className}`}
           {...input}
         />
         {end}

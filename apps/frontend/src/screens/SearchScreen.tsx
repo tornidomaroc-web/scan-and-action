@@ -281,7 +281,7 @@ const Recent: React.FC<{ data: SearchResult; s: Strings; lang: Lang }> = ({ data
       <Rows data={data} s={s} lang={lang} />
     ) : (
       <Panel className="mt-3 p-8 text-center" data-search-empty>
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-tile bg-accent text-surface-raised">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-tile bg-accent text-on-accent">
           <Receipt size={26} aria-hidden="true" />
         </div>
         <h3 className="mt-4 text-[17px] font-bold text-ink">{s.searchEmptyTitle}</h3>
@@ -313,7 +313,7 @@ const Filtered: React.FC<{
         <p className="mx-auto mt-1 max-w-xs text-sm text-ink-secondary">{s.searchNoResultsBody.replace('{scope}', scope)}</p>
         <div className="mt-6 flex flex-col items-center gap-2">
           {params.month && (
-            <button type="button" onClick={onAllMonths} data-search-try-all className="inline-flex min-h-[48px] items-center rounded-pill bg-accent px-6 text-sm font-bold text-surface-raised shadow-card transition-all hover:bg-accent-hover active:scale-95">
+            <button type="button" onClick={onAllMonths} data-search-try-all className="inline-flex min-h-[48px] items-center rounded-pill bg-accent px-6 text-sm font-bold text-on-accent shadow-card transition-all hover:bg-accent-hover active:scale-95">
               {s.searchTryAllMonths}
             </button>
           )}
