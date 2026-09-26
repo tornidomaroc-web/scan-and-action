@@ -417,6 +417,111 @@ a store screenshot.**
   desktop upload dialog instead of `CaptureSheet`, which would be a second layout
   to design and review.
 
+### Sign-in with Google and Apple — the owner's condition for both stores
+
+Set by the owner on 2026-09-26: Google and Apple sign-in on the Login screen
+before republishing on Play and publishing on the App Store. Built on
+`feat/social-sign-in`. The rulings, each with what was read:
+
+- **Google is what makes Apple mandatory, not the reverse.** Apple 4.8 "Login
+  Services", read 2026-09-26 at developer.apple.com/app-store/review/guidelines
+  (page dated June 8, 2026): apps that use a third-party login *"such as
+  Facebook Login, Google Sign-In ... must also offer as an equivalent option
+  another login service"* that *"limits data collection to the user's name and
+  email address"*, *"allows users to keep their email address private"* and
+  does not collect interactions for advertising; not required if *"Your app
+  exclusively uses your company's own account setup and sign-in systems."*
+  The section no longer names Sign in with Apple. Email and password cannot
+  keep an address private; Sign in with Apple can.
+- **Apple on iOS only, native, no secret.** Supabase's Apple guide: *"If
+  you're building a native app only, you do not need to configure the OAuth
+  settings"*, and for the web flow *"Apple requires you to generate a new
+  secret key every 6 months"*. Apple's usage guidelines *recommend*, and do
+  not require, offering it on other platforms. Reversing this costs a Services
+  ID, a `.p8` key, a client secret pasted into Supabase that expires every six
+  months, and a monitor for that expiry of exactly the class this repository's
+  CLAUDE.md warns cannot be trusted quietly. Owner: the owner, if ever.
+- **The way out of an Apple-only account on the web and Android** is the
+  Settings card "Sign in on other devices" (`SetPasswordCard.tsx`): a signed-in
+  user sets a password, and `supabase/auth` `user.go`
+  (`ensureEmailIdentityForPassword`) creates the email identity, so the same
+  address and that password sign in anywhere. It depends on nothing outside
+  the app. The passive route, a reset mail to the relay address, works only
+  after the relay registration below and only if the person finds their relay
+  address in iOS Settings.
+- **The lockout cannot return.** `ensureUser` keys on the Supabase uuid;
+  Supabase attaches a verified-email identity to the existing user (docs,
+  auth-identity-linking: *"If a match is found, the new identity is linked to
+  the user"*), so the uuid does not change; a Hide-My-Email relay is a new uuid
+  and a new address. `authMiddleware.identityLinking.test.ts` holds the three
+  shapes and the control. **Live reading once the owner has signed in with
+  Google on his own address:** from `apps/backend`, inside
+  `SET TRANSACTION READ ONLY`, count `auth.identities` rows for his uuid
+  (expect 2) and the `"User"` row count (expect unchanged).
+
+- [ ] **Submission is BLOCKED until Apple token revocation on account deletion
+  ships.** Apple's "Offering account deletion in your app" support page, read
+  2026-09-26: *"Apps that support Sign in with Apple should use the Sign in
+  with Apple REST API to revoke user tokens."* `AccountController.deleteAccount`
+  deletes the Supabase identity and calls nothing at Apple.
+  - Cost: the Team ID, a Sign in with Apple key ID and its `.p8` as Railway
+    secrets (never in this repository, never in chat), a client-secret JWT
+    minted per call from the key, and one call to Apple's `/auth/revoke`
+    before the identity is deleted, skipped for users with no Apple identity.
+  - Owner: engineering, with the key created by the owner in his Apple account.
+  - **EXPIRY:** before the first App Store review submission. TestFlight is
+    internal; review is where Apple judges this. Deferred from
+    `feat/social-sign-in` by the owner's ruling of 2026-09-26.
+- [ ] **The three iOS edits, attached to the iOS platform PR** ("No iOS
+  platform in the repository" above). `apps/frontend/ios` does not exist, so
+  they cannot land yet:
+  1. `Info.plist`: `CFBundleURLTypes` with the reversed Google iOS client ID as
+     a URL scheme (Google Sign-In for iOS, "start-integrating").
+  2. `AppDelegate.swift`: `GIDSignIn.sharedInstance.handle(url)` in
+     `application(_:open:options:)`, per the plugin's iOS guide.
+  3. The Sign in with Apple capability on the target
+     (`com.apple.developer.applesignin` entitlement).
+  - Owner: engineering. **EXPIRY:** the platform PR merges with all three, and
+    the first TestFlight build signs in with Apple and with Google.
+- [ ] **Register `scan-action.com` as an email source for Apple's Private
+  Email Relay.** Apple ("configuring-your-environment-for-sign-in-with-apple",
+  read 2026-09-26): *"you must register your outbound email domains ... as email
+  sources for the Private Email Relay Service"*, authenticated by SPF and/or
+  DKIM, and the DKIM `d=` domain must match the From domain exactly. Resend
+  sends From `noreply@scan-action.com`. Until registered, every mail to a
+  Hide-My-Email user bounces: the welcome mail (non-fatal by test) and a
+  password-reset link.
+  - Owner: the owner, in Certificates, Identifiers & Profiles. Free.
+  - **EXPIRY:** the domain shows verified there, and a test mail to a relay
+    address of the owner's own Apple ID arrives.
+- [ ] **Android Google sign-in is UNVERIFIED and stays so until a device
+  exists.** The owner's phone is an iPhone and there is no Android device
+  (the owner; the 2026-09-04 pass used a borrowed Samsung). The path is the same plugin call as
+  iOS, held by `socialAuth.test.ts`, but Credential Manager also needs the
+  Android OAuth client to carry the SHA-1 of the Play App Signing key (Play
+  Console, App integrity) and of the upload key; a mismatch fails with
+  `[28444] Developer console is not set up correctly` on the device only.
+  - Owner: the owner. **EXPIRY:** one Google sign-in on a Play-installed build
+    on a borrowed Android device.
+- [ ] **A Hide-My-Email sign-in by someone who already has an email-and-password
+  account makes a second, empty account.** Ruled invisible in v1 (the owner,
+  2026-09-26): the backend refuses every address-keyed read on a request (#147),
+  so the duplicate cannot be detected, and the only signal is an empty ledger.
+  The cure when it matters is Supabase manual linking (`linkIdentity`, beta)
+  from Settings, which needs "Enable Manual Linking" in the dashboard.
+  - **REVISIT when** a read-only count of `auth.identities` with
+    `provider = 'apple'` exceeds the owner's own; today it is 0.
+- [ ] **The owner's console work, verified by a read and not by his word.**
+  Instrument: `GET https://<project>.supabase.co/auth/v1/settings` with the
+  publishable key from the served bundle. On 2026-09-26 its `external` map
+  showed `email` only and `mailer_autoconfirm: false`.
+  - **EXPIRY:** `google` and `apple` read true there; then the web preview
+    signs in with Google from the owner's already-signed-in Chrome; then the
+    live linking reading above.
+  - One conditional: Supabase's Google guide says to enable "Skip nonce check"
+    for iOS. The plugin forwards a nonce, so it is left OFF; if the first iOS
+    Google sign-in fails naming the nonce, turn it on and record it here.
+
 ### Kept, with the reason each has now
 
 - [ ] **App Privacy details (Apple) and Data Safety (Play): complete truthfully.**

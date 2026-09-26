@@ -338,6 +338,21 @@ export const strings = {
     authLegalNotice: "By creating an account you agree to our terms and privacy policy.",
     authTermsLink: "Terms of Service",
     authPrivacyLink: "Privacy Policy",
+    // ── Google and Apple sign-in (2026-09-26) ──────────────────────────
+    // "Continue with ..." is one of the titles each vendor allows; the vendor
+    // names stay in Latin script in every language, as both vendors require.
+    authContinueWithGoogle: 'Continue with Google',
+    authContinueWithApple: 'Continue with Apple',
+    authOrDivider: 'or',
+    // One sentence for every provider failure: the sheet's own error is never
+    // shown, and a dismissed sheet shows nothing at all.
+    authSocialError: 'Sign-in did not complete. Please try again.',
+    // Settings, "Sign in on other devices" (SetPasswordCard): the way out of
+    // an Apple-only account on the web and on Android.
+    setPasswordTitle: 'Sign in on other devices',
+    setPasswordBody: 'This account has no password yet. Set one to sign in on the web or on Android with this email address:',
+    setPasswordSubmit: 'Set password',
+    setPasswordDone: 'Password set. You can now sign in anywhere with your email address and this password.',
     landingNavHow: "How it works",
     landingNavPricing: "Pricing",
     landingLogIn: "Log in",
@@ -888,6 +903,14 @@ export const strings = {
     authLegalNotice: "En créant un compte, vous acceptez nos conditions et notre politique de confidentialité.",
     authTermsLink: "Conditions d’utilisation",
     authPrivacyLink: "Politique de confidentialité",
+    authContinueWithGoogle: 'Continuer avec Google',
+    authContinueWithApple: 'Continuer avec Apple',
+    authOrDivider: 'ou',
+    authSocialError: "La connexion n'a pas abouti. Veuillez réessayer.",
+    setPasswordTitle: "Se connecter sur d'autres appareils",
+    setPasswordBody: "Ce compte n'a pas encore de mot de passe. Définissez-en un pour vous connecter sur le web ou sur Android avec cette adresse e-mail :",
+    setPasswordSubmit: 'Définir le mot de passe',
+    setPasswordDone: 'Mot de passe défini. Vous pouvez maintenant vous connecter partout avec votre adresse e-mail et ce mot de passe.',
     landingNavHow: "Comment ça marche",
     landingNavPricing: "Tarifs",
     landingLogIn: "Se connecter",
@@ -1416,6 +1439,14 @@ export const strings = {
     authLegalNotice: "بإنشاء حساب، فأنت توافق على شروطنا وسياسة الخصوصية.",
     authTermsLink: "شروط الخدمة",
     authPrivacyLink: "سياسة الخصوصية",
+    authContinueWithGoogle: 'المتابعة عبر Google',
+    authContinueWithApple: 'المتابعة عبر Apple',
+    authOrDivider: 'أو',
+    authSocialError: 'لم يكتمل تسجيل الدخول. أعد المحاولة.',
+    setPasswordTitle: 'تسجيل الدخول على أجهزة أخرى',
+    setPasswordBody: 'لا يملك هذا الحساب كلمة مرور بعد. عيّن واحدة لتسجيل الدخول على الويب أو على Android بهذا البريد الإلكتروني:',
+    setPasswordSubmit: 'تعيين كلمة المرور',
+    setPasswordDone: 'تم تعيين كلمة المرور. يمكنك الآن تسجيل الدخول في أي مكان ببريدك الإلكتروني وكلمة المرور هذه.',
     landingNavHow: "كيف يعمل",
     landingNavPricing: "الأسعار",
     landingLogIn: "تسجيل الدخول",

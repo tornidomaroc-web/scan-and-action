@@ -18,6 +18,7 @@
     "@capacitor/core": "^8",
     "@capacitor/splash-screen": "^8",
     "@capacitor/status-bar": "^8",
+    "@capgo/capacitor-social-login": "^8.5.11",
     "@fontsource/ibm-plex-sans-arabic": "^5.2.9",
     "@fontsource/inter": "^5.2.8",
     "@paddle/paddle-js": "^1.6.4",
