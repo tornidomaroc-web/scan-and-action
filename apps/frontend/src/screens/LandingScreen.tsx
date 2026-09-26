@@ -307,13 +307,17 @@ export function LandingScreen() {
           </Panel>
           <div className="flex flex-col rounded-panel bg-accent p-6 text-on-accent shadow-raised" data-landing-plan="pro">
             <h3 className="text-start text-[15px] font-semibold opacity-90">{s.landingProName}</h3>
-            {/* The price copy is PLAN_CATALOG's own fallback text, written once
-                each: the same entries the checkout charges (nativeAntiSteering). */}
-            <p dir="ltr" className="mt-2 text-start text-[40px] font-bold leading-none tracking-tight tabular-nums" data-landing-price>
-              {monthly.fallbackFormatted}<span className="text-lg font-semibold opacity-80">{monthly.periodSuffix}</span>
+            {/* The amount is PLAN_CATALOG's own fallback text, written once
+                each: the same entries the checkout charges (nativeAntiSteering).
+                The period is the paywall's own localized suffix (paywallPerMonth
+                / paywallPerYear: "/mo", "/mois", " شهرياً"), so the landing reads
+                as the checkout does in every language. The amount is isolated
+                LTR so its Latin digits cannot reorder an Arabic line. */}
+            <p className="mt-2 text-start text-[40px] font-bold leading-none tracking-tight tabular-nums" data-landing-price>
+              <span dir="ltr">{monthly.fallbackFormatted}</span><span className="text-lg font-semibold opacity-80">{s.paywallPerMonth}</span>
             </p>
             <p className="mt-1 text-start text-sm font-medium opacity-80" data-landing-price-yearly>
-              {s.landingOrYearly} <span dir="ltr">{yearly.fallbackFormatted}{yearly.periodSuffix}</span>
+              {s.landingOrYearly} <span dir="ltr">{yearly.fallbackFormatted}</span>{s.paywallPerYear}
             </p>
             <ul className="mt-5 space-y-2.5 text-start text-sm opacity-95">
               {[s.landingProLine1, s.landingProLine2, s.landingProLine3].map((l) => (

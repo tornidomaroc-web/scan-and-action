@@ -116,10 +116,50 @@ be reshuffled:**
         `4796d30`. The backend route went first as #251 (`7e3172e`), so the
         new screen never reached a backend without it; the screen merged as
         #250 (`4c6772a`). Board item (f) closed with it (Step 1 inputs).
-     2. **Login second: NEXT.** Its urgency is App Store review, and
-        submission still waits on the iOS build (THE STAGE, item 4).
+     2. **Login second. DONE:** approved by the owner on his iPhone on
+        2026-09-26 and merged inside #255 (see "The visual language, Login,
+        the landing" below). #254, the first Login redraw, was closed into
+        #255, which carried its commit.
      3. **Home last.** The owner gives his reasons first. **Home is not to be
         started before he has.** They are still not recorded (2026-09-26).
+        Home now wears the approved visual language (#255); that is a restyle,
+        not the redraw this item waits for, so its EXPIRY is not met.
+
+**The visual language, Login, the landing, Detail without the tab bar and the
+Queue card: APPROVED and MERGED 2026-09-26.** The owner judged all of them on
+his iPhone at the #256 preview (head `1868ea5`), in Arabic and English.
+- **#255, merged as `402ae72`:** the HorizonX "Trading Dashboard" kit's visual
+  language across the app (`styles/tokens.css`, `components/ui/`): dark page
+  `#0F1014`, accent `#3563F0` under white text, pill tab bar with the scan
+  button at its centre, 96 px web rail. Login redrawn in a new anatomy (the
+  brand in the accent card, a Sign in / Create account switch, pill fields),
+  with #254's behaviour and tests. Detail draws no tab bar on a pushed screen
+  and its Approve / Reject bar sits above the safe area. The Queue card is the
+  receipt as Detail shows it (merchant, ledger amount, the receipt's date, one
+  status). A document never wears the Other tile: the backend's fallback
+  "Other" is read as no category (`wornCategory` in `lib/documentCategory.ts`).
+- **#256, merged as `5836fba`:** the public landing rebuilt on the structure of
+  HorizonX's "Vantro" landing (read from its public preview; nothing
+  downloaded), in the app's language, dark first, en / fr / ar. Its mockups
+  are the app's own screens labelled as an example; the price is written once
+  each; no dash in any landing string (`landingCopyDashes.test.ts`).
+- **No raw kit file is in the repository.** The decoded kit and the harness
+  live in `D:\RAGHAD JAD\horizonx-kits\`, outside it.
+- **Neither PR touched the backend:** `git rev-parse <sha>:apps/backend` gives
+  the same tree id before #255 and after #256.
+
+**NEXT, ruled 2026-09-26: the iOS platform and the CI → TestFlight pipeline
+(THE STAGE, item 4).** Every remaining design step is now blocked on it or
+judged around it: the native scanner and the reading state (DESIGN TRACK
+step 3), the icon and splash (step 5), the store screenshots (step 7), and
+submission itself. Everything the owner has judged so far ran as a web page
+in Safari, which cannot show a native camera, a splash screen or the App
+Store's review build. Home waits on the owner's reasons whatever comes next,
+so it cannot be the next thing started. **The one input is the owner's:** an
+App Store Connect API key (Issuer ID, Key ID and the `.p8` file), created
+signed in to his Apple account, then stored as Actions secrets. No Apple
+credential is configured today; ask `gh secret list`. **EXPIRY:** a CI run
+on `main` uploads a build that installs from TestFlight on his iPhone.
 
 **Error copy that blames the connection when the connection is fine: OPEN on
 three screens (recorded 2026-09-26).** Search showed "Connection interrupted"
@@ -644,19 +684,20 @@ restyled.** Do not start at login, although a reviewer sees it first:
     - **What must hold:** the money rules of step 4 (one figure per currency,
       never summed; money only from `/api/ledger`) and the ledger and
       no-cross-currency tests, unedited.
-    - **Also for this PR: the row tiles a receipt with no category as Other
-      (recorded 2026-09-26).** `category={r.category ?? 'Other'}` in
-      `components/ui/ReceiptRow.tsx` draws the fuchsia Other tile beside the
-      "Not sorted" label. The owner's rule, set on Search's "Found, not
-      counted" rows the same day: a receipt with no category wears the
-      neutral document tile, never Other, which reads as a category it does
-      not have. The row is shared, so Search's counted list changes with it.
-      The Other card on Home still totals those receipts (the ledger's
-      rule); only the row's tile changes.
+    - **The row that tiled a receipt with no category as Other: CLOSED by
+      #255 (2026-09-26).** `ReceiptRow` reads the category through
+      `wornCategory` and draws the neutral tile for none and for the
+      backend's fallback "Other"; `documentWearsNoOther.test.tsx` holds it.
+      The Other card on Home still totals those receipts.
     - **EXPIRY:** the owner approves a redrawn Home on his iPhone.
 - [ ] **5. First run.** Login and signup, an email confirmation that returns to
   the app, the icon and splash, every "coming soon" removed, `ProfileScreen.tsx`
   deleted, and the in-app privacy link.
+  - **Login: APPROVED by the owner on his iPhone on 2026-09-26 and merged
+    inside #255 (`402ae72`).** The password policy, the recovery routing and
+    the lockout were proven byte-identical in that PR. The rest of this step
+    (email confirmation back into the app, icon and splash, the "coming
+    soon" removals, `ProfileScreen.tsx`, the privacy link) is still open.
   - **Login rejected by the owner on 2026-09-25.** It is redrawn in its own
     PR.
     - **What it shows today** (`AuthScreen.tsx`): a dark panel reading "Turn
