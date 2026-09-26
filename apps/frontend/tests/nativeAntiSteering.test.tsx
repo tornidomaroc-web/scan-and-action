@@ -96,9 +96,10 @@ const PRICE_REGEX = /\$\s*\d|\d+\s*\/\s*(mo|yr|month|year)/i;
 const FORBIDDEN_CTA = ['Upgrade Now', 'Upgrade to PRO', 'Go PRO'];
 // The WEB paywall's upsell heading (PaywallModal web branch).
 const PAYWALL_WEB_MARKER = 'Unlock the full power of Scan & Action';
-// The marketing LandingScreen's hero headline (it has no i18n keys — the copy is
-// hardcoded English). Its presence on native would mean the pricing page mounted.
-const LANDING_MARKER = 'Stop typing receipts';
+// The marketing LandingScreen's hero headline, from the catalog since the
+// 2026-09-26 redraw (the tests run in en). Its presence on native would mean
+// the pricing page mounted.
+const LANDING_MARKER = strings.en.landingHero1;
 
 let container: HTMLDivElement;
 let root: Root;

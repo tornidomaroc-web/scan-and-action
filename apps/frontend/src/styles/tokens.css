@@ -220,32 +220,6 @@
   --sa-danger-tint: rgba(255, 95, 109, 0.14);
 }
 
-/* ===========================================================================
-   SINGLE-THEME ROUTE PIN — the marketing page is light, deliberately.
-   ===========================================================================
-   `.sa-pin-light` re-declares, for its subtree only, the light value of every
-   token the landing route uses whose value DIFFERS between `:root` and `.dark`.
-   It defines no new token, invents no colour, and changes neither block above.
-
-   WHY IT EXISTS. The landing route is a light-only page: most of its sections
-   are hardcoded palette (`bg-white`, `bg-slate-50`, `bg-slate-900`) and it
-   carries ZERO `dark:` variants, while the token utilities it reaches obey the
-   `dark` class that index.html sets from the system setting on every route.
-   Measured on production before the pin, a tokenised CTA on a `bg-white`
-   section inverted into its own background (1.05:1). The pin keeps that
-   page's tokens light until the page itself is redrawn in the language.
-
-   DRIFT: every value below is byte-copied from `:root`, and the set is exactly
-   the differing tokens the route reaches. `landingLightPin.test.tsx`
-   recomputes both from source and fails on any mismatch; do not edit either
-   by hand without running it.
-   =========================================================================== */
-.sa-pin-light {
-  --sa-accent-tint: #E8EEFF;
-  --sa-accent-border: #C9D6FF;
-  --sa-surface: #F5F6FA;
-  --sa-surface-raised: #FFFFFF;
-  --sa-line: #E4E6EE;
-  --sa-ink: #0F1014;
-  --sa-ink-secondary: #5F6373;
-}
+/* The single-theme pin the landing route carried (`.sa-pin-light`) is gone
+   since 2026-09-26: the page is drawn on the tokens like every screen and
+   follows the theme. legalPagesHeader.test.tsx holds that no route pins. */
