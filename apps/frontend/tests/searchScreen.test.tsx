@@ -193,7 +193,9 @@ describe('what the screen draws', () => {
   // Other tile, the copies of a Food and a Transport receipt included, which
   // reads as a different category. The row carries its own, as it would if it
   // were counted; a row with none gets the neutral document tile, never Other.
-  it('a not-counted row wears its own category tile; one with none wears the neutral tile, never Other', async () => {
+  // Since 2026-09-26 a stored "Other" is none too: the backend writes it when
+  // it read nothing on the list (documentWearsNoOther.test.tsx).
+  it('a not-counted row wears its own category tile; one with none, or the fallback Other, wears the neutral tile', async () => {
     h.searchReceipts.mockResolvedValue(filtered({
       q: 'pizza',
       notCounted: [
@@ -209,7 +211,8 @@ describe('what the screen draws', () => {
     const tile = (id: string) => q(`[data-search-not-counted-row="${id}"] [data-category-icon]`)?.getAttribute('data-category-icon') ?? null;
     expect(tile('food')).toBe('Food');
     expect(tile('cab')).toBe('Transport');
-    expect(tile('other')).toBe('Other');
+    expect(tile('other')).toBeNull();
+    expect(q('[data-search-not-counted-row="other"] [data-icon-tile="neutral"]')).not.toBeNull();
     expect(tile('none')).toBeNull();
     expect(tile('bare')).toBeNull();
     expect(q('[data-search-not-counted-row="none"] svg')).not.toBeNull();

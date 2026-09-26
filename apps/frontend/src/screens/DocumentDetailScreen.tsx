@@ -322,7 +322,7 @@ export const DocumentDetailScreen = () => {
 
   return (
     // pb-28 under Layout's own bottom padding: the fixed Approve / Reject bar
-    // (68 px, lifted 100 px + inset above the page bottom) ends 168 px + inset
+    // (68 px, lifted 12 px + inset above the page bottom) ends 80 px + inset
     // up, and the last row has to scroll clear of it (tabBarClearance.test.ts).
     <div className="mx-auto w-full max-w-xl pb-28" data-detail-screen>
       <button
@@ -507,13 +507,15 @@ export const DocumentDetailScreen = () => {
           scroll container that never scrolls (the page does), and a sticky
           child of such a container sticks to nothing. On the owner's iPhone
           the bar sat at the bottom of the page after a long scroll
-          (2026-09-25). Its bottom clears the tab bar (~4.5rem) plus the safe
-          area on a phone, and sits 1.5rem up on desktop, where the tab bar is
-          hidden and the sidebar takes the start edge. */}
+          (2026-09-25). The shell draws no tab bar on Detail (Layout.tsx), so
+          the bar sits 0.75rem above the safe area on a phone, clear of the
+          home indicator and of Safari's toolbar, which the visual viewport
+          already excludes; and 1.5rem up on desktop, where the sidebar takes
+          the start edge. */}
       {doc.status === 'NEEDS_REVIEW' && (
         <div
           data-detail-actions
-          className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+6.25rem)] z-40 px-4 md:start-24 md:bottom-6 md:px-8"
+          className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] z-40 px-4 md:start-24 md:bottom-6 md:px-8"
         >
           <div className={`mx-auto flex max-w-xl gap-3 p-3 shadow-lg ${panelClass}`}>
             <button

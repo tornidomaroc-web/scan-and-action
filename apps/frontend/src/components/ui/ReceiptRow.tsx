@@ -1,9 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { FileText } from 'lucide-react';
 import { CategoryIcon } from './CategoryIcon';
 import { CountChip } from './CountChip';
+import { IconTile } from './IconTile';
 import { Money } from './Money';
 import { Lang, dayLabel } from '../../lib/ledgerView';
+import { wornCategory } from '../../lib/documentCategory';
 import type { LedgerReceipt } from '../../lib/ledgerTypes';
 
 // ============================================================================
@@ -25,13 +28,18 @@ type RowStrings = {
   catFood: string; catTransport: string; catTravel: string; catShopping: string; catHealth: string; catBills: string; catOffice: string; catOther: string;
 };
 
-export const ReceiptRow: React.FC<{ r: ReceiptRowData; lang: Lang; s: RowStrings }> = ({ r, lang, s }) => (
+export const ReceiptRow: React.FC<{ r: ReceiptRowData; lang: Lang; s: RowStrings }> = ({ r, lang, s }) => {
+  // A receipt with no category, or with the backend's fallback "Other", wears
+  // the neutral document tile and says "not sorted": never the Other tile,
+  // which reads as a category the receipt does not have (lib/documentCategory).
+  const category = wornCategory(r.category);
+  return (
   <Link
     to={`/documents/${r.documentId}`}
     data-ledger-row={r.documentId}
     className="flex min-h-[64px] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-alt active:bg-surface-alt"
   >
-    <CategoryIcon category={r.category ?? 'Other'} size="sm" />
+    {category ? <CategoryIcon category={category} size="sm" /> : <IconTile icon={FileText} tone="neutral" size="sm" />}
     <span className="min-w-0 flex-1">
       <span
         dir="auto"
@@ -45,7 +53,7 @@ export const ReceiptRow: React.FC<{ r: ReceiptRowData; lang: Lang; s: RowStrings
           {r.dateSource === 'uploaded' ? s.ledgerNoDate.replace('{day}', dayLabel(r.date, lang)) : dayLabel(r.date, lang)}
         </span>
         <span aria-hidden="true">·</span>
-        <span>{r.category ? s[`cat${r.category}` as const] : s.ledgerNotSortedTag}</span>
+        <span>{category ? s[`cat${category}` as const] : s.ledgerNotSortedTag}</span>
         {r.status === 'NEEDS_REVIEW' && <CountChip tone="warning">{s.ledgerNeedsReviewTag}</CountChip>}
         {r.amountSource === 'corrected' && <CountChip>{s.ledgerCorrectedTag}</CountChip>}
       </span>
@@ -61,4 +69,5 @@ export const ReceiptRow: React.FC<{ r: ReceiptRowData; lang: Lang; s: RowStrings
       />
     </span>
   </Link>
-);
+  );
+};

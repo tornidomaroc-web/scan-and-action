@@ -179,9 +179,10 @@ describe('render: a categorized document shows its tile AND its name; an uncateg
 
     it(`${lang}: the search rows (the home's rows since the 2026-09-25 redraw)`, async () => {
       // Search lists RECEIPTS the ledger judged, in the home's row: a counted
-      // receipt with no category sits under Other and says "not yet sorted",
-      // exactly as the home shows it. A business card is not a receipt and
-      // never reaches this list.
+      // receipt with no category is counted under the home's Other card and
+      // its row says "not sorted" with the neutral tile, never the Other tile
+      // (documentWearsNoOther.test.tsx, 2026-09-26). A business card is not a
+      // receipt and never reaches this list.
       h.searchReceipts.mockResolvedValue({
         mode: 'recent', q: '', category: null, month: null, timeZone: 'UTC', currencies: [], notCounted: [],
         receipts: [
@@ -195,7 +196,8 @@ describe('render: a categorized document shows its tile AND its name; an uncateg
       expect(food.querySelector('[data-category-icon="Food"]')).not.toBeNull();
       expect(food.textContent).toContain(strings[lang].catFood);
       const other = q('[data-ledger-row="other-1"]')!;
-      expect(other.querySelector('[data-category-icon="Other"]')).not.toBeNull();
+      expect(other.querySelector('[data-category-icon]')).toBeNull();
+      expect(other.querySelector('[data-icon-tile="neutral"]')).not.toBeNull();
       expect(other.textContent).toContain(strings[lang].ledgerNotSortedTag);
       expect(other.textContent).not.toContain(strings[lang].catOther);
     });

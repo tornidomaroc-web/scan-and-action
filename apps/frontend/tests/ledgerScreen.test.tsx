@@ -467,7 +467,14 @@ describe('ledger home: the category icon is never the only carrier', () => {
       expect(tile.getAttribute('aria-hidden')).toBe('true');
       const fill = tile.className.match(/\bbg-cat-[a-z]+\b/)![0];
       fills.add(fill);
-      // The same treatment on the receipt row, with the category named in its text.
+      // The same treatment on the receipt row, with the category named in its
+      // text. Other is the card's word for the bucket only: its receipt wears
+      // the neutral tile and says "not sorted" (documentWearsNoOther.test.tsx).
+      if (c === 'Other') {
+        const row = qa('[data-ledger-row]').find(r => r.querySelector('[data-icon-tile="neutral"]'))!;
+        expect(row.textContent).toContain(strings.en.ledgerNotSortedTag);
+        continue;
+      }
       const row = qa('[data-ledger-row]').find(r => r.querySelector(`[data-category-icon="${c}"]`))!;
       expect(row.textContent).toContain(strings.en[`cat${c}` as const]);
     }

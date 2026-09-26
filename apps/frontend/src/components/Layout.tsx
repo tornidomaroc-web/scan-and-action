@@ -21,6 +21,11 @@ export const Layout: React.FC = () => {
   const location = useLocation();
   const captureRef = useRef<CaptureSheetHandle>(null);
   const isDesktop = useIsDesktop();
+  // A pushed detail screen has no tab bar, as on a phone's own apps: on the
+  // owner's iPhone (2026-09-26) Detail's Approve / Reject bar stacked above
+  // the floating tab bar and the two ate a large part of the screen. The way
+  // back is Detail's own back button, and the tab bar returns with the list.
+  const onDetail = /^\/documents\//.test(location.pathname);
 
   // Re-fetched on navigation too, so the Queue tab badge reflects
   // approvals/rejections made in the queue as soon as the user leaves it.
@@ -103,15 +108,17 @@ export const Layout: React.FC = () => {
           its lift (12 px) plus the safe-area inset, plus a 36 px gap. It has
           to include env(safe-area-inset-bottom): a fixed rem alone left the
           last category cards under the bar on the owner's iPhone (2026-09-26).
-          tabBarClearance.test.ts holds the arithmetic against BottomTabBar. */}
-      <main className="flex-1 md:ms-24 min-h-screen overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)] md:pb-0" data-app-main>
+          tabBarClearance.test.ts holds the arithmetic against BottomTabBar.
+          On Detail there is no tab bar, so the shell keeps only the inset and
+          a small gap; the screen reserves its own room for the action bar. */}
+      <main className={`flex-1 md:ms-24 min-h-screen overflow-y-auto md:pb-0 ${onDetail ? 'pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]' : 'pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]'}`} data-app-main data-app-detail={onDetail || undefined}>
         <div className="p-4 md:p-8 lg:p-12 xl:p-16">
           <Outlet context={{ refreshCount, onNewScan: handleNewScan, onSuccess: handleUploadSuccess, plan, pendingCount }} />
         </div>
       </main>
 
-      {/* Mobile Bottom Tab Bar (hidden on md+) */}
-      <BottomTabBar pendingCount={pendingCount} onScan={() => captureRef.current?.open()} />
+      {/* Mobile Bottom Tab Bar (hidden on md+, and not on a pushed Detail) */}
+      {!onDetail && <BottomTabBar pendingCount={pendingCount} onScan={() => captureRef.current?.open()} />}
 
       {/* App-level processing tray: chip above the tab bar + tray sheet */}
       <ProcessingTray />

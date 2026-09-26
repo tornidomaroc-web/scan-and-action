@@ -10,6 +10,7 @@ import { IconTile } from '../components/ui/IconTile';
 import { Money } from '../components/ui/Money';
 import { Panel, panelClass } from '../components/ui/Panel';
 import { ReceiptRow } from '../components/ui/ReceiptRow';
+import { wornCategory } from '../lib/documentCategory';
 import { isIdentityConflict } from '../lib/identityConflict';
 import { isRequestTimeout } from '../lib/fetchWithTimeout';
 import { isConnectionFailure } from '../lib/requestErrors';
@@ -372,10 +373,11 @@ const REASON_KEY = { status: 'searchReasonStatus', duplicate: 'searchReasonDupli
 
 const NotCountedRow: React.FC<{ h: NotCountedHit; s: Strings; lang: Lang }> = ({ h, s, lang }) => (
   <Link to={`/documents/${h.documentId}`} data-search-not-counted-row={h.documentId} className="flex min-h-[64px] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-alt active:bg-surface-alt">
-    {/* Its own category's tile, as it would wear if counted. None, or a
-        backend that does not send one yet, gets the neutral tile: never Other,
-        which reads as a category the receipt does not have. */}
-    {h.category ? <CategoryIcon category={h.category} size="sm" /> : <IconTile icon={FileText} tone="neutral" size="sm" />}
+    {/* Its own category's tile, as it would wear if counted. None, the
+        backend's fallback Other, or a backend that does not send one yet, gets
+        the neutral tile: never Other, which reads as a category the receipt
+        does not have (lib/documentCategory). */}
+    {wornCategory(h.category) ? <CategoryIcon category={wornCategory(h.category)!} size="sm" /> : <IconTile icon={FileText} tone="neutral" size="sm" />}
     <span className="min-w-0 flex-1">
       <span dir="auto" className={`block truncate text-[15px] font-semibold ${h.merchant ? 'text-ink' : 'text-ink-secondary'}`}>
         {h.merchant ?? h.fileName ?? s.ledgerUnknownVendor}

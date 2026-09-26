@@ -3,12 +3,15 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // ============================================================================
-// THE FLOATING TAB BAR NEVER COVERS THE LAST ROW.
+// THE FLOATING TAB BAR NEVER COVERS THE LAST ROW, AND DETAIL HAS NONE.
 // ============================================================================
 // On the owner's iPhone (2026-09-26, Arabic, dark) the last category cards on
 // Home sat under the floating tab bar and Detail's Approve / Reject bar was
 // pressed against it. The frames that were meant to catch this showed only
 // the first screen, never the bottom of a scroll, and had no Safari toolbar.
+// Later the same day: the two bars stacked on Detail ate a large part of the
+// screen, so a pushed Detail draws no tab bar at all (Layout.tsx) and its
+// action bar sits just above the safe area.
 //
 // jsdom lays nothing out, so this is the arithmetic from the sources: the
 // space the bar takes above the page bottom, against the padding the shell
@@ -27,6 +30,8 @@ const liftPx = (cls: string) => {
   expect(m, `no safe-area bottom offset in: ${cls}`).not.toBeNull();
   return parseFloat(m![1]) * REM;
 };
+/** Every `pb-[calc(env(safe-area-inset-bottom,0px)+Nrem)]` in a class string, in px. */
+const pads = (cls: string) => [...cls.matchAll(/pb-\[calc\(env\(safe-area-inset-bottom,0px\)\+([\d.]+)rem\)\]/g)].map((m) => parseFloat(m[1]) * REM);
 
 describe('the phone tab bar and the shell agree', () => {
   const bar = src('components/BottomTabBar.tsx');
@@ -38,11 +43,13 @@ describe('the phone tab bar and the shell agree', () => {
   const navCls = bar.match(/<nav[\s\S]*?className="([^"]*)"/)![1];
   const lift = liftPx(navCls);
 
-  const mainCls = layout.match(/<main[\s\S]*?className="([^"]*)"/)![1];
-  const mainPad = (() => {
-    const m = mainCls.match(/pb-\[calc\(env\(safe-area-inset-bottom,0px\)\+([\d.]+)rem\)\]/);
-    expect(m, 'the main padding must include the safe-area inset, not a bare rem').not.toBeNull();
-    return parseFloat(m![1]) * REM;
+  // The shell's <main> chooses between two paddings: the list screens' (the
+  // larger, under the tab bar) and Detail's (the smaller, no tab bar).
+  const mainTag = layout.match(/<main[\s\S]*?data-app-main/)![0];
+  const [detailPad, listPad] = (() => {
+    const p = pads(mainTag);
+    expect(p, 'the main padding must include the safe-area inset, not a bare rem, once per branch').toHaveLength(2);
+    return [Math.min(...p), Math.max(...p)];
   })();
 
   it('the bar carries the scan circle and lifts above the safe area', () => {
@@ -51,15 +58,24 @@ describe('the phone tab bar and the shell agree', () => {
     expect(lift).toBeGreaterThanOrEqual(8);
   });
 
-  it(`the shell reserves more than the bar takes (${mainPad} px vs ${BAR_HEIGHT + lift} px), with room to breathe`, () => {
-    expect(mainPad - (BAR_HEIGHT + lift)).toBeGreaterThanOrEqual(24);
+  it(`the shell reserves more than the bar takes (${listPad} px vs ${BAR_HEIGHT + lift} px), with room to breathe`, () => {
+    expect(listPad - (BAR_HEIGHT + lift)).toBeGreaterThanOrEqual(24);
   });
 
-  it('Detail: the action bar clears the tab bar, and the screen clears the action bar', () => {
+  it('Detail: the shell mounts no tab bar, and the smaller padding is the detail branch', () => {
+    expect(layout).toMatch(/const onDetail = \/\^\\\/documents\\\/\/\.test\(location\.pathname\)/);
+    expect(layout).toMatch(/\{!onDetail && <BottomTabBar/);
+    expect(mainTag).toMatch(/onDetail \? 'pb-\[calc\(env\(safe-area-inset-bottom,0px\)\+([\d.]+)rem\)\]'/);
+    expect(parseFloat(mainTag.match(/onDetail \? 'pb-\[calc\(env\(safe-area-inset-bottom,0px\)\+([\d.]+)rem\)\]'/)![1]) * REM).toBe(detailPad);
+  });
+
+  it('Detail: the action bar sits just above the safe area, and the screen scrolls clear of it', () => {
     const barCls = detail.match(/data-detail-actions\s*\n?\s*className="([^"]*)"/)![1];
     const actionsLift = liftPx(barCls);
-    // 16 px or more between the tab bar's top and the action bar's bottom.
-    expect(actionsLift - (BAR_HEIGHT + lift)).toBeGreaterThanOrEqual(16);
+    // Above the home indicator by a visible margin, and no longer lifted over a
+    // tab bar that is not there: less than the bar's own height.
+    expect(actionsLift).toBeGreaterThanOrEqual(8);
+    expect(actionsLift).toBeLessThan(BAR_HEIGHT);
     // The action bar: p-3 (12 + 12) around 44 px buttons = 68 px. The screen
     // adds its own bottom padding under the shell's; the sum must clear the
     // action bar's top with a gap.
@@ -69,11 +85,15 @@ describe('the phone tab bar and the shell agree', () => {
       expect(m, 'the detail screen has no bottom padding').not.toBeNull();
       return parseInt(m![1], 10) * 4;
     })();
-    expect(mainPad + screenPad - (actionsLift + ACTIONS_HEIGHT)).toBeGreaterThanOrEqual(24);
+    expect(detailPad + screenPad - (actionsLift + ACTIONS_HEIGHT)).toBeGreaterThanOrEqual(24);
+  });
+
+  it('Detail keeps a way back: its own back button', () => {
+    expect(detail).toMatch(/onClick=\{\(\) => navigate\(-1\)\}\s*\n?\s*aria-label=\{s\.backToSearch\}/);
   });
 
   it('control: the shell padding of the first cut (7rem, no inset) would have failed the safe-area requirement', () => {
-    expect(/pb-\[calc\(env\(safe-area-inset-bottom,0px\)\+[\d.]+rem\)\]/.test('pb-28 md:pb-0')).toBe(false);
+    expect(pads('pb-28 md:pb-0')).toHaveLength(0);
   });
 });
 
