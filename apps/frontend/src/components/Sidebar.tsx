@@ -19,6 +19,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useStrings } from '../i18n/useStrings';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { BrandMark } from './BrandMark';
+import { syncThemeColor } from '../lib/themeColor';
 
 interface SidebarProps {
   onNewScan: () => void;
@@ -53,6 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
     setTheme(newTheme);
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
     localStorage.setItem('theme', newTheme);
+    syncThemeColor(newTheme);
   };
 
   const navItems = [

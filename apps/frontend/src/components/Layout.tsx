@@ -98,9 +98,13 @@ export const Layout: React.FC = () => {
       </aside>
 
       {/* Main Content Area (logical margin so it clears the rail on either edge) */}
-      {/* pb-28 on a phone: the floating tab bar (BottomTabBar) needs its own
-          height plus its 12px lift kept clear under the last row. */}
-      <main className="flex-1 md:ms-24 min-h-screen overflow-y-auto pb-28 md:pb-0">
+      {/* The bottom padding on a phone is what keeps the last row of every
+          screen above the floating tab bar: the bar's own height (72 px) plus
+          its lift (12 px) plus the safe-area inset, plus a 36 px gap. It has
+          to include env(safe-area-inset-bottom): a fixed rem alone left the
+          last category cards under the bar on the owner's iPhone (2026-09-26).
+          tabBarClearance.test.ts holds the arithmetic against BottomTabBar. */}
+      <main className="flex-1 md:ms-24 min-h-screen overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)] md:pb-0" data-app-main>
         <div className="p-4 md:p-8 lg:p-12 xl:p-16">
           <Outlet context={{ refreshCount, onNewScan: handleNewScan, onSuccess: handleUploadSuccess, plan, pendingCount }} />
         </div>

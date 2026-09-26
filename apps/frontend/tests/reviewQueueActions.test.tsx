@@ -227,24 +227,29 @@ describe('Review queue — data correctness (D4 bug fixes)', () => {
     expect(container.textContent).toContain(strings.en.notAvailable);
   });
 
-  it('CONFIDENCE: no || 0.92 fabrication — a doc without confidence shows "not available", not 92%', async () => {
+  // Until 2026-09-26 the card showed "AI confidence" as a percent and a meter,
+  // and this suite pinned it (a missing value read "not available", never a
+  // fabricated 92%). The card is on the receipt screen's rules now, and Detail
+  // never showed a confidence to a person: nothing about it renders, whatever
+  // the DTO says. reviewQueueCard.test.tsx holds the card's own rules.
+  it('CONFIDENCE: nothing about it renders, with or without a value', async () => {
     (documentService.getReviewQueue as any).mockResolvedValue([
       { id: 'd-noconf', originalFileName: 'scan.pdf', status: 'NEEDS_REVIEW', uploadedAt: '2026-06-01T10:00:00Z' },
+      { id: 'd-conf', originalFileName: 'scan-2.pdf', status: 'NEEDS_REVIEW', overallConfidence: 0.83, uploadedAt: '2026-06-01T10:00:00Z' },
     ]);
     mount('/queue');
-    await vi.waitFor(() => expect(container.textContent).toContain('scan.pdf'));
+    await vi.waitFor(() => expect(container.textContent).toContain('scan-2.pdf'));
     expect(container.textContent).not.toContain('92%');
-    expect(container.textContent).toContain(strings.en.notAvailable);
+    expect(container.textContent).not.toContain('83%');
+    expect(container.textContent).not.toContain(strings.en.aiConfidence);
   });
 
-  it('CONFIDENCE: a real confidence renders as its own percent + meter, distinct from the status', async () => {
+  it('the single status label appears exactly once per row surface', async () => {
     (documentService.getReviewQueue as any).mockResolvedValue([
       { id: 'd-conf', originalFileName: 'scan.pdf', status: 'NEEDS_REVIEW', overallConfidence: 0.83, uploadedAt: '2026-06-01T10:00:00Z' },
     ]);
     mount('/queue');
     await vi.waitFor(() => expect(container.textContent).toContain('scan.pdf'));
-    // Confidence percent is present...
-    expect(container.textContent).toContain('83%');
     // ...and the single status label appears exactly once per row surface
     // (mobile card + desktop row = 2), NOT duplicated by a second confidence-tier
     // label. Count leaf spans only (the status wrapper span also carries the text).
@@ -297,11 +302,14 @@ describe('Review queue — touched source is on tokens, bidi-isolated (source sc
   it('reads the real DTO fields', () => {
     expect(src).toContain('doc.documentType');
     expect(src).toContain('doc.uploadedAt');
-    expect(src).toContain('doc.overallConfidence');
+    // The amount comes from the facts through the ledger's reader, never from
+    // a confidence field (the card stopped showing one on 2026-09-26).
+    expect(src).toContain('doc.facts');
+    expect(src).not.toContain('doc.overallConfidence');
   });
-  it('surfaces vendor + amount via the shared search-card helpers', () => {
+  it('surfaces the vendor via the shared search-card helper and the amount via the ledger reader Detail uses', () => {
     expect(src).toContain('getVendor');
-    expect(src).toContain('getAmount');
+    expect(src).toContain('ledgerAmount(doc.facts)');
   });
   it('per-value bidi isolation + logical CSS present', () => {
     expect(src).toMatch(/dir="auto"/);

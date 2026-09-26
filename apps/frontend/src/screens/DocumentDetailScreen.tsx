@@ -321,7 +321,10 @@ export const DocumentDetailScreen = () => {
   const showIssues = issues.length > 0 || showFix || canRetry;
 
   return (
-    <div className="mx-auto w-full max-w-xl pb-40" data-detail-screen>
+    // pb-28 under Layout's own bottom padding: the fixed Approve / Reject bar
+    // (68 px, lifted 100 px + inset above the page bottom) ends 168 px + inset
+    // up, and the last row has to scroll clear of it (tabBarClearance.test.ts).
+    <div className="mx-auto w-full max-w-xl pb-28" data-detail-screen>
       <button
         type="button"
         onClick={() => navigate(-1)}
@@ -509,8 +512,8 @@ export const DocumentDetailScreen = () => {
           hidden and the sidebar takes the start edge. */}
       {doc.status === 'NEEDS_REVIEW' && (
         <div
-          className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+5.75rem)] z-40 px-4 md:start-24 md:bottom-6 md:px-8"
           data-detail-actions
+          className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+6.25rem)] z-40 px-4 md:start-24 md:bottom-6 md:px-8"
         >
           <div className={`mx-auto flex max-w-xl gap-3 p-3 shadow-lg ${panelClass}`}>
             <button

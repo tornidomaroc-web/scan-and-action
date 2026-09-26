@@ -16,7 +16,13 @@
     <!-- PWA: manifest only, deliberately no service worker (live checkout
          on this domain — stale-cache risk not taken this phase). -->
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0f172a" />
+    <!-- Safari paints its own toolbars in theme-color. One per scheme, in the
+         page's own surface colours (tokens.css --sa-surface), and the boot
+         script below plus lib/themeColor.ts keep it on the stored choice: a
+         single slate value showed as a blue band under the tab bar on the
+         owner's iPhone (2026-09-26). -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F5F6FA" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0F1014" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -25,10 +31,14 @@
     <script>
       (function() {
         const theme = localStorage.getItem('theme');
-        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
+        const dark = theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+        // A stored choice overrides the scheme media queries on the two
+        // theme-color metas above: both take the chosen surface.
+        if (theme === 'dark' || theme === 'light') {
+          document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
+            m.setAttribute('content', dark ? '#0F1014' : '#F5F6FA');
+          });
         }
       })();
     </script>
