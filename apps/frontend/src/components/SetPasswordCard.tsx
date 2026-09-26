@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { KeyRound } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
 import { useStrings } from '../i18n/useStrings';
 import { MIN_PASSWORD_LENGTH } from '../lib/passwordPolicy';
 import { Panel } from './ui/Panel';
@@ -63,6 +62,13 @@ export const SetPasswordCard: React.FC<SetPasswordCardProps> = ({ user }) => {
     }
     setLoading(true);
     try {
+      // Loaded here, not at module scope: SettingsScreen never needed the
+      // Supabase client before this card, and the suites that render it
+      // without mocking the client pass locally only because .env supplies
+      // the URL. CI has no .env, and createClient('') throws at import. A
+      // deferred import keeps the client out of the screen's import graph
+      // until a password is actually submitted.
+      const { supabase } = await import('../lib/supabase');
       const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) throw updateError;
       setDone(true);
