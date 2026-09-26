@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { syncThemeColor } from '../lib/themeColor';
 
 // Same persistence contract as the index.html bootstrap script and the
 // desktop sidebar toggle: 'dark' class on <html> + localStorage 'theme'.
@@ -14,6 +15,7 @@ export const useTheme = () => {
     setTheme(next);
     document.documentElement.classList.toggle('dark', next === 'dark');
     localStorage.setItem('theme', next);
+    syncThemeColor(next);
   };
 
   return { theme, toggleTheme };

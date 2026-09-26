@@ -7,7 +7,13 @@ import { createRequire } from 'node:module';
 // DESIGN-TOKEN FOUNDATION contract (PR-A)
 // ============================================================================
 // Locks the agreed foundation so a regression fails CI:
-//   - the accent is indigo #635BFF (LOCKED decision, from the approved design),
+//   - the accent is the blue of the design the owner chose on 2026-09-26,
+//     one step darker than its chart blue so a label on it clears 4.5:1
+//     (#3563F0; the chart blue #3B6CFF is --sa-accent-bright, charts and
+//     icons only). Until 2026-09-26 this pinned indigo #635BFF, the locked
+//     decision of the earlier design; the owner's choice of a new language
+//     replaced it, and kitLanguage.test.ts holds the contrast that chose the
+//     value,
 //   - Tailwind utility color names map to the --sa-* tokens (single source),
 //   - fonts are SELF-HOSTED via @fontsource (NO Google Fonts CDN) so the app
 //     works offline / inside the Capacitor WebView.
@@ -22,14 +28,16 @@ const indexCss = read('../src/index.css');
 const mainTsx = read('../src/main.tsx');
 const tailwind = createRequire(import.meta.url)('../tailwind.config.cjs');
 
-describe('design tokens — indigo accent (locked)', () => {
-  it('tokens.css defines the exact approved indigo accent ramp', () => {
-    expect(tokensCss).toMatch(/--sa-accent:\s*#635BFF/i);
-    expect(tokensCss).toMatch(/--sa-accent-hover:\s*#5147E8/i);
-    expect(tokensCss).toMatch(/--sa-accent-text:\s*#4A3FE0/i);
-    expect(tokensCss).toMatch(/--sa-accent-tint:\s*#EEEDFE/i);
-    expect(tokensCss).toMatch(/--sa-accent-tint-2:\s*#F1F0FE/i);
-    expect(tokensCss).toMatch(/--sa-accent-border:\s*#E4E2FB/i);
+describe('design tokens: the blue accent (locked 2026-09-26)', () => {
+  it('tokens.css defines the exact accent ramp of the chosen language', () => {
+    expect(tokensCss).toMatch(/--sa-accent:\s*#3563F0/i);
+    expect(tokensCss).toMatch(/--sa-accent-hover:\s*#2F5BE6/i);
+    expect(tokensCss).toMatch(/--sa-accent-text:\s*#2F5BE6/i);
+    expect(tokensCss).toMatch(/--sa-accent-tint:\s*#E8EEFF/i);
+    expect(tokensCss).toMatch(/--sa-accent-tint-2:\s*#EEF2FF/i);
+    expect(tokensCss).toMatch(/--sa-accent-border:\s*#C9D6FF/i);
+    expect(tokensCss).toMatch(/--sa-accent-bright:\s*#3B6CFF/i);
+    expect(tokensCss).toMatch(/--sa-on-accent:\s*#FFFFFF/i);
   });
 
   it('tokens.css ships a .dark block so light/dark is one system', () => {

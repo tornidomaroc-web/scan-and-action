@@ -75,7 +75,7 @@ export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, 
     }
   };
 
-  const primary = 'inline-flex min-h-[44px] items-center justify-center rounded-pill bg-accent px-6 text-sm font-bold text-surface-raised transition-colors hover:bg-accent-hover disabled:opacity-50';
+  const primary = 'inline-flex min-h-[44px] items-center justify-center rounded-pill bg-accent px-6 text-sm font-bold text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-50';
   const secondary = 'inline-flex min-h-[44px] items-center justify-center rounded-pill bg-surface-muted px-6 text-sm font-semibold text-ink transition-colors hover:bg-surface-alt disabled:opacity-50';
 
   return (

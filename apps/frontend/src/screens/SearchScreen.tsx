@@ -10,6 +10,7 @@ import { IconTile } from '../components/ui/IconTile';
 import { Money } from '../components/ui/Money';
 import { Panel, panelClass } from '../components/ui/Panel';
 import { ReceiptRow } from '../components/ui/ReceiptRow';
+import { wornCategory } from '../lib/documentCategory';
 import { isIdentityConflict } from '../lib/identityConflict';
 import { isRequestTimeout } from '../lib/fetchWithTimeout';
 import { isConnectionFailure } from '../lib/requestErrors';
@@ -281,7 +282,7 @@ const Recent: React.FC<{ data: SearchResult; s: Strings; lang: Lang }> = ({ data
       <Rows data={data} s={s} lang={lang} />
     ) : (
       <Panel className="mt-3 p-8 text-center" data-search-empty>
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-tile bg-accent text-surface-raised">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-tile bg-accent text-on-accent">
           <Receipt size={26} aria-hidden="true" />
         </div>
         <h3 className="mt-4 text-[17px] font-bold text-ink">{s.searchEmptyTitle}</h3>
@@ -313,7 +314,7 @@ const Filtered: React.FC<{
         <p className="mx-auto mt-1 max-w-xs text-sm text-ink-secondary">{s.searchNoResultsBody.replace('{scope}', scope)}</p>
         <div className="mt-6 flex flex-col items-center gap-2">
           {params.month && (
-            <button type="button" onClick={onAllMonths} data-search-try-all className="inline-flex min-h-[48px] items-center rounded-pill bg-accent px-6 text-sm font-bold text-surface-raised shadow-card transition-all hover:bg-accent-hover active:scale-95">
+            <button type="button" onClick={onAllMonths} data-search-try-all className="inline-flex min-h-[48px] items-center rounded-pill bg-accent px-6 text-sm font-bold text-on-accent shadow-card transition-all hover:bg-accent-hover active:scale-95">
               {s.searchTryAllMonths}
             </button>
           )}
@@ -372,10 +373,11 @@ const REASON_KEY = { status: 'searchReasonStatus', duplicate: 'searchReasonDupli
 
 const NotCountedRow: React.FC<{ h: NotCountedHit; s: Strings; lang: Lang }> = ({ h, s, lang }) => (
   <Link to={`/documents/${h.documentId}`} data-search-not-counted-row={h.documentId} className="flex min-h-[64px] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-alt active:bg-surface-alt">
-    {/* Its own category's tile, as it would wear if counted. None, or a
-        backend that does not send one yet, gets the neutral tile: never Other,
-        which reads as a category the receipt does not have. */}
-    {h.category ? <CategoryIcon category={h.category} size="sm" /> : <IconTile icon={FileText} tone="neutral" size="sm" />}
+    {/* Its own category's tile, as it would wear if counted. None, the
+        backend's fallback Other, or a backend that does not send one yet, gets
+        the neutral tile: never Other, which reads as a category the receipt
+        does not have (lib/documentCategory). */}
+    {wornCategory(h.category) ? <CategoryIcon category={wornCategory(h.category)!} size="sm" /> : <IconTile icon={FileText} tone="neutral" size="sm" />}
     <span className="min-w-0 flex-1">
       <span dir="auto" className={`block truncate text-[15px] font-semibold ${h.merchant ? 'text-ink' : 'text-ink-secondary'}`}>
         {h.merchant ?? h.fileName ?? s.ledgerUnknownVendor}

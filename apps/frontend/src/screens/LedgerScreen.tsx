@@ -225,7 +225,7 @@ const EmptyMonth: React.FC<{
   s: Strings; lang: Lang; month: string; onScan?: () => void; onPrevious: () => void; excluded: LedgerMonth['excluded'];
 }> = ({ s, lang, month, onScan, onPrevious, excluded }) => (
   <Panel className="mt-6 p-8 text-center" data-ledger-empty>
-    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-tile bg-accent text-surface-raised">
+    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-tile bg-accent text-on-accent">
       <Receipt size={26} aria-hidden="true" />
     </div>
     <h2 className="mt-4 text-[17px] font-bold text-ink">{s.ledgerEmptyTitle.replace('{month}', monthName(month, lang))}</h2>
@@ -235,7 +235,7 @@ const EmptyMonth: React.FC<{
         <button
           type="button"
           onClick={onScan}
-          className="inline-flex min-h-[48px] items-center gap-2 rounded-pill bg-accent px-6 text-sm font-bold text-surface-raised shadow-card transition-all hover:bg-accent-hover active:scale-95"
+          className="inline-flex min-h-[48px] items-center gap-2 rounded-pill bg-accent px-6 text-sm font-bold text-on-accent shadow-card transition-all hover:bg-accent-hover active:scale-95"
         >
           <Camera size={18} aria-hidden="true" />
           {s.scanReceipt}

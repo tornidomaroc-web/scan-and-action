@@ -153,12 +153,13 @@ describe('per-screen render check (EN/FR/AR)', () => {
 
   it('AuthScreen renders translated copy in EN/FR/AR (no hardcoded English)', () => {
     const outputs = LANGS.map((lang) => renderAt(lang, '/login', <AuthScreen />));
-    // Each locale shows its own headline, feature blurb, and primary CTA
+    // Each locale shows its own title, subtitle and primary CTA (the sign-in
+    // screen of the 2026-09-26 redraw: no headline, no feature list).
     for (let i = 0; i < LANGS.length; i++) {
       const lang = LANGS[i];
-      expect(outputs[i]).toContain(htmlEscape(strings[lang].authHeadlineEmphasis));
-      expect(outputs[i]).toContain(htmlEscape(strings[lang].authFeat1Title));
-      expect(outputs[i]).toContain(htmlEscape(strings[lang].authContinueCta));
+      expect(outputs[i]).toContain(htmlEscape(strings[lang].authSignInTitle));
+      expect(outputs[i]).toContain(htmlEscape(strings[lang].authSignInSubtitle));
+      expect(outputs[i]).toContain(htmlEscape(strings[lang].authSignInCta));
       // default view is login mode, so the footer toggle offers account creation
       expect(outputs[i]).toContain(htmlEscape(strings[lang].authCreateAccountCta));
     }

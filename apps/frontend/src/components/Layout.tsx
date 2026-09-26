@@ -21,6 +21,11 @@ export const Layout: React.FC = () => {
   const location = useLocation();
   const captureRef = useRef<CaptureSheetHandle>(null);
   const isDesktop = useIsDesktop();
+  // A pushed detail screen has no tab bar, as on a phone's own apps: on the
+  // owner's iPhone (2026-09-26) Detail's Approve / Reject bar stacked above
+  // the floating tab bar and the two ate a large part of the screen. The way
+  // back is Detail's own back button, and the tab bar returns with the list.
+  const onDetail = /^\/documents\//.test(location.pathname);
 
   // Re-fetched on navigation too, so the Queue tab badge reflects
   // approvals/rejections made in the queue as soon as the user leaves it.
@@ -74,7 +79,7 @@ export const Layout: React.FC = () => {
 
   return (
     <ProcessingProvider onJobSettled={handleUploadSuccess}>
-    <div className="flex flex-col md:flex-row min-h-screen w-full bg-surface transition-colors duration-500">
+    <div className="flex flex-col md:flex-row min-h-screen w-full bg-surface transition-colors duration-500 motion-reduce:transition-none">
       {/* Mobile Top Bar. It carries the brand only. Scanning has ONE home on a
           phone, the camera button in the centre of the tab bar: it is on every
           screen, in thumb reach at the bottom of the display, and it opens the
@@ -83,25 +88,37 @@ export const Layout: React.FC = () => {
           a camera glyph on an accent tile, which read as a third scan button;
           it is the app's own mark now (BrandMark, as on the landing header). */}
       <header className="flex md:hidden items-center gap-2.5 px-5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-surface-raised border-b border-line sticky top-0 z-[60]" data-mobile-header>
-        <BrandMark size={28} className="rounded-[7px]" />
+        {/* Mounted only on a phone. The rail renders the mark too, and the two
+            share one SVG gradient id; with this header merely display:none on
+            a desktop, the rail's plate resolved to the hidden copy and painted
+            nothing (seen 2026-09-26). One instance per viewport, never two. */}
+        {!isDesktop && <BrandMark size={28} className="rounded-[7px]" />}
         <span className="font-bold text-ink tracking-tight">Scan & Action</span>
       </header>
 
       {/* Sidebar - Fixed Layer (Hidden on Mobile). `start-0` + `border-e` are
           logical, so the rail mirrors to the right edge in Arabic/RTL. */}
-      <aside className="hidden md:block fixed inset-y-0 start-0 z-50 w-[280px] border-e border-line bg-surface-raised shadow-lg dark:shadow-none transition-all duration-500">
+      <aside className="hidden md:block fixed inset-y-0 start-0 z-50 w-24 bg-surface-raised">
         <Sidebar onNewScan={handleNewScan} plan={plan} onRefreshPlan={handleRefreshPlan} />
       </aside>
 
       {/* Main Content Area (logical margin so it clears the rail on either edge) */}
-      <main className="flex-1 md:ms-[280px] min-h-screen overflow-y-auto pb-20 md:pb-0">
+      {/* The bottom padding on a phone is what keeps the last row of every
+          screen above the floating tab bar: the bar's own height (72 px) plus
+          its lift (12 px) plus the safe-area inset, plus a 36 px gap. It has
+          to include env(safe-area-inset-bottom): a fixed rem alone left the
+          last category cards under the bar on the owner's iPhone (2026-09-26).
+          tabBarClearance.test.ts holds the arithmetic against BottomTabBar.
+          On Detail there is no tab bar, so the shell keeps only the inset and
+          a small gap; the screen reserves its own room for the action bar. */}
+      <main className={`flex-1 md:ms-24 min-h-screen overflow-y-auto md:pb-0 ${onDetail ? 'pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]' : 'pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]'}`} data-app-main data-app-detail={onDetail || undefined}>
         <div className="p-4 md:p-8 lg:p-12 xl:p-16">
           <Outlet context={{ refreshCount, onNewScan: handleNewScan, onSuccess: handleUploadSuccess, plan, pendingCount }} />
         </div>
       </main>
 
-      {/* Mobile Bottom Tab Bar (hidden on md+) */}
-      <BottomTabBar pendingCount={pendingCount} onScan={() => captureRef.current?.open()} />
+      {/* Mobile Bottom Tab Bar (hidden on md+, and not on a pushed Detail) */}
+      {!onDetail && <BottomTabBar pendingCount={pendingCount} onScan={() => captureRef.current?.open()} />}
 
       {/* App-level processing tray: chip above the tab bar + tray sheet */}
       <ProcessingTray />

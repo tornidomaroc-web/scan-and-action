@@ -372,3 +372,15 @@
   background: var(--sa-accent);
   animation: indeterminate-slide 1.2s ease-in-out infinite;
 }
+
+/* Motion is quiet, and gone for anyone who asked for less of it: every
+   animation and transition in the app collapses to an instant. Added with the
+   visual language of 2026-09-26; kitLanguage.test.ts checks this block exists. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

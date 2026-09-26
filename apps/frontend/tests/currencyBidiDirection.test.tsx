@@ -298,7 +298,10 @@ describe('the sweep stopped where it was supposed to', () => {
   const DETAIL = readSrc('../src/screens/DocumentDetailScreen.tsx');
 
   it('the truncating name/vendor/type boxes keep dir="auto" — they hold Arabic text', () => {
-    expect(QUEUE).toMatch(/truncate text-sm font-semibold text-ink" dir="auto">\{name\}/);
+    // The title is the merchant since the 2026-09-26 redraw (the file name only
+    // when none was read); the box still truncates and still states its
+    // direction.
+    expect(QUEUE).toMatch(/truncate text-\[15px\] font-semibold text-ink" dir="auto" data-queue-title>\{row\.title\}/);
     expect(QUEUE.match(/dir="auto"/g)!.length).toBeGreaterThanOrEqual(4);
     expect(DETAIL).toMatch(/dir="auto"/);
   });

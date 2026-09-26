@@ -66,7 +66,7 @@ export const SettingsScreen = () => {
         {/* Who you are */}
         <Panel className="p-4">
           <div className="flex items-center gap-3">
-            <span aria-hidden="true" className="flex h-12 w-12 flex-none items-center justify-center rounded-pill bg-accent text-lg font-bold text-surface-raised">
+            <span aria-hidden="true" className="flex h-12 w-12 flex-none items-center justify-center rounded-pill bg-accent text-lg font-bold text-on-accent">
               {userName.charAt(0).toUpperCase()}
             </span>
             <div className="min-w-0 flex-1">
@@ -168,7 +168,7 @@ export const SettingsScreen = () => {
               <button
                 type="button"
                 onClick={() => setIsPaywallOpen(true)}
-                className="mt-5 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-pill bg-accent text-sm font-bold text-surface-raised shadow-card transition-all hover:bg-accent-hover active:scale-[0.99]"
+                className="mt-5 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-pill bg-accent text-sm font-bold text-on-accent shadow-card transition-all hover:bg-accent-hover active:scale-[0.99]"
               >
                 {s.goPro}
                 <ChevronRight size={18} className="rtl:-scale-x-100" aria-hidden="true" />

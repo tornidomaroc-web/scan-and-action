@@ -11,67 +11,38 @@ import { ErrorState } from '../components/ErrorState';
 import { useToast } from '../contexts/ToastContext';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
-import { getVendor, getAmount, getStatus, getDocTypeLabel } from '../lib/searchResultCard';
-import { formatDateValue } from '../lib/formatCellValue';
+import { getVendor, getStatus, getDocTypeLabel } from '../lib/searchResultCard';
+import { ledgerAmount } from '../lib/ledgerAmount';
+import { fullDayLabel, moneyParts, Lang } from '../lib/ledgerView';
 import { isIdentityConflict } from '../lib/identityConflict';
 import { isRequestTimeout } from '../lib/fetchWithTimeout';
 
-// Review Queue, restyled onto the --sa-* token system (PR-D4).
-//  - Calm flat surfaces (rounded-card, quiet shadow), token colors only (no raw
-//    palette, no per-component dark-mode variants, no legacy table/card classes),
-//    matching the D2 Search and D3 Detail pages.
-//  - ONE status per row: a warning dot + "Needs review" via the SAME shared
-//    getStatus() config as the Search card / Detail dot. Confidence is a SEPARATE
-//    signal (percent + a short quality-tinted meter) so it never reads as a second
-//    status. The old bespoke amber pill AND the ReviewBadge (which conflated the
-//    two) are gone from this screen; ReviewBadge is untouched for D3 Detail.
-//  - Vendor + amount are surfaced from the real payload through the SAME shared
-//    helpers the Search card uses (getVendor / getAmount), so the three list
-//    surfaces match. Missing values are omitted (never fabricated); the amount is
-//    plain document data (tabular numerals), never styled as pricing.
-//  - Mixed-direction values (file name, type, vendor, amount, date) are
-//    bidi-isolated (dir/bdi) so Latin text and numerals do not scramble in Arabic
-//    RTL; all physical spacing/alignment is logical (ps/pe, ms/me, start/end).
+// ============================================================================
+// The review queue, its card on the rules of the receipt screen (2026-09-26).
+//
+// Each card is the receipt as Detail shows it: the category circle, the
+// merchant as the title (the file name only when no merchant was read), one
+// meta line (category, type, the date printed on the receipt, or the day it
+// was added when none was), the amount the ledger counts (lib/ledgerAmount,
+// a correction beats the extraction), ONE status chip, and Approve / Reject.
+// Gone with the redraw: the file name as the title, the "AI confidence"
+// percentage and its bar, and the subtitle under the heading, which Detail
+// had already dropped.
+//
+// The logic (fetch, approve, reject, the lockout, the toasts) is the one from
+// before, line for line; reviewQueueActions.test.tsx and
+// reviewQueueLockout.test.tsx hold it. The Approve / Reject buttons keep the
+// file name in their aria-label: it is the one name every document has.
+// ============================================================================
 
-// Confidence quality signal: a plain percent + a short tinted meter. This is
-// kept visually and semantically distinct from the lifecycle status. When a
-// document has no confidence value we show a calm "not available", NEVER a
-// fabricated number (the old hardcoded confidence fallback is gone).
-const ConfidenceMeter = ({ value }: { value: number | null | undefined }) => {
-  const s = useStrings();
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return <span className="text-sm font-medium text-ink-muted">{s.notAvailable}</span>;
-  }
-  const pct = Math.max(0, Math.min(100, Math.round(value * 100)));
-  // Same success/warning/danger tiers as the shared confidence vocabulary.
-  const tint = value < 0.7 ? 'bg-danger' : value < 0.9 ? 'bg-warning' : 'bg-success';
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span dir="ltr" className="text-sm font-semibold tabular-nums text-ink">{pct}%</span>
-      <span className="inline-block h-1.5 w-16 overflow-hidden rounded-pill bg-surface-muted" aria-hidden="true">
-        <span className={`block h-full rounded-pill ${tint}`} style={{ width: `${pct}%` }} />
-      </span>
-    </span>
-  );
-};
-
-// Single lifecycle status: shared warning-dot styling + translated label (never
-// the raw enum), identical to the Search card and Detail dot language.
-const StatusDot = ({ doc }: { doc: any }) => {
-  const s = useStrings();
-  const status = getStatus(doc, s as any);
-  if (!status) return <span className="text-xs font-medium text-ink-muted">{s.notAvailable}</span>;
-  return (
-    <span className="inline-flex min-w-0 items-center gap-2">
-      <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-pill ${status.dot}`} />
-      <span className={`truncate text-xs font-medium ${status.text}`}>{status.label}</span>
-    </span>
-  );
-};
+/** The same reading of a status as Detail: one chip, in the status's tone. */
+const statusTone = (key?: string) =>
+  key === 'NEEDS_REVIEW' ? 'warning' : key === 'REJECTED' || key === 'FAILED' ? 'danger' : key === 'COMPLETED' ? 'success' : 'neutral';
 
 export const ReviewQueueScreen = () => {
   const s = useStrings();
   const { language } = useLanguage();
+  const lang = language as Lang;
   const navigate = useNavigate();
   const { onSuccess } = useOutletContext<{ onSuccess: () => void }>();
   const [docs, setDocs] = useState<any[]>([]);
@@ -151,16 +122,31 @@ export const ReviewQueueScreen = () => {
     }
   };
 
-  // Localize the row date to the active app language (null on empty/unparseable,
-  // so the caller shows a calm placeholder — never a fabricated date).
-  const formatDate = (value: unknown): string | null => formatDateValue(value, language);
+  /** What one card shows, read as Detail reads it. */
+  const readRow = (doc: any) => {
+    const name: string = doc.originalFileName || doc.name;
+    const merchant = getVendor(doc);
+    const category = getDocumentCategory(doc);
+    const typeLabel = getDocTypeLabel(doc.documentType, s as any);
+    const amount = ledgerAmount(doc.facts);
+    const money = amount ? moneyParts(amount.amount, amount.currency, lang) : null;
+    // The date on the receipt, as the ledger dates it; the day it was added
+    // only when none was read, and then the line says so (the same copy as
+    // Home and Detail).
+    const printed = doc.facts?.find((f: any) => f.key === 'TRANSACTION_DATE' && f.valueDate)?.valueDate ?? null;
+    const dateText = printed
+      ? fullDayLabel(printed, lang)
+      : doc.uploadedAt ? s.ledgerNoDate.replace('{day}', fullDayLabel(doc.uploadedAt, lang, 'local')) : null;
+    const meta = [category ? (s as any)[`cat${category}`] : null, typeLabel, dateText].filter(Boolean) as string[];
+    const status = getStatus(doc, s as any);
+    return { name, title: merchant ?? name, meta, money, amount, status };
+  };
 
-  // The header (H1 + subtitle) renders in every state so the page title is stable
-  // across loading / error / empty / list.
+  // The heading renders in every state so the page title is stable across
+  // loading / error / empty / list.
   const header = (
-    <header className="mb-8">
-      <h1 className="mb-1 text-title-lg font-semibold tracking-tight text-ink">{s.queue}</h1>
-      <p className="text-sm text-ink-muted">{s.validationQueue}</p>
+    <header className="mb-6">
+      <h1 className="text-title-lg font-semibold tracking-tight text-ink">{s.queue}</h1>
     </header>
   );
 
@@ -203,19 +189,12 @@ export const ReviewQueueScreen = () => {
           <p className="mb-4 text-xs text-ink-muted">{s.queueFirstFifty}</p>
         )}
 
-        {/* Mobile card list (< md). The desktop table's last-column actions are
-            unreachable at phone widths, so every card is tappable and carries its
-            own always-visible 44px actions. Carries the fuller layout (name, type,
-            vendor, amount, date, confidence) for parity with the Search card. */}
+        {/* Phone: one card per receipt, tappable, with its own always-visible
+            44px actions (a desktop row's end-column actions are unreachable at
+            phone widths). */}
         <div className="space-y-3 md:hidden">
           {docs.map((doc) => {
-            const name = doc.originalFileName || doc.name;
-            const vendor = getVendor(doc);
-            const amount = getAmount(doc, language);
-            const dateStr = formatDate(doc.uploadedAt);
-            const typeLabel = getDocTypeLabel(doc.documentType, s as any);
-            const category = getDocumentCategory(doc);
-            const categoryLabel = category ? (s as any)[`cat${category}`] : null;
+            const row = readRow(doc);
             return (
               <article
                 key={doc.id}
@@ -223,7 +202,8 @@ export const ReviewQueueScreen = () => {
                 tabIndex={0}
                 onClick={() => navigate(`/documents/${doc.id}`)}
                 onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/documents/${doc.id}`); }}
-                className={`cursor-pointer p-4 transition-colors active:bg-surface-alt ${panelClass}`}
+                className={`cursor-pointer p-4 transition-colors active:bg-surface-alt motion-reduce:transition-none ${panelClass}`}
+                data-queue-card={doc.id}
               >
                 <div className="flex items-start gap-3">
                   <DocumentIcon doc={doc} size="sm" />
@@ -232,52 +212,48 @@ export const ReviewQueueScreen = () => {
                         dir="auto", which then falls back to LTR and clips the leading
                         (identifying) end of an Arabic name. The value is the sole
                         content of the block, so the block already isolates it. */}
-                    <p className="truncate text-sm font-semibold text-ink" dir="auto">{name}</p>
-                    {/* Type line: the real documentType mapped to a translated,
-                        sentence-case label (shared getDocTypeLabel). Hidden entirely
-                        when null (no placeholder, no guessed type). */}
-                    {typeLabel && (
-                      <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">{typeLabel}</p>
-                    )}
-                    {vendor && (
-                      <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">{vendor}</p>
-                    )}
-                    {categoryLabel && (
-                      <span className="mt-1.5 block"><CountChip>{categoryLabel}</CountChip></span>
+                    <p className="truncate text-[15px] font-semibold text-ink" dir="auto" data-queue-title>{row.title}</p>
+                    {row.meta.length > 0 && (
+                      <p className="mt-0.5 truncate text-xs font-medium text-ink-muted" dir="auto" data-queue-meta>
+                        {row.meta.map((part, i) => (
+                          <React.Fragment key={i}>
+                            {i > 0 && <span aria-hidden="true"> · </span>}
+                            <span>{part}</span>
+                          </React.Fragment>
+                        ))}
+                      </p>
                     )}
                   </div>
-                  {amount && (
+                  {row.money && (
                     // dir="ltr" with NO isolate. <bdi> is by definition an isolate
                     // whose direction is auto, so it re-runs the detection this pin
-                    // exists to override, finds the leading U+200F in Intl's ar
-                    // currency output, and lands back on "$US 42.07". Measured in
-                    // Chrome (#145, f18bd1e); [dir=ltr] already computes
-                    // unicode-bidi: isolate, so no wrapper is needed to protect the
-                    // neighbours. `amount` is ALWAYS a currency string here
-                    // (getAmount), so a static dir is correct at this site.
-                    <span className="flex-shrink-0 text-[15px] font-bold tabular-nums text-ink" dir="ltr">{amount}</span>
+                    // exists to override (currencyBidiDirection.test.tsx). The
+                    // number and the code are the ledger's parts, never a summed or
+                    // converted figure.
+                    <span className="flex-shrink-0 text-[15px] font-bold tabular-nums text-ink" dir="ltr" data-queue-amount>
+                      {row.money.number} <span className="text-xs font-bold text-ink-muted">{row.money.code ?? s.ledgerNoCurrency}</span>
+                      {row.amount?.source === 'corrected' && <CountChip className="ms-1.5 align-middle">{s.ledgerCorrectedTag}</CountChip>}
+                    </span>
                   )}
-                  <ChevronRight size={16} className="flex-shrink-0 text-ink-fainter rtl:-scale-x-100" />
+                  <ChevronRight size={16} className="flex-shrink-0 text-ink-fainter rtl:-scale-x-100" aria-hidden="true" />
                 </div>
 
                 <div className="mt-3 flex items-center justify-between gap-3 border-t border-divider pt-3">
-                  <StatusDot doc={doc} />
-                  <span className="flex-shrink-0 text-xs text-ink-muted">
-                    {dateStr ? <span dir="auto"><bdi>{dateStr}</bdi></span> : s.notAvailable}
-                  </span>
-                </div>
-
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <span className="text-label font-medium text-ink-tertiary">{s.aiConfidence}</span>
-                  <ConfidenceMeter value={doc.overallConfidence} />
+                  {row.status ? (
+                    <CountChip tone={statusTone(row.status.key)} data-queue-status className="max-w-full">
+                      <span className="truncate">{row.status.label}</span>
+                    </CountChip>
+                  ) : (
+                    <span className="text-xs font-medium text-ink-muted">{s.notAvailable}</span>
+                  )}
                 </div>
 
                 <div className="mt-3 flex gap-2">
                   <button
                     onClick={(e) => { e.stopPropagation(); handleAction(doc.id, 'approve'); }}
                     disabled={actioningId === doc.id}
-                    aria-label={`${s.approve} ${name}`}
-                    className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-success text-sm font-semibold text-white transition-colors active:scale-[0.99] disabled:opacity-50"
+                    aria-label={`${s.approve} ${row.name}`}
+                    className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-success-tint text-sm font-semibold text-success-text ring-1 ring-line transition-colors hover:ring-success active:scale-[0.99] motion-reduce:transition-none disabled:opacity-50"
                   >
                     <CheckCircle size={18} />
                     {s.approve}
@@ -285,8 +261,8 @@ export const ReviewQueueScreen = () => {
                   <button
                     onClick={(e) => { e.stopPropagation(); handleAction(doc.id, 'reject'); }}
                     disabled={actioningId === doc.id}
-                    aria-label={`${s.reject} ${name}`}
-                    className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-danger text-sm font-semibold text-white transition-colors active:scale-[0.99] disabled:opacity-50"
+                    aria-label={`${s.reject} ${row.name}`}
+                    className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-danger-tint text-sm font-semibold text-danger-text ring-1 ring-line transition-colors hover:ring-danger active:scale-[0.99] motion-reduce:transition-none disabled:opacity-50"
                   >
                     <XCircle size={18} />
                     {s.reject}
@@ -297,7 +273,7 @@ export const ReviewQueueScreen = () => {
           })}
         </div>
 
-        {/* Desktop table (>= md), restyled onto tokens. */}
+        {/* Desktop table (>= md): the same reading, one row per receipt. */}
         <div className={`hidden overflow-hidden md:block ${panelClass}`}>
           <table className="w-full border-collapse text-start">
             <thead>
@@ -305,55 +281,47 @@ export const ReviewQueueScreen = () => {
                 <th className="px-6 py-3.5 text-start text-label font-semibold uppercase tracking-wide text-ink-tertiary">{s.documentSource}</th>
                 <th className="px-6 py-3.5 text-end text-label font-semibold uppercase tracking-wide text-ink-tertiary">{s.amountLabel}</th>
                 <th className="px-6 py-3.5 text-start text-label font-semibold uppercase tracking-wide text-ink-tertiary">{s.processingStatus}</th>
-                <th className="px-6 py-3.5 text-start text-label font-semibold uppercase tracking-wide text-ink-tertiary">{s.aiConfidence}</th>
                 <th className="px-6 py-3.5 text-start text-label font-semibold uppercase tracking-wide text-ink-tertiary">{s.extractedDate}</th>
                 <th className="px-6 py-3.5 text-end text-label font-semibold uppercase tracking-wide text-ink-tertiary">{s.quickActions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-divider">
               {docs.map((doc) => {
-                const name = doc.originalFileName || doc.name;
-                const vendor = getVendor(doc);
-                const amount = getAmount(doc, language);
-                const dateStr = formatDate(doc.uploadedAt);
-                const typeLabel = getDocTypeLabel(doc.documentType, s as any);
+                const row = readRow(doc);
+                const dateText = row.meta[row.meta.length - 1];
                 return (
                   <tr
                     key={doc.id}
                     onClick={() => navigate(`/documents/${doc.id}`)}
-                    className="group cursor-pointer transition-colors hover:bg-surface-alt"
+                    className="group cursor-pointer transition-colors hover:bg-surface-alt motion-reduce:transition-none"
                   >
                     <td className="px-6 py-4 align-top">
                       <div className="flex items-center gap-3">
                         <DocumentIcon doc={doc} />
                         <div className="min-w-0">
                           {/* dir="auto" must sit on the truncating element with no
-                              <bdi> isolate inside it — see the mobile card above. */}
-                          <p className="truncate text-sm font-semibold text-ink" dir="auto">{name}</p>
-                          {typeLabel && (
-                            <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">{typeLabel}</p>
-                          )}
-                          {vendor && (
-                            <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">{vendor}</p>
+                              <bdi> isolate inside it (see the card above). */}
+                          <p className="truncate text-sm font-semibold text-ink" dir="auto">{row.title}</p>
+                          {row.meta.length > 1 && (
+                            <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">{row.meta.slice(0, -1).join(' · ')}</p>
                           )}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-end align-top">
-                      {amount ? (
-                        <span className="text-sm font-semibold tabular-nums text-ink" dir="ltr">{amount}</span>
+                      {row.money ? (
+                        <span className="text-sm font-semibold tabular-nums text-ink" dir="ltr">
+                          {row.money.number} <span className="text-xs font-semibold text-ink-muted">{row.money.code ?? s.ledgerNoCurrency}</span>
+                        </span>
                       ) : (
                         <span className="text-sm text-ink-fainter" aria-label={s.notAvailable} title={s.notAvailable}>-</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 align-top"><StatusDot doc={doc} /></td>
-                    <td className="px-6 py-4 align-top"><ConfidenceMeter value={doc.overallConfidence} /></td>
+                    <td className="px-6 py-4 align-top">
+                      {row.status ? <CountChip tone={statusTone(row.status.key)}>{row.status.label}</CountChip> : <span className="text-xs font-medium text-ink-muted">{s.notAvailable}</span>}
+                    </td>
                     <td className="px-6 py-4 align-top text-sm text-ink-secondary">
-                      {dateStr ? (
-                        <span dir="auto"><bdi>{dateStr}</bdi></span>
-                      ) : (
-                        <span className="text-ink-muted">{s.notAvailable}</span>
-                      )}
+                      {dateText ? <span dir="auto"><bdi>{dateText}</bdi></span> : <span className="text-ink-muted">{s.notAvailable}</span>}
                     </td>
                     <td className="px-6 py-4 align-top">
                       {/* Always visible: hover-revealed controls are invisible and
@@ -363,7 +331,7 @@ export const ReviewQueueScreen = () => {
                           onClick={(e) => { e.stopPropagation(); handleAction(doc.id, 'approve'); }}
                           disabled={actioningId === doc.id}
                           title={s.approve}
-                          aria-label={`${s.approve} ${name}`}
+                          aria-label={`${s.approve} ${row.name}`}
                           className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-btn text-success-text transition-colors hover:bg-success-tint disabled:opacity-50"
                         >
                           <CheckCircle size={20} />
@@ -372,7 +340,7 @@ export const ReviewQueueScreen = () => {
                           onClick={(e) => { e.stopPropagation(); handleAction(doc.id, 'reject'); }}
                           disabled={actioningId === doc.id}
                           title={s.reject}
-                          aria-label={`${s.reject} ${name}`}
+                          aria-label={`${s.reject} ${row.name}`}
                           className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-btn text-danger-text transition-colors hover:bg-danger-tint disabled:opacity-50"
                         >
                           <XCircle size={20} />
@@ -391,7 +359,7 @@ export const ReviewQueueScreen = () => {
   }
 
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 motion-reduce:animate-none">
       {header}
       {body}
     </div>

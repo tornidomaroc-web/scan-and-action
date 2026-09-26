@@ -81,14 +81,27 @@ const LITERAL = `(?:white|black|${PALETTE})`;
 
 interface Hit { file: string; line: number; kind: string; cls: string; key: string }
 
-function scan(): Hit[] {
-  const U = flippingUtilities();
-  expect(U.length, 'no flipping utilities found — the deriver is broken').toBeGreaterThan(0);
+/** The classification of ONE class string, shared by the tree scan and the
+ *  positive control below, so the control exercises the real regexes. */
+function classify(cls: string, U: string[]): { kind: string; token: string; literal: string } | null {
   const alt = U.join('|');
   const tokBg = new RegExp(`(?<![\\w:-])bg-(?:${alt})(?![\\w-])`);
   const tokFg = new RegExp(`(?<![\\w:-])text-(?:${alt})(?![\\w-])`);
   const litFg = new RegExp(`(?<![\\w:-])text-${LITERAL}(?![\\w-])`);
   const litBg = new RegExp(`(?<![\\w:-])bg-${LITERAL}(?![\\w-])`);
+  const bgLit = tokBg.test(cls) && litFg.test(cls) && !/dark:text-/.test(cls);
+  const fgLit = tokFg.test(cls) && litBg.test(cls) && !/dark:bg-/.test(cls);
+  if (!bgLit && !fgLit) return null;
+  return {
+    kind: bgLit ? 'token-bg + literal-fg' : 'token-fg + literal-bg',
+    token: (cls.match(bgLit ? tokBg : tokFg) ?? [''])[0],
+    literal: (cls.match(bgLit ? litFg : litBg) ?? [''])[0],
+  };
+}
+
+function scan(): Hit[] {
+  const U = flippingUtilities();
+  expect(U.length, 'no flipping utilities found: the deriver is broken').toBeGreaterThan(0);
 
   const files: string[] = [];
   const walk = (d: string) => {
@@ -109,20 +122,12 @@ function scan(): Hit[] {
       if (line.trim().startsWith('//')) return;
       for (const m of line.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\}|\{"([^"]*)"\})/g)) {
         const cls = (m[1] ?? m[2] ?? m[3]) as string;
-        const bgLit = tokBg.test(cls) && litFg.test(cls) && !/dark:text-/.test(cls);
-        const fgLit = tokFg.test(cls) && litBg.test(cls) && !/dark:bg-/.test(cls);
-        if (!bgLit && !fgLit) continue;
-        const token = (cls.match(bgLit ? tokBg : tokFg) ?? [''])[0];
-        const literal = (cls.match(bgLit ? litFg : litBg) ?? [''])[0];
-        hits.push({
-          file: rel, line: i + 1,
-          kind: bgLit ? 'token-bg + literal-fg' : 'token-fg + literal-bg',
-          cls,
-          // KEYED ON file + the offending PAIR, never on the line number: a pin
-          // keyed to a line reports every entry below an inserted comment as a
-          // brand-new violation. This repo has been bitten by that before.
-          key: `${rel} :: ${token} + ${literal}`,
-        });
+        const c = classify(cls, U);
+        if (!c) continue;
+        // KEYED ON file + the offending PAIR, never on the line number: a pin
+        // keyed to a line reports every entry below an inserted comment as a
+        // brand-new violation. This repo has been bitten by that before.
+        hits.push({ file: rel, line: i + 1, kind: c.kind, cls, key: `${rel} :: ${c.token} + ${c.literal}` });
       }
     });
   }
@@ -142,10 +147,11 @@ function scan(): Hit[] {
 // or its foreground is a palette decision, not a rename. The ratchet is TWO-WAY
 // — an entry whose violation no longer exists fails as loudly as a new one — so
 // this list cannot quietly outlive the defect it records.
-const KNOWN: string[] = [
-  'screens/ReviewQueueScreen.tsx :: bg-success + text-white',
-  'screens/ReviewQueueScreen.tsx :: bg-danger + text-white',
-];
+// EMPTY since 2026-09-26: the Queue's Approve / Reject pills moved onto the
+// tint idiom (bg-success-tint + text-success-text, bg-danger-tint +
+// text-danger-text) with the visual language, and the last two pairings in
+// the authenticated app went with them. The ratchet stays two-way.
+const KNOWN: string[] = [];
 
 describe('a flipping token is never paired with a literal', () => {
   const hits = scan();
@@ -179,8 +185,13 @@ describe('a flipping token is never paired with a literal', () => {
 
   it('the scanner can see a pairing when one exists (positive control)', () => {
     // Without this, a broken regex would report zero everywhere and every
-    // assertion above would pass vacuously.
-    expect(hits.length, 'the scanner found nothing at all — it is broken, not the tree').toBeGreaterThan(0);
-    expect(hits.map((h) => h.key)).toContain('screens/ReviewQueueScreen.tsx :: bg-danger + text-white');
+    // assertion above would pass vacuously. The tree is clean now, so the
+    // control is the class string of the original defect, run through the
+    // same classifier the scan uses, in both directions.
+    const U = flippingUtilities();
+    expect(classify('bg-ink text-white', U)?.kind).toBe('token-bg + literal-fg');
+    expect(classify('text-warning-text bg-slate-50', U)?.kind).toBe('token-fg + literal-bg');
+    expect(classify('bg-accent text-on-accent', U), 'a non-flipping token on a token is not a pairing').toBeNull();
+    expect(classify('bg-surface-raised text-ink', U)).toBeNull();
   });
 });
