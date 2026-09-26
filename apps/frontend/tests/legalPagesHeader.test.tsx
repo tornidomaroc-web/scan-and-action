@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { flushSync } from 'react-dom';
 import { createRoot, Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 
 import { PrivacyPolicy } from '../src/screens/PrivacyPolicy';
 import { TermsOfService } from '../src/screens/TermsOfService';
@@ -67,7 +68,8 @@ const render = (el: React.ReactElement) => {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
-  flushSync(() => root.render(<MemoryRouter>{el}</MemoryRouter>));
+  // The header is on the catalog since 2026-09-26, so it needs the provider.
+  flushSync(() => root.render(<LanguageProvider><MemoryRouter>{el}</MemoryRouter></LanguageProvider>));
 };
 afterEach(() => {
   root?.unmount();
@@ -88,7 +90,9 @@ describe.each(ROUTES)('%s', (path, name, Screen) => {
     expect(home, 'no link to / in the header — there is still no way back').not.toBeNull();
     expect(home!.getAttribute('aria-label')).toMatch(/home/i);
     expect(home!.querySelector('svg'), 'the mark should be inside the home link').not.toBeNull();
-    expect(home!.textContent).toContain('Scan&Action');
+    // The wordmark is the catalog's app name since 2026-09-26 ("Scan & Action"),
+    // no longer the literal "Scan&Action".
+    expect(home!.textContent).toContain('Scan & Action');
   });
 
   it('renders NO centre anchors, because their targets do not exist here', () => {
@@ -130,19 +134,23 @@ describe.each(ROUTES)('%s', (path, name, Screen) => {
 });
 
 describe('the two policies do not drift into each other', () => {
-  it('the landing route IS pinned and the four legal routes are NOT', () => {
-    // Stated as one assertion so the contrast is visible in the failure output.
+  // Until 2026-09-26 the landing was pinned light (`.sa-pin-light`) while the
+  // legal routes were not. The landing follows the theme through the tokens
+  // now, like every screen, and the pin is gone from tokens.css: no route may
+  // carry it, and the class must not come back.
+  it('no route is pinned light any more, and the pin no longer exists', () => {
     const landing = readFileSync(join(CWD, 'src', 'screens', 'LandingScreen.tsx'), 'utf8');
-    expect(landing).toContain('sa-pin-light');
+    expect(landing).not.toContain('sa-pin-light');
     const pinned = ROUTES.filter(([, n]) => code(n).includes('sa-pin-light')).map(([p]) => p);
     expect(pinned).toEqual([]);
+    expect(readFileSync(join(CWD, 'src', 'styles', 'tokens.css'), 'utf8')).not.toContain('.sa-pin-light {');
   });
 
-  it('and the scanner can tell them apart (positive control)', () => {
+  it('and the scanner reads real sources (positive control)', () => {
     // Without this, a broken `code()` returning '' would make every
     // "not pinned" assertion above pass vacuously.
     const landing = readFileSync(join(CWD, 'src', 'screens', 'LandingScreen.tsx'), 'utf8');
-    expect(landing).toContain('sa-pin-light');
+    expect(landing).toContain('data-landing');
     expect(code('PrivacyPolicy').length).toBeGreaterThan(500);
   });
 });

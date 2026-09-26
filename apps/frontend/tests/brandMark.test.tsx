@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 
 import {
   BrandMark,
@@ -241,7 +242,8 @@ describe('the header renders the small cut, and AppLogo is gone', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
-    flushSync(() => root.render(<MemoryRouter><LandingScreen /></MemoryRouter>));
+    // The landing is on the catalog since 2026-09-26, so it needs the provider.
+    flushSync(() => root.render(<LanguageProvider><MemoryRouter><LandingScreen /></MemoryRouter></LanguageProvider>));
     const svg = container.querySelector('header')!.querySelector('svg')!;
     expect(svg).not.toBeNull();
     expect(svg.getAttribute('width')).toBe('30');
