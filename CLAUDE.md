@@ -215,9 +215,18 @@ is a different instrument:
 | What does git *declare* for a path? | `git check-attr text eol -- <path>` |
 
 **And prove the detector before believing it.** Write one known-CRLF file and
-one known-LF file, and confirm whatever you are using separates them, before
-trusting any census it produces. A positive control is the only thing that
-catches this; no amount of reading the command catches it.
+one known-LF file, **both containing the letter `r`**, and confirm whatever you
+are using separates them, before trusting any census it produces. A positive
+control is the only thing that catches this; no amount of reading the command
+catches it.
+
+**A control must contain the thing that fools the detector.** On 2026-09-26
+`od -c <file> | grep -c '\\r'` reported 2678 CR lines in a pure-LF file (the
+letter `r` again, a fourth spelling), and an LF control of `a\nb\n` read 0
+through the same pipe: it held no `r` to match, so it passed the broken
+detector. Byte counting the same file gave 0 CR.
+
+Recorded 2026-09-26.
 
 Both directions were hit within minutes of each other on 2026-08-07, during the
 audit that produced the line-ending policy this repository now guards: one
