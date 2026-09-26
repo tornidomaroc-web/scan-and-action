@@ -300,7 +300,7 @@ export const ReviewQueueScreen = () => {
                         <DocumentIcon doc={doc} />
                         <div className="min-w-0">
                           {/* dir="auto" must sit on the truncating element with no
-                              <bdi> isolate inside it — see the card above. */}
+                              <bdi> isolate inside it (see the card above). */}
                           <p className="truncate text-sm font-semibold text-ink" dir="auto">{row.title}</p>
                           {row.meta.length > 1 && (
                             <p className="mt-0.5 truncate text-xs text-ink-muted" dir="auto">{row.meta.slice(0, -1).join(' · ')}</p>
