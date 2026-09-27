@@ -56,10 +56,15 @@ jobs:
     defaults:
       run:
         working-directory: apps/frontend
-    env:
-      APP_STORE_CONNECT_KEY_DIR: ${{ runner.temp }}/asc
     steps:
       - uses: actions/checkout@v4
+
+      # The `runner` context is not available in a job-level `env`, only inside
+      # steps; GitHub refuses the whole file otherwise (a startup failure with
+      # no job and no log, seen on the first push of this file). So the key
+      # directory is exported from a step.
+      - name: Key directory for this job only
+        run: echo "APP_STORE_CONNECT_KEY_DIR=$RUNNER_TEMP/asc" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v4
         with:
