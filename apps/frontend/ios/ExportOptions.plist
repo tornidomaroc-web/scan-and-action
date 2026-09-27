@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Read by `xcodebuild -exportArchive` in .github/workflows/ios-testflight.yml.
+	     method app-store-connect + destination upload: Xcode 15+ signs the
+	     archive with the cloud-managed distribution certificate and uploads it
+	     to App Store Connect itself, authenticated by the same API key as the
+	     archive step. No altool, no Transporter, no certificate in secrets.
+	     testFlightInternalTestingOnly: the build "cannot be distributed via
+	     external TestFlight or the App Store", so nothing built by this file can
+	     reach App Review while the token-revocation item is open (board, APPLE
+	     TRACK). The submission build is a later change that removes that key.
+	     manageAppVersionAndBuildNumber: Xcode bumps a stale CFBundleVersion in
+	     the staged copy at upload, the safety net behind the run number. -->
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>destination</key>
+	<string>upload</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>teamID</key>
+	<string>NQ23SMHXJV</string>
+	<key>uploadSymbols</key>
+	<true/>
+	<key>manageAppVersionAndBuildNumber</key>
+	<true/>
+	<key>testFlightInternalTestingOnly</key>
+	<true/>
+</dict>
+</plist>

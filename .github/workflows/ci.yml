@@ -46,3 +46,8 @@ jobs:
       # capacitor.config / missing webDir / plugin mismatch. Deliberately NO
       # Gradle assemble here (no JDK/Android SDK) to keep CI fast.
       - run: npx cap sync android
+      # SPM template: sync writes CapApp-SPM/Package.swift from node_modules and
+      # copies dist/, so a plugin the iOS project cannot resolve fails here, on
+      # Linux, before the macOS pipeline ever runs. It warns that xcodebuild is
+      # absent; that is expected off macOS.
+      - run: npx cap sync ios
