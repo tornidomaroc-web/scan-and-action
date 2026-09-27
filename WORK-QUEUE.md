@@ -476,7 +476,8 @@ before republishing on Play and publishing on the App Store. Built on
   platform in the repository" above). `apps/frontend/ios` does not exist, so
   they cannot land yet:
   1. `Info.plist`: `CFBundleURLTypes` with the reversed Google iOS client ID as
-     a URL scheme (Google Sign-In for iOS, "start-integrating").
+     a URL scheme (Google Sign-In for iOS, "start-integrating"); the value is
+     in `apps/frontend/src/lib/googleClientIds.ts`.
   2. `AppDelegate.swift`: `GIDSignIn.sharedInstance.handle(url)` in
      `application(_:open:options:)`, per the plugin's iOS guide.
   3. The Sign in with Apple capability on the target
@@ -501,6 +502,8 @@ before republishing on Play and publishing on the App Store. Built on
   Android OAuth client to carry the SHA-1 of the Play App Signing key (Play
   Console, App integrity) and of the upload key; a mismatch fails with
   `[28444] Developer console is not set up correctly` on the device only.
+  Both Android clients exist since 2026-09-27 (the owner); whether their
+  SHA-1s match the installed APK is exactly what only a device can say.
   - Owner: the owner. **EXPIRY:** one Google sign-in on a Play-installed build
     on a borrowed Android device.
 - [ ] **A Hide-My-Email sign-in by someone who already has an email-and-password
@@ -511,16 +514,66 @@ before republishing on Play and publishing on the App Store. Built on
   from Settings, which needs "Enable Manual Linking" in the dashboard.
   - **REVISIT when** a read-only count of `auth.identities` with
     `provider = 'apple'` exceeds the owner's own; today it is 0.
-- [ ] **The owner's console work, verified by a read and not by his word.**
-  Instrument: `GET https://<project>.supabase.co/auth/v1/settings` with the
-  publishable key from the served bundle. On 2026-09-26 its `external` map
-  showed `email` only and `mailer_autoconfirm: false`.
-  - **EXPIRY:** `google` and `apple` read true there; then the web preview
-    signs in with Google from the owner's already-signed-in Chrome; then the
-    live linking reading above.
-  - One conditional: Supabase's Google guide says to enable "Skip nonce check"
-    for iOS. The plugin forwards a nonce, so it is left OFF; if the first iOS
-    Google sign-in fails naming the nonce, turn it on and record it here.
+- [x] **The owner's console work, verified by a read and not by his word.
+  DONE 2026-09-27.** Instrument: `GET https://<project>.supabase.co/auth/v1/settings`
+  with the publishable key from the served bundle. On 2026-09-26 its
+  `external` map showed `email` only; on 2026-09-27 it reads `apple`, `email`,
+  `google`, with `mailer_autoconfirm: false` unchanged.
+  - Google Cloud project `scan-and-action`, consent screen External and In
+    production, clients Web, iOS, and two Android (Play App Signing SHA-1 and
+    upload SHA-1), by the owner. The two public client ids are committed in
+    `apps/frontend/src/lib/googleClientIds.ts` (`.env.production` is
+    read-denied to the tooling; an env var of the same name still wins). The
+    web client's secret is in Supabase only.
+  - One conditional stays: Supabase's Google guide says to enable "Skip nonce
+    check" for iOS. The plugin forwards a nonce, so it is left OFF; if the
+    first iOS Google sign-in fails naming the nonce, turn it on and record it.
+- [x] **LINKED, proven live on the preview, 2026-09-27.** From the owner's
+  signed-in Chrome, "Continue with Google" on the `feat/social-sign-in`
+  preview, choosing `tornido.maroc@gmail.com`, whose email-and-password
+  account is `0b240bed`; no password was typed; the consent screen, then the
+  dashboard with that account's September receipts. Read-only reading
+  afterwards, from `apps/backend` inside `SET TRANSACTION READ ONLY`:
+  `auth.users.raw_app_meta_data->'providers'` = `["email","google"]`,
+  `auth.identities` for the uuid = `["email","google"]`, `"User"` rows for the
+  uuid = 1 and for the address = 1; totals `auth.users` 31 before and after,
+  `"User"` 31, social identities 0 before and 1 after. No production user was
+  created; nothing to clean up. Control on the same session: Settings shows
+  no "Sign in on other devices" card, since the account has an email identity.
+- [ ] **Brand verification on the Google consent screen.** Observed live: the
+  chooser and the consent page read "to continue to
+  ujpdvjaxitgykrrsblfk.supabase.co", not "Scan & Action", because the
+  project has no verified brand (Supabase's Google guide: *"Branding and
+  Verification show a logo and name instead of the Supabase project ID in the
+  consent screen"*). Free; Google says brand verification "may take a few
+  business days". Sign-in works without it.
+  - Owner: the owner, Google Auth Platform, Branding, with a logo and the
+    `scan-action.com` domain. **EXPIRY:** the consent page names the app.
+- [ ] **Step 10, the Private Email Relay registration, with the exact
+  entries.** Read 2026-09-27 through public DNS only, nothing changed:
+  - The backend welcome mail: Resend, From `noreply@scan-action.com`
+    (`mailer.ts`, `DEFAULT_MAIL_FROM`, and `MAIL_FROM` in Railway). Supabase
+    auth mail (confirm, reset): custom SMTP through Resend ("Where a
+    confirmation email comes from"); its From address is read in Supabase,
+    Authentication, SMTP settings, and Resend accepts only a verified domain,
+    so it is on `scan-action.com` too.
+  - DNS: `scan-action.com` TXT `v=spf1 include:_spf.mx.cloudflare.net ~all`
+    (Cloudflare email routing, the inbound side, not Resend);
+    `send.scan-action.com` TXT `v=spf1 include:amazonses.com ~all` and MX
+    `feedback-smtp.eu-west-1.amazonses.com` (Resend's envelope sender, the
+    Return-Path); `resend._domainkey.scan-action.com` holds the DKIM key, so
+    the signature's `d=` is `scan-action.com` and matches the From domain;
+    `_dmarc.scan-action.com` is `v=DMARC1; p=none;`.
+  - Apple ("configure-private-email-relay-service"): outbound mail must pass
+    SPF and/or DKIM; for SPF the envelope-sender domain must be registered and
+    match exactly; for DKIM the `d=` domain must match the From domain and be
+    registered. So register BOTH: `scan-action.com` (satisfies the DKIM check
+    for every mail) and `send.scan-action.com` (satisfies the SPF check on the
+    envelope). No DNS change is needed first; cost 0.
+  - Owner: the owner, Certificates, Identifiers & Profiles, Services, Sign in
+    with Apple for Email Communication. **EXPIRY:** both domains show verified
+    there, and a welcome mail to a relay address of the owner's own Apple ID
+    arrives.
 
 ### Kept, with the reason each has now
 

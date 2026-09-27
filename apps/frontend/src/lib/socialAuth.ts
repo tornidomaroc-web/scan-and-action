@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { supabase } from './supabase';
+import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from './googleClientIds';
 
 // ============================================================================
 // Google and Apple sign-in (2026-09-26).
@@ -51,9 +52,10 @@ export interface SocialConfig {
   googleIosClientId: string;
 }
 
+/** An environment variable wins; the committed public ids are the default. */
 export const socialConfigFromEnv = (): SocialConfig => ({
-  googleWebClientId: (import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID || '').trim(),
-  googleIosClientId: (import.meta.env.VITE_GOOGLE_IOS_CLIENT_ID || '').trim(),
+  googleWebClientId: (import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID || GOOGLE_WEB_CLIENT_ID).trim(),
+  googleIosClientId: (import.meta.env.VITE_GOOGLE_IOS_CLIENT_ID || GOOGLE_IOS_CLIENT_ID).trim(),
 });
 
 /**

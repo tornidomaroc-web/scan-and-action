@@ -44,6 +44,9 @@ vi.mock('../src/lib/supabase', () => ({
     },
   },
 }));
+// The committed public ids are blanked so "unconfigured" is a state these
+// tests can produce; the env stubs below then stand for a configured build.
+vi.mock('../src/lib/googleClientIds', () => ({ GOOGLE_WEB_CLIENT_ID: '', GOOGLE_IOS_CLIENT_ID: '' }));
 vi.mock('../src/lib/socialAuth', async (importOriginal) => {
   const real = await importOriginal<typeof import('../src/lib/socialAuth')>();
   return { ...real, signInWithSocial: h.signInWithSocial };

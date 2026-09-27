@@ -11,9 +11,9 @@ interface ImportMetaEnv {
   // second, invisible copy of the value that could disagree with the price we show.
   readonly VITE_PADDLE_CLIENT_TOKEN?: string;
   // Google OAuth client ids for the NATIVE Google button (lib/socialAuth.ts).
-  // Public by nature (they ship in the app), so they belong in the committed
-  // .env.production like VITE_API_URL. Absent: the native Google button is
-  // not rendered; the web button needs neither, Supabase holds that client.
+  // Public by nature (they ship in the app). The committed defaults live in
+  // lib/googleClientIds.ts; a variable here overrides them. The web button
+  // needs neither, Supabase holds that client.
   readonly VITE_GOOGLE_WEB_CLIENT_ID?: string;
   readonly VITE_GOOGLE_IOS_CLIENT_ID?: string;
 }
