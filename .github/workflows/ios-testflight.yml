@@ -126,7 +126,7 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            archive | tee "$RUNNER_TEMP/archive.log" | grep -E '^(warning|error|\*\*|Archive)' || true
+            archive | tee "$RUNNER_TEMP/archive.log" | grep -E '^(warning|error|\*\*|Archive)|: (error|warning):' || true
           test -d "$RUNNER_TEMP/App.xcarchive" || { echo "no archive was produced"; tail -n 80 "$RUNNER_TEMP/archive.log"; exit 1; }
 
       - name: Export and upload to App Store Connect
@@ -144,7 +144,7 @@ jobs:
             -authenticationKeyPath "$APP_STORE_CONNECT_KEY_DIR/AuthKey_$ASC_KEY_ID.p8" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            | tee "$RUNNER_TEMP/export.log" | grep -E -i '^(warning|error|\*\*|Upload|Export)' || true
+            | tee "$RUNNER_TEMP/export.log" | grep -E -i '^(warning|error|\*\*|Upload|Export)|: (error|warning):' || true
           grep -q -i 'EXPORT SUCCEEDED\|Upload succeeded' "$RUNNER_TEMP/export.log" || { echo "export/upload did not report success"; tail -n 80 "$RUNNER_TEMP/export.log"; exit 1; }
           echo "Uploaded build ${{ github.run_number }} (marketing version from the Xcode project) for commit ${{ github.sha }}"
 
