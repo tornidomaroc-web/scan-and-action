@@ -1,0 +1,153 @@
+name: iOS — TestFlight
+
+# Builds, signs and uploads the iOS app to TestFlight (internal testing only).
+#
+# TRIGGERS. A push to main that touches the frontend or this file, and a manual
+# run. NEVER pull_request: this job holds an App Store Connect Admin key, and
+# the `testflight` environment only deploys from main, so no other branch and
+# no fork can reach the secrets. A board-only merge does not run it (paths).
+#
+# COST. Standard GitHub-hosted runners are "free and unlimited on public
+# repositories" (docs.github.com, runners reference, read 2026-09-27). If this
+# repository ever goes private, macOS is $0.062 per minute.
+#
+# RUNNER. macos-26: Apple requires uploads "built with Xcode 26 or later" since
+# 2026-04-28 and Capacitor 8 requires Xcode 26; the image's default Xcode is
+# 26.x. macos-latest also resolves there today, but a label that moves is not
+# a pin.
+#
+# SIGNING. API-key automatic signing: xcodebuild "will create and update
+# profiles, app IDs, and certificates" (-allowProvisioningUpdates) using the
+# key passed with -authenticationKey*. The first run creates, in the owner's
+# Apple account, one cloud-managed Apple Distribution certificate and one App
+# Store provisioning profile for com.scanaction.app carrying the Sign in with
+# Apple entitlement. No certificate or profile is ever a secret here.
+#
+# BUILD NUMBER. CFBundleVersion = the run number of this workflow, monotonic;
+# CFBundleShortVersionString = MARKETING_VERSION in the Xcode project (1.0.0),
+# changed only by a pull request. ExportOptions.plist lets Xcode bump a stale
+# build number at upload as the safety net.
+#
+# WHAT A FAILED RUN TOUCHES. Nothing: main is unchanged, Railway and Vercel
+# deploy from main on their own, and a failed upload consumes no build number.
+# Retry with "Run workflow"; fix by a normal pull request.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/frontend/**'
+      - '.github/workflows/ios-testflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    name: iOS — archive, sign, upload to TestFlight
+    runs-on: macos-26
+    environment: testflight
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      # The `runner` context is not available in a job-level `env`, only inside
+      # steps; GitHub refuses the whole file otherwise (a startup failure with
+      # no job and no log, seen on the first push of this file). So the key
+      # directory is exported from a step.
+      - name: Key directory for this job only
+        run: echo "APP_STORE_CONNECT_KEY_DIR=$RUNNER_TEMP/asc" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Xcode in use
+        run: |
+          sudo xcode-select -p
+          xcodebuild -version
+
+      - run: npm ci
+
+      # The same web build Vercel serves, with the same Supabase project. The
+      # API base comes from the committed .env.production; the Supabase pair
+      # comes from the repository secrets the drift monitor already uses.
+      - name: Build the web bundle
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          test -n "$VITE_SUPABASE_URL" || { echo "SUPABASE_URL secret is empty"; exit 1; }
+          test -n "$VITE_SUPABASE_ANON_KEY" || { echo "SUPABASE_ANON_KEY secret is empty"; exit 1; }
+          npm run build
+
+      - name: Copy the bundle into the iOS project
+        run: npx cap sync ios
+
+      # The key file exists only for this job, in the runner's temp directory,
+      # readable by the runner user alone, and is removed in the last step even
+      # when a step fails. Its contents are never printed.
+      - name: Place the App Store Connect key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          set -eu
+          umask 077
+          mkdir -p "$APP_STORE_CONNECT_KEY_DIR"
+          printf '%s\n' "$ASC_KEY_P8" > "$APP_STORE_CONNECT_KEY_DIR/AuthKey_$ASC_KEY_ID.p8"
+          test -s "$APP_STORE_CONNECT_KEY_DIR/AuthKey_$ASC_KEY_ID.p8"
+          head -c 27 "$APP_STORE_CONNECT_KEY_DIR/AuthKey_$ASC_KEY_ID.p8" | grep -q -- '-----BEGIN PRIVATE KEY-----' || { echo "ASC_KEY_P8 does not look like a PEM private key"; exit 1; }
+
+      - name: Archive (automatic signing with the API key)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -eu
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$APP_STORE_CONNECT_KEY_DIR/AuthKey_$ASC_KEY_ID.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            archive | tee "$RUNNER_TEMP/archive.log" | grep -E '^(warning|error|\*\*|Archive)' || true
+          test -d "$RUNNER_TEMP/App.xcarchive" || { echo "no archive was produced"; tail -n 80 "$RUNNER_TEMP/archive.log"; exit 1; }
+
+      - name: Export and upload to App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -eu
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$APP_STORE_CONNECT_KEY_DIR/AuthKey_$ASC_KEY_ID.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            | tee "$RUNNER_TEMP/export.log" | grep -E -i '^(warning|error|\*\*|Upload|Export)' || true
+          grep -q -i 'EXPORT SUCCEEDED\|Upload succeeded' "$RUNNER_TEMP/export.log" || { echo "export/upload did not report success"; tail -n 80 "$RUNNER_TEMP/export.log"; exit 1; }
+          echo "Uploaded build ${{ github.run_number }} (marketing version from the Xcode project) for commit ${{ github.sha }}"
+
+      - name: Remove the key
+        if: always()
+        run: rm -rf "$APP_STORE_CONNECT_KEY_DIR"

@@ -367,11 +367,51 @@ a store screenshot.**
 
 ### Blockers this file never had
 
-- [ ] **No iOS platform in the repository.** `apps/frontend/ios` is absent, and
-  `@capacitor/ios` is not a dependency. **EXPIRY:** a PR adds the platform and a
-  CI workflow that uploads a signed build to TestFlight, and the owner installs
-  it on his iPhone. It needs the owner's App Store Connect API key (see THE
-  STAGE, item 4).
+- [ ] **No iOS platform in the repository: IN THE PR `feat/ios-testflight`
+  (2026-09-27), open until the first run on main puts a build on the owner's
+  iPhone.** `apps/frontend/ios` is the Capacitor 8 SPM template, generated on
+  Windows (the CLI only extracts a template; its CocoaPods check is gated on
+  macOS) and committed. `.github/workflows/ios-testflight.yml` archives, signs
+  and uploads on `macos-26` (Apple: uploads must be "built with Xcode 26 or
+  later" since 2026-04-28; the image's default Xcode is 26.x), on push to main
+  touching `apps/frontend/**` and on manual dispatch, never on pull_request.
+  - **Signing:** API-key automatic signing, no certificate or profile in
+    secrets. Secrets `ASC_ISSUER_ID`, `ASC_KEY_ID`, `ASC_KEY_P8` live in the
+    GitHub Environment `testflight`, restricted to deployments from `main`
+    (created 2026-09-27; `gh api repos/{owner}/{repo}/environments/testflight`
+    shows the policy, `gh secret list --env testflight` the names). The key is
+    a team key with the Admin role, which Apple's roles table requires to
+    "Create other cloud-managed certificate types" and distribution profiles.
+  - **What the first run creates in the owner's Apple account:** one
+    cloud-managed Apple Distribution certificate (Certificates, Identifiers &
+    Profiles, Certificates) and one App Store provisioning profile for
+    `com.scanaction.app` carrying Sign in with Apple (Profiles). Nothing else.
+  - **Build numbers:** `CFBundleVersion` = the workflow run number;
+    `CFBundleShortVersionString` = `MARKETING_VERSION` 1.0.0 in the Xcode
+    project, changed only by PR. `manageAppVersionAndBuildNumber` stays on.
+  - **Nothing can be submitted from it:** `ExportOptions.plist` sets
+    `testFlightInternalTestingOnly`, so every build it uploads "cannot be
+    distributed via external TestFlight or the App Store". The submission
+    build is a later PR that removes that key, after the revocation item.
+  - **Export compliance:** `ITSAppUsesNonExemptEncryption` false (HTTPS only).
+  - **What the PR's CI proves:** the project files (`iosPlatform.test.ts`,
+    15 assertions), `cap sync ios` on Linux (the SPM package resolves), the
+    web build unchanged. **What only the first run proves:** signing, the
+    upload, the buttons on a phone, and the nonce setting.
+  - **A failed run touches nothing:** main, Railway and Vercel are unaffected;
+    a failed upload consumes no build number. Retry with "Run workflow"; fix
+    by PR.
+  - **Automatic distribution:** the owner's internal group "Internal" reads
+    "Build Distribution: Automatic for Xcode Builds". Apple (add-internal-
+    testers, read 2026-09-27): "To enable Xcode to automatically deliver
+    builds to all group members, select the Enable automatic distribution
+    checkbox" and only "builds created by Xcode Cloud" must be added by hand.
+    An `xcodebuild -exportArchive` upload is an Xcode upload, not Xcode Cloud,
+    so the build should appear in the group on processing. If it does not:
+    App Store Connect, TestFlight, the build, add to group "Internal", and
+    record it here.
+  - **EXPIRY:** the first run on main succeeds and the owner installs the
+    build on his iPhone from TestFlight.
 - [ ] **Placeholder text that 2.1(a) forbids is reachable today.** Apple 2.1(a):
   *"placeholder text, empty websites, and other temporary content should be
   scrubbed before submission."*
@@ -478,18 +518,24 @@ carried neither (the control). The rulings, each with what was read:
   - **EXPIRY:** before the first App Store review submission. TestFlight is
     internal; review is where Apple judges this. Deferred from
     `feat/social-sign-in` by the owner's ruling of 2026-09-26.
-- [ ] **The three iOS edits, attached to the iOS platform PR** ("No iOS
-  platform in the repository" above). `apps/frontend/ios` does not exist, so
-  they cannot land yet:
-  1. `Info.plist`: `CFBundleURLTypes` with the reversed Google iOS client ID as
-     a URL scheme (Google Sign-In for iOS, "start-integrating"); the value is
-     in `apps/frontend/src/lib/googleClientIds.ts`.
-  2. `AppDelegate.swift`: `GIDSignIn.sharedInstance.handle(url)` in
-     `application(_:open:options:)`, per the plugin's iOS guide.
-  3. The Sign in with Apple capability on the target
-     (`com.apple.developer.applesignin` entitlement).
-  - Owner: engineering. **EXPIRY:** the platform PR merges with all three, and
-    the first TestFlight build signs in with Apple and with Google.
+- [ ] **The three iOS edits: two landed in `feat/ios-testflight`, one ruled
+  unnecessary, all judged by the first TestFlight build.**
+  1. DONE: `Info.plist` carries the reversed Google iOS client id as a URL
+     scheme; `iosPlatform.test.ts` derives it from `googleClientIds.ts`.
+  2. NOT MADE, on evidence: Capacitor 8's SPM template has no
+     `application(_:open:options:)` at all (URLs reach `SceneDelegate`), and
+     the plugin's SPM package pulls GoogleSignIn-iOS 9 whose AppAuth user
+     agent is `ASWebAuthenticationSession`, which hands the callback URL to the
+     session itself; `GIDSignIn.handle(url)` matters only under Guided Access
+     (AppAuth `OIDExternalUserAgentIOS.m`, read 2026-09-27). Importing
+     GoogleSignIn in the app target would also need the product linked to it,
+     which the CLI-managed `CapApp-SPM` does not do. **If the first build's
+     Google sign-in hangs after consent:** add `import GoogleSignIn` and
+     `GIDSignIn.sharedInstance.handle(context.url)` in
+     `SceneDelegate.scene(_:openURLContexts:)`, link the product, record it.
+  3. DONE: `App/App.entitlements` with `com.apple.developer.applesignin` =
+     `Default`, wired by `CODE_SIGN_ENTITLEMENTS` in both configurations.
+  - **EXPIRY:** the first TestFlight build signs in with Apple and with Google.
 - [ ] **Register `scan-action.com` as an email source for Apple's Private
   Email Relay.** Apple ("configuring-your-environment-for-sign-in-with-apple",
   read 2026-09-26): *"you must register your outbound email domains ... as email
@@ -501,6 +547,11 @@ carried neither (the control). The rulings, each with what was read:
   - Owner: the owner, in Certificates, Identifiers & Profiles. Free.
   - **EXPIRY:** the domain shows verified there, and a test mail to a relay
     address of the owner's own Apple ID arrives.
+- [ ] **The Android splash is repainted `#0F1014` and UNVERIFIED** (the owner,
+  2026-09-27, Q2): `SPLASH_NAVY` in `generate-android-icons.py` moved from
+  `#0f172a` and the eleven `splash.png` files were regenerated in
+  `feat/ios-testflight`; no device has shown them. Judged with the Google item
+  below on a borrowed device.
 - [ ] **Android Google sign-in is UNVERIFIED and stays so until a device
   exists.** The owner's phone is an iPhone and there is no Android device
   (the owner; the 2026-09-04 pass used a borrowed Samsung). The path is the same plugin call as

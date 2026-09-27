@@ -73,7 +73,13 @@ SRC = open(MASTER, encoding="utf-8").read()
 MARK_ONLY = re.sub(r'<g id="background">.*?</g>\s*', "", SRC, flags=re.S)
 BG_ONLY = re.sub(r'<g id="mark">.*?\n  </g>', "", SRC, flags=re.S)
 
-SPLASH_NAVY = "#0f172a"          # must equal capacitor.config.ts SplashScreen.backgroundColor
+SPLASH_NAVY = "#0F1014"          # must equal capacitor.config.ts SplashScreen.backgroundColor,
+                                 # the LaunchScreen.storyboard colour and --sa-surface (tokens.css).
+                                 # Was #0f172a until 2026-09-27; the name is kept so every
+                                 # reference still resolves.
+IOS_ASSETS = os.path.normpath(os.path.join(HERE, "..", "ios", "App", "App", "Assets.xcassets"))
+IOS_ICON = ("AppIcon.appiconset", "AppIcon-512@2x.png", 1024)   # the one 1024 icon Xcode derives every size from
+IOS_SPLASH_SIDE = 2732                                            # Capacitor's Splash.imageset, three identical files
 MASTER_SIZE = 512.0
 
 # Splash sizing. This is the master SQUARE's side as a fraction of the canvas's
@@ -214,7 +220,7 @@ def main():
         canvas.putalpha(mask.resize((lg, lg), Image.LANCZOS))
         made.append(write(canvas, f"mipmap-{dens}/ic_launcher_round.png"))
 
-    # ---- splash: mark on #0f172a -----------------------------------------
+    # ---- splash: mark on SPLASH_NAVY (#0F1014) ---------------------------
     splashes = {}
     for f in sorted(os.listdir(RES)):
         p = os.path.join(RES, f, "splash.png")
@@ -232,6 +238,20 @@ def main():
         plate = Image.new("RGBA", (W, H), SPLASH_NAVY)
         made.append(write(Image.alpha_composite(plate, compose(MARK_ONLY, W, H, sc, tx, ty)),
                           rel, rgb=True))
+
+    # ---- iOS (2026-09-27): the 1024 App Store icon and the 2732 splash ------
+    # Same master, same geometry as the web icon and the Android splash, so the
+    # three platforms show one mark. Written only when the iOS project exists.
+    if os.path.isdir(IOS_ASSETS):
+        folder, name, size = IOS_ICON
+        made.append(write_to(IOS_ASSETS, full_icon(size), os.path.join(folder, name), rgb=True))
+        S = IOS_SPLASH_SIDE
+        side = S * SPLASH_MASTER_SCALE
+        sc = side / MASTER_SIZE
+        plate = Image.new("RGBA", (S, S), SPLASH_NAVY)
+        splash = Image.alpha_composite(plate, compose(MARK_ONLY, S, S, sc, (S - side) / 2.0, (S - side) / 2.0))
+        for name in ("splash-2732x2732.png", "splash-2732x2732-1.png", "splash-2732x2732-2.png"):
+            made.append(write_to(IOS_ASSETS, splash, os.path.join("Splash.imageset", name), rgb=True))
 
     # ---- web / PWA icons (public/icons) -----------------------------------
     worst, safe = verify_maskable_safe_zone(WEB_ICONS[MASKABLE_ICON])
