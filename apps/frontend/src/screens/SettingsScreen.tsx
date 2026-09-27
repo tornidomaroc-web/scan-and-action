@@ -16,6 +16,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { PaywallModal } from '../components/PaywallModal';
 import { DeleteAccountModal } from '../components/DeleteAccountModal';
+import { SetPasswordCard } from '../components/SetPasswordCard';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { CountChip } from '../components/ui/CountChip';
 import { IconTile } from '../components/ui/IconTile';
@@ -98,6 +99,10 @@ export const SettingsScreen = () => {
             {s.signOut}
           </button>
         </Panel>
+
+        {/* Renders only for an account with no password (Sign in with Apple
+            on iOS creates one); see the card for why. */}
+        <SetPasswordCard user={user} />
 
         {/* Preferences — on mobile this is the only home for language &
             theme: the desktop sidebar (which also hosts them) is hidden

@@ -9,6 +9,7 @@ import { MIN_PASSWORD_LENGTH } from '../lib/passwordPolicy';
 import { isRequestTimeout, REQUEST_TIMEOUT_MS, withTimeout } from '../lib/fetchWithTimeout';
 import { isNativePlatform } from '../native/shell';
 import { AuthFrame } from '../components/auth/AuthFrame';
+import { SocialSignIn } from '../components/auth/SocialSignIn';
 import { TextField } from '../components/ui/TextField';
 import { PrimaryButton } from '../components/ui/PrimaryButton';
 import { Notice } from '../components/ui/Notice';
@@ -271,20 +272,30 @@ export const AuthScreen: React.FC = () => {
           {isLogin ? s.authSignInCta : s.authCreateAccountCta}
           <ArrowRight size={18} className="rtl:-scale-x-100" aria-hidden="true" />
         </PrimaryButton>
-
-        {!isLogin && !isNativePlatform() && (
-          // The legal line, on the web only for now: the in-app privacy link
-          // is its own board item (APPLE TRACK, "No privacy-policy link
-          // inside the native app"), and that page's wording is what it
-          // waits on, not this screen.
-          <p className="text-start text-xs leading-relaxed text-ink-muted" data-auth-legal>
-            {s.authLegalNotice}{' '}
-            <Link to="/terms" className="font-semibold text-ink-secondary underline">{s.authTermsLink}</Link>
-            {' · '}
-            <Link to="/privacy" className="font-semibold text-ink-secondary underline">{s.authPrivacyLink}</Link>
-          </p>
-        )}
       </form>
+
+      {/* Apple and Google, BELOW the form (2026-09-26): the fields keep the
+          top of the screen and the keyboard geometry above, and the buttons
+          still land at 631 px (sign-in) and 653 px (sign-up) on a 390 x 844
+          phone, on the first screen without scrolling, which is what Apple's
+          HIG asks. The same buttons serve both modes: a provider sign-in
+          creates the account when none exists. A provider failure shows in
+          the form's error panel above. */}
+      <SocialSignIn onError={setError} />
+
+      {!isLogin && !isNativePlatform() && (
+        // The legal line, on the web only for now: the in-app privacy link
+        // is its own board item (APPLE TRACK, "No privacy-policy link
+        // inside the native app"), and that page's wording is what it
+        // waits on, not this screen. It closes the screen, under every
+        // way of creating an account.
+        <p className="mt-4 text-start text-xs leading-relaxed text-ink-muted" data-auth-legal>
+          {s.authLegalNotice}{' '}
+          <Link to="/terms" className="font-semibold text-ink-secondary underline">{s.authTermsLink}</Link>
+          {' · '}
+          <Link to="/privacy" className="font-semibold text-ink-secondary underline">{s.authPrivacyLink}</Link>
+        </p>
+      )}
     </AuthFrame>
   );
 };

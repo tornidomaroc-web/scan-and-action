@@ -10,6 +10,12 @@ interface ImportMetaEnv {
   // changing one needs the same redeploy as editing the constant) while creating a
   // second, invisible copy of the value that could disagree with the price we show.
   readonly VITE_PADDLE_CLIENT_TOKEN?: string;
+  // Google OAuth client ids for the NATIVE Google button (lib/socialAuth.ts).
+  // Public by nature (they ship in the app). The committed defaults live in
+  // lib/googleClientIds.ts; a variable here overrides them. The web button
+  // needs neither, Supabase holds that client.
+  readonly VITE_GOOGLE_WEB_CLIENT_ID?: string;
+  readonly VITE_GOOGLE_IOS_CLIENT_ID?: string;
 }
 
 interface ImportMeta {
