@@ -420,8 +420,14 @@ a store screenshot.**
 ### Sign-in with Google and Apple — the owner's condition for both stores
 
 Set by the owner on 2026-09-26: Google and Apple sign-in on the Login screen
-before republishing on Play and publishing on the App Store. Built on
-`feat/social-sign-in`. The rulings, each with what was read:
+before republishing on Play and publishing on the App Store. **Merged as
+#258 = `a67149bc` on 2026-09-27**, squash of head `5f84c2d1` with an identical
+tree (`48711e54`), after the owner reviewed the preview Login on his iPhone.
+Instruments, re-run rather than quoted: `curl -sS https://<railway-host>/api/version`
+served the merge SHA 100 s after merge; the production bundle, read from
+freshly served HTML, carries `signInWithOAuth({provider:"google",...})` and
+`signInWithIdToken(...)` by minified structure, and the pre-merge bundle
+carried neither (the control). The rulings, each with what was read:
 
 - **Google is what makes Apple mandatory, not the reverse.** Apple 4.8 "Login
   Services", read 2026-09-26 at developer.apple.com/app-store/review/guidelines
