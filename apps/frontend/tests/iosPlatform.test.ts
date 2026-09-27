@@ -47,16 +47,15 @@ describe('entitlements and project settings', () => {
     expect(pbx.match(/DEVELOPMENT_TEAM = NQ23SMHXJV;/g)).toHaveLength(2);
     expect(pbx.match(/PRODUCT_BUNDLE_IDENTIFIER = com\.scanaction\.app;/g)).toHaveLength(2);
   });
-  // The template's "iPhone Developer" made `xcodebuild archive` ask Apple for an
-  // App Development profile, which needs a registered device; the team has
-  // none, so the first TestFlight run (36355312731) failed before compiling.
-  // Distribution in Release only: Debug stays a development build for devices.
-  it('Release signs the App target as Apple Distribution, Debug does not', () => {
-    const release = pbx.slice(pbx.indexOf('504EC3181FED79650016851F /* Release */ = {'));
-    const debug = pbx.slice(pbx.indexOf('504EC3171FED79650016851F /* Debug */ = {'), pbx.indexOf('504EC3181FED79650016851F /* Release */ = {'));
-    expect(release.slice(0, release.indexOf('name = Release;'))).toContain('"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";');
-    expect(debug).not.toContain('Apple Distribution');
-    expect(pbx.match(/Apple Distribution/g)).toHaveLength(1);
+  // Automatic signing archives for DEVELOPMENT and re-signs for distribution at
+  // export; Xcode 26 refuses a distribution identity on an automatically signed
+  // target ("conflicting provisioning settings", run 36355938894, after #261).
+  // So the archive needs an App Development profile, which needs one device
+  // registered on the team (run 36355312731: "no devices"). No identity
+  // override belongs in the target.
+  it('the App target names no distribution identity (automatic signing picks development)', () => {
+    expect(pbx).not.toContain('Apple Distribution');
+    expect(pbx).not.toMatch(/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]"/);
   });
   it('marketing version 1.0.0, fixed in the project; build number left to the pipeline', () => {
     expect(pbx.match(/MARKETING_VERSION = 1\.0\.0;/g)).toHaveLength(2);
