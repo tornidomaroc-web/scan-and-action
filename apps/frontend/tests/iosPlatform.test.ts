@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
 
 // ============================================================================
 // The iOS platform and its TestFlight pipeline (2026-09-27), pinned from the
@@ -123,6 +123,157 @@ describe('the TestFlight workflow never opens the key to a pull request', () => 
     expect(plist).toMatch(/<key>testFlightInternalTestingOnly<\/key>\s*<true\/>/);
     expect(plist).toMatch(/<key>teamID<\/key>\s*<string>NQ23SMHXJV<\/string>/);
     expect(wf).toContain('ios/ExportOptions.plist');
+  });
+});
+
+// ----------------------------------------------------------------------------
+// Purpose strings and the privacy manifest (2026-09-28). Build 4 was rejected
+// in processing with ITMS-90683 (missing NSPhotoLibraryUsageDescription): Apple
+// scans the linked code, not what the app calls, so every key a linked plugin
+// can reach must be present. The keys are DERIVED here from the native sources
+// of the plugins Package.swift links, so a plugin added or upgraded later that
+// reaches a new API fails this test before Apple does.
+// ----------------------------------------------------------------------------
+const walk = (dir: string): string[] =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = join(dir, e.name);
+    return e.isDirectory() ? walk(p) : p.endsWith('.swift') && !p.includes(`${sep}Tests${sep}`) ? [p] : [];
+  });
+
+const linkedPluginSources = (): Record<string, string> => {
+  const pkg = F('ios/App/CapApp-SPM/Package.swift');
+  const out: Record<string, string> = {};
+  for (const m of pkg.matchAll(/path: "\.\.\/\.\.\/\.\.\/node_modules\/([^"]+)"/g)) {
+    const iosDir = join(__dirname, '..', 'node_modules', m[1], 'ios');
+    if (!existsSync(iosDir)) continue;
+    out[m[1]] = walk(iosDir).map((f) => readFileSync(f, 'utf8')).join('\n');
+  }
+  return out;
+};
+
+// API symbol in native code -> Info.plist key iOS requires for it.
+const PURPOSE_STRING_MARKERS: Array<[RegExp, string]> = [
+  [/AVCaptureDevice/, 'NSCameraUsageDescription'],
+  [/PHPhotoLibrary|PHPickerViewController|PHAsset\b/, 'NSPhotoLibraryUsageDescription'],
+  [/UIImageWriteToSavedPhotosAlbum|PHAssetChangeRequest/, 'NSPhotoLibraryAddUsageDescription'],
+  [/recordVideo|AVAudioSession|AVMediaType\.audio/, 'NSMicrophoneUsageDescription'],
+  [/ATTrackingManager/, 'NSUserTrackingUsageDescription'],
+  [/CLLocationManager/, 'NSLocationWhenInUseUsageDescription'],
+  [/CNContactStore/, 'NSContactsUsageDescription'],
+  [/LAContext/, 'NSFaceIDUsageDescription'],
+  [/EKEventStore/, 'NSCalendarsUsageDescription'],
+  [/CBCentralManager|CBPeripheralManager/, 'NSBluetoothAlwaysUsageDescription'],
+  [/SFSpeechRecognizer/, 'NSSpeechRecognitionUsageDescription'],
+];
+
+// Required reason API in native code -> privacy manifest category.
+const REQUIRED_REASON_MARKERS: Array<[RegExp, string]> = [
+  [/UserDefaults/, 'NSPrivacyAccessedAPICategoryUserDefaults'],
+  [/\.modificationDate|\.creationDate|fileModificationDate|\bstat\(|\bfstat\(/, 'NSPrivacyAccessedAPICategoryFileTimestamp'],
+  [/systemUptime|mach_absolute_time/, 'NSPrivacyAccessedAPICategorySystemBootTime'],
+  [/volumeAvailableCapacity|NSFileSystemFreeSize/, 'NSPrivacyAccessedAPICategoryDiskSpace'],
+  [/activeInputModes/, 'NSPrivacyAccessedAPICategoryActiveKeyboards'],
+];
+
+describe('purpose strings: every key a linked plugin can reach is present, non-empty, in every language', () => {
+  const sources = linkedPluginSources();
+  const required = new Map<string, string[]>(); // key -> plugins that reference it
+  for (const [plugin, src] of Object.entries(sources)) {
+    for (const [re, key] of PURPOSE_STRING_MARKERS) {
+      if (re.test(src)) required.set(key, [...(required.get(key) ?? []), plugin]);
+    }
+  }
+  const plist = F('ios/App/App/Info.plist');
+  const LANGS = ['en', 'fr', 'ar'];
+
+  it('reads the plugin sources it audits (positive control)', () => {
+    expect(Object.keys(sources).sort()).toEqual(
+      ['@capacitor/app', '@capacitor/camera', '@capacitor/splash-screen', '@capacitor/status-bar', '@capgo/capacitor-social-login'],
+    );
+    expect(required.get('NSCameraUsageDescription')).toEqual(['@capacitor/camera']);
+    expect(required.get('NSUserTrackingUsageDescription')).toEqual(['@capgo/capacitor-social-login']);
+  });
+
+  it('the derived set is exactly the five keys audited on 2026-09-28; a change here is a plugin change to re-audit', () => {
+    expect([...required.keys()].sort()).toEqual([
+      'NSCameraUsageDescription',
+      'NSMicrophoneUsageDescription',
+      'NSPhotoLibraryAddUsageDescription',
+      'NSPhotoLibraryUsageDescription',
+      'NSUserTrackingUsageDescription',
+    ]);
+  });
+
+  for (const key of [...required.keys()].sort()) {
+    it(`${key} is in Info.plist with a non-empty string (App Store Connect reads only this file)`, () => {
+      const m = plist.match(new RegExp(`<key>${key}</key>\\s*<string>([^<]*)</string>`));
+      expect(m, `${key} required by ${required.get(key)?.join(', ')}`).not.toBeNull();
+      expect(m![1].trim().length).toBeGreaterThan(20);
+    });
+    for (const lang of LANGS) {
+      it(`${key} is localized in ${lang}.lproj/InfoPlist.strings`, () => {
+        const strings = F(`ios/App/App/${lang}.lproj/InfoPlist.strings`);
+        const m = strings.match(new RegExp(`^"${key}" = "([^"]+)";$`, 'm'));
+        expect(m).not.toBeNull();
+        expect(m![1].trim().length).toBeGreaterThan(20);
+      });
+    }
+  }
+
+  it('the copy names the brand, uses Western digits only and contains no dash', () => {
+    for (const lang of LANGS) {
+      const strings = F(`ios/App/App/${lang}.lproj/InfoPlist.strings`);
+      for (const m of strings.matchAll(/^"NS\w+" = "([^"]+)";$/gm)) {
+        expect(m[1]).toContain('Scan & Action');
+        expect(m[1]).not.toMatch(/[-–—٠-٩۰-۹]/);
+      }
+    }
+  });
+
+  it('Info.plist is the English copy, byte for byte with en.lproj (the fallback iOS shows for other languages)', () => {
+    const en = F('ios/App/App/en.lproj/InfoPlist.strings');
+    for (const key of required.keys()) {
+      const fromPlist = plist.match(new RegExp(`<key>${key}</key>\\s*<string>([^<]*)</string>`))![1].replace(/&amp;/g, '&');
+      const fromStrings = en.match(new RegExp(`^"${key}" = "([^"]+)";$`, 'm'))![1];
+      expect(fromPlist).toBe(fromStrings);
+    }
+  });
+
+  it('the three .lproj files are one variant group in the App target, and fr and ar are known regions', () => {
+    const pbx = F('ios/App/App.xcodeproj/project.pbxproj');
+    expect(pbx).toMatch(/isa = PBXVariantGroup;\s*children = \(\s*\w+ \/\* en \*\/,\s*\w+ \/\* fr \*\/,\s*\w+ \/\* ar \*\/,\s*\);\s*name = InfoPlist\.strings;/);
+    expect(pbx).toMatch(/InfoPlist\.strings in Resources \*\/ = \{isa = PBXBuildFile;/);
+    expect(pbx).toMatch(/knownRegions = \(\s*en,\s*Base,\s*fr,\s*ar,\s*\);/);
+    for (const lang of LANGS) expect(pbx).toContain(`path = ${lang}.lproj/InfoPlist.strings;`);
+  });
+});
+
+describe('privacy manifest: required reason APIs in plugins that ship no manifest are declared by the app', () => {
+  const sources = linkedPluginSources();
+  const categories = new Map<string, string[]>();
+  for (const [plugin, src] of Object.entries(sources)) {
+    const hasOwnManifest = existsSync(join(__dirname, '..', 'node_modules', plugin, 'ios', 'PrivacyInfo.xcprivacy'));
+    if (hasOwnManifest) continue;
+    for (const [re, cat] of REQUIRED_REASON_MARKERS) {
+      if (re.test(src)) categories.set(cat, [...(categories.get(cat) ?? []), plugin]);
+    }
+  }
+  const manifestPath = join(__dirname, '..', 'ios/App/App/PrivacyInfo.xcprivacy');
+
+  it('the derived set is exactly UserDefaults, from the social login plugin (audit 2026-09-28)', () => {
+    expect([...categories.entries()]).toEqual([['NSPrivacyAccessedAPICategoryUserDefaults', ['@capgo/capacitor-social-login']]]);
+  });
+
+  it('PrivacyInfo.xcprivacy exists, is in the App target resources, declares no tracking and each derived category with a reason', () => {
+    expect(existsSync(manifestPath)).toBe(true);
+    const m = readFileSync(manifestPath, 'utf8');
+    expect(m).toMatch(/<key>NSPrivacyTracking<\/key>\s*<false\/>/);
+    for (const cat of categories.keys()) {
+      expect(m).toMatch(new RegExp(`<string>${cat}</string>\\s*<key>NSPrivacyAccessedAPITypeReasons</key>\\s*<array>\\s*<string>[A-Z0-9]{4}\\.\\d</string>`));
+    }
+    const pbx = F('ios/App/App.xcodeproj/project.pbxproj');
+    expect(pbx).toMatch(/PrivacyInfo\.xcprivacy in Resources \*\/ = \{isa = PBXBuildFile;/);
+    expect(pbx).toMatch(/files = \((?:[^)]*)PrivacyInfo\.xcprivacy in Resources/);
   });
 });
 

@@ -1,0 +1,9 @@
+/* Purpose strings shown by iOS when the app asks for access. The base values
+   live in Info.plist (App Store Connect reads only that file for ITMS-90683);
+   this file is the English copy iOS shows when the device language is English. */
+
+"NSCameraUsageDescription" = "Scan & Action uses the camera to photograph receipts and invoices so their amounts, dates and vendors can be read into your ledger.";
+"NSMicrophoneUsageDescription" = "Scan & Action does not record audio. The camera component it uses can record video, and iOS requires this notice for that capability.";
+"NSPhotoLibraryAddUsageDescription" = "Scan & Action can save a copy of a scanned receipt or invoice to your photo library when you ask it to.";
+"NSPhotoLibraryUsageDescription" = "Scan & Action reads photos you choose from your library to import receipts and invoices you have already photographed.";
+"NSUserTrackingUsageDescription" = "Scan & Action does not track you across apps and websites owned by other companies. If this request ever appears, declining it changes nothing in the app.";
