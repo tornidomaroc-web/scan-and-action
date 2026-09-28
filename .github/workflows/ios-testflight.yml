@@ -3,9 +3,46 @@ name: iOS — TestFlight
 # Builds, signs and uploads the iOS app to TestFlight (internal testing only).
 #
 # TRIGGERS. A push to main that touches the frontend or this file, and a manual
-# run. NEVER pull_request: this job holds an App Store Connect Admin key, and
-# the `testflight` environment only deploys from main, so no other branch and
-# no fork can reach the secrets. A board-only merge does not run it (paths).
+# run. NEVER pull_request: this workflow holds an App Store Connect Admin key,
+# and the `testflight` environment only deploys from main, so no other branch
+# and no fork can reach the secrets. A board-only merge does not run it (paths).
+#
+# TWO JOBS, ONE RULE (2026-09-28). The Admin key is never on a runner that has
+# run npm. Job `web` installs packages and builds the bundle with no access to
+# the `testflight` environment; it hands the synced iOS project to job
+# `testflight` as an artifact. Job `testflight` has no checkout, no setup-node,
+# no npm, no npx and no node step: the only code it runs is xcodebuild, on
+# files it downloaded. Package install scripts can run only in `web`, where the
+# key does not exist. `iosPlatform.test.ts` pins this shape.
+#
+# The Package.swift the CLI writes points at ../../../node_modules/<plugin>
+# for the five Capacitor plugins, so those five directories travel in the
+# artifact next to ios/. Nothing else under node_modules is read by Xcode.
+#
+# WHAT RUNS WHILE THE KEY EXISTS. Swift packages are resolved, fetched and
+# their manifests evaluated in their own step, BEFORE the key is written
+# (-resolvePackageDependencies into $RUNNER_TEMP/spm). Every Package.swift is
+# code that SwiftPM compiles and runs; SwiftPM runs it under sandbox-exec
+# with "(deny default) (allow file-read*)" and no network (Sandbox.swift in
+# swiftlang/swift-package-manager), so a manifest can read any file the
+# runner user can, and can only leak it through its own output. Ordering
+# the steps this way means the manifests run to completion with nothing to
+# read. Then, still without the key, the fetched graph is scanned: a package
+# declaring a build tool plugin or a macro fails the job, since those are the
+# only package code SwiftPM executes at build time (xcodebuild also refuses
+# unvalidated plugins and macros unless -skipPackagePluginValidation or
+# -skipMacroValidation is passed; neither ever is). The archive then runs
+# with -disableAutomaticPackageResolution and
+# -onlyUsePackageVersionsFromResolvedFile, so it cannot fetch or re-resolve
+# anything; it compiles the sources already on disk. Residual, stated: a
+# manifest whose evaluation misses SwiftPM's cache is re-run during the
+# archive, sandboxed as above; the archive step counts touched manifest cache
+# files as a reading. Package.resolved is uploaded as an artifact so the
+# versions can be committed and the resolution made fixed by a later PR.
+#
+# ACTIONS are pinned to full commit SHAs, the release as a comment. Dependabot
+# (.github/dependabot.yml, github-actions, weekly) opens the PR that moves a
+# SHA and its comment together; it is merged through the same gates as code.
 #
 # COST. Standard GitHub-hosted runners are "free and unlimited on public
 # repositories" (docs.github.com, runners reference, read 2026-09-27). If this
@@ -14,14 +51,16 @@ name: iOS — TestFlight
 # RUNNER. macos-26: Apple requires uploads "built with Xcode 26 or later" since
 # 2026-04-28 and Capacitor 8 requires Xcode 26; the image's default Xcode is
 # 26.x. macos-latest also resolves there today, but a label that moves is not
-# a pin.
+# a pin. The web job needs no Xcode; `cap sync ios` for an SPM project only
+# copies files and rewrites Package.swift (it ran on Windows to create the
+# project), so it runs on ubuntu.
 #
 # SIGNING. API-key automatic signing: xcodebuild "will create and update
 # profiles, app IDs, and certificates" (-allowProvisioningUpdates) using the
-# key passed with -authenticationKey*. The first run creates, in the owner's
-# Apple account, one cloud-managed Apple Distribution certificate and one App
-# Store provisioning profile for com.scanaction.app carrying the Sign in with
-# Apple entitlement. No certificate or profile is ever a secret here.
+# key passed with -authenticationKey*. The archive signs for development (one
+# registered device is required for that profile; the owner's iPhone, since
+# 2026-09-28) and the export re-signs for the App Store. No certificate or
+# profile is ever a secret here.
 #
 # BUILD NUMBER. CFBundleVersion = the run number of this workflow, monotonic;
 # CFBundleShortVersionString = MARKETING_VERSION in the Xcode project (1.0.0),
@@ -48,34 +87,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  testflight:
-    name: iOS — archive, sign, upload to TestFlight
-    runs-on: macos-26
-    environment: testflight
-    timeout-minutes: 60
+  web:
+    name: iOS — web bundle and Capacitor sync (no signing secrets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: apps/frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      # The `runner` context is not available in a job-level `env`, only inside
-      # steps; GitHub refuses the whole file otherwise (a startup failure with
-      # no job and no log, seen on the first push of this file). So the key
-      # directory is exported from a step.
-      - name: Key directory for this job only
-        run: echo "APP_STORE_CONNECT_KEY_DIR=$RUNNER_TEMP/asc" >> "$GITHUB_ENV"
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: apps/frontend/package-lock.json
-
-      - name: Xcode in use
-        run: |
-          sudo xcode-select -p
-          xcodebuild -version
 
       - run: npm ci
 
@@ -94,6 +120,103 @@ jobs:
       - name: Copy the bundle into the iOS project
         run: npx cap sync ios
 
+      # Everything Xcode reads, and nothing it does not: the iOS project with
+      # the synced bundle, and the five plugin packages Package.swift points at.
+      - name: Hand the iOS project to the signing job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ios-project-${{ github.sha }}
+          path: |
+            apps/frontend/ios
+            apps/frontend/node_modules/@capacitor/app
+            apps/frontend/node_modules/@capacitor/camera
+            apps/frontend/node_modules/@capacitor/splash-screen
+            apps/frontend/node_modules/@capacitor/status-bar
+            apps/frontend/node_modules/@capgo/capacitor-social-login
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  testflight:
+    name: iOS — archive, sign, upload to TestFlight
+    needs: web
+    runs-on: macos-26
+    environment: testflight
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      # No checkout: the project arrives as files, and no repository script or
+      # package hook is ever executed on this runner.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ios-project-${{ github.sha }}
+          path: ${{ github.workspace }}/apps/frontend
+
+      # The `runner` context is not available in a job-level `env`, only inside
+      # steps; GitHub refuses the whole file otherwise (a startup failure with
+      # no job and no log, seen on the first push of this file). So the key
+      # directory is exported from a step.
+      - name: Key directory for this job only
+        run: echo "APP_STORE_CONNECT_KEY_DIR=$RUNNER_TEMP/asc" >> "$GITHUB_ENV"
+
+      # The state this job relies on, checked rather than assumed: the synced
+      # bundle is here, the five plugin packages are here, and nothing that
+      # could run a package script came with them.
+      - name: Only the iOS project is on this runner
+        run: |
+          set -eu
+          test -f ios/App/App/public/index.html
+          test -f ios/App/App/capacitor.config.json
+          test -f ios/App/CapApp-SPM/Package.swift
+          for p in @capacitor/app @capacitor/camera @capacitor/splash-screen @capacitor/status-bar @capgo/capacitor-social-login; do
+            test -f "node_modules/$p/Package.swift" || { echo "missing plugin package: $p"; exit 1; }
+          done
+          test ! -e package.json
+          test ! -e node_modules/.bin
+          test ! -e node_modules/.package-lock.json
+          test "$(ls node_modules | sort | tr '\n' ' ')" = "@capacitor @capgo "
+
+      - name: Xcode in use
+        run: |
+          sudo xcode-select -p
+          xcodebuild -version
+
+      # Network fetches and manifest evaluation happen here, with no key on
+      # the runner. The clones and the binary artifacts land in
+      # $RUNNER_TEMP/spm; Package.resolved is written into the project.
+      - name: Resolve Swift packages (no key on this runner yet)
+        run: |
+          set -eu -o pipefail
+          xcodebuild \
+            -resolvePackageDependencies \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            2>&1 | tee "$RUNNER_TEMP/resolve.log" | { grep -E '^(warning|error|\*\*|Resolved|Fetching|Cloning|Creating)|: (error|warning):' || true; }
+          test -f ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved || { echo "no Package.resolved was written"; tail -n 40 "$RUNNER_TEMP/resolve.log"; exit 1; }
+          echo "resolved packages:"; ls "$RUNNER_TEMP/spm/checkouts"
+
+      # Still no key. Build tool plugins and macros are the only package code
+      # SwiftPM runs at build time; none is in the graph today (audited
+      # 2026-09-28), and a dependency that adds one stops here, before the key.
+      - name: No package in the graph declares a plugin or a macro
+        run: |
+          set -eu
+          found=$(grep -lE '\.plugin\(|plugins:|\.macro\(' "$RUNNER_TEMP"/spm/checkouts/*/Package.swift ios/App/CapApp-SPM/Package.swift node_modules/@capacitor/*/Package.swift node_modules/@capgo/*/Package.swift || true)
+          test -z "$found" || { echo "packages declaring a plugin or a macro:"; echo "$found"; exit 1; }
+          echo "manifests scanned: $(ls "$RUNNER_TEMP"/spm/checkouts/*/Package.swift ios/App/CapApp-SPM/Package.swift node_modules/@capacitor/*/Package.swift node_modules/@capgo/*/Package.swift | wc -l | tr -d ' ')"
+
+      # The versions this build used, for a later PR to commit. Not a secret.
+      - name: Record the resolved versions
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: package-resolved-${{ github.sha }}
+          path: apps/frontend/ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+          if-no-files-found: error
+          retention-days: 7
+
       # The key file exists only for this job, in the runner's temp directory,
       # readable by the runner user alone, and is removed in the last step even
       # when a step fails. Its contents are never printed.
@@ -109,32 +232,44 @@ jobs:
           test -s "$APP_STORE_CONNECT_KEY_DIR/AuthKey_$ASC_KEY_ID.p8"
           head -c 27 "$APP_STORE_CONNECT_KEY_DIR/AuthKey_$ASC_KEY_ID.p8" | grep -q -- '-----BEGIN PRIVATE KEY-----' || { echo "ASC_KEY_P8 does not look like a PEM private key"; exit 1; }
 
+      # pipefail: the step fails on xcodebuild's own exit status. The filter
+      # only chooses which lines reach the log; its "no match" status is masked
+      # inside the braces and cannot hide a failure. The full output stays in
+      # the log file for the tail below. The package flags forbid any fetch or
+      # re-resolution now that the key exists; the marker counts manifest
+      # cache files SwiftPM touched during the archive (0 = every manifest
+      # was served from the cache written by the resolve step).
       - name: Archive (automatic signing with the API key)
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
-          set -eu
+          set -eu -o pipefail
+          touch "$RUNNER_TEMP/archive-started"
           xcodebuild \
             -project ios/App/App.xcodeproj \
             -scheme App \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -disableAutomaticPackageResolution \
+            -onlyUsePackageVersionsFromResolvedFile \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$APP_STORE_CONNECT_KEY_DIR/AuthKey_$ASC_KEY_ID.p8" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            archive | tee "$RUNNER_TEMP/archive.log" | grep -E '^(warning|error|\*\*|Archive)|: (error|warning):' || true
+            archive 2>&1 | tee "$RUNNER_TEMP/archive.log" | { grep -E '^(warning|error|\*\*|Archive)|: (error|warning):' || true; }
           test -d "$RUNNER_TEMP/App.xcarchive" || { echo "no archive was produced"; tail -n 80 "$RUNNER_TEMP/archive.log"; exit 1; }
+          echo "manifest cache files touched during the archive: $(find "$RUNNER_TEMP/spm" "$HOME/Library/Caches/org.swift.swiftpm" -name 'manifest*.db*' -newer "$RUNNER_TEMP/archive-started" 2>/dev/null | wc -l | tr -d ' ')"
 
       - name: Export and upload to App Store Connect
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
-          set -eu
+          set -eu -o pipefail
           xcodebuild \
             -exportArchive \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
@@ -144,7 +279,7 @@ jobs:
             -authenticationKeyPath "$APP_STORE_CONNECT_KEY_DIR/AuthKey_$ASC_KEY_ID.p8" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            | tee "$RUNNER_TEMP/export.log" | grep -E -i '^(warning|error|\*\*|Upload|Export)|: (error|warning):' || true
+            2>&1 | tee "$RUNNER_TEMP/export.log" | { grep -E -i '^(warning|error|\*\*|Upload|Export)|: (error|warning):' || true; }
           grep -q -i 'EXPORT SUCCEEDED\|Upload succeeded' "$RUNNER_TEMP/export.log" || { echo "export/upload did not report success"; tail -n 80 "$RUNNER_TEMP/export.log"; exit 1; }
           echo "Uploaded build ${{ github.run_number }} (marketing version from the Xcode project) for commit ${{ github.sha }}"
 

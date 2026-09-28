@@ -1,0 +1,12 @@
+# How pinned actions are updated (2026-09-28). The iOS TestFlight workflow pins
+# every action to a full commit SHA with the release as a comment; Dependabot
+# is the only thing that moves them, in a pull request that changes the SHA
+# and the comment together and passes the same required checks as code. No
+# other ecosystem is watched here: npm updates stay deliberate.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
