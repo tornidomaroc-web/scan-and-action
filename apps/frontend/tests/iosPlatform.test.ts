@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join, sep } from 'node:path';
 
 // ============================================================================
@@ -275,6 +276,123 @@ describe('privacy manifest: required reason APIs in plugins that ship no manifes
     expect(pbx).toMatch(/PrivacyInfo\.xcprivacy in Resources \*\/ = \{isa = PBXBuildFile;/);
     expect(pbx).toMatch(/files = \((?:[^)]*)PrivacyInfo\.xcprivacy in Resources/);
   });
+});
+
+// ----------------------------------------------------------------------------
+// The pipeline's three hardening rules (2026-09-28), pinned on the workflow
+// file itself. Read as YAML, not as text, so a step moved between jobs is seen.
+// ----------------------------------------------------------------------------
+type Step = { name?: string; uses?: string; run?: string; if?: string; env?: Record<string, string>; with?: Record<string, unknown> };
+type Job = { 'runs-on': string; environment?: string; needs?: string | string[]; steps: Step[] };
+type Workflow = { jobs: Record<string, Job> };
+
+const loadWorkflow = (): Workflow => {
+  const { load } = createRequire(import.meta.url)('js-yaml') as { load: (s: string) => unknown };
+  return load(ROOT('.github/workflows/ios-testflight.yml')) as Workflow;
+};
+const stepText = (s: Step) => [s.run ?? '', s.uses ?? '', JSON.stringify(s.env ?? {}), JSON.stringify(s.with ?? {})].join('\n');
+
+describe('1. the Admin key is never on a runner that has run npm', () => {
+  const wf = loadWorkflow();
+  const jobs = Object.entries(wf.jobs);
+  const signing = jobs.filter(([, j]) => j.environment === 'testflight');
+  const others = jobs.filter(([, j]) => j.environment !== 'testflight');
+
+  it('exactly one job deploys to the testflight environment, and it needs a job that does not', () => {
+    expect(signing.map(([k]) => k)).toEqual(['testflight']);
+    expect(others.length).toBeGreaterThan(0);
+    const needs = ([] as string[]).concat(signing[0][1].needs ?? []);
+    expect(needs).toEqual(['web']);
+    for (const [, j] of others) expect(j.environment).toBeUndefined();
+  });
+
+  it('the signing job runs no npm, npx or node, installs nothing and checks nothing out', () => {
+    const steps = signing[0][1].steps;
+    for (const s of steps) {
+      expect(s.uses ?? '').not.toMatch(/actions\/(checkout|setup-node)/);
+      expect(s.run ?? '').not.toMatch(/(^|[\s;|&(])(npm|npx|node|corepack|yarn|pnpm)\b/);
+    }
+    // the only action it uses is the artifact download, and it runs BEFORE the key exists
+    const uses = steps.map((s) => s.uses).filter(Boolean) as string[];
+    expect(uses.map((u) => u.split('@')[0])).toEqual(['actions/download-artifact']);
+    const iDownload = steps.findIndex((s) => s.uses?.startsWith('actions/download-artifact'));
+    const iKey = steps.findIndex((s) => s.name === 'Place the App Store Connect key');
+    const iRemove = steps.findIndex((s) => s.name === 'Remove the key');
+    expect(iDownload).toBeGreaterThanOrEqual(0);
+    expect(iKey).toBeGreaterThan(iDownload);
+    expect(iRemove).toBe(steps.length - 1);
+    expect(steps[iRemove].if).toBe('always()');
+    // between placing and removing the key, only xcodebuild runs
+    for (const s of steps.slice(iKey + 1, iRemove)) {
+      expect(s.uses).toBeUndefined();
+      expect(s.run).toMatch(/xcodebuild/);
+    }
+  });
+
+  it('the ASC secrets are referenced in the signing job only; the web job sees no environment secret', () => {
+    for (const [name, j] of others) {
+      for (const s of j.steps) expect(stepText(s), `${name}: ${s.name ?? s.uses}`).not.toMatch(/ASC_|APP_STORE_CONNECT/);
+    }
+    const signingText = signing[0][1].steps.map(stepText).join('\n');
+    for (const secret of ['ASC_KEY_P8', 'ASC_KEY_ID', 'ASC_ISSUER_ID']) expect(signingText).toContain(`secrets.${secret}`);
+  });
+
+  it('the web job hands over the synced iOS project and exactly the five plugin packages Package.swift points at', () => {
+    const web = wf.jobs.web;
+    const upload = web.steps.find((s) => s.uses?.startsWith('actions/upload-artifact'));
+    expect(upload).toBeDefined();
+    const paths = String(upload!.with!.path).trim().split('\n').map((p) => p.trim());
+    const pkg = F('ios/App/CapApp-SPM/Package.swift');
+    const plugins = [...pkg.matchAll(/path: "\.\.\/\.\.\/\.\.\/node_modules\/([^"]+)"/g)].map((m) => `apps/frontend/node_modules/${m[1]}`);
+    expect(paths).toEqual(['apps/frontend/ios', ...plugins]);
+    expect(upload!.with!['if-no-files-found']).toBe('error');
+    const sync = web.steps.findIndex((s) => /cap sync ios/.test(s.run ?? ''));
+    expect(sync).toBeGreaterThanOrEqual(0);
+    expect(web.steps.indexOf(upload!)).toBeGreaterThan(sync);
+    // and the signing job proves that state on its runner before the key is placed
+    const proof = wf.jobs.testflight.steps.find((s) => s.name === 'Only the iOS project is on this runner');
+    expect(proof?.run).toMatch(/test ! -e package\.json/);
+    expect(proof?.run).toMatch(/test ! -e node_modules\/\.bin/);
+  });
+});
+
+describe('2. every action is pinned to a full commit SHA, with the release as a comment', () => {
+  const text = ROOT('.github/workflows/ios-testflight.yml');
+  const uses = [...text.matchAll(/^\s*-?\s*uses:\s*(.+)$/gm)].map((m) => m[1].trim());
+  it('the workflow uses at least one action (positive control)', () => {
+    expect(uses.length).toBeGreaterThanOrEqual(4);
+  });
+  for (const u of uses) {
+    it(`${u.split('@')[0]} is pinned`, () => {
+      expect(u).toMatch(/^[\w.-]+\/[\w.-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/);
+    });
+  }
+  it('Dependabot watches github-actions, so a pin moves only by pull request', () => {
+    const d = ROOT('.github/dependabot.yml');
+    expect(d).toMatch(/package-ecosystem: github-actions/);
+    expect(d).toMatch(/directory: \//);
+  });
+});
+
+describe('3. a failing xcodebuild fails its step directly', () => {
+  const wf = loadWorkflow();
+  // the build invocations are the multi-line `xcodebuild \` ones; `xcodebuild -version` is not one
+  const xcodeSteps = wf.jobs.testflight.steps.filter((s) => /^\s*xcodebuild \\$/m.test(s.run ?? ''));
+  it('finds the archive and export steps (positive control)', () => {
+    expect(xcodeSteps.map((s) => s.name)).toEqual(['Archive (automatic signing with the API key)', 'Export and upload to App Store Connect']);
+  });
+  for (const s of xcodeSteps) {
+    it(`${s.name}: pipefail is on, the filter is wrapped so its status cannot mask xcodebuild's, stderr is captured`, () => {
+      const run = s.run!;
+      expect(run).toMatch(/^set -eu -o pipefail$/m);
+      // the pipeline: xcodebuild ... 2>&1 | tee <log> | { grep -E '<filter>' || true; }
+      expect(run).toMatch(/2>&1 \| tee "\$RUNNER_TEMP\/\w+\.log" \| \{ grep -E (-i )?'[^']+' \|\| true; \}$/m);
+      // never the unwrapped form, whose `|| true` swallows the whole pipeline
+      expect(run).not.toMatch(/\| grep -E[^{]*\|\| true$/m);
+      // the #261 filter survives
+      expect(run).toContain(': (error|warning):');
+    });
+  }
 });
 
 describe('the web build is untouched by the platform', () => {

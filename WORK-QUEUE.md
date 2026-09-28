@@ -42,15 +42,15 @@
      left on the Apple track is engineering work: nothing on it is his to decide
      or pay for.
   3. Design step 1: **DONE 2026-09-23, ledger-first chosen.** See DECIDED below.
-  4. The iOS platform and a CI → TestFlight pipeline, in one small PR, so every
-     later design commit is judged on his iPhone. It needs the owner's App Store
-     Connect API key: no Apple credential is configured for this repository (its
-     Actions secrets are `SUPABASE_URL` and `SUPABASE_ANON_KEY` only; ask
-     `gh secret list`), and the key can only be created signed in to his Apple
-     account. Ruled 2026-09-24: the ledger home comes first, and is judged on
-     his iPhone from the home screen ("Add to Home Screen" runs the web app
-     full-screen with the same WebKit engine; `apple-mobile-web-app-capable`
-     in `index.html`).
+  4. **DONE 2026-09-28: the iOS platform and the CI → TestFlight pipeline.**
+     Four PRs: #260 (`d7ac2519`, the platform and the workflow), #261
+     (`dade606f`, a wrong signing fix), #262 (`27e9ac7a`, its revert), #263
+     (`1428dd2c`, purpose strings and the privacy manifest). Build 1.0.0 (5)
+     from run 36366768462 passed Apple processing, joined the internal group
+     "Internal" automatically, and is installed on the owner's iPhone from
+     TestFlight. Every later design commit is judged there. The pipeline's
+     hardening (job isolation, pinned actions, pipefail) is the PR of
+     2026-09-28 that records this line; see APPLE TRACK.
   5. **The build order**, ruled 2026-09-23 and not to be reshuffled by taste:
      1. the categorizer, with its backfill and its measurement (bar below);
      2. the summary endpoint;
@@ -158,8 +158,9 @@ Store's review build. Home waits on the owner's reasons whatever comes next,
 so it cannot be the next thing started. **The one input is the owner's:** an
 App Store Connect API key (Issuer ID, Key ID and the `.p8` file), created
 signed in to his Apple account, then stored as Actions secrets. No Apple
-credential is configured today; ask `gh secret list`. **EXPIRY:** a CI run
-on `main` uploads a build that installs from TestFlight on his iPhone.
+credential is configured today; ask `gh secret list`. **EXPIRY (met
+2026-09-28):** a CI run on `main` uploads a build that installs from
+TestFlight on his iPhone. Build 1.0.0 (5) did; THE STAGE item 4 has the PRs.
 
 **Error copy that blames the connection when the connection is fine: OPEN on
 three screens (recorded 2026-09-26).** Search showed "Connection interrupted"
@@ -362,56 +363,78 @@ a store screenshot.**
     … provided those items are also available as in-app purchases within the
     app."* A reviewer who reads the app under (b) rather than (f) will ask for
     IAP, so the review notes must argue (f).
-- **ATT is moot.** App Tracking Transparency was on this list only for ads, and
-  ads left the plan on 2026-09-23.
+- **ATT is moot for the product, not for the binary.** App Tracking
+  Transparency was on this list only for ads, and ads left the plan on
+  2026-09-23. But `Info.plist` carries `NSUserTrackingUsageDescription` since
+  #263, because `@capgo/capacitor-social-login` links the Facebook SDK by
+  default and Apple's scan reads the linked code. Removing it is a submission
+  blocker below.
 
 ### Blockers this file never had
 
-- [ ] **No iOS platform in the repository: IN THE PR `feat/ios-testflight`
-  (2026-09-27), open until the first run on main puts a build on the owner's
-  iPhone.** `apps/frontend/ios` is the Capacitor 8 SPM template, generated on
-  Windows (the CLI only extracts a template; its CocoaPods check is gated on
-  macOS) and committed. `.github/workflows/ios-testflight.yml` archives, signs
-  and uploads on `macos-26` (Apple: uploads must be "built with Xcode 26 or
-  later" since 2026-04-28; the image's default Xcode is 26.x), on push to main
-  touching `apps/frontend/**` and on manual dispatch, never on pull_request.
+- [x] **The iOS platform and the TestFlight pipeline: DONE 2026-09-28.** Build
+  1.0.0 (5) is installed on the owner's iPhone from TestFlight. What it took,
+  each with what was read:
+  - **The repository:** `apps/frontend/ios` is the Capacitor 8 SPM template
+    (#260 = `d7ac2519`). `.github/workflows/ios-testflight.yml` archives,
+    signs and uploads on `macos-26` (Apple: uploads must be "built with Xcode
+    26 or later" since 2026-04-28), on push to main touching `apps/frontend/**`
+    or the workflow file, and on manual dispatch, never on pull_request.
   - **Signing:** API-key automatic signing, no certificate or profile in
     secrets. Secrets `ASC_ISSUER_ID`, `ASC_KEY_ID`, `ASC_KEY_P8` live in the
     GitHub Environment `testflight`, restricted to deployments from `main`
-    (created 2026-09-27; `gh api repos/{owner}/{repo}/environments/testflight`
-    shows the policy, `gh secret list --env testflight` the names). The key is
-    a team key with the Admin role, which Apple's roles table requires to
-    "Create other cloud-managed certificate types" and distribution profiles.
-  - **What the first run creates in the owner's Apple account:** one
-    cloud-managed Apple Distribution certificate (Certificates, Identifiers &
-    Profiles, Certificates) and one App Store provisioning profile for
-    `com.scanaction.app` carrying Sign in with Apple (Profiles). Nothing else.
-  - **Build numbers:** `CFBundleVersion` = the workflow run number;
-    `CFBundleShortVersionString` = `MARKETING_VERSION` 1.0.0 in the Xcode
-    project, changed only by PR. `manageAppVersionAndBuildNumber` stays on.
+    (`gh api repos/{owner}/{repo}/environments/testflight` shows the policy,
+    `gh secret list --env testflight` the names). The key has the Admin role.
+  - **The archive signs for DEVELOPMENT and the export re-signs for the App
+    Store.** Run 36355312731 (2026-09-27): "Your team has no devices from
+    which to generate a provisioning profile". #261 forced `Apple Distribution`
+    on the target; run 36355938894: "App has conflicting provisioning
+    settings. App is automatically signed for development, but a conflicting
+    code signing identity Apple Distribution has been manually specified".
+    #262 reverted it; `iosPlatform.test.ts` forbids the override.
+  - **Recorded facts about the owner's Apple account, both load-bearing, do
+    not remove:** Certificates holds a Development certificate "Created via
+    API", expiring 2027/09/27, made by the first run and used by every archive
+    since. Devices holds the owner's iPhone, "Abo Jad iPhone", iPhone 15,
+    identifier `00008120-00060CC93A72201E`, registered 2026/09/28; the
+    development profile cannot exist without it. The Distribution certificate,
+    the App Store profile and the development profile for `com.scanaction.app`
+    are what the console shows; read it there, this file does not track them.
+  - **Purpose strings:** build 4 (run 36357884582) was rejected in processing,
+    ITMS-90683, missing `NSPhotoLibraryUsageDescription`. #263 added the five
+    keys every linked plugin can reach (camera, photo library read and add,
+    microphone, tracking) in `Info.plist`, localized in `en`, `fr`, `ar`
+    `InfoPlist.strings`, and the app's `PrivacyInfo.xcprivacy` (UserDefaults,
+    `CA92.1`, for the social login plugin that ships no manifest). The test
+    derives the keys from the plugin sources. Build 5 passed processing.
+  - **Build numbers:** `CFBundleVersion` = the workflow run number (6 is
+    next); `CFBundleShortVersionString` = `MARKETING_VERSION` 1.0.0 in the
+    Xcode project, changed only by PR. `manageAppVersionAndBuildNumber` on.
   - **Nothing can be submitted from it:** `ExportOptions.plist` sets
     `testFlightInternalTestingOnly`, so every build it uploads "cannot be
     distributed via external TestFlight or the App Store". The submission
-    build is a later PR that removes that key, after the revocation item.
-  - **Export compliance:** `ITSAppUsesNonExemptEncryption` false (HTTPS only).
-  - **What the PR's CI proves:** the project files (`iosPlatform.test.ts`,
-    15 assertions), `cap sync ios` on Linux (the SPM package resolves), the
-    web build unchanged. **What only the first run proves:** signing, the
-    upload, the buttons on a phone, and the nonce setting.
+    build is a later PR that removes that key, after the blockers below.
+  - **Automatic distribution works:** build 5 joined the internal group
+    "Internal" on processing with nobody clicking (the owner, 2026-09-28).
+  - **Hardened 2026-09-28 (the PR recording this):** two jobs, the Admin key
+    never on a runner that has run npm (`web` builds and syncs with no
+    environment secret and hands an artifact to `testflight`, which has no
+    checkout, no setup-node, no npm and runs only xcodebuild); every action
+    pinned to a full commit SHA with the release as a comment, moved only by
+    Dependabot PRs (`.github/dependabot.yml`); `set -eu -o pipefail` with the
+    output filter wrapped, so a failing xcodebuild fails its step. Three
+    describes in `iosPlatform.test.ts` pin each rule; all failed against the
+    previous workflow.
+  - **Residual, recorded, not fixed:** the Swift packages resolve fresh on
+    every run (`from:` ranges, no `Package.resolved` committed; generating one
+    needs a Mac or a CI step with write access), so a plugin's upstream can
+    move the build without a commit here. And `ci.yml` and
+    `password-policy-drift.yml` still use tag-pinned actions; they hold no
+    Apple secret, and editing `ci.yml` risks every merge, so they are a
+    separate change.
   - **A failed run touches nothing:** main, Railway and Vercel are unaffected;
     a failed upload consumes no build number. Retry with "Run workflow"; fix
     by PR.
-  - **Automatic distribution:** the owner's internal group "Internal" reads
-    "Build Distribution: Automatic for Xcode Builds". Apple (add-internal-
-    testers, read 2026-09-27): "To enable Xcode to automatically deliver
-    builds to all group members, select the Enable automatic distribution
-    checkbox" and only "builds created by Xcode Cloud" must be added by hand.
-    An `xcodebuild -exportArchive` upload is an Xcode upload, not Xcode Cloud,
-    so the build should appear in the group on processing. If it does not:
-    App Store Connect, TestFlight, the build, add to group "Internal", and
-    record it here.
-  - **EXPIRY:** the first run on main succeeds and the owner installs the
-    build on his iPhone from TestFlight.
 - [ ] **Placeholder text that 2.1(a) forbids is reachable today.** Apple 2.1(a):
   *"placeholder text, empty websites, and other temporary content should be
   scrubbed before submission."*
@@ -505,6 +528,62 @@ carried neither (the control). The rulings, each with what was read:
   `SET TRANSACTION READ ONLY`, count `auth.identities` rows for his uuid
   (expect 2) and the `"User"` row count (expect unchanged).
 
+**On the phone, 2026-09-28, build 1.0.0 (5), the owner's iPhone.** Continue
+with Apple: the native sheet, "Share My Email", the dashboard of a new empty
+account. Continue with Google: the native sheet, `tornido.maroc2024@gmail.com`,
+which had no app account; a new empty account; Settings shows that address and
+the "Sign in on other devices" card, as designed; no password was set. Nothing
+else was tested on the phone (not the camera, not deletion, not a scan). **Two
+production users now exist that did not before, both the owner's:** the Google
+one above, and the Apple one, whose relay or shared address the owner has not
+read. They are his rows and may be read; instrument, from `apps/backend` inside
+`SET TRANSACTION READ ONLY`: `auth.identities` with `provider IN
+('apple','google')` (expect 3: the 2026-09-27 link plus these two) and the
+`"User"` rows created on or after 2026-09-28 (expect 2). The "REVISIT when
+`provider = 'apple'` exceeds the owner's own" line below now starts from 1.
+
+**Conditions still blocking the first App Store submission (2026-09-28), the
+index; details under each item:**
+
+| Condition | Owner | EXPIRY |
+|---|---|---|
+| Apple token revocation on account deletion | engineering, key from the owner | before the first review submission |
+| Remove the Facebook SDK, then the tracking string | engineering | `otool -L` on a CI-built binary shows no AppTrackingTransparency, and `NSUserTrackingUsageDescription` is gone |
+| Trader status for the EU | the owner, App Store Connect | the app's trader status reads provided and verified before submission |
+| Brand verification on the Google consent screen | the owner, Google Auth Platform | the consent page names the app |
+| Android Google sign-in unverified | the owner, a borrowed device | one Google sign-in on a Play-installed build |
+
+- [ ] **Remove the Facebook SDK, then the tracking string.** The owner's
+  objection, 2026-09-28: `NSUserTrackingUsageDescription` exists only because
+  `@capgo/capacitor-social-login` links `facebook-ios-sdk` unconditionally in
+  its `Package.swift`; the app uses neither Facebook nor tracking, and a
+  tracking prompt string in an app that does not track invites a 5.1.1 or
+  5.1.2 question and must agree with the App Privacy answers.
+  - **Route: the plugin's own switch,** not a fork and not another plugin.
+    `capacitor.config.ts`, `plugins.SocialLogin.providers = { google: true,
+    apple: true, facebook: false, twitter: false }`. The plugin's
+    `capacitor:sync:before` hook (`scripts/configure-dependencies.js`, 8.5.11)
+    comments the Facebook package and products out of its `Package.swift`
+    (SPM honoured upstream since issues #432 and #445), and the workflow's
+    `web` job runs `cap sync ios`. In `FacebookProvider.swift` the only
+    `ATTrackingManager.requestTrackingAuthorization` call (line 179) sits
+    inside `#if canImport(FBSDKLoginKit)` (lines 19 to 235); the stub compiled
+    without Facebook never calls it.
+  - **Measure before deleting the key:** line 9 `import AppTrackingTransparency`
+    is outside that guard, so the binary may still link the framework. Add a
+    CI step running `otool -L` on the built `App.app/App` and print the
+    frameworks; remove `NSUserTrackingUsageDescription` only when
+    AppTrackingTransparency is absent, else patch the import guard
+    (patch-package) first. The purpose-string test derives keys from plugin
+    SOURCE text, so it must learn the guard in the same PR.
+  - Owner: engineering. **EXPIRY:** in the table above.
+- [ ] **Trader status for the EU.** The Digital Services Act requires a trader
+  status declaration in App Store Connect for apps distributed in the EU;
+  Apple removes apps without one from the EU storefront. Read Apple's current
+  page (App Store Connect Help, "Provide trader status") at submission time
+  rather than this line; the owner declares as a trader with his business
+  contact details, which then appear on the product page in the EU.
+  - Owner: the owner, App Store Connect. **EXPIRY:** in the table above.
 - [ ] **Submission is BLOCKED until Apple token revocation on account deletion
   ships.** Apple's "Offering account deletion in your app" support page, read
   2026-09-26: *"Apps that support Sign in with Apple should use the Sign in
@@ -518,8 +597,9 @@ carried neither (the control). The rulings, each with what was read:
   - **EXPIRY:** before the first App Store review submission. TestFlight is
     internal; review is where Apple judges this. Deferred from
     `feat/social-sign-in` by the owner's ruling of 2026-09-26.
-- [ ] **The three iOS edits: two landed in `feat/ios-testflight`, one ruled
-  unnecessary, all judged by the first TestFlight build.**
+- [x] **The three iOS edits: JUDGED 2026-09-28 on build 5.** Apple and Google
+  both signed in natively on the owner's iPhone; Google did not hang after
+  consent, so edit 2 stays unmade; the nonce setting stayed OFF and worked.
   1. DONE: `Info.plist` carries the reversed Google iOS client id as a URL
      scheme; `iosPlatform.test.ts` derives it from `googleClientIds.ts`.
   2. NOT MADE, on evidence: Capacitor 8's SPM template has no
@@ -535,7 +615,8 @@ carried neither (the control). The rulings, each with what was read:
      `SceneDelegate.scene(_:openURLContexts:)`, link the product, record it.
   3. DONE: `App/App.entitlements` with `com.apple.developer.applesignin` =
      `Default`, wired by `CODE_SIGN_ENTITLEMENTS` in both configurations.
-  - **EXPIRY:** the first TestFlight build signs in with Apple and with Google.
+  - **EXPIRY (met 2026-09-28):** the first TestFlight build signs in with
+    Apple and with Google.
 - [ ] **Register `scan-action.com` as an email source for Apple's Private
   Email Relay.** Apple ("configuring-your-environment-for-sign-in-with-apple",
   read 2026-09-26): *"you must register your outbound email domains ... as email
@@ -570,7 +651,7 @@ carried neither (the control). The rulings, each with what was read:
   The cure when it matters is Supabase manual linking (`linkIdentity`, beta)
   from Settings, which needs "Enable Manual Linking" in the dashboard.
   - **REVISIT when** a read-only count of `auth.identities` with
-    `provider = 'apple'` exceeds the owner's own; today it is 0.
+    `provider = 'apple'` exceeds the owner's own; 1 since 2026-09-28, his.
 - [x] **The owner's console work, verified by a read and not by his word.
   DONE 2026-09-27.** Instrument: `GET https://<project>.supabase.co/auth/v1/settings`
   with the publishable key from the served bundle. On 2026-09-26 its
