@@ -312,14 +312,15 @@ describe('1. the Admin key is never on a runner that has run npm', () => {
       expect(s.uses ?? '').not.toMatch(/actions\/(checkout|setup-node)/);
       expect(s.run ?? '').not.toMatch(/(^|[\s;|&(])(npm|npx|node|corepack|yarn|pnpm)\b/);
     }
-    // the only action it uses is the artifact download, and it runs BEFORE the key exists
+    // the only actions it uses are GitHub's artifact download and upload, and every one runs BEFORE the key exists
     const uses = steps.map((s) => s.uses).filter(Boolean) as string[];
-    expect(uses.map((u) => u.split('@')[0])).toEqual(['actions/download-artifact']);
+    expect(uses.map((u) => u.split('@')[0])).toEqual(['actions/download-artifact', 'actions/upload-artifact']);
     const iDownload = steps.findIndex((s) => s.uses?.startsWith('actions/download-artifact'));
     const iKey = steps.findIndex((s) => s.name === 'Place the App Store Connect key');
     const iRemove = steps.findIndex((s) => s.name === 'Remove the key');
     expect(iDownload).toBeGreaterThanOrEqual(0);
     expect(iKey).toBeGreaterThan(iDownload);
+    for (const [i, s] of steps.entries()) if (s.uses) expect(i, s.uses).toBeLessThan(iKey);
     expect(iRemove).toBe(steps.length - 1);
     expect(steps[iRemove].if).toBe('always()');
     // between placing and removing the key, only xcodebuild runs
@@ -327,6 +328,30 @@ describe('1. the Admin key is never on a runner that has run npm', () => {
       expect(s.uses).toBeUndefined();
       expect(s.run).toMatch(/xcodebuild/);
     }
+  });
+
+  it('packages are resolved, fetched and gated for plugins and macros BEFORE the key exists; the archive may not resolve', () => {
+    const steps = signing[0][1].steps;
+    const iKey = steps.findIndex((s) => s.name === 'Place the App Store Connect key');
+    const iResolve = steps.findIndex((s) => /-resolvePackageDependencies/.test(s.run ?? ''));
+    const iGate = steps.findIndex((s) => /\\\.plugin\\\(\|plugins:\|\\\.macro\\\(/.test(s.run ?? ''));
+    const iArchive = steps.findIndex((s) => s.name === 'Archive (automatic signing with the API key)');
+    expect(iResolve).toBeGreaterThanOrEqual(0);
+    expect(iGate).toBeGreaterThan(iResolve);
+    expect(iKey).toBeGreaterThan(iGate);
+    expect(iArchive).toBeGreaterThan(iKey);
+    // the resolve step and the archive share the clone directory, and the resolve step proves Package.resolved was written
+    expect(steps[iResolve].run).toContain('-clonedSourcePackagesDirPath "$RUNNER_TEMP/spm"');
+    expect(steps[iResolve].run).toMatch(/test -f .*swiftpm\/Package\.resolved/);
+    // the gate fails the job on a hit, and never reads a secret
+    expect(steps[iGate].run).toMatch(/test -z "\$found" \|\| \{[^}]*exit 1; \}/);
+    expect(stepText(steps[iGate])).not.toMatch(/ASC_|APP_STORE_CONNECT/);
+    // the archive cannot fetch or re-resolve
+    for (const flag of ['-clonedSourcePackagesDirPath "$RUNNER_TEMP/spm"', '-disableAutomaticPackageResolution', '-onlyUsePackageVersionsFromResolvedFile']) {
+      expect(steps[iArchive].run).toContain(flag);
+    }
+    // xcodebuild's own refusal of unvalidated plugins and macros is never switched off (the steps, not the comments)
+    for (const s of steps) expect(s.run ?? '', s.name).not.toMatch(/-skip(PackagePlugin|Macro)Validation/);
   });
 
   it('the ASC secrets are referenced in the signing job only; the web job sees no environment secret', () => {
@@ -378,8 +403,12 @@ describe('3. a failing xcodebuild fails its step directly', () => {
   const wf = loadWorkflow();
   // the build invocations are the multi-line `xcodebuild \` ones; `xcodebuild -version` is not one
   const xcodeSteps = wf.jobs.testflight.steps.filter((s) => /^\s*xcodebuild \\$/m.test(s.run ?? ''));
-  it('finds the archive and export steps (positive control)', () => {
-    expect(xcodeSteps.map((s) => s.name)).toEqual(['Archive (automatic signing with the API key)', 'Export and upload to App Store Connect']);
+  it('finds the resolve, archive and export steps (positive control)', () => {
+    expect(xcodeSteps.map((s) => s.name)).toEqual([
+      'Resolve Swift packages (no key on this runner yet)',
+      'Archive (automatic signing with the API key)',
+      'Export and upload to App Store Connect',
+    ]);
   });
   for (const s of xcodeSteps) {
     it(`${s.name}: pipefail is on, the filter is wrapped so its status cannot mask xcodebuild's, stderr is captured`, () => {

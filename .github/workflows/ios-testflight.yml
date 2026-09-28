@@ -19,6 +19,27 @@ name: iOS — TestFlight
 # for the five Capacitor plugins, so those five directories travel in the
 # artifact next to ios/. Nothing else under node_modules is read by Xcode.
 #
+# WHAT RUNS WHILE THE KEY EXISTS. Swift packages are resolved, fetched and
+# their manifests evaluated in their own step, BEFORE the key is written
+# (-resolvePackageDependencies into $RUNNER_TEMP/spm). Every Package.swift is
+# code that SwiftPM compiles and runs; SwiftPM runs it under sandbox-exec
+# with "(deny default) (allow file-read*)" and no network (Sandbox.swift in
+# swiftlang/swift-package-manager), so a manifest can read any file the
+# runner user can, and can only leak it through its own output. Ordering
+# the steps this way means the manifests run to completion with nothing to
+# read. Then, still without the key, the fetched graph is scanned: a package
+# declaring a build tool plugin or a macro fails the job, since those are the
+# only package code SwiftPM executes at build time (xcodebuild also refuses
+# unvalidated plugins and macros unless -skipPackagePluginValidation or
+# -skipMacroValidation is passed; neither ever is). The archive then runs
+# with -disableAutomaticPackageResolution and
+# -onlyUsePackageVersionsFromResolvedFile, so it cannot fetch or re-resolve
+# anything; it compiles the sources already on disk. Residual, stated: a
+# manifest whose evaluation misses SwiftPM's cache is re-run during the
+# archive, sandboxed as above; the archive step counts touched manifest cache
+# files as a reading. Package.resolved is uploaded as an artifact so the
+# versions can be committed and the resolution made fixed by a later PR.
+#
 # ACTIONS are pinned to full commit SHAs, the release as a comment. Dependabot
 # (.github/dependabot.yml, github-actions, weekly) opens the PR that moves a
 # SHA and its comment together; it is merged through the same gates as code.
@@ -162,6 +183,40 @@ jobs:
           sudo xcode-select -p
           xcodebuild -version
 
+      # Network fetches and manifest evaluation happen here, with no key on
+      # the runner. The clones and the binary artifacts land in
+      # $RUNNER_TEMP/spm; Package.resolved is written into the project.
+      - name: Resolve Swift packages (no key on this runner yet)
+        run: |
+          set -eu -o pipefail
+          xcodebuild \
+            -resolvePackageDependencies \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            2>&1 | tee "$RUNNER_TEMP/resolve.log" | { grep -E '^(warning|error|\*\*|Resolved|Fetching|Cloning|Creating)|: (error|warning):' || true; }
+          test -f ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved || { echo "no Package.resolved was written"; tail -n 40 "$RUNNER_TEMP/resolve.log"; exit 1; }
+          echo "resolved packages:"; ls "$RUNNER_TEMP/spm/checkouts"
+
+      # Still no key. Build tool plugins and macros are the only package code
+      # SwiftPM runs at build time; none is in the graph today (audited
+      # 2026-09-28), and a dependency that adds one stops here, before the key.
+      - name: No package in the graph declares a plugin or a macro
+        run: |
+          set -eu
+          found=$(grep -lE '\.plugin\(|plugins:|\.macro\(' "$RUNNER_TEMP"/spm/checkouts/*/Package.swift ios/App/CapApp-SPM/Package.swift node_modules/@capacitor/*/Package.swift node_modules/@capgo/*/Package.swift || true)
+          test -z "$found" || { echo "packages declaring a plugin or a macro:"; echo "$found"; exit 1; }
+          echo "manifests scanned: $(ls "$RUNNER_TEMP"/spm/checkouts/*/Package.swift ios/App/CapApp-SPM/Package.swift node_modules/@capacitor/*/Package.swift node_modules/@capgo/*/Package.swift | wc -l | tr -d ' ')"
+
+      # The versions this build used, for a later PR to commit. Not a secret.
+      - name: Record the resolved versions
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: package-resolved-${{ github.sha }}
+          path: apps/frontend/ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+          if-no-files-found: error
+          retention-days: 7
+
       # The key file exists only for this job, in the runner's temp directory,
       # readable by the runner user alone, and is removed in the last step even
       # when a step fails. Its contents are never printed.
@@ -180,19 +235,26 @@ jobs:
       # pipefail: the step fails on xcodebuild's own exit status. The filter
       # only chooses which lines reach the log; its "no match" status is masked
       # inside the braces and cannot hide a failure. The full output stays in
-      # the log file for the tail below.
+      # the log file for the tail below. The package flags forbid any fetch or
+      # re-resolution now that the key exists; the marker counts manifest
+      # cache files SwiftPM touched during the archive (0 = every manifest
+      # was served from the cache written by the resolve step).
       - name: Archive (automatic signing with the API key)
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           set -eu -o pipefail
+          touch "$RUNNER_TEMP/archive-started"
           xcodebuild \
             -project ios/App/App.xcodeproj \
             -scheme App \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -disableAutomaticPackageResolution \
+            -onlyUsePackageVersionsFromResolvedFile \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$APP_STORE_CONNECT_KEY_DIR/AuthKey_$ASC_KEY_ID.p8" \
             -authenticationKeyID "$ASC_KEY_ID" \
@@ -200,6 +262,7 @@ jobs:
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             archive 2>&1 | tee "$RUNNER_TEMP/archive.log" | { grep -E '^(warning|error|\*\*|Archive)|: (error|warning):' || true; }
           test -d "$RUNNER_TEMP/App.xcarchive" || { echo "no archive was produced"; tail -n 80 "$RUNNER_TEMP/archive.log"; exit 1; }
+          echo "manifest cache files touched during the archive: $(find "$RUNNER_TEMP/spm" "$HOME/Library/Caches/org.swift.swiftpm" -name 'manifest*.db*' -newer "$RUNNER_TEMP/archive-started" 2>/dev/null | wc -l | tr -d ' ')"
 
       - name: Export and upload to App Store Connect
         env:

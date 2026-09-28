@@ -425,13 +425,34 @@ a store screenshot.**
     output filter wrapped, so a failing xcodebuild fails its step. Three
     describes in `iosPlatform.test.ts` pin each rule; all failed against the
     previous workflow.
-  - **Residual, recorded, not fixed:** the Swift packages resolve fresh on
-    every run (`from:` ranges, no `Package.resolved` committed; generating one
-    needs a Mac or a CI step with write access), so a plugin's upstream can
-    move the build without a commit here. And `ci.yml` and
-    `password-policy-drift.yml` still use tag-pinned actions; they hold no
-    Apple secret, and editing `ci.yml` risks every merge, so they are a
-    separate change.
+  - **What runs while the key exists (the owner's objection, 2026-09-28,
+    upheld):** Swift packages are resolved and fetched, and their manifests
+    evaluated, in a step BEFORE the key is written; then, still without the
+    key, every fetched `Package.swift` is scanned and the job fails if any
+    declares a build tool plugin or a macro (none does; audited 2026-09-28
+    across capacitor-swift-pm, ion-ios-camera, facebook-ios-sdk,
+    GoogleSignIn-iOS, AppAuth-iOS, GTMAppAuth, gtm-session-fetcher, Alamofire
+    and the five Capacitor plugins); the archive runs with
+    `-disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile`
+    and never `-skipPackagePluginValidation` or `-skipMacroValidation`. A
+    manifest is Swift code SwiftPM runs under `sandbox-exec` with
+    `(deny default) (allow file-read*)` and no network (`Sandbox.swift`,
+    swiftlang/swift-package-manager): it can read what the runner user can
+    and leak only through its own output, so it runs while there is nothing
+    to read. Residual: a manifest that misses SwiftPM's cache is re-run
+    during the archive, sandboxed; the archive step prints the count of
+    manifest cache files touched (0 expected).
+  - **Fixed versions, the next step:** each run uploads the `Package.resolved`
+    it resolved as artifact `package-resolved-<sha>` (7 days). Commit the one
+    from the first green run into
+    `ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/` and add
+    `-onlyUsePackageVersionsFromResolvedFile` to the resolve step; from then
+    on an upstream release cannot move the build without a commit here.
+    Owner: engineering. **EXPIRY:** the file is committed and the resolve
+    step carries the flag.
+  - **Still tag-pinned, deliberately:** `ci.yml` and
+    `password-policy-drift.yml`; they hold no Apple secret, and editing
+    `ci.yml` risks every merge, so they are a separate change.
   - **A failed run touches nothing:** main, Railway and Vercel are unaffected;
     a failed upload consumes no build number. Retry with "Run workflow"; fix
     by PR.
