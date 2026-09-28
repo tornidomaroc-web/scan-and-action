@@ -37,6 +37,16 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Scan &amp; Action uses the camera to photograph receipts and invoices so their amounts, dates and vendors can be read into your ledger.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Scan &amp; Action does not record audio. The camera component it uses can record video, and iOS requires this notice for that capability.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Scan &amp; Action can save a copy of a scanned receipt or invoice to your photo library when you ask it to.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Scan &amp; Action reads photos you choose from your library to import receipts and invoices you have already photographed.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Scan &amp; Action does not track you across apps and websites owned by other companies. If this request ever appears, declining it changes nothing in the app.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
