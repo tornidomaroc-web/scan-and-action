@@ -366,8 +366,9 @@ export const DashboardScreen = () => {
         <div className="flex flex-col rounded-card border border-line bg-surface-raised p-5 shadow-card">
           <SectionHeading as="h2">{s.documentsProcessed}</SectionHeading>
           <div>
-            {/* Undefined series → AreaChart keeps its calm placeholder. */}
-            <AreaChart series={chartSeries} placeholder={s.dataComingSoon} ariaLabel={s.documentsProcessed} rtl={isRtl} />
+            {/* Undefined series → AreaChart shows the empty-state copy: what the
+                chart will show and what starts it, never "coming soon" (2.1(a)). */}
+            <AreaChart series={chartSeries} placeholder={s.overviewChartEmpty} ariaLabel={s.documentsProcessed} rtl={isRtl} />
           </div>
         </div>
 
@@ -397,7 +398,7 @@ export const DashboardScreen = () => {
                 <span className="h-2 w-2 rounded-pill bg-warning/50" />
                 <span className="h-2 w-2 rounded-pill bg-danger/50" />
               </div>
-              <span className="text-sm font-medium text-ink-muted">{s.dataComingSoon}</span>
+              <span className="px-4 text-center text-sm font-medium text-ink-muted">{s.overviewStatusEmpty}</span>
             </div>
           )}
         </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import {
   User,
   CreditCard,
@@ -12,6 +12,9 @@ import {
   Moon,
   LogOut,
   Trash2,
+  Scale,
+  FileText,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PaywallModal } from '../components/PaywallModal';
@@ -124,6 +127,32 @@ export const SettingsScreen = () => {
                 {theme === 'light' ? s.switchDark : s.switchLight}
               </button>
             </div>
+          </div>
+        </Panel>
+
+        {/* Legal. Apple 5.1.1(i): "All apps must include a link to their privacy
+            policy ... within the app in an easily accessible manner." The two
+            rows open the public pages the App Store and Play listings point at
+            (/privacy, /terms), the same documents, one place. On native the
+            pages render inside the app with their own header and a home link
+            that lands back on the ledger. Nothing here names a price or a plan:
+            the money rules and the no-Pro-surface-on-native invariant are the
+            plan panel's alone. */}
+        <Panel className="p-4" data-legal-panel>
+          <h3 className={`${sectionTitle} flex items-center gap-3`}>
+            <IconTile icon={Scale} tone="accent" size="sm" />
+            {s.legal}
+          </h3>
+          <p className="mt-2 text-sm leading-relaxed text-ink-secondary">{s.legalDesc}</p>
+          <div className="mt-2 divide-y divide-divider">
+            <Link to="/privacy" className={`${row} group`} data-legal-link="privacy">
+              <span className={rowLabel}><IconTile icon={Lock} size="sm" />{s.privacyPolicy}</span>
+              <ChevronRight size={18} className="text-ink-muted rtl:-scale-x-100" aria-hidden="true" />
+            </Link>
+            <Link to="/terms" className={`${row} group`} data-legal-link="terms">
+              <span className={rowLabel}><IconTile icon={FileText} size="sm" />{s.termsOfService}</span>
+              <ChevronRight size={18} className="text-ink-muted rtl:-scale-x-100" aria-hidden="true" />
+            </Link>
           </div>
         </Panel>
 

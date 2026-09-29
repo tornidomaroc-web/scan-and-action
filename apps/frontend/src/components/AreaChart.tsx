@@ -6,9 +6,9 @@ export interface AreaPoint {
 }
 
 interface AreaChartProps {
-  /** Time-ordered points. When empty/undefined the chart renders a calm
-      "data coming soon" placeholder (PR-B has no backend series yet; PR-C will
-      pass real data straight in — no shape change needed). */
+  /** Time-ordered points. When empty/undefined the chart renders the
+      caller's empty-state copy instead (the overview passes what the chart
+      will show and what starts it; never "coming soon", Apple 2.1(a)). */
   series?: AreaPoint[];
   /** Localized placeholder copy shown when there is no data. */
   placeholder: string;
