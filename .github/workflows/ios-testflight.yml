@@ -263,6 +263,16 @@ jobs:
             archive 2>&1 | tee "$RUNNER_TEMP/archive.log" | { grep -E '^(warning|error|\*\*|Archive)|: (error|warning):' || true; }
           test -d "$RUNNER_TEMP/App.xcarchive" || { echo "no archive was produced"; tail -n 80 "$RUNNER_TEMP/archive.log"; exit 1; }
           echo "manifest cache files touched during the archive: $(find "$RUNNER_TEMP/spm" "$HOME/Library/Caches/org.swift.swiftpm" -name 'manifest*.db*' -newer "$RUNNER_TEMP/archive-started" 2>/dev/null | wc -l | tr -d ' ')"
+          # The binary audit, the same reading ios-audit.yml takes on a PR: the
+          # load commands the linker wrote. UIKit is the positive control (an
+          # empty reading fails); AppTrackingTransparency and the Facebook SDK
+          # are what the app must not carry (WORK-QUEUE, "Remove the Facebook
+          # SDK"). set -e ignores a negated command, hence the explicit if.
+          bin="$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app/App"
+          test -f "$bin" || { echo "no App binary in the archive"; exit 1; }
+          echo "linked frameworks (otool -L):"; otool -L "$bin" | tee "$RUNNER_TEMP/otool.txt"
+          grep -q "UIKit.framework" "$RUNNER_TEMP/otool.txt" || { echo "otool -L named no UIKit: the reading is empty, not clean"; exit 1; }
+          if grep -iqE "AppTrackingTransparency|FBSDK|Facebook" "$RUNNER_TEMP/otool.txt"; then echo "FAIL: the archive links a framework the app must not carry"; exit 1; fi
 
       - name: Export and upload to App Store Connect
         env:

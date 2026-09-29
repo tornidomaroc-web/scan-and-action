@@ -24,6 +24,20 @@ const config: CapacitorConfig = {
     appendUserAgent: 'ScanActionAndroid',
   },
   plugins: {
+    // The social-login plugin links facebook-ios-sdk unconditionally in its
+    // Package.swift. Its capacitor:sync:before hook (scripts/
+    // configure-dependencies.js) reads this map and comments the Facebook
+    // package and products out of that manifest on every `cap sync`, and
+    // selects the facebookDisabled source set on Android. The app offers
+    // Google and Apple only; a Facebook provider that is never called still
+    // pulls AppTrackingTransparency into the binary, and a tracking purpose
+    // string in an app that does not track contradicts the App Privacy
+    // answers (WORK-QUEUE, "Remove the Facebook SDK"). The CI audit
+    // (.github/workflows/ios-audit.yml) proves the linked binary carries
+    // neither framework; iosPlatform.test.ts pins this map.
+    SocialLogin: {
+      providers: { google: true, apple: true, facebook: false, twitter: false },
+    },
     SplashScreen: {
       launchShowDuration: 1500,
       // We hide it explicitly once React mounts (src/native/index.ts); the

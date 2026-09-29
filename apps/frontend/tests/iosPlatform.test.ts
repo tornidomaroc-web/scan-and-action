@@ -141,13 +141,56 @@ const walk = (dir: string): string[] =>
     return e.isDirectory() ? walk(p) : p.endsWith('.swift') && !p.includes(`${sep}Tests${sep}`) ? [p] : [];
   });
 
-const linkedPluginSources = (): Record<string, string> => {
+// The provider map capacitor.config.ts hands the social-login plugin. Its
+// capacitor:sync:before hook comments the Facebook package out of the plugin's
+// Package.swift when facebook is false (2026-09-29), so the FBSDKLoginKit
+// module does not exist at compile time and every `#if canImport(FBSDKLoginKit)`
+// region is dead. The audit below must read the source the compiler reads.
+const socialLoginProviders = (): Record<string, boolean> => {
+  const cfg = F('capacitor.config.ts');
+  const m = cfg.match(/SocialLogin:\s*\{\s*providers:\s*\{([^}]*)\}/);
+  if (!m) return {};
+  const out: Record<string, boolean> = {};
+  for (const kv of m[1].matchAll(/(\w+):\s*(true|false)/g)) out[kv[1]] = kv[2] === 'true';
+  return out;
+};
+
+// Drops every line inside a `#if canImport(FBSDKLoginKit)` region (keeping its
+// `#else` branch, the stub the compiler builds without Facebook). Nested
+// regions inherit the suppression. Any other `#if` is kept whole.
+const withoutFacebookRegions = (src: string): string => {
+  const stack: Array<{ facebook: boolean; suppress: boolean }> = [];
+  const out: string[] = [];
+  for (const line of src.split('\n')) {
+    const t = line.trim();
+    if (/^#if\b/.test(t)) {
+      const facebook = /canImport\(FBSDKLoginKit\)/.test(t);
+      stack.push({ facebook, suppress: facebook });
+      continue;
+    }
+    if (/^#else\b/.test(t) && stack.length) {
+      const top = stack[stack.length - 1];
+      if (top.facebook) top.suppress = false;
+      continue;
+    }
+    if (/^#endif\b/.test(t) && stack.length) {
+      stack.pop();
+      continue;
+    }
+    if (!stack.some((f) => f.suppress)) out.push(line);
+  }
+  return out.join('\n');
+};
+
+const linkedPluginSources = (opts: { raw?: boolean } = {}): Record<string, string> => {
   const pkg = F('ios/App/CapApp-SPM/Package.swift');
+  const facebookOff = socialLoginProviders().facebook === false;
   const out: Record<string, string> = {};
   for (const m of pkg.matchAll(/path: "\.\.\/\.\.\/\.\.\/node_modules\/([^"]+)"/g)) {
     const iosDir = join(__dirname, '..', 'node_modules', m[1], 'ios');
     if (!existsSync(iosDir)) continue;
-    out[m[1]] = walk(iosDir).map((f) => readFileSync(f, 'utf8')).join('\n');
+    const text = walk(iosDir).map((f) => readFileSync(f, 'utf8')).join('\n');
+    out[m[1]] = facebookOff && !opts.raw ? withoutFacebookRegions(text) : text;
   }
   return out;
 };
@@ -192,16 +235,21 @@ describe('purpose strings: every key a linked plugin can reach is present, non-e
       ['@capacitor/app', '@capacitor/camera', '@capacitor/splash-screen', '@capacitor/status-bar', '@capgo/capacitor-social-login'],
     );
     expect(required.get('NSCameraUsageDescription')).toEqual(['@capacitor/camera']);
-    expect(required.get('NSUserTrackingUsageDescription')).toEqual(['@capgo/capacitor-social-login']);
+    // The tracking call exists in the plugin's text and is compiled out: the
+    // raw source names ATTrackingManager (so the stripper, not a missing
+    // file, is what removes it), the compiled source does not.
+    const raw = linkedPluginSources({ raw: true })['@capgo/capacitor-social-login'];
+    expect(raw).toMatch(/ATTrackingManager/);
+    expect(sources['@capgo/capacitor-social-login']).not.toMatch(/ATTrackingManager/);
+    expect(required.get('NSUserTrackingUsageDescription')).toBeUndefined();
   });
 
-  it('the derived set is exactly the five keys audited on 2026-09-28; a change here is a plugin change to re-audit', () => {
+  it('the derived set is exactly the four keys audited on 2026-09-29 (tracking gone with the Facebook provider); a change here is a plugin change to re-audit', () => {
     expect([...required.keys()].sort()).toEqual([
       'NSCameraUsageDescription',
       'NSMicrophoneUsageDescription',
       'NSPhotoLibraryAddUsageDescription',
       'NSPhotoLibraryUsageDescription',
-      'NSUserTrackingUsageDescription',
     ]);
   });
 
@@ -382,10 +430,10 @@ describe('1. the Admin key is never on a runner that has run npm', () => {
 });
 
 describe('2. every action is pinned to a full commit SHA, with the release as a comment', () => {
-  const text = ROOT('.github/workflows/ios-testflight.yml');
+  const text = ROOT('.github/workflows/ios-testflight.yml') + ROOT('.github/workflows/ios-audit.yml');
   const uses = [...text.matchAll(/^\s*-?\s*uses:\s*(.+)$/gm)].map((m) => m[1].trim());
-  it('the workflow uses at least one action (positive control)', () => {
-    expect(uses.length).toBeGreaterThanOrEqual(4);
+  it('the two iOS workflows use at least six actions between them (positive control)', () => {
+    expect(uses.length).toBeGreaterThanOrEqual(6);
   });
   for (const u of uses) {
     it(`${u.split('@')[0]} is pinned`, () => {
@@ -422,6 +470,92 @@ describe('3. a failing xcodebuild fails its step directly', () => {
       expect(run).toContain(': (error|warning):');
     });
   }
+});
+
+// ----------------------------------------------------------------------------
+// The Facebook SDK is out of the binary (2026-09-29): the provider map, the
+// import guard, the audit that reads the linked binary on a PR, and the same
+// audit on the archive before an upload. The reading itself (otool -L) is the
+// macOS job's; what a PR can silently undo is pinned here.
+// ----------------------------------------------------------------------------
+describe('the Facebook provider is off, and the AppTrackingTransparency import is guarded', () => {
+  it('capacitor.config.ts hands the plugin google and apple on, facebook and twitter off', () => {
+    expect(socialLoginProviders()).toEqual({ google: true, apple: true, facebook: false, twitter: false });
+  });
+  it('the patch guards the import behind canImport(FBSDKLoginKit), and postinstall applies it', () => {
+    const patch = F('patches/@capgo+capacitor-social-login+8.5.11.patch');
+    expect(patch).toContain('-#if canImport(AppTrackingTransparency)');
+    expect(patch).toContain('+#if canImport(FBSDKLoginKit) && canImport(AppTrackingTransparency)');
+    expect(patch.match(/^\+\+\+ /gm)).toHaveLength(1); // one file, the provider; never the manifest the sync hook owns
+    const pkg = JSON.parse(F('package.json'));
+    expect(pkg.scripts.postinstall).toBe('patch-package');
+    expect(pkg.devDependencies['patch-package']).toBeDefined();
+    const installed = readFileSync(join(__dirname, '..', 'node_modules/@capgo/capacitor-social-login/ios/Sources/SocialLoginPlugin/FacebookProvider.swift'), 'utf8');
+    expect(installed).toContain('#if canImport(FBSDKLoginKit) && canImport(AppTrackingTransparency)');
+    expect(installed).not.toMatch(/^#if canImport\(AppTrackingTransparency\)$/m);
+  });
+  it('NSUserTrackingUsageDescription is gone from Info.plist and every InfoPlist.strings (removed after the audit run 36637731099 read a binary without AppTrackingTransparency)', () => {
+    expect(F('ios/App/App/Info.plist')).not.toContain('NSUserTrackingUsageDescription');
+    for (const lang of ['en', 'fr', 'ar']) expect(F(`ios/App/App/${lang}.lproj/InfoPlist.strings`), lang).not.toContain('NSUserTrackingUsageDescription');
+    // and the four remaining keys are still there (the removal took one key, not the file)
+    for (const lang of ['en', 'fr', 'ar']) expect(F(`ios/App/App/${lang}.lproj/InfoPlist.strings`).match(/^"NS\w+UsageDescription" = /gm)).toHaveLength(4);
+    const manifest = F('ios/App/App/PrivacyInfo.xcprivacy');
+    expect(manifest).toMatch(/<key>NSPrivacyTracking<\/key>\s*<false\/>/);
+    expect(manifest).not.toContain('NSPrivacyTrackingDomains');
+  });
+  it('the stripper keeps the #else stub and drops the guarded body (control on a synthetic source)', () => {
+    const src = ['a', '#if canImport(FBSDKLoginKit)', 'FB', '#if canImport(AppTrackingTransparency)', 'ATT', '#endif', '#else', 'STUB', '#endif', '#if os(iOS)', 'IOS', '#endif', 'z'].join('\n');
+    expect(withoutFacebookRegions(src).split('\n')).toEqual(['a', 'STUB', 'IOS', 'z']);
+  });
+});
+
+describe('the binary audit runs on a pull request without secrets, and on the archive', () => {
+  const text = ROOT('.github/workflows/ios-audit.yml');
+  const wf = (() => {
+    const { load } = createRequire(import.meta.url)('js-yaml') as { load: (s: string) => unknown };
+    return load(text) as Workflow & { on: Record<string, unknown>; permissions: Record<string, string> };
+  })();
+  it('triggers on pull_request restricted to the paths that change what Xcode links, plus manual dispatch', () => {
+    const pr = wf.on.pull_request as { branches: string[]; paths: string[] };
+    expect(pr.branches).toEqual(['main']);
+    expect(pr.paths).toEqual([
+      'apps/frontend/ios/**',
+      'apps/frontend/capacitor.config.ts',
+      'apps/frontend/patches/**',
+      'apps/frontend/package.json',
+      'apps/frontend/package-lock.json',
+      '.github/workflows/ios-audit.yml',
+    ]);
+    expect(wf.on.workflow_dispatch).toBeDefined();
+    expect(text).not.toContain('pull_request_target');
+    expect(wf.permissions).toEqual({ contents: 'read' });
+  });
+  it('one macOS job, no environment, no secret reference, no signing', () => {
+    expect(Object.keys(wf.jobs)).toEqual(['audit']);
+    const job = wf.jobs.audit;
+    expect(job['runs-on']).toBe('macos-26');
+    expect(job.environment).toBeUndefined();
+    expect(text).not.toMatch(/secrets\./);
+    for (const step of job.steps) expect(stepText(step), step.name).not.toMatch(/ASC_|APP_STORE_CONNECT|authenticationKey|allowProvisioningUpdates|archive/);
+    const build = job.steps.find((s) => s.name === 'Build for the iOS Simulator (unsigned)');
+    expect(build?.run).toContain('CODE_SIGNING_ALLOWED=NO');
+    expect(build?.run).toContain("-destination 'generic/platform=iOS Simulator'");
+  });
+  it('the audit reads otool -L with UIKit as the positive control, and fails on tracking or Facebook by an explicit if', () => {
+    const audit = wf.jobs.audit.steps.find((s) => s.name === 'Audit the binary');
+    expect(audit?.run).toMatch(/otool -L "\$bin"/);
+    expect(audit?.run).toMatch(/grep -q 'UIKit\.framework' .* \|\| \{ [^}]*exit 1; \}/);
+    expect(audit?.run).toMatch(/if grep -iqE 'AppTrackingTransparency\|FBSDK\|Facebook' [^\n]*; then\n[^\n]*exit 1\n\s*fi/);
+    // never the negated form, which set -e ignores
+    expect(audit?.run).not.toMatch(/^\s*! /m);
+  });
+  it('the archive step in ios-testflight.yml takes the same reading before the export', () => {
+    const tf = loadWorkflow();
+    const archive = tf.jobs.testflight.steps.find((s) => s.name === 'Archive (automatic signing with the API key)');
+    expect(archive?.run).toMatch(/otool -L "\$bin"/);
+    expect(archive?.run).toMatch(/grep -q "UIKit\.framework"/);
+    expect(archive?.run).toMatch(/if grep -iqE "AppTrackingTransparency\|FBSDK\|Facebook" [^\n]*; then [^\n]*exit 1; fi/);
+  });
 });
 
 describe('the web build is untouched by the platform', () => {

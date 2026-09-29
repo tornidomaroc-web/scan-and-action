@@ -4,4 +4,3 @@
 "NSMicrophoneUsageDescription" = "Scan & Action n'enregistre pas de son. Le composant caméra utilisé peut filmer des vidéos et iOS exige cet avis pour cette capacité.";
 "NSPhotoLibraryAddUsageDescription" = "Scan & Action peut enregistrer une copie d'un reçu ou d'une facture numérisée dans votre photothèque lorsque vous le demandez.";
 "NSPhotoLibraryUsageDescription" = "Scan & Action lit les photos que vous choisissez dans votre photothèque pour importer des reçus et factures déjà photographiés.";
-"NSUserTrackingUsageDescription" = "Scan & Action ne vous suit pas dans les applications et sites web d'autres entreprises. Si cette demande apparaît, la refuser ne change rien dans l'application.";

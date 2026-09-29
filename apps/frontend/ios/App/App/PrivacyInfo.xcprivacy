@@ -7,13 +7,14 @@
 	     (ITMS-91053 when one is missing). @capgo/capacitor-social-login is
 	     compiled into this binary from source and ships no manifest of its
 	     own, and its providers read and write UserDefaults, so the reason is
-	     declared here. Capacitor, GoogleSignIn, the Facebook SDK, Alamofire,
-	     AppAuth, GTMAppAuth and GTMSessionFetcher carry their own manifests.
+	     declared here. Capacitor, GoogleSignIn, Alamofire, AppAuth, GTMAppAuth
+	     and GTMSessionFetcher carry their own manifests. The Facebook SDK is
+	     not linked (capacitor.config.ts turns the provider off; the CI audit
+	     reads the binary), so no tracking framework is in the bundle and
+	     NSPrivacyTracking is false with nothing to list under it.
 	     CA92.1: user defaults accessed only by this app, for this app. -->
 	<key>NSPrivacyTracking</key>
 	<false/>
-	<key>NSPrivacyTrackingDomains</key>
-	<array/>
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array/>
 	<key>NSPrivacyAccessedAPITypes</key>
