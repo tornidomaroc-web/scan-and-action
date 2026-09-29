@@ -11,6 +11,7 @@ import { PrivacyPolicy } from '../src/screens/PrivacyPolicy';
 import { TermsOfService } from '../src/screens/TermsOfService';
 import { RefundPolicy } from '../src/screens/RefundPolicy';
 import { DeleteAccountInfo } from '../src/screens/DeleteAccountInfo';
+import { SupportPage } from '../src/screens/SupportPage';
 
 // ============================================================================
 // THE FOUR LEGAL ROUTES HAVE A HEADER, AND ARE NOT PINNED.
@@ -47,6 +48,7 @@ const ROUTES = [
   ['/terms', 'TermsOfService', TermsOfService],
   ['/refund', 'RefundPolicy', RefundPolicy],
   ['/delete-account', 'DeleteAccountInfo', DeleteAccountInfo],
+  ['/support', 'SupportPage', SupportPage],
 ] as const;
 
 const source = (name: string) =>
