@@ -33,7 +33,7 @@ const PrivacyPolicy: React.FC = () => {
         <div className="space-y-8 leading-relaxed">
           <section>
             <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">1. Data Collected</h2>
-            <p>Scan & Action is a product operated by KnowFlow, which is responsible for the personal data described in this policy. We collect information you provide directly, such as account details and uploaded document images. We also collect metadata necessary for service improvement and security.</p>
+            <p>Scan & Action is operated by Abdelfettah Amellah, an individual developer, who is responsible for the personal data described in this policy. We collect information you provide directly, such as account details and uploaded document images. We also collect metadata necessary for service improvement and security.</p>
           </section>
 
           <section>
@@ -67,7 +67,7 @@ const PrivacyPolicy: React.FC = () => {
           </section>
 
           <footer className="pt-10 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-500">
-            Last updated: June 11, 2026 | Contact: support@scan-action.com
+            Last updated: September 29, 2026 | Contact: support@scan-action.com
           </footer>
         </div>
       </div>
