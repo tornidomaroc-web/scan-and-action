@@ -94,8 +94,9 @@ describe('Dashboard restyle — populated', () => {
   it('renders chart + by-status as placeholders — NO fabricated numbers', async () => {
     mount();
     await vi.waitFor(() => expect(text()).toContain(strings.en.documentsProcessed));
-    // Placeholder copy present…
-    expect(text()).toContain(strings.en.dataComingSoon);
+    // The two empty-state copies are present (never "coming soon", Apple 2.1(a))…
+    expect(text()).toContain(strings.en.overviewChartEmpty);
+    expect(text()).toContain(strings.en.overviewStatusEmpty);
     // …and none of the design's mock/fabricated figures leaked into the build.
     for (const fake of ['+12%', 'vs last month', 'vs last week', '94.5%', 'Approval rate 94.5%']) {
       expect(text()).not.toContain(fake);
@@ -250,8 +251,9 @@ describe('Dashboard analytics wiring (PR-C2)', () => {
     });
     mount();
     await vi.waitFor(() => expect(chartSvg()).toBeTruthy());
-    // Both widgets have real data -> the placeholder copy is gone entirely.
-    expect(text()).not.toContain(strings.en.dataComingSoon);
+    // Both widgets have real data -> the empty-state copy is gone entirely.
+    expect(text()).not.toContain(strings.en.overviewChartEmpty);
+    expect(text()).not.toContain(strings.en.overviewStatusEmpty);
     // Month labels are localized and present.
     expect(text()).toContain('Jul');
     expect(text()).toContain('Feb');
@@ -266,7 +268,7 @@ describe('Dashboard analytics wiring (PR-C2)', () => {
     mount();
     await vi.waitFor(() => expect(text()).toContain(strings.en.dashboard));
     expect(chartSvg()).toBeNull();
-    expect(text()).toContain(strings.en.dataComingSoon);
+    expect(text()).toContain(strings.en.overviewChartEmpty);
   });
 
   it('renders the by-status breakdown with real counts + percentages and real-status labels', async () => {
