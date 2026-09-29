@@ -58,6 +58,11 @@ const CODE_TO_KEY: Record<string, string> = {
   // 400: server-side defence-in-depth. Nearly unreachable from the UI, which
   // disables the button until the typed email matches (DeleteAccountModal.tsx:32).
   CONFIRMATION_REQUIRED: 'deleteAccountConfirmRequired',
+  // Client-side, iOS only: the Apple sheet that precedes the request was
+  // dismissed, or came back without an authorization code. Nothing was sent;
+  // the account is untouched (DeleteAccountModal.tsx).
+  APPLE_CANCELLED: 'deleteAccountAppleCancelled',
+  APPLE_SHEET_FAILED: 'deleteAccountAppleSheetFailed',
 };
 
 /**

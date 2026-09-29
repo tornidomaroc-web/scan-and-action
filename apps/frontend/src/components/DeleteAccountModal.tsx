@@ -6,6 +6,13 @@ import { useStrings } from '../i18n/useStrings';
 import { accountService } from '../services/accountService';
 import { translateAccountError } from '../lib/accountErrors';
 import { useBackDismiss } from '../native/useBackDismiss';
+import { Capacitor } from '@capacitor/core';
+import { reauthenticateWithApple, SocialSignInCancelled } from '../lib/socialAuth';
+import { useOptionalToast } from '../contexts/ToastContext';
+
+/** Whether this user ever signed in with Apple (Supabase lists one identity per provider). */
+export const hasAppleIdentity = (user: { identities?: Array<{ provider?: string }> } | null | undefined): boolean =>
+  (user?.identities ?? []).some((i) => i.provider === 'apple');
 
 interface DeleteAccountModalProps {
   isOpen: boolean;
@@ -17,6 +24,17 @@ interface DeleteAccountModalProps {
 export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, onClose, onDeleted }) => {
   const s = useStrings();
   const { user, signOut } = useAuth();
+  const toast = useOptionalToast();
+  // Sign in with Apple revocation at deletion (Apple: an app that offers Sign
+  // in with Apple "should" revoke the user's tokens). The app keeps no Apple
+  // token, so on iOS the deletion opens one more Apple sheet and sends its
+  // authorization code with the request; the backend exchanges and revokes,
+  // then deletes. The sheet exists on iOS only (Apple sign-in is iOS-only
+  // here), so a web or Android deletion of an Apple-linked account sends no
+  // code and the backend records it as skipped: the note below tells the
+  // person where Apple still lists us.
+  const appleLinked = hasAppleIdentity(user as { identities?: Array<{ provider?: string }> } | null);
+  const appleSheetHere = appleLinked && Capacitor.getPlatform() === 'ios';
   const [confirmText, setConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   // Holds the RAW error code, not display text — translated at the render site
@@ -38,11 +56,29 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
     if (!canDelete || isDeleting) return;
     setIsDeleting(true);
     setError(null);
+    // The Apple sheet first, while nothing has been sent. A dismissed sheet
+    // ends here with the account untouched and the modal still open; so does
+    // a sheet that returns no code. The delete request is never made without
+    // the code on iOS.
+    let appleCode: string | undefined;
+    if (appleSheetHere) {
+      try {
+        appleCode = await reauthenticateWithApple();
+      } catch (err) {
+        setError(err instanceof SocialSignInCancelled ? 'APPLE_CANCELLED' : 'APPLE_SHEET_FAILED');
+        setIsDeleting(false);
+        return;
+      }
+    }
     try {
-      await accountService.deleteAccount(confirmText.trim());
+      const { appleRevocation } = await accountService.deleteAccount(confirmText.trim(), appleCode);
       // Account is gone — clear the local session and hand back to the caller,
-      // which routes to the login screen.
+      // which routes to the login screen. If Apple still lists us, say so
+      // once, on the way out.
       await signOut().catch(() => {});
+      if (appleLinked && appleRevocation !== 'revoked' && appleRevocation !== 'not_applicable') {
+        toast?.showToast(s.deleteAccountAppleStillListed, 'info');
+      }
       onDeleted();
     } catch (err: any) {
       // Raw code in, raw code stored. translateAccountError absorbs anything
@@ -96,6 +132,12 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
           <p className="text-sm leading-relaxed text-ink-secondary">
             {s.deleteAccountWarningBody}
           </p>
+
+          {appleLinked && (
+            <p className="text-sm leading-relaxed text-ink-secondary" data-apple-note={appleSheetHere ? 'sheet' : 'web'}>
+              {appleSheetHere ? s.deleteAccountAppleReauthNote : s.deleteAccountAppleWebNote}
+            </p>
+          )}
 
           {/*
             Store-subscription warning — REQUIRED: deletion does not cancel

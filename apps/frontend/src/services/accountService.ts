@@ -1,5 +1,8 @@
 import { API_BASE_URL, getJsonHeaders } from './apiConfig';
 
+/** What the backend did about a Sign in with Apple authorization (accountController.ts). */
+export type AppleRevocationStatus = 'revoked' | 'failed' | 'skipped' | 'not_applicable' | 'not_configured';
+
 export const accountService = {
   /**
    * Permanently delete the current user's account. `confirm` must be the user's
@@ -11,7 +14,7 @@ export const accountService = {
    * the chain — it is untranslated English prose, and the client never touches
    * it. Codes the whitelist doesn't know fall through to translated generic copy.
    */
-  async deleteAccount(confirm: string): Promise<void> {
+  async deleteAccount(confirm: string, appleAuthorizationCode?: string): Promise<{ appleRevocation?: AppleRevocationStatus }> {
     let res: Response;
     // Only the fetch is guarded: a dropped connection rejects with
     // TypeError('Failed to fetch'), browser-generated English that would
@@ -21,7 +24,7 @@ export const accountService = {
       res = await fetch(`${API_BASE_URL}/account`, {
         method: 'DELETE',
         headers: await getJsonHeaders(),
-        body: JSON.stringify({ confirm }),
+        body: JSON.stringify(appleAuthorizationCode ? { confirm, appleAuthorizationCode } : { confirm }),
       });
     } catch {
       throw new Error('NETWORK_ERROR');
@@ -31,5 +34,8 @@ export const accountService = {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error || 'DELETE_FAILED');
     }
+    const data = (await res.json().catch(() => ({}))) as { appleRevocation?: unknown };
+    const status = typeof data.appleRevocation === 'string' ? (data.appleRevocation as AppleRevocationStatus) : undefined;
+    return { appleRevocation: status };
   },
 };

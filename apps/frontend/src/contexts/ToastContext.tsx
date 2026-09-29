@@ -52,6 +52,9 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   );
 };
 
+/** The toast API, or undefined where no provider is mounted (tests, bare screens). */
+export const useOptionalToast = () => useContext(ToastContext);
+
 export const useToast = () => {
   const context = useContext(ToastContext);
   if (!context) {

@@ -39,6 +39,21 @@ export async function deleteStorageObjects(paths: string[]): Promise<void> {
 }
 
 /**
+ * Whether this auth user signed in with Apple at least once. Supabase keeps one
+ * identity row per provider on the user; the admin API is the only reader of
+ * it. A lookup failure is reported as a throw, not as "no Apple identity":
+ * the caller decides what an unknown means.
+ */
+export async function hasAppleIdentity(userId: string): Promise<boolean> {
+  const { data, error } = await admin.auth.admin.getUserById(userId);
+  if (error) {
+    if (/not\s*found/i.test(error.message)) return false;
+    throw new Error(`Auth user lookup failed: ${error.message}`);
+  }
+  return (data.user?.identities ?? []).some((i) => i.provider === 'apple');
+}
+
+/**
  * Delete the Supabase auth user. Idempotent: a "user not found" response means
  * the identity is already gone (e.g. a retried deletion), which we treat as
  * success rather than an error.

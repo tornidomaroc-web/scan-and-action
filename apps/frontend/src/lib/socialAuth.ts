@@ -118,8 +118,13 @@ async function nativePlugin(config: SocialConfig) {
       },
       // clientId is only the plugin's own switch on iOS; the bundle id is
       // what Apple puts in the token's audience. An empty redirectUrl tells
-      // the plugin not to redirect on iOS.
-      apple: { clientId: APPLE_NATIVE_CLIENT_ID, redirectUrl: '' },
+      // the plugin not to redirect on iOS. useProperTokenExchange makes the
+      // plugin return Apple's raw authorization code untouched (with the
+      // legacy default it is copied into accessToken and the field is empty;
+      // AppleProvider.swift:276-314); the backend exchanges it at account
+      // deletion (reauthenticateWithApple below). Sign-in reads only idToken
+      // either way.
+      apple: { clientId: APPLE_NATIVE_CLIENT_ID, redirectUrl: '', useProperTokenExchange: true },
     }).catch((err) => {
       initialized = null;
       throw err;
@@ -148,6 +153,29 @@ async function signInNative(provider: SocialProvider, config: SocialConfig): Pro
   if (!idToken) throw new Error(`${provider} returned no ID token`);
   const { error } = await supabase.auth.signInWithIdToken({ provider, token: idToken, nonce: nonce.raw });
   if (error) throw error;
+}
+
+/**
+ * One more Apple sheet, for account deletion on iOS. Returns the authorization
+ * code the backend exchanges and revokes (DELETE /api/account, body
+ * appleAuthorizationCode); nothing is sent to Supabase and nothing is kept.
+ * A dismissed sheet throws SocialSignInCancelled, like sign-in; a sheet that
+ * comes back with no code throws APPLE_NO_CODE, so the caller can tell the
+ * two apart and the deletion does not proceed on either.
+ */
+export async function reauthenticateWithApple(config: SocialConfig = socialConfigFromEnv()): Promise<string> {
+  const plugin = await nativePlugin(config);
+  const nonce = await makeNonce();
+  let code: string | undefined;
+  try {
+    const res = await plugin.login({ provider: 'apple', options: { scopes: ['email'], nonce: nonce.hashed } });
+    code = (res.result as { authorizationCode?: string }).authorizationCode;
+  } catch (err) {
+    if (looksCancelled(err)) throw new SocialSignInCancelled();
+    throw err;
+  }
+  if (!code) throw new Error('APPLE_NO_CODE');
+  return code;
 }
 
 async function signInWeb(provider: SocialProvider): Promise<void> {

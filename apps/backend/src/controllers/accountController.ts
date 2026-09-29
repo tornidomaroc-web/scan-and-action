@@ -1,7 +1,68 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../prismaClient';
-import { deleteAuthUser, deleteStorageObjects } from '../services/accountDeletionService';
+import { deleteAuthUser, deleteStorageObjects, hasAppleIdentity } from '../services/accountDeletionService';
 import { invalidateUser } from '../middleware/authContextCache';
+import { revokeAppleAuthorization, appleRevocationConfigured } from '../services/appleRevocationService';
+
+/**
+ * What happened to the user's Sign in with Apple authorization, reported in the
+ * response so the app can tell the person when Apple still lists us.
+ *
+ *   revoked         the fresh code was exchanged and the tokens revoked
+ *   failed          Apple refused or was unreachable; the account is deleted anyway
+ *   skipped         the user has an Apple identity and the client sent no code
+ *                   (a surface with no Apple sheet: web, Android)
+ *   not_applicable  the user never signed in with Apple
+ *   not_configured  a code arrived and the four APPLE_* variables are absent
+ */
+export type AppleRevocationStatus = 'revoked' | 'failed' | 'skipped' | 'not_applicable' | 'not_configured';
+
+/**
+ * Sign in with Apple revocation at deletion. Apple's "Offering account deletion
+ * in your app" page: an app that offers Sign in with Apple "should use the Sign
+ * in with Apple REST API to revoke user tokens". The app never kept a token, so
+ * the iOS client asks for one more Apple sheet and sends the code here; the
+ * service exchanges it and revokes. The code is single-use and lives five
+ * minutes, so this runs once every refusal (confirmation, shared workspace,
+ * identity conflict) is behind us and before anything is destroyed.
+ *
+ * RULING (2026-09-30): a failed or skipped revocation never blocks the
+ * deletion. The person's right to delete (Apple 5.1.1(v), Play's data-deletion
+ * policy) outranks the tidiness of Apple's own list, which the person can
+ * clean in Settings > Apple Account > Sign in with Apple. A surface with no
+ * Apple sheet (web, Android) sends no code and is recorded as skipped: Apple
+ * sign-in exists on iOS only here, by the board's decision, so no code can
+ * exist there, and refusing would deny deletion to a person without their
+ * iPhone. Every outcome is one log line with a reason word and a status,
+ * never the code or a token.
+ */
+async function settleAppleRevocation(userId: string, body: unknown): Promise<AppleRevocationStatus> {
+  const raw = (body as { appleAuthorizationCode?: unknown } | undefined)?.appleAuthorizationCode;
+  const code = typeof raw === 'string' ? raw.trim() : '';
+  let linked: boolean;
+  try {
+    linked = await hasAppleIdentity(userId);
+  } catch (err) {
+    // An unknown is logged as its own thing, never folded into "no Apple".
+    console.error(`[AccountController] apple_revocation identity_lookup_failed user=${userId}: ${err instanceof Error ? err.message : err}`);
+    linked = code !== '';
+  }
+  if (!code) {
+    if (!linked) return 'not_applicable';
+    console.error(`[AccountController] apple_revocation skipped user=${userId}: Apple identity present, no code from the client`);
+    return 'skipped';
+  }
+  if (!appleRevocationConfigured()) {
+    console.error(`[AccountController] apple_revocation not_configured user=${userId}: a code arrived and APPLE_* is not set`);
+    return 'not_configured';
+  }
+  const outcome = await revokeAppleAuthorization(code);
+  if (outcome.ok) return 'revoked';
+  const status = 'status' in outcome ? ` status=${outcome.status}` : '';
+  const word = 'error' in outcome && outcome.error ? ` error=${outcome.error}` : '';
+  console.error(`[AccountController] apple_revocation failed user=${userId} reason=${outcome.reason}${status}${word}`);
+  return 'failed';
+}
 
 /**
  * DELETE /api/account
@@ -89,11 +150,14 @@ export class AccountController {
               'This account cannot be deleted automatically because its data belongs to a different identity. Contact support.',
           });
         }
+        // The auth identity may still exist here, and with it Apple's
+        // authorization: revoke before it goes, like the main path.
+        const appleRevocation = await settleAppleRevocation(userId, req.body);
         await deleteAuthUser(userId);
       // A cached context for this user would outlive the rows for up to a
       // minute; the deletion is the one event that must not wait that long.
       invalidateUser(userId);
-        return res.status(200).json({ ok: true, alreadyDeleted: true });
+        return res.status(200).json({ ok: true, alreadyDeleted: true, appleRevocation });
       }
 
       // Fail-safe: refuse if the user shares any org with other members.
@@ -110,6 +174,9 @@ export class AccountController {
 
       // Solo path. These orgs are exclusively this user's, safe to delete whole.
       const orgIds = dbUser.memberships.map((m) => m.organizationId);
+
+      // 0) Apple first: every refusal is behind us, nothing is destroyed yet.
+      const appleRevocation = await settleAppleRevocation(userId, req.body);
 
       // Collect storage paths BEFORE the rows are deleted.
       const docs = orgIds.length
@@ -162,7 +229,7 @@ export class AccountController {
       // minute; the deletion is the one event that must not wait that long.
       invalidateUser(userId);
 
-      return res.status(200).json({ ok: true });
+      return res.status(200).json({ ok: true, appleRevocation });
     } catch (err) {
       next(err);
     }

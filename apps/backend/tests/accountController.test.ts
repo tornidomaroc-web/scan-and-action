@@ -29,6 +29,8 @@ vi.mock('../src/prismaClient', () => ({
 vi.mock('../src/services/accountDeletionService', () => ({
   deleteStorageObjects: vi.fn(async () => {}),
   deleteAuthUser: vi.fn(async () => {}),
+  // No Apple identity on these users: the revocation step reports not_applicable.
+  hasAppleIdentity: vi.fn(async () => false),
 }));
 
 import { prisma } from '../src/prismaClient';
@@ -95,7 +97,7 @@ describe('AccountController.deleteAccount', () => {
     expect(prisma.$transaction).toHaveBeenCalled();
     expect(deleteAuthUser).toHaveBeenCalledWith(USER_ID);
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ ok: true });
+    expect(res.json).toHaveBeenCalledWith({ ok: true, appleRevocation: "not_applicable" });
   });
 
   it('uppercase/whitespace confirmation still matches (case-insensitive, trimmed)', async () => {
@@ -135,7 +137,7 @@ describe('AccountController.deleteAccount', () => {
     expect(deleteAuthUser).toHaveBeenCalledWith(USER_ID);
     expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ ok: true, alreadyDeleted: true });
+    expect(res.json).toHaveBeenCalledWith({ ok: true, alreadyDeleted: true, appleRevocation: "not_applicable" });
   });
 
   it('aborts before any DB delete if storage deletion fails (no half-deleted state)', async () => {
