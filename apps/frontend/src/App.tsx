@@ -15,6 +15,7 @@ import { TermsOfService } from './screens/TermsOfService';
 import { PrivacyPolicy } from './screens/PrivacyPolicy';
 import { RefundPolicy } from './screens/RefundPolicy';
 import { DeleteAccountInfo } from './screens/DeleteAccountInfo';
+import { SupportPage } from './screens/SupportPage';
 import { useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { NativeBackButton } from './native/NativeBackButton';
@@ -120,6 +121,8 @@ function App() {
             {/* Public account-deletion info page (Google Play data-deletion
                 policy): reachable logged-out, even after uninstall. */}
             <Route path="/delete-account" element={<DeleteAccountInfo />} />
+            {/* Public support page: the App Store Connect Support URL. */}
+            <Route path="/support" element={<SupportPage />} />
 
             {/* Protected Routes */}
             {user ? (
