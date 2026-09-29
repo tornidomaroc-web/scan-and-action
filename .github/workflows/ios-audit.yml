@@ -1,0 +1,156 @@
+name: iOS — binary audit
+
+# Builds the app for the iOS Simulator on a pull request and reads what the
+# linked binary carries. No signing, no App Store Connect key, no environment,
+# no secret of any kind: the job proves a property of the code, and a fork can
+# run it without reaching anything.
+#
+# WHAT IT ANSWERS (2026-09-29). Whether the app binary links a framework the
+# app must not carry. Today that is AppTrackingTransparency and the Facebook
+# SDK: @capgo/capacitor-social-login links facebook-ios-sdk unconditionally in
+# its Package.swift, and its FacebookProvider.swift imports
+# AppTrackingTransparency outside the FBSDKLoginKit guard, so the framework is
+# autolinked even when no code calls it. capacitor.config.ts turns the Facebook
+# provider off (the plugin's sync hook comments the package out of the
+# manifest) and patches/ guards the import. This job is the reading that says
+# whether those two changes reached the binary; the same reading runs on the
+# archive in ios-testflight.yml before an upload. Only after it is green is
+# NSUserTrackingUsageDescription removed from Info.plist.
+#
+# WHY A SIMULATOR BUILD. A device build needs a signing identity; a simulator
+# build needs none, and the framework list of the binary is the same question
+# on both. The reading is `otool -L` on App.app/App (the load commands the
+# linker wrote), the embedded Frameworks directory, and the checkouts SwiftPM
+# resolved. Each reading carries its own positive control, so an empty or
+# misread output fails rather than passes: `otool -L` must name UIKit, and the
+# checkouts must include capacitor-swift-pm.
+#
+# TRIGGER. pull_request, restricted to the paths that change what Xcode links:
+# the iOS project, capacitor.config.ts (the provider map), patches/, and the
+# npm manifests (a plugin upgrade). Not a required check in the ruleset today;
+# it reports on the PR. `set -e` does not fire on a negated command, so every
+# forbidden-match test is written as an explicit `if ...; then exit 1; fi`.
+#
+# COST. Free on a public repository (docs.github.com, runners reference, read
+# 2026-09-27); $0.062 per macOS minute if the repository ever goes private.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/frontend/ios/**'
+      - 'apps/frontend/capacitor.config.ts'
+      - 'apps/frontend/patches/**'
+      - 'apps/frontend/package.json'
+      - 'apps/frontend/package-lock.json'
+      - '.github/workflows/ios-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: iOS — simulator build and binary audit (no signing, no secrets)
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      # postinstall runs patch-package here: the FacebookProvider.swift guard
+      # is applied to node_modules before cap sync reads it.
+      - run: npm ci
+
+      # The Supabase pair is deliberately absent: the audit reads load commands
+      # off the binary, and the bundle's contents do not change what is linked.
+      - name: Build the web bundle
+        run: npm run build
+
+      # The plugin's capacitor:sync:before hook reads plugins.SocialLogin.providers
+      # from capacitor.config.ts and rewrites its own Package.swift.
+      - name: Sync the iOS project
+        run: npx cap sync ios
+
+      - name: The plugin manifest no longer links Facebook, and the import guard is in place
+        run: |
+          set -eu
+          f=node_modules/@capgo/capacitor-social-login/Package.swift
+          echo "facebook lines in $f:"
+          grep -nE 'facebook-ios-sdk|FacebookCore|FacebookLogin' "$f"
+          # positive control: the hook left the lines in place, commented
+          test "$(grep -cE '^\s*//.*(facebook-ios-sdk|FacebookCore|FacebookLogin)' "$f")" -eq 3 || { echo "expected the three Facebook lines commented out by the sync hook"; exit 1; }
+          if grep -qE '^\s*\.(package|product)\(.*(facebook-ios-sdk|FacebookCore|FacebookLogin)' "$f"; then echo "Package.swift still links Facebook"; exit 1; fi
+          p=node_modules/@capgo/capacitor-social-login/ios/Sources/SocialLoginPlugin/FacebookProvider.swift
+          grep -n 'import AppTrackingTransparency' -B1 "$p"
+          grep -qF '#if canImport(FBSDKLoginKit) && canImport(AppTrackingTransparency)' "$p" || { echo "the AppTrackingTransparency import guard from patches/ is not applied"; exit 1; }
+
+      - name: Xcode in use
+        run: |
+          sudo xcode-select -p
+          xcodebuild -version
+
+      - name: Build for the iOS Simulator (unsigned)
+        run: |
+          set -eu -o pipefail
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tee "$RUNNER_TEMP/build.log" | { grep -E '^(warning|error|\*\*|Build)|: (error|warning):' || true; }
+
+      - name: Audit the binary
+        run: |
+          set -eu
+          app=$(find "$RUNNER_TEMP/dd/Build/Products" -maxdepth 2 -name 'App.app' -type d | head -n 1)
+          test -n "$app" || { echo "no App.app under $RUNNER_TEMP/dd/Build/Products"; ls -R "$RUNNER_TEMP/dd/Build/Products" | head -n 40; exit 1; }
+          bin="$app/App"
+          test -f "$bin"
+          echo "binary: $bin"
+
+          echo "== linked frameworks (otool -L) =="
+          otool -L "$bin" | tee "$RUNNER_TEMP/otool.txt"
+          grep -q 'UIKit.framework' "$RUNNER_TEMP/otool.txt" || { echo "otool -L named no UIKit: the reading is empty, not clean"; exit 1; }
+          if grep -iqE 'AppTrackingTransparency|FBSDK|Facebook' "$RUNNER_TEMP/otool.txt"; then
+            echo "FAIL: the binary links a framework the app must not carry (see above)"; exit 1
+          fi
+
+          echo "== embedded frameworks =="
+          if [ -d "$app/Frameworks" ]; then ls -1 "$app/Frameworks"; else echo "(none)"; fi
+          if [ -d "$app/Frameworks" ] && ls -1 "$app/Frameworks" | grep -iqE 'FBSDK|Facebook'; then
+            echo "FAIL: a Facebook framework is embedded"; exit 1
+          fi
+
+          echo "== packages SwiftPM resolved =="
+          ls -1 "$RUNNER_TEMP/spm/checkouts"
+          ls -1 "$RUNNER_TEMP/spm/checkouts" | grep -q 'capacitor-swift-pm' || { echo "no capacitor-swift-pm checkout: the resolution reading is empty"; exit 1; }
+          if ls -1 "$RUNNER_TEMP/spm/checkouts" | grep -iq 'facebook'; then
+            echo "FAIL: SwiftPM still fetched the Facebook SDK"; exit 1
+          fi
+
+          echo "== undefined symbols mentioning tracking (nm -u) =="
+          nm -u "$bin" | grep -i 'ATTracking' || echo "(none)"
+          if nm -u "$bin" | grep -iq 'ATTracking'; then
+            echo "FAIL: the binary references ATTrackingManager"; exit 1
+          fi
+
+          echo "AUDIT PASSED: no AppTrackingTransparency, no Facebook SDK in the linked binary"

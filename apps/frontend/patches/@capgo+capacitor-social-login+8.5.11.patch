@@ -1,0 +1,13 @@
+diff --git a/node_modules/@capgo/capacitor-social-login/ios/Sources/SocialLoginPlugin/FacebookProvider.swift b/node_modules/@capgo/capacitor-social-login/ios/Sources/SocialLoginPlugin/FacebookProvider.swift
+index ca7babf..bb8dfc3 100644
+--- a/node_modules/@capgo/capacitor-social-login/ios/Sources/SocialLoginPlugin/FacebookProvider.swift
++++ b/node_modules/@capgo/capacitor-social-login/ios/Sources/SocialLoginPlugin/FacebookProvider.swift
+@@ -5,7 +5,7 @@ import UIKit
+ import FBSDKLoginKit
+ #endif
+ 
+-#if canImport(AppTrackingTransparency)
++#if canImport(FBSDKLoginKit) && canImport(AppTrackingTransparency)
+ import AppTrackingTransparency
+ #endif
+ 
