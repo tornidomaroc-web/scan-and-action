@@ -4,4 +4,3 @@
 "NSMicrophoneUsageDescription" = "لا يسجّل Scan & Action أي صوت. مكوّن الكاميرا المستخدم يمكنه تصوير الفيديو، ويتطلب iOS هذا التنبيه لهذه الإمكانية.";
 "NSPhotoLibraryAddUsageDescription" = "يمكن لـ Scan & Action حفظ نسخة من إيصال أو فاتورة ممسوحة في مكتبة الصور عندما تطلب ذلك.";
 "NSPhotoLibraryUsageDescription" = "يقرأ Scan & Action الصور التي تختارها من مكتبة الصور لاستيراد الإيصالات والفواتير التي صوّرتها من قبل.";
-"NSUserTrackingUsageDescription" = "لا يتتبعك Scan & Action عبر تطبيقات ومواقع الشركات الأخرى. إذا ظهر هذا الطلب فإن رفضه لا يغيّر شيئًا في التطبيق.";

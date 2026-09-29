@@ -45,8 +45,6 @@
 	<string>Scan &amp; Action can save a copy of a scanned receipt or invoice to your photo library when you ask it to.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Scan &amp; Action reads photos you choose from your library to import receipts and invoices you have already photographed.</string>
-	<key>NSUserTrackingUsageDescription</key>
-	<string>Scan &amp; Action does not track you across apps and websites owned by other companies. If this request ever appears, declining it changes nothing in the app.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

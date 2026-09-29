@@ -494,6 +494,15 @@ describe('the Facebook provider is off, and the AppTrackingTransparency import i
     expect(installed).toContain('#if canImport(FBSDKLoginKit) && canImport(AppTrackingTransparency)');
     expect(installed).not.toMatch(/^#if canImport\(AppTrackingTransparency\)$/m);
   });
+  it('NSUserTrackingUsageDescription is gone from Info.plist and every InfoPlist.strings (removed after the audit run 36637731099 read a binary without AppTrackingTransparency)', () => {
+    expect(F('ios/App/App/Info.plist')).not.toContain('NSUserTrackingUsageDescription');
+    for (const lang of ['en', 'fr', 'ar']) expect(F(`ios/App/App/${lang}.lproj/InfoPlist.strings`), lang).not.toContain('NSUserTrackingUsageDescription');
+    // and the four remaining keys are still there (the removal took one key, not the file)
+    for (const lang of ['en', 'fr', 'ar']) expect(F(`ios/App/App/${lang}.lproj/InfoPlist.strings`).match(/^"NS\w+UsageDescription" = /gm)).toHaveLength(4);
+    const manifest = F('ios/App/App/PrivacyInfo.xcprivacy');
+    expect(manifest).toMatch(/<key>NSPrivacyTracking<\/key>\s*<false\/>/);
+    expect(manifest).not.toContain('NSPrivacyTrackingDomains');
+  });
   it('the stripper keeps the #else stub and drops the guarded body (control on a synthetic source)', () => {
     const src = ['a', '#if canImport(FBSDKLoginKit)', 'FB', '#if canImport(AppTrackingTransparency)', 'ATT', '#endif', '#else', 'STUB', '#endif', '#if os(iOS)', 'IOS', '#endif', 'z'].join('\n');
     expect(withoutFacebookRegions(src).split('\n')).toEqual(['a', 'STUB', 'IOS', 'z']);
