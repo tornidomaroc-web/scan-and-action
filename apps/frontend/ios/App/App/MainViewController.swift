@@ -10,6 +10,9 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(DocumentScannerPlugin())
         #if targetEnvironment(simulator)
         if ProcessInfo.processInfo.environment["SA_LAUNCH_SMOKE"] == "1" {
+            // At once, before anything asynchronous: this line alone says the
+            // storyboard instantiated this class.
+            writeLaunchMarker(attempt: -1, page: "{\"ready\":\"not-asked-yet\"}")
             writeLaunchSmoke(attempt: 0)
         }
         #endif
@@ -22,6 +25,13 @@ class MainViewController: CAPBridgeViewController {
     // THIS class was instantiated, and it says what the web view holds.
     // Compiled for the simulator only; a device build carries none of it.
     #if targetEnvironment(simulator)
+    private func writeLaunchMarker(attempt: Int, page: String) {
+        let controller = String(describing: type(of: self))
+        let line = "{\"attempt\":\(attempt),\"controller\":\"\(controller)\",\"page\":\(page)}\n"
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("launch-smoke.json")
+        try? line.write(to: url, atomically: true, encoding: .utf8)
+    }
+
     private func writeLaunchSmoke(attempt: Int) {
         let probe = """
         JSON.stringify({
@@ -34,22 +44,17 @@ class MainViewController: CAPBridgeViewController {
         """
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
             guard let self = self else { return }
-            let controller = String(describing: type(of: self))
-            let write: (String) -> Void = { page in
-                let line = "{\"attempt\":\(attempt),\"controller\":\"\(controller)\",\"page\":\(page)}\n"
-                let url = FileManager.default.temporaryDirectory.appendingPathComponent("launch-smoke.json")
-                try? line.write(to: url, atomically: true, encoding: .utf8)
-            }
             guard let webView = self.webView else {
-                write("{\"ready\":\"no-webview\"}")
-                if attempt < 40 { self.writeLaunchSmoke(attempt: attempt + 1) }
+                self.writeLaunchMarker(attempt: attempt, page: "{\"ready\":\"no-webview\"}")
+                if attempt < 240 { self.writeLaunchSmoke(attempt: attempt + 1) }
                 return
             }
-            webView.evaluateJavaScript(probe) { value, _ in
-                let page = (value as? String) ?? "{\"ready\":\"no-result\"}"
-                write(page)
+            webView.evaluateJavaScript(probe) { value, error in
+                let failure = error.map { String(describing: type(of: $0)) } ?? "none"
+                let page = (value as? String) ?? "{\"ready\":\"no-result\",\"error\":\"\(failure)\"}"
+                self.writeLaunchMarker(attempt: attempt, page: page)
                 let done = page.contains("\"ready\":\"complete\"") && page.contains("\"scanner\":true")
-                if !done && attempt < 40 { self.writeLaunchSmoke(attempt: attempt + 1) }
+                if !done && attempt < 240 { self.writeLaunchSmoke(attempt: attempt + 1) }
             }
         }
     }

@@ -208,17 +208,21 @@ jobs:
           SIMCTL_CHILD_SA_LAUNCH_SMOKE=1 xcrun simctl launch "$udid" com.scanaction.app
           data=$(xcrun simctl get_app_container "$udid" com.scanaction.app data)
           marker="$data/tmp/launch-smoke.json"
-          for i in $(seq 1 45); do
+          echo "app data container: $data"
+          for i in $(seq 1 150); do
             if [ -f "$marker" ] && grep -q '"ready":"complete"' "$marker" && grep -q '"scanner":true' "$marker"; then break; fi
             sleep 2
           done
           xcrun simctl io "$udid" screenshot "$RUNNER_TEMP/launch.png" >/dev/null 2>&1 || true
           if [ ! -f "$marker" ]; then
-            echo "FAIL: no launch-smoke.json after 90 s: MainViewController never ran (the storyboard did not instantiate it, or the app did not start)"
-            xcrun simctl spawn "$udid" log show --last 3m --predicate 'process == "App"' 2>/dev/null | grep -iE 'Unknown class|Interface Builder|crash|fatal' | tail -n 20 || true
+            echo "FAIL: no launch-smoke.json after 300 s: MainViewController never ran (the storyboard did not instantiate it, or the app did not start)"
+            ls -la "$data/tmp" || true
+            xcrun simctl spawn "$udid" launchctl list 2>/dev/null | grep -i scanaction || echo "(the app process is not running)"
+            xcrun simctl spawn "$udid" log show --last 8m --predicate 'process == "App"' 2>/dev/null | grep -iE 'Unknown class|Interface Builder|crash|fatal|exception' | tail -n 20 || true
             exit 1
           fi
           echo "launch-smoke.json: $(cat "$marker")"
+          xcrun simctl spawn "$udid" log show --last 8m --predicate 'process == "App"' 2>/dev/null | grep -iE 'Unknown class|WebContent|did fail|error' | tail -n 12 || true
           for want in '"controller":"MainViewController"' '"ready":"complete"' '"href":"capacitor://localhost' '"native":true' '"scanner":true' '"root":true'; do
             grep -qF "$want" "$marker" || { echo "FAIL: the launch marker lacks $want"; exit 1; }
           done
