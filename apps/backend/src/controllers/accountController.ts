@@ -33,8 +33,9 @@ export type AppleRevocationStatus = 'revoked' | 'failed' | 'skipped' | 'not_appl
  * Apple sheet (web, Android) sends no code and is recorded as skipped: Apple
  * sign-in exists on iOS only here, by the board's decision, so no code can
  * exist there, and refusing would deny deletion to a person without their
- * iPhone. Every outcome is one log line with a reason word and a status,
- * never the code or a token.
+ * iPhone. Every outcome but not_applicable (no Apple identity, nothing to
+ * say) is one log line with a reason word and a status, never the code or a
+ * token.
  */
 async function settleAppleRevocation(userId: string, body: unknown): Promise<AppleRevocationStatus> {
   const raw = (body as { appleAuthorizationCode?: unknown } | undefined)?.appleAuthorizationCode;
@@ -57,7 +58,13 @@ async function settleAppleRevocation(userId: string, body: unknown): Promise<App
     return 'not_configured';
   }
   const outcome = await revokeAppleAuthorization(code);
-  if (outcome.ok) return 'revoked';
+  if (outcome.ok) {
+    // Success is logged too: before this line a revoked outcome left nothing,
+    // so the log could only show it by the absence of a failure (2026-09-30,
+    // the first real revocation). console.log, since nothing went wrong.
+    console.log(`[AccountController] apple_revocation revoked user=${userId}`);
+    return 'revoked';
+  }
   const status = 'status' in outcome ? ` status=${outcome.status}` : '';
   const word = 'error' in outcome && outcome.error ? ` error=${outcome.error}` : '';
   console.error(`[AccountController] apple_revocation failed user=${userId} reason=${outcome.reason}${status}${word}`);

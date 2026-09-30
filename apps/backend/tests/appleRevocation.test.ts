@@ -60,7 +60,15 @@ describe('mintClientSecret', () => {
   it('is an ES256 JWT with kid, iss = team, sub = client, aud = Apple, five minutes long, verifiable with the public key', () => {
     const now = new Date('2026-09-30T00:00:00Z');
     const secret = mintClientSecret(readAppleConfig(ENV)!, now);
-    const decoded = jwt.verify(secret, PUB, { algorithms: ['ES256'], audience: 'https://appleid.apple.com', issuer: 'NQ23SMHXJV' }) as jwt.JwtPayload;
+    // Verified at the minting instant, not at the wall clock: without
+    // clockTimestamp this test passed only until 2026-09-30T00:05Z, five
+    // minutes after the fixed `now`, and went red on main the same morning.
+    const decoded = jwt.verify(secret, PUB, {
+      algorithms: ['ES256'],
+      audience: 'https://appleid.apple.com',
+      issuer: 'NQ23SMHXJV',
+      clockTimestamp: Math.floor(now.getTime() / 1000),
+    }) as jwt.JwtPayload;
     expect(decoded.sub).toBe('com.scanaction.app');
     expect(decoded.exp! - decoded.iat!).toBe(300);
     const header = JSON.parse(Buffer.from(secret.split('.')[0], 'base64url').toString());
