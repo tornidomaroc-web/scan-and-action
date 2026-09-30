@@ -1,6 +1,6 @@
 import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Camera, FileText, FolderOpen, Loader2, X } from 'lucide-react';
+import { Camera, FileText, FolderOpen, Loader2, ScanLine, X } from 'lucide-react';
 import { uploadDocument } from '../services/uploadService';
 import { preprocessImage } from '../lib/imagePreprocess';
 import { useProcessing } from '../contexts/ProcessingContext';
@@ -9,6 +9,8 @@ import { PaywallModal } from './PaywallModal';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { ensureCameraPermission } from '../native/camera';
+import { hasScannerPlatform, scanDocument } from '../native/documentScanner';
+import { formatCount } from '../lib/formatNumber';
 import { useBackDismiss } from '../native/useBackDismiss';
 import { isNativePlatform } from '../native/shell';
 import { translateUploadError } from '../lib/uploadErrors';
@@ -35,6 +37,13 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
   const [previewUrl, setPreviewUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  // Pages in the file a scan produced; 1 for every other source.
+  const [pageCount, setPageCount] = useState(1);
+  // The system scanner (iOS) is tried first. Once it fails or turns out to be
+  // missing, the rest of this sheet's life uses the camera input, which is
+  // the capture path that existed before the scanner and still works alone.
+  const [scannerOff, setScannerOff] = useState(false);
+  const useScanner = hasScannerPlatform() && !scannerOff;
   const { trackUpload } = useProcessing();
   const { showToast } = useToast();
 
@@ -55,8 +64,13 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
     const picked = e.target.files?.[0];
     e.target.value = '';
     if (!picked) return;
+    acceptFile(picked, 1);
+  };
+
+  const acceptFile = (picked: File, pages: number) => {
     releasePreview();
     setFile(picked);
+    setPageCount(pages);
     // <img> can't render PDFs — those get an icon + filename instead.
     setPreviewUrl(
       picked.type.startsWith('image/') && typeof URL.createObjectURL === 'function'
@@ -65,10 +79,47 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
     );
   };
 
+  // Today's capture path: the permission gate, then the camera input.
+  const openCameraInput = async () => {
+    // Native: ensure CAMERA is granted before the <input capture>
+    // fires ACTION_IMAGE_CAPTURE (which fails on a declared-but-
+    // ungranted permission). If denied, keep the chooser open so
+    // "Choose File" still works. No-op on web.
+    const ok = await ensureCameraPermission();
+    if (!ok) {
+      showToast(s.cameraPermissionDenied, 'error');
+      return;
+    }
+    setChooserOpen(false);
+    cameraInputRef.current?.click();
+  };
+
+  // The system scanner first, where there is one. Every outcome that is not a
+  // scanned file leaves the person with the chooser and the camera input:
+  // cancelled returns to the chooser; a scanner that is missing goes straight
+  // on to the camera; one that failed says so, and the next tap is the camera.
+  const handleCapture = async () => {
+    if (!useScanner) return openCameraInput();
+    const ok = await ensureCameraPermission();
+    if (!ok) {
+      showToast(s.cameraPermissionDenied, 'error');
+      return;
+    }
+    setChooserOpen(false);
+    const outcome = await scanDocument();
+    if (outcome.kind === 'scanned') return acceptFile(outcome.file, outcome.pageCount);
+    if (outcome.kind === 'cancelled') return setChooserOpen(true);
+    setScannerOff(true);
+    if (outcome.kind === 'unavailable') return openCameraInput();
+    setChooserOpen(true);
+    showToast(outcome.reason === 'TOO_LARGE' ? s.scannerTooLarge : s.scannerFailedUseCamera, 'info');
+  };
+
   const close = () => {
     releasePreview();
     setPreviewUrl('');
     setFile(null);
+    setPageCount(1);
   };
 
   // Back to the source chooser, so a wrong pick can switch source too.
@@ -155,23 +206,12 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
 
               <div className="space-y-3">
                 <button
-                  onClick={async () => {
-                    // Native: ensure CAMERA is granted before the <input capture>
-                    // fires ACTION_IMAGE_CAPTURE (which fails on a declared-but-
-                    // ungranted permission). If denied, keep the chooser open so
-                    // "Choose File" still works. No-op on web.
-                    const ok = await ensureCameraPermission();
-                    if (!ok) {
-                      showToast(s.cameraPermissionDenied, 'error');
-                      return;
-                    }
-                    setChooserOpen(false);
-                    cameraInputRef.current?.click();
-                  }}
+                  onClick={handleCapture}
+                  data-testid="capture-action"
                   className="w-full min-h-[56px] flex items-center gap-4 p-4 rounded-btn bg-accent hover:bg-accent-hover text-on-accent font-semibold text-section shadow-card transition-all active:scale-[0.98]"
                 >
-                  <Camera size={22} strokeWidth={2.5} />
-                  {s.takePhoto}
+                  {useScanner ? <ScanLine size={22} strokeWidth={2.5} /> : <Camera size={22} strokeWidth={2.5} />}
+                  {useScanner ? s.scanDocumentAction : s.takePhoto}
                 </button>
                 <button
                   onClick={() => {
@@ -230,6 +270,12 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
                     </p>
                   </div>
                 </div>
+              )}
+
+              {pageCount > 1 && (
+                <p dir="auto" className="text-sm leading-relaxed text-ink-secondary mb-5" data-testid="scan-pages-note">
+                  {s.scanPagesAsOne.replace('{n}', formatCount(pageCount, language))}
+                </p>
               )}
 
               <div className="flex gap-3">

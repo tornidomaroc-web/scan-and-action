@@ -184,3 +184,34 @@ jobs:
           fi
 
           echo "AUDIT PASSED: no AppTrackingTransparency, no Facebook SDK in the linked binary"
+
+      # Apple 2.5.1: public APIs only. The third-party plugin over VisionKit's
+      # document camera looks up a private class by name and exchanges one of
+      # its methods (read 2026-09-30); both names are string literals, so they
+      # sit in the binary's strings. The reading is proven on a planted file
+      # first, and on this binary's own class name, so an empty output cannot
+      # pass as a clean one. The source-level scan is in iosPlatform.test.ts.
+      - name: No private API name in the binary
+        run: |
+          set -eu
+          app=$(find "$RUNNER_TEMP/dd/Build/Products" -maxdepth 2 -name 'App.app' -type d | head -n 1)
+          bin="$app/App"
+          test -f "$bin"
+          # Prints the hits and exits 0 when the file carries a private name.
+          private_names() { strings -a "$1" | grep -E '_InProcess|documentCameraController:canAddImages:'; }
+
+          printf 'xx\0VNDocumentCameraViewController_InProcess\0documentCameraController:canAddImages:\0yy' > "$RUNNER_TEMP/planted"
+          if ! private_names "$RUNNER_TEMP/planted" > "$RUNNER_TEMP/planted.txt"; then
+            echo "the reading did not catch the planted names: it proves nothing"; exit 1
+          fi
+          echo "control, caught in the planted file:"; cat "$RUNNER_TEMP/planted.txt"
+          test "$(wc -l < "$RUNNER_TEMP/planted.txt" | tr -d ' ')" -eq 2 || { echo "expected both planted names"; exit 1; }
+
+          strings -a "$bin" > "$RUNNER_TEMP/strings.txt"
+          echo "strings read from the binary: $(wc -l < "$RUNNER_TEMP/strings.txt" | tr -d ' ')"
+          grep -q 'DocumentScannerPlugin' "$RUNNER_TEMP/strings.txt" || { echo "the binary's strings name no DocumentScannerPlugin: the reading is empty, not clean"; exit 1; }
+          grep -c 'VNDocumentCameraViewController' "$RUNNER_TEMP/strings.txt" || true
+          if private_names "$bin" > "$RUNNER_TEMP/private.txt"; then
+            echo "FAIL: the binary carries a private API name:"; cat "$RUNNER_TEMP/private.txt"; exit 1
+          fi
+          echo "PRIVATE API SCAN PASSED: the scanner is in the binary, and no private name is"
