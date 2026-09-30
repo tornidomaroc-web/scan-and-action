@@ -21,6 +21,7 @@ const h = vi.hoisted(() => ({
   findUnique: vi.fn(),
   findFirst: vi.fn(),
   deleteAuthUser: vi.fn(),
+  hasAppleIdentity: vi.fn(async () => false),
   deleteStorageObjects: vi.fn(),
 }));
 
@@ -104,7 +105,7 @@ describe('deleteAccount — genuine idempotency is unchanged', () => {
 
     expect(h.deleteAuthUser).toHaveBeenCalledWith(CALLER_ID);
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({ ok: true, alreadyDeleted: true });
+    expect(res.body).toEqual({ ok: true, alreadyDeleted: true, appleRevocation: "not_applicable" });
   });
 
   it('a holder that IS the caller is not a conflict', async () => {
@@ -114,7 +115,7 @@ describe('deleteAccount — genuine idempotency is unchanged', () => {
     await AccountController.deleteAccount(req, res, next);
 
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({ ok: true, alreadyDeleted: true });
+    expect(res.body).toEqual({ ok: true, alreadyDeleted: true, appleRevocation: "not_applicable" });
     expect(h.deleteAuthUser).toHaveBeenCalledWith(CALLER_ID);
   });
 });

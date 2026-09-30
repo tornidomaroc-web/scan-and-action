@@ -207,6 +207,12 @@ export const strings = {
     deleteAccountSharedWorkspace: 'Your workspace has other members. Remove them, or contact support, before deleting your account.',
     deleteAccountRateLimited: 'Too many attempts. Please wait a while and try again.',
     deleteAccountConfirmRequired: 'Type your account email exactly to confirm.',
+    // Sign in with Apple at deletion (DeleteAccountModal.tsx)
+    deleteAccountAppleReauthNote: 'Because you signed in with Apple, Apple will ask you to confirm once more so that Scan & Action is removed from your Sign in with Apple list.',
+    deleteAccountAppleWebNote: 'You signed in with Apple. After deletion, Scan & Action may still appear in your Sign in with Apple list; remove it in Settings, Apple Account, Sign in with Apple, or delete from the iOS app instead.',
+    deleteAccountAppleCancelled: 'The Apple confirmation was cancelled. Your account was not deleted.',
+    deleteAccountAppleSheetFailed: 'Apple could not confirm your identity. Your account was not deleted. Please try again.',
+    deleteAccountAppleStillListed: 'Your account is deleted. Apple still lists Scan & Action under Sign in with Apple; remove it in Settings, Apple Account, Sign in with Apple.',
     // 409 IDENTITY_EMAIL_CONFLICT on DELETE /api/account (accountController.ts:79-90).
     // The SAME condition as accountLockedBody, deliberately NOT the same sentence.
     // This one is read inside the confirmation dialog, by someone who has typed
@@ -784,6 +790,11 @@ export const strings = {
     deleteAccountSharedWorkspace: 'Votre espace de travail compte d’autres membres. Supprimez-les, ou contactez le support, avant de supprimer votre compte.',
     deleteAccountRateLimited: 'Trop de tentatives. Veuillez patienter un moment et réessayer.',
     deleteAccountConfirmRequired: 'Saisissez exactement l’e-mail de votre compte pour confirmer.',
+    deleteAccountAppleReauthNote: 'Comme vous vous êtes connecté avec Apple, Apple vous demandera une confirmation de plus afin que Scan & Action soit retiré de votre liste Se connecter avec Apple.',
+    deleteAccountAppleWebNote: 'Vous vous êtes connecté avec Apple. Après la suppression, Scan & Action peut rester dans votre liste Se connecter avec Apple ; retirez-le dans Réglages, Compte Apple, Se connecter avec Apple, ou supprimez depuis l’app iOS.',
+    deleteAccountAppleCancelled: 'La confirmation Apple a été annulée. Votre compte n’a pas été supprimé.',
+    deleteAccountAppleSheetFailed: 'Apple n’a pas pu confirmer votre identité. Votre compte n’a pas été supprimé. Veuillez réessayer.',
+    deleteAccountAppleStillListed: 'Votre compte est supprimé. Apple affiche encore Scan & Action sous Se connecter avec Apple ; retirez-le dans Réglages, Compte Apple, Se connecter avec Apple.',
     // 409 IDENTITY_EMAIL_CONFLICT on DELETE /api/account (accountController.ts:79-90).
     // The SAME condition as accountLockedBody, deliberately NOT the same sentence.
     // This one is read inside the confirmation dialog, by someone who has typed
@@ -1325,6 +1336,11 @@ export const strings = {
     deleteAccountSharedWorkspace: 'مساحة عملك تضم أعضاء آخرين. أزِلهم، أو تواصل مع الدعم، قبل حذف حسابك.',
     deleteAccountRateLimited: 'محاولات كثيرة جدًا. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.',
     deleteAccountConfirmRequired: 'اكتب بريد حسابك الإلكتروني بالضبط للتأكيد.',
+    deleteAccountAppleReauthNote: 'لأنك سجّلت الدخول عبر Apple، ستطلب Apple تأكيداً إضافياً حتى يُزال Scan & Action من قائمة تسجيل الدخول عبر Apple لديك.',
+    deleteAccountAppleWebNote: 'سجّلت الدخول عبر Apple. بعد الحذف قد يبقى Scan & Action في قائمة تسجيل الدخول عبر Apple لديك؛ أزله من الإعدادات، حساب Apple، تسجيل الدخول عبر Apple، أو احذف الحساب من تطبيق iOS.',
+    deleteAccountAppleCancelled: 'أُلغي تأكيد Apple. لم يُحذف حسابك.',
+    deleteAccountAppleSheetFailed: 'لم تتمكن Apple من تأكيد هويتك. لم يُحذف حسابك. يرجى المحاولة مرة أخرى.',
+    deleteAccountAppleStillListed: 'حُذف حسابك. ما زالت Apple تعرض Scan & Action ضمن تسجيل الدخول عبر Apple؛ أزله من الإعدادات، حساب Apple، تسجيل الدخول عبر Apple.',
     // 409 IDENTITY_EMAIL_CONFLICT on DELETE /api/account (accountController.ts:79-90).
     // The SAME condition as accountLockedBody, deliberately NOT the same sentence.
     // This one is read inside the confirmation dialog, by someone who has typed

@@ -114,7 +114,7 @@ describe('native path: the plugin returns an ID token, Supabase exchanges it', (
       iOSServerClientId: CONFIG.googleWebClientId, // the token's audience must be the WEB client
       mode: 'online',
     });
-    expect(init.apple).toEqual({ clientId: APPLE_NATIVE_CLIENT_ID, redirectUrl: '' });
+    expect(init.apple).toEqual({ clientId: APPLE_NATIVE_CLIENT_ID, redirectUrl: '', useProperTokenExchange: true });
 
     const loginArgs = h.login.mock.calls[0][0] as any;
     expect(loginArgs.provider).toBe('google');
