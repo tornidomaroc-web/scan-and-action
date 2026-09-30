@@ -9,7 +9,10 @@ class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(DocumentScannerPlugin())
         #if targetEnvironment(simulator)
-        if ProcessInfo.processInfo.environment["SA_LAUNCH_SMOKE"] == "1" {
+        let asked = ProcessInfo.processInfo.environment["SA_LAUNCH_SMOKE"] == "1"
+            || CommandLine.arguments.contains("--sa-launch-smoke")
+        NSLog("[LaunchSmoke] capacitorDidLoad asked=%d tmp=%@", asked ? 1 : 0, FileManager.default.temporaryDirectory.path)
+        if asked {
             // At once, before anything asynchronous: this line alone says the
             // storyboard instantiated this class.
             writeLaunchMarker(attempt: -1, page: "{\"ready\":\"not-asked-yet\"}")
@@ -29,7 +32,11 @@ class MainViewController: CAPBridgeViewController {
         let controller = String(describing: type(of: self))
         let line = "{\"attempt\":\(attempt),\"controller\":\"\(controller)\",\"page\":\(page)}\n"
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("launch-smoke.json")
-        try? line.write(to: url, atomically: true, encoding: .utf8)
+        do {
+            try line.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            NSLog("[LaunchSmoke] write failed: %@", String(describing: error))
+        }
     }
 
     private func writeLaunchSmoke(attempt: Int) {

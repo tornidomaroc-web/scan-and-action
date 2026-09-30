@@ -205,9 +205,10 @@ jobs:
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b | tail -n 2
           xcrun simctl install "$udid" "$app"
-          SIMCTL_CHILD_SA_LAUNCH_SMOKE=1 xcrun simctl launch "$udid" com.scanaction.app
+          SIMCTL_CHILD_SA_LAUNCH_SMOKE=1 xcrun simctl launch "$udid" com.scanaction.app --sa-launch-smoke
           data=$(xcrun simctl get_app_container "$udid" com.scanaction.app data)
           marker="$data/tmp/launch-smoke.json"
+          smoke_log() { xcrun simctl spawn "$udid" log show --last 12m --predicate 'process == "App"' 2>/dev/null | grep -E "$1" | tail -n 20 || true; }
           echo "app data container: $data"
           for i in $(seq 1 150); do
             if [ -f "$marker" ] && grep -q '"ready":"complete"' "$marker" && grep -q '"scanner":true' "$marker"; then break; fi
@@ -216,7 +217,9 @@ jobs:
           xcrun simctl io "$udid" screenshot "$RUNNER_TEMP/launch.png" >/dev/null 2>&1 || true
           if [ ! -f "$marker" ]; then
             echo "FAIL: no launch-smoke.json after 300 s: MainViewController never ran (the storyboard did not instantiate it, or the app did not start)"
-            ls -la "$data/tmp" || true
+            ls -laR "$data/tmp" | head -n 40 || true
+            find "$data" -name 'launch-smoke.json' || true
+            smoke_log 'LaunchSmoke'
             xcrun simctl spawn "$udid" launchctl list 2>/dev/null | grep -i scanaction || echo "(the app process is not running)"
             xcrun simctl spawn "$udid" log show --last 8m --predicate 'process == "App"' 2>/dev/null | grep -iE 'Unknown class|Interface Builder|crash|fatal|exception' | tail -n 20 || true
             exit 1
