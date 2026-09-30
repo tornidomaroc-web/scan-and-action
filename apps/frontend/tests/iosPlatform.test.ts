@@ -770,3 +770,42 @@ describe('no linked source reaches for a private API', () => {
     expect(archive?.run).toMatch(/if grep -qE '_InProcess\|documentCameraController:canAddImages:' "\$RUNNER_TEMP\/strings\.txt"; then [^\n]*exit 1; fi/);
   });
 });
+
+// ----------------------------------------------------------------------------
+// A build is not a launch (2026-09-30). The storyboard and the project file
+// are edited by hand; a class name the runtime cannot resolve builds cleanly
+// and opens a blank app. The audit starts the app in a simulator and reads the
+// marker MainViewController writes. Proven red on a storyboard naming a class
+// that does not exist (run recorded in WORK-QUEUE.md).
+// ----------------------------------------------------------------------------
+describe('the pull-request audit launches the app and reads what loaded', () => {
+  const { load } = createRequire(import.meta.url)('js-yaml') as { load: (s: string) => unknown };
+  const steps = (load(ROOT('.github/workflows/ios-audit.yml')) as Workflow).jobs.audit.steps;
+  const smoke = steps.find((s) => (s.name ?? '').startsWith('Launch smoke test'));
+  const vc = F('ios/App/App/MainViewController.swift');
+
+  it('runs after the build, on a booted simulator, with the marker switched on through the launch environment', () => {
+    expect(smoke?.run).toBeDefined();
+    const iBuild = steps.findIndex((s) => s.name === 'Build for the iOS Simulator (unsigned)');
+    expect(steps.indexOf(smoke!)).toBeGreaterThan(iBuild);
+    const run = smoke!.run!;
+    for (const cmd of ['xcrun simctl boot "$udid"', 'xcrun simctl install "$udid" "$app"', 'SIMCTL_CHILD_SA_LAUNCH_SMOKE=1 xcrun simctl launch "$udid" com.scanaction.app']) expect(run).toContain(cmd);
+  });
+  it('a missing marker fails, and so does a marker lacking any of the six facts', () => {
+    const run = smoke!.run!;
+    expect(run).toMatch(/if \[ ! -f "\$marker" \]; then\s*\n[\s\S]*?exit 1\s*\n\s*fi/);
+    for (const fact of ['"controller":"MainViewController"', '"ready":"complete"', '"href":"capacitor://localhost', '"native":true', '"scanner":true', '"root":true']) {
+      expect(run).toContain(`'${fact}'`);
+    }
+    expect(run).toMatch(/grep -qF "\$want" "\$marker" \|\| \{[^}]*exit 1; \}/);
+  });
+  it('the marker code is compiled for the simulator only and runs only when asked', () => {
+    expect(vc.match(/#if targetEnvironment\(simulator\)/g)).toHaveLength(2);
+    expect(vc.match(/#endif/g)).toHaveLength(2);
+    expect(vc).toMatch(/environment\["SA_LAUNCH_SMOKE"\] == "1"/);
+    // nothing about the marker sits outside the two guarded regions
+    const outside = vc.replace(/#if targetEnvironment\(simulator\)[\s\S]*?#endif/g, '').split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    expect(outside).not.toMatch(/launch-smoke|evaluateJavaScript|SA_LAUNCH_SMOKE|FileManager/);
+    expect(outside).toMatch(/registerPluginInstance\(DocumentScannerPlugin\(\)\)/);
+  });
+});
