@@ -11,7 +11,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // The root controller is made HERE, not by Main.storyboard: UIKit
         // instantiates the storyboard scene first and this line replaces it.
         // MainViewController registers the plugins compiled into the app; the
-        // launch smoke test in ios-audit.yml read CAPBridgeViewController()
+        // launch smoke test in ios-audit.yml read the plain bridge controller
         // here on 2026-09-30 as "the scanner plugin never registered".
         window?.rootViewController = MainViewController()
         window?.makeKeyAndVisible()
