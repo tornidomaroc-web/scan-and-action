@@ -568,3 +568,43 @@ describe('the web build is untouched by the platform', () => {
     expect(tsconfig).not.toContain('ios');
   });
 });
+
+describe('Swift package versions are fixed by a committed Package.resolved', () => {
+  const REL = 'ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved';
+  type Pin = { identity: string; kind: string; location: string; state: { revision?: string; version?: string } };
+  const resolved = JSON.parse(F(REL)) as { pins: Pin[]; version: number };
+
+  it('every pin is a remote package at a full revision and a version (positive control: eleven pins)', () => {
+    expect(resolved.pins).toHaveLength(11);
+    for (const p of resolved.pins) {
+      expect(p.kind, p.identity).toBe('remoteSourceControl');
+      expect(p.state.revision, p.identity).toMatch(/^[0-9a-f]{40}$/);
+      expect(p.state.version, p.identity).toMatch(/^\d+\.\d+\.\d+$/);
+    }
+  });
+  it('the Capacitor pin is the version CapApp-SPM asks for exactly', () => {
+    const exact = F('ios/App/CapApp-SPM/Package.swift').match(/capacitor-swift-pm\.git", exact: "([^"]+)"/);
+    expect(exact).not.toBeNull();
+    expect(resolved.pins.find((p) => p.identity === 'capacitor-swift-pm')?.state.version).toBe(exact![1]);
+  });
+  it('no pin is the Facebook SDK', () => {
+    expect(resolved.pins.map((p) => p.identity).join(' ')).not.toMatch(/facebook/i);
+  });
+  it('the signing job resolves with the committed file or fails, and proves the file left the step unchanged', () => {
+    const steps = loadWorkflow().jobs.testflight.steps;
+    const resolve = steps.find((s) => /-resolvePackageDependencies/.test(s.run ?? ''));
+    expect(resolve?.run).toContain('-onlyUsePackageVersionsFromResolvedFile');
+    expect(resolve?.run).toMatch(/cp "\$resolved" "\$RUNNER_TEMP\/Package\.resolved\.committed"[\s\S]*xcodebuild[\s\S]*cmp "\$RUNNER_TEMP\/Package\.resolved\.committed" "\$resolved" \|\| \{[^}]*exit 1; \}/);
+  });
+  it('the pull-request audit runs the same strict resolution before it builds, and its build may not resolve', () => {
+    const { load } = createRequire(import.meta.url)('js-yaml') as { load: (s: string) => unknown };
+    const steps = (load(ROOT('.github/workflows/ios-audit.yml')) as Workflow).jobs.audit.steps;
+    const iResolve = steps.findIndex((s) => s.name === 'Resolve Swift packages from the committed Package.resolved');
+    const iBuild = steps.findIndex((s) => s.name === 'Build for the iOS Simulator (unsigned)');
+    expect(iResolve).toBeGreaterThanOrEqual(0);
+    expect(iBuild).toBeGreaterThan(iResolve);
+    expect(steps[iResolve].run).toMatch(/if strict -onlyUsePackageVersionsFromResolvedFile && git diff --exit-code -- "\$resolved"; then/);
+    expect(steps[iResolve].run).toMatch(/else[\s\S]*exit 1\s*\n\s*fi/);
+    for (const flag of ['-disableAutomaticPackageResolution', '-onlyUsePackageVersionsFromResolvedFile']) expect(steps[iBuild].run).toContain(flag);
+  });
+});
