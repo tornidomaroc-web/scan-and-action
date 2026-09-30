@@ -456,7 +456,15 @@ a store screenshot.**
   - **A failed run touches nothing:** main, Railway and Vercel are unaffected;
     a failed upload consumes no build number. Retry with "Run workflow"; fix
     by PR.
-- [ ] **Placeholder text that 2.1(a) forbids is reachable today.** Apple 2.1(a):
+- [x] **Placeholder text that 2.1(a) forbids is reachable today. CLOSED
+  2026-09-30 by #271 (4951b2c2, TestFlight build 10).** The overview's two
+  `dataComingSoon` sites became `overviewChartEmpty` and `overviewStatusEmpty`
+  (copy that says what the widget will show and what starts it, en/fr/ar); the
+  key is deleted from all three catalogues and `settingsLegalPanel.test.tsx`
+  asserts it stays gone. The served production bundle carries the phrase only
+  inside the inlined commit message (`VITE_VERCEL_GIT_COMMIT_MESSAGE`), which no
+  screen renders. `ProfileScreen.tsx`'s `moreSettingsSoon` is unrouted and
+  untouched (design step 5). Apple 2.1(a):
   *"placeholder text, empty websites, and other temporary content should be
   scrubbed before submission."*
   - `SettingsScreen.tsx`: **CLOSED by the design rollout PR (2026-09-25).** The
@@ -484,8 +492,16 @@ a store screenshot.**
     in git history.
   - **EXPIRY:** a public page with support contact exists, and its URL is in App
     Store Connect.
-- [ ] **No privacy-policy link inside the native app.** Found 2026-09-23 while
-  writing this rewrite.
+- [x] **No privacy-policy link inside the native app. CLOSED 2026-09-30 by #271
+  (4951b2c2, TestFlight build 10).** Settings gained a Legal panel between
+  Preferences and the plan: Privacy Policy and Terms of Service rows, each a
+  router Link to `/privacy` and `/terms`, on the same Panel and IconTile pieces
+  as every other row, in en/fr/ar. `settingsLegalPanel.test.tsx` renders web
+  and native, FREE and PRO: the panel names no price or plan, and the Go PRO
+  button appears on web FREE only. The owner reviewed the preview on his iPhone
+  (2026-09-30). The EXPIRY below is met: the linked copy names the operator
+  (#269) and carries no purchase link. Found 2026-09-23 while writing this
+  rewrite.
   - Apple 5.1.1(i): *"All apps must include a link to their privacy policy in the
     App Store Connect metadata field and within the app in an easily accessible
     manner."*
@@ -569,13 +585,29 @@ index; details under each item:**
 | Condition | Owner | EXPIRY |
 |---|---|---|
 | Apple token revocation on account deletion | engineering, key from the owner | before the first review submission |
-| Remove the Facebook SDK, then the tracking string | engineering | `otool -L` on a CI-built binary shows no AppTrackingTransparency, and `NSUserTrackingUsageDescription` is gone |
 | Trader status for the EU | the owner, App Store Connect | the app's trader status reads provided and verified before submission |
 | Brand verification on the Google consent screen | the owner, Google Auth Platform | the consent page names the app |
 | Android Google sign-in unverified | the owner, a borrowed device | one Google sign-in on a Play-installed build |
 
-- [ ] **Remove the Facebook SDK, then the tracking string.** The owner's
-  objection, 2026-09-28: `NSUserTrackingUsageDescription` exists only because
+- [x] **Remove the Facebook SDK, then the tracking string. CLOSED 2026-09-30 by
+  #270 (960eccd8).** The route below was taken as written. The audit is
+  `.github/workflows/ios-audit.yml`: on a pull request touching the iOS paths,
+  a macOS simulator build with no signing and no secret, then `otool -L`, the
+  embedded Frameworks directory, the SwiftPM checkouts and `nm -u` on
+  `App.app/App`, with UIKit and capacitor-swift-pm as positive controls; the
+  same `otool -L` reading runs on the archive in `ios-testflight.yml` before
+  every upload. Readings: PR runs 36637731099 and 36638543614, then the device
+  archives of TestFlight builds 9 (run 36643747082) and 10 (run 36644629023):
+  52 load commands each, UIKit present, no AppTrackingTransparency, no FBSDK,
+  no Facebook, no facebook checkout among the eleven SwiftPM resolved,
+  `nm -u` for ATTracking empty. `NSUserTrackingUsageDescription` and its three
+  localizations were removed in the PR's second commit, after the first
+  reading; the manifest keeps `NSPrivacyTracking` false. The import guard is
+  `patches/@capgo+capacitor-social-login+8.5.11.patch` on `postinstall`; a
+  plugin bump fails `npm ci` until it is regenerated. Not verified: the Android
+  build under the plugin's `facebookDisabled` source set, which the same
+  provider map now selects (CI runs no Gradle). The owner's objection,
+  2026-09-28: `NSUserTrackingUsageDescription` exists only because
   `@capgo/capacitor-social-login` links `facebook-ios-sdk` unconditionally in
   its `Package.swift`; the app uses neither Facebook nor tracking, and a
   tracking prompt string in an app that does not track invites a 5.1.1 or
