@@ -393,11 +393,45 @@ describe('1. the Admin key is never on a runner that has run npm', () => {
     for (const [i, s] of steps.entries()) if (s.uses) expect(i, s.uses).toBeLessThan(iKey);
     expect(iRemove).toBe(steps.length - 1);
     expect(steps[iRemove].if).toBe('always()');
-    // between placing and removing the key, only xcodebuild runs
+    // between placing and removing the key, only xcodebuild runs, plus the one
+    // named sweep of stale Development certificates (pinned below)
     for (const s of steps.slice(iKey + 1, iRemove)) {
       expect(s.uses).toBeUndefined();
-      expect(s.run).toMatch(/xcodebuild/);
+      if (s.name === SWEEP) continue;
+      expect(s.run, s.name).toMatch(/xcodebuild/);
     }
+  });
+
+  // Every run creates a Development certificate (the runner keeps no private
+  // key) and Apple caps them at ten; run 13 (2026-09-30) failed its archive on
+  // the eleventh. The sweep deletes the stale API-made ones and nothing else.
+  const SWEEP = 'Revoke the stale Development certificates earlier runs left (Admin key)';
+  it('the certificate sweep runs with the key, before the archive, and reaches only the App Store Connect API', () => {
+    const steps = signing[0][1].steps;
+    const iKey = steps.findIndex((s) => s.name === 'Place the App Store Connect key');
+    const iSweep = steps.findIndex((s) => s.name === SWEEP);
+    const iArchive = steps.findIndex((s) => s.name === 'Archive (automatic signing with the API key)');
+    expect(iSweep).toBeGreaterThan(iKey);
+    expect(iArchive).toBeGreaterThan(iSweep);
+    const run = steps[iSweep].run!;
+    // the only host, and the only two verbs, on the only resource
+    expect(run.match(/https?:\/\/[^"' $]+/g)).toEqual(['https://api.appstoreconnect.apple.com']);
+    expect(run.match(/api (GET|DELETE) ['"]?\/v1\/certificates/g)).toEqual(["api GET '/v1/certificates", 'api DELETE "/v1/certificates']);
+    expect(run).not.toMatch(/api (POST|PATCH|PUT)/);
+    // what it deletes: DEVELOPMENT, named "Created via API", older than six hours
+    expect(run).toContain('a["certificateType"] != "DEVELOPMENT" or a["displayName"] != "Created via API"');
+    expect(run).toContain('dt.timedelta(hours=6)');
+    expect(run).toContain('- dt.timedelta(days=365)');
+    // the token is minted for ten minutes and never printed; a failed call warns and continues
+    expect(run).toContain('"exp": now + 600');
+    expect(run).not.toMatch(/echo[^\n]*\$token/);
+    expect(run).toMatch(/set -u\n/);
+    expect(run).not.toMatch(/set -e/);
+    expect(run.match(/::warning::/g)!.length).toBeGreaterThanOrEqual(3);
+    // the ES256 signature is openssl's, converted from DER to r||s; no node
+    expect(run).toContain('["openssl", "dgst", "-sha256", "-sign", key]');
+    expect(run).toContain('r.to_bytes(32, "big") + s.to_bytes(32, "big")');
+    expect(steps[iSweep].env).toEqual({ ASC_KEY_ID: '${{ secrets.ASC_KEY_ID }}', ASC_ISSUER_ID: '${{ secrets.ASC_ISSUER_ID }}' });
   });
 
   it('packages are resolved, fetched and gated for plugins and macros BEFORE the key exists; the archive may not resolve', () => {
