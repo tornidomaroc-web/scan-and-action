@@ -656,7 +656,13 @@ describe("the app target's own Swift is audited like a plugin's", () => {
     expect(ids.length).toBeGreaterThan(20);
     expect(new Set(ids).size).toBe(ids.length);
   });
-  it('Main.storyboard instantiates MainViewController from the app module, which registers the scanner plugin', () => {
+  it('the scene delegate makes MainViewController the root controller (the storyboard names it too), and it registers the scanner plugin', () => {
+    // SceneDelegate installs the root controller in code over the storyboard scene;
+    // the storyboard class alone changed nothing at runtime (launch smoke run
+    // 36772794873, 2026-09-30: no marker, no plugin).
+    const sd = F('ios/App/App/SceneDelegate.swift');
+    expect(sd).toMatch(/window?.rootViewController = MainViewController()/);
+    expect(sd).not.toContain('CAPBridgeViewController()');
     const sb = F('ios/App/App/Base.lproj/Main.storyboard');
     expect(sb).toContain('customClass="MainViewController" customModule="App" customModuleProvider="target"');
     expect(sb).not.toContain('customClass="CAPBridgeViewController"');
