@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { format } from 'node:util';
 
 // ============================================================================
 // DELETE /api/account and Sign in with Apple revocation. What is pinned: the
@@ -77,13 +78,29 @@ describe('success', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ ok: true, appleRevocation: 'revoked' });
   });
+  it('a revoked outcome writes one log line naming the user, without the code', async () => {
+    // Captured with util.format, as Node's console formats; String() would
+    // hide an object argument.
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await AccountController.deleteAccount(req({ confirm: EMAIL, appleAuthorizationCode: CODE }), mockRes(), vi.fn());
+    const lines = log.mock.calls.map((c) => format(...c)).filter((l) => l.includes('apple_revocation'));
+    expect(lines).toEqual([`[AccountController] apple_revocation revoked user=${USER_ID}`]);
+    expect(log.mock.calls.map((c) => format(...c)).join('\n')).not.toContain(CODE);
+    expect(err).not.toHaveBeenCalled();
+    log.mockRestore();
+    err.mockRestore();
+  });
   it('a user who never signed in with Apple: no Apple call, not_applicable', async () => {
     (hasAppleIdentity as any).mockResolvedValue(false);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     const res = mockRes();
     await AccountController.deleteAccount(req({ confirm: EMAIL }), res, vi.fn());
     expect(revokeAppleAuthorization).not.toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith({ ok: true, appleRevocation: 'not_applicable' });
     expect(order).toEqual(['storage', 'db', 'auth']);
+    expect(log.mock.calls.map((c) => format(...c)).join('\n')).not.toContain('apple_revocation');
+    log.mockRestore();
   });
 });
 

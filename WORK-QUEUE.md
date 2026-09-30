@@ -578,13 +578,15 @@ read. They are his rows and may be read; instrument, from `apps/backend` inside
 ('apple','google')` (expect 3: the 2026-09-27 link plus these two) and the
 `"User"` rows created on or after 2026-09-28 (expect 2). The "REVISIT when
 `provider = 'apple'` exceeds the owner's own" line below now starts from 1.
+**2026-09-30: the Apple one is gone.** The owner deleted it in-app on build
+11 (see the revocation item below); the Google one stays. The line below
+starts from 0 again.
 
-**Conditions still blocking the first App Store submission (2026-09-28), the
-index; details under each item:**
+**Conditions still blocking the first App Store submission (2026-09-28, the
+revocation row removed 2026-09-30), the index; details under each item:**
 
 | Condition | Owner | EXPIRY |
 |---|---|---|
-| Apple token revocation on account deletion | engineering, key from the owner | before the first review submission |
 | Trader status for the EU | the owner, App Store Connect | the app's trader status reads provided and verified before submission |
 | Brand verification on the Google consent screen | the owner, Google Auth Platform | the consent page names the app |
 | Android Google sign-in unverified | the owner, a borrowed device | one Google sign-in on a Play-installed build |
@@ -637,11 +639,73 @@ index; details under each item:**
   rather than this line; the owner declares as a trader with his business
   contact details, which then appear on the product page in the EU.
   - Owner: the owner, App Store Connect. **EXPIRY:** in the table above.
-- [ ] **Submission is BLOCKED until Apple token revocation on account deletion
-  ships.** Apple's "Offering account deletion in your app" support page, read
-  2026-09-26: *"Apps that support Sign in with Apple should use the Sign in
-  with Apple REST API to revoke user tokens."* `AccountController.deleteAccount`
-  deletes the Supabase identity and calls nothing at Apple.
+- [x] **Submission is BLOCKED until Apple token revocation on account deletion
+  ships. CLOSED 2026-09-30 by #272 (`5454f465`, TestFlight build 11, run
+  36693536724), proven by one real deletion on the owner's iPhone.**
+  - **What shipped:** on iOS the delete dialog opens one more Apple sheet
+    (`reauthenticateWithApple` in `socialAuth.ts`) and sends its authorization
+    code with `DELETE /api/account`; `appleRevocationService.ts` exchanges it
+    at `/auth/token` and revokes at `/auth/revoke`, with a client secret
+    minted per call. Nothing is stored. A failed, skipped or unconfigured
+    revocation never blocks the deletion and is named in the response
+    (`appleRevocation`). The plugin setup gained `useProperTokenExchange`,
+    which every Apple sign-in now goes through.
+  - **Configuration:** `APPLE_TEAM_ID`, `APPLE_CLIENT_ID`, `APPLE_SIWA_KEY_ID`
+    and `APPLE_SIWA_PRIVATE_KEY` on the Railway service `scan-and-action`
+    (project `amiable-dream`, production). Ask
+    `railway variable list --json` from `apps/backend` and print the names
+    only. The key exists nowhere else once the owner's local copy is deleted;
+    if Railway loses it, a new Sign in with Apple key is created in the Apple
+    Developer account and this one revoked there.
+  - **Part A, the owner, about 09:17 to 09:19Z, build 11:** Continue with
+    Apple signed in (the sign-in change works); the dialog showed the Apple
+    line; the Apple sheet cancelled; the dialog stayed open with "The Apple
+    confirmation was cancelled. Your account was not deleted."
+  - **Part B, the owner, about 09:22 to 09:25Z:** Scan & Action was listed in
+    iPhone Settings, Sign in with Apple (the control); the empty Apple account
+    was deleted with the sheet completed; no "Apple still lists" message; the
+    app is gone from that list (the decisive reading, his).
+  - **What was read afterwards, 2026-09-30:** Railway HTTP logs for deployment
+    `b8df3268` (`railway logs <id> --http --json`) show exactly one
+    `DELETE /api/account` in 09:15 to 09:30Z: 09:23:54Z, 200, 2334 ms upstream,
+    1856 bytes in, 39 bytes out, an iPhone user agent. 39 bytes is the length
+    of `{"ok":true,"appleRevocation":"revoked"}`; `skipped` has the same
+    length and `failed` has 38, so the byte count alone cannot separate
+    revoked from skipped. The deployment log for the same window holds no
+    `apple_revocation` line, and `skipped`, `failed` and `not_configured`
+    each write one, so skipped is excluded; the control for that stream is
+    its ten `[DocumentController]` lines in the window. Supabase admin
+    `listUsers`, read from `apps/backend`: 32 users, `app_metadata.providers`
+    google 2, email 31, apple 0 (33 users and apple 1 before the deletion);
+    no auth user and no `"User"` row with the deleted address or the uuid
+    prefix `d204c01c`; the Google account `6e9f5dc5` created the same day is
+    still there (the control). `listUsers` returns every user with an empty
+    `identities` array, so count providers from `app_metadata`, never from
+    `identities` on a list.
+  - **A revoked outcome now writes a log line** (the PR recording this):
+    `[AccountController] apple_revocation revoked user=<uuid>`. Before it,
+    success left nothing in the log and was read as the absence of a failure,
+    as above.
+  - **`main` went red on the merge commit, and nobody looked.** #272's head
+    passed `Backend — typecheck & build` at 2026-09-29T23:58Z; the same job
+    failed on `5454f465` at 09:03Z (`gh api
+    repos/{owner}/{repo}/commits/5454f465/check-runs`). Cause:
+    `appleRevocation.test.ts` minted a five-minute token at a fixed
+    `2026-09-30T00:00:00Z` and verified it against the wall clock, so it
+    could pass only until 00:05Z. Production was never affected (test only;
+    Railway deployed and served the commit). The PR recording this verifies
+    at the minting instant (`clockTimestamp`). A required check gates the
+    head when it ran, not the merge when it lands: read the push run on
+    `main` after a merge.
+  - **Not verified:** the `failed` path against Apple itself (tests only),
+    and deletion of an Apple-linked account from the web, which reports
+    `skipped` and shows the note telling the person where Apple still lists
+    the app.
+  - **The item as it stood:** Apple's "Offering account deletion in your app"
+    support page, read 2026-09-26: *"Apps that support Sign in with Apple
+    should use the Sign in with Apple REST API to revoke user tokens."*
+    `AccountController.deleteAccount` deleted the Supabase identity and called
+    nothing at Apple.
   - Cost: the Team ID, a Sign in with Apple key ID and its `.p8` as Railway
     secrets (never in this repository, never in chat), a client-secret JWT
     minted per call from the key, and one call to Apple's `/auth/revoke`
@@ -704,7 +768,9 @@ index; details under each item:**
   The cure when it matters is Supabase manual linking (`linkIdentity`, beta)
   from Settings, which needs "Enable Manual Linking" in the dashboard.
   - **REVISIT when** a read-only count of `auth.identities` with
-    `provider = 'apple'` exceeds the owner's own; 1 since 2026-09-28, his.
+    `provider = 'apple'` exceeds the owner's own; 1 from 2026-09-28, his, and
+    0 since he deleted that account on 2026-09-30 (read as
+    `app_metadata.providers` over Supabase admin `listUsers`).
 - [x] **The owner's console work, verified by a read and not by his word.
   DONE 2026-09-27.** Instrument: `GET https://<project>.supabase.co/auth/v1/settings`
   with the publishable key from the served bundle. On 2026-09-26 its
