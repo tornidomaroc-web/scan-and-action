@@ -184,3 +184,91 @@ jobs:
           fi
 
           echo "AUDIT PASSED: no AppTrackingTransparency, no Facebook SDK in the linked binary"
+
+      # A build is not a launch. Main.storyboard and project.pbxproj are edited
+      # by hand here (there is no Mac), and a storyboard naming a class the
+      # runtime cannot find builds cleanly and then opens on an empty view
+      # controller: a blank app, with every fallback dead inside it. So the
+      # app is started in a simulator and must say three things through the
+      # file MainViewController writes when SA_LAUNCH_SMOKE=1 (simulator
+      # builds only): that class was instantiated, the web view finished
+      # loading the bundled page as a native Capacitor page, and the scanner
+      # plugin is registered in it. No file means the class never ran.
+      - name: Launch smoke test (the app starts, our view controller loads, the web view comes up)
+        run: |
+          set -eu
+          app=$(find "$RUNNER_TEMP/dd/Build/Products" -maxdepth 2 -name 'App.app' -type d | head -n 1)
+          test -d "$app"
+          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; c=[(r,x["udid"],x["name"]) for r,v in d.items() if "iOS" in r for x in v if x["name"].startswith("iPhone")]; c.sort(); print(c[-1][1])')
+          test -n "$udid"
+          echo "simulator: $(xcrun simctl list devices available | grep "$udid")"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b | tail -n 2
+          xcrun simctl install "$udid" "$app"
+          SIMCTL_CHILD_SA_LAUNCH_SMOKE=1 xcrun simctl launch "$udid" com.scanaction.app --sa-launch-smoke
+          data=$(xcrun simctl get_app_container "$udid" com.scanaction.app data)
+          marker="$data/tmp/launch-smoke.json"
+          smoke_log() { xcrun simctl spawn "$udid" log show --last 12m --predicate 'process == "App"' 2>/dev/null | grep -E "$1" | tail -n 20 || true; }
+          echo "app data container: $data"
+          for i in $(seq 1 150); do
+            if [ -f "$marker" ] && grep -q '"ready":"complete"' "$marker" && grep -q '"scanner":true' "$marker"; then break; fi
+            sleep 2
+          done
+          xcrun simctl io "$udid" screenshot "$RUNNER_TEMP/launch.png" >/dev/null 2>&1 || true
+          if [ ! -f "$marker" ]; then
+            echo "FAIL: no launch-smoke.json after 300 s: MainViewController never ran (the storyboard did not instantiate it, or the app did not start)"
+            ls -laR "$data/tmp" | head -n 40 || true
+            find "$data" -name 'launch-smoke.json' || true
+            smoke_log 'LaunchSmoke'
+            xcrun simctl spawn "$udid" launchctl list 2>/dev/null | grep -i scanaction || echo "(the app process is not running)"
+            xcrun simctl spawn "$udid" log show --last 8m --predicate 'process == "App"' 2>/dev/null | grep -iE 'Unknown class|Interface Builder|crash|fatal|exception' | tail -n 20 || true
+            exit 1
+          fi
+          echo "launch-smoke.json: $(cat "$marker")"
+          xcrun simctl spawn "$udid" log show --last 8m --predicate 'process == "App"' 2>/dev/null | grep -iE 'Unknown class|WebContent|did fail|error' | tail -n 12 || true
+          for want in '"controller":"MainViewController"' '"ready":"complete"' '"href":"capacitor://localhost' '"native":true' '"scanner":true' '"root":true'; do
+            grep -qF "$want" "$marker" || { echo "FAIL: the launch marker lacks $want"; exit 1; }
+          done
+          xcrun simctl terminate "$udid" com.scanaction.app || true
+          xcrun simctl shutdown "$udid" || true
+          echo "LAUNCH SMOKE PASSED: MainViewController loaded, the web view finished loading the bundled page, DocumentScanner is registered"
+
+      - name: Keep the launch screenshot
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: launch-screenshot-${{ github.sha }}
+          path: ${{ runner.temp }}/launch.png
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # Apple 2.5.1: public APIs only. The third-party plugin over VisionKit's
+      # document camera looks up a private class by name and exchanges one of
+      # its methods (read 2026-09-30); both names are string literals, so they
+      # sit in the binary's strings. The reading is proven on a planted file
+      # first, and on this binary's own class name, so an empty output cannot
+      # pass as a clean one. The source-level scan is in iosPlatform.test.ts.
+      - name: No private API name in the binary
+        run: |
+          set -eu
+          app=$(find "$RUNNER_TEMP/dd/Build/Products" -maxdepth 2 -name 'App.app' -type d | head -n 1)
+          bin="$app/App"
+          test -f "$bin"
+          # Prints the hits and exits 0 when the file carries a private name.
+          private_names() { strings -a "$1" | grep -E '_InProcess|documentCameraController:canAddImages:'; }
+
+          printf 'xx\0VNDocumentCameraViewController_InProcess\0documentCameraController:canAddImages:\0yy' > "$RUNNER_TEMP/planted"
+          if ! private_names "$RUNNER_TEMP/planted" > "$RUNNER_TEMP/planted.txt"; then
+            echo "the reading did not catch the planted names: it proves nothing"; exit 1
+          fi
+          echo "control, caught in the planted file:"; cat "$RUNNER_TEMP/planted.txt"
+          test "$(wc -l < "$RUNNER_TEMP/planted.txt" | tr -d ' ')" -eq 2 || { echo "expected both planted names"; exit 1; }
+
+          strings -a "$bin" > "$RUNNER_TEMP/strings.txt"
+          echo "strings read from the binary: $(wc -l < "$RUNNER_TEMP/strings.txt" | tr -d ' ')"
+          grep -q 'DocumentScannerPlugin' "$RUNNER_TEMP/strings.txt" || { echo "the binary's strings name no DocumentScannerPlugin: the reading is empty, not clean"; exit 1; }
+          grep -c 'VNDocumentCameraViewController' "$RUNNER_TEMP/strings.txt" || true
+          if private_names "$bin" > "$RUNNER_TEMP/private.txt"; then
+            echo "FAIL: the binary carries a private API name:"; cat "$RUNNER_TEMP/private.txt"; exit 1
+          fi
+          echo "PRIVATE API SCAN PASSED: the scanner is in the binary, and no private name is"

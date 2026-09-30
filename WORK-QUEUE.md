@@ -996,6 +996,97 @@ restyled.** Do not start at login, although a reviewer sees it first:
     what needs the owner.
   - Measure extraction success and the "Needs review" rate on his real receipts,
     judged only on rows the current code wrote.
+  - **The native scanner, iOS: BUILT 2026-09-30, UNJUDGED until the owner has
+    used it on the TestFlight build that follows its merge** (standing rule 5).
+    - **What it is:** Apple's VisionKit document camera
+      (`VNDocumentCameraViewController`, public API only) behind a plugin in
+      the app target, `ios/App/App/DocumentScannerPlugin.swift`, registered by
+      `MainViewController.swift`, which `SceneDelegate.swift` installs as the
+      root controller (`Main.storyboard` names it too, and that alone did
+      nothing: UIKit builds the storyboard scene, then the scene delegate's
+      line replaces it). No package was added: `Package.swift` and
+      `Package.resolved` are untouched.
+    - **The launch smoke test, and what it caught on its first day.** A build
+      is not a launch, so `ios-audit.yml` now boots a simulator, installs and
+      starts the app with `SA_LAUNCH_SMOKE=1`, and reads the marker file
+      `MainViewController` writes (simulator builds only): the class ran, the
+      web view finished loading the bundled page as a native Capacitor page,
+      the scanner plugin is registered in it. Runs 36727666450, 36730444641
+      and 36772794873 (2026-09-30) stayed red on the real branch with no
+      marker while the storyboard change was the only wiring: the scene
+      delegate still created the plain bridge controller in code, so the
+      plugin was never registered and the scanner would have been silently
+      absent on the phone, the capture sheet falling back to the camera every
+      time. Controls: a storyboard naming a class that does not exist (run
+      36727665346, "Unknown class ... in Interface Builder file") and the
+      scene delegate with the plain controller, both red. The test costs
+      about 15 minutes of free macOS time, most of it the first boot of the
+      simulator.
+    - **Why not a package.** `@capgo/capacitor-document-scanner` 8.4.6, the
+      one maintained plugin with a Swift package, was read on 2026-09-30: its
+      `DocScanner.swift` looks up the private class
+      `VNDocumentCameraViewController_InProcess`, exchanges its
+      `documentCameraController:canAddImages:` and reads `_targets`, `_target`
+      and `_action` off gesture recognizers (Apple 2.5.1: public APIs only).
+      `@capacitor-mlkit/document-scanner` is Android only by its own README.
+      `capacitor-document-scanner` 2.0.0 is Capacitor 5 and CocoaPods, last
+      released 2023-05.
+    - **What the leaders ship, read the same day.** Expensify's own issue
+      (#101916, opened 2026-09-22): "receipt capture on mobile is a viewfinder
+      and a shutter", the saved image "the raw frame"; edge detection is a
+      project it has just opened. Dext's help page: Single, Multiple and
+      Combine modes, up to 50 photos; nothing about cropping.
+    - **The contract** (`src/native/documentScanner.ts`): a plugin named
+      `DocumentScanner` with `isSupported`, `scan`, `discard`. Android later
+      implements the same three over ML Kit's document scanner (Google Play
+      services) and adds `'android'` to `SCANNER_PLATFORMS`; no other web
+      code changes.
+    - **The fallback, held by `documentScanner.test.tsx`:** the camera input
+      that was the whole capture path is reached on the web, when the plugin
+      is missing from the binary, when the device does not support scanning,
+      when the scanner fails (the sheet says so and the button becomes "Take
+      photo"), and after a cancel (back on the chooser). The eight sheet tests
+      fail against the previous `CaptureSheet.tsx`.
+    - **Several pages become ONE PDF** (the owner's objection to "page one
+      only", upheld). What was read: the upload route accepts
+      `application/pdf` up to 10 MB (`documentRoutes.ts`); `geminiAdapter.ts`
+      hands the whole buffer to the model inline with its mime type, in both
+      the single-document check and the extraction, so every page is read; a
+      long receipt carries its total on the last page, and the total is the
+      one field the prompt calls mandatory, so page one alone would lose it.
+      In the owner's three organisations 2 PDFs were ever uploaded, both
+      `COMPLETED` (read-only count by file extension and status, 2026-09-30,
+      control: 159 images); their page counts are unknown, so **a multi-page
+      PDF through extraction is unmeasured**. The plugin makes the PDF fit
+      10 MB by stepping the page size and JPEG quality down, and refuses
+      (`TOO_LARGE`, "scan fewer pages") when it cannot. The sheet says how
+      many pages were scanned and that they go as one document.
+    - **The cost of that ruling, stated:** VisionKit has no public page
+      limit and no way to tell two receipts from two pages. Two different
+      receipts scanned in one go become one PDF, which the single-document
+      check is there to refuse (`NEEDS_REVIEW`, no extraction). The sheet's
+      note says to scan one receipt or invoice at a time. Dext's "Multiple"
+      mode (several receipts, one upload each) is not built: a burst of
+      uploads is what met the quota on 2026-09-08 and 09.
+    - **A PDF has no picture on the result screen.** `DocumentDetailScreen.tsx`
+      draws the receipt card for image file names only; a scanned PDF gets
+      the link. That belongs to the reading-state PR.
+    - **Guards added with it.** The purpose-string and privacy-manifest
+      audits now read the app target's own Swift, and fail on an `Info.plist`
+      without the camera string (`iosPlatform.test.ts`). A private-API scan
+      reads the sources there and the binary's strings in `ios-audit.yml` and
+      in the archive step, each proven first on a planted sample carrying the
+      Capgo plugin's own lines.
+    - **What no run before the phone can show:** the scanner's screen, the
+      edges it finds, the camera permission prompt, the bridge reading the
+      temporary file (`Capacitor.convertFileSrc`), the PDF's real size and
+      whether its JPEG pages are embedded as they are. The simulator build
+      proves the project compiles and links; VisionKit reports the scanner
+      unsupported on a simulator.
+    - **The owner's test on the build:** one receipt; one long receipt over
+      two pages (the PDF, and whether the total is read); cancel; Choose file
+      still working. **EXPIRY:** he has judged it, and the multi-page
+      extraction is a measured number.
   - **The result screen (Detail): REDRAWN FROM ZERO in the detail PR
     (opened 2026-09-25); open until the owner has judged it on his iPhone.**
     The owner rejected the previous one on 2026-09-25 (see "The owner's
@@ -1703,6 +1794,16 @@ This is also Apple 3.1.3(f)'s condition, word for word (APPLE TRACK), and
    what changes in their view of their own data, and whether the product
    explains it. This is a precondition beside the safety checks, not a
    follow-up.
+5. **A native screen is judged after merge, behind a fallback** (the owner,
+   2026-09-30). The owner reviews screens on his iPhone before a merge, and a
+   web screen still is. A native piece cannot be: a Vercel preview runs in
+   Safari, and TestFlight builds only from `main`, because the `testflight`
+   environment's branch policy is `main` alone
+   (`gh api repos/{owner}/{repo}/environments/testflight/deployment-branch-policies`),
+   a fence the owner chose and keeps. So a native piece merges with a safe
+   fallback in place, and he judges it on the TestFlight build that follows.
+   The fallback must keep the path that existed before working when the
+   native piece fails or is missing, and a test must hold it.
 
 The incidents behind each rule are in git, in the RECURRING FAILURE and recovery
 sections of the file at `9751e813`.

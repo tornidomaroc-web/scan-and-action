@@ -283,6 +283,11 @@ jobs:
           echo "linked frameworks (otool -L):"; otool -L "$bin" | tee "$RUNNER_TEMP/otool.txt"
           grep -q "UIKit.framework" "$RUNNER_TEMP/otool.txt" || { echo "otool -L named no UIKit: the reading is empty, not clean"; exit 1; }
           if grep -iqE "AppTrackingTransparency|FBSDK|Facebook" "$RUNNER_TEMP/otool.txt"; then echo "FAIL: the archive links a framework the app must not carry"; exit 1; fi
+          # The private-name reading ios-audit.yml takes on a pull request
+          # (Apple 2.5.1). The app's own scanner class is the positive control.
+          strings -a "$bin" > "$RUNNER_TEMP/strings.txt"
+          grep -q 'DocumentScannerPlugin' "$RUNNER_TEMP/strings.txt" || { echo "the archive's strings name no DocumentScannerPlugin: the reading is empty, not clean"; exit 1; }
+          if grep -qE '_InProcess|documentCameraController:canAddImages:' "$RUNNER_TEMP/strings.txt"; then echo "FAIL: the archive carries a private API name"; exit 1; fi
 
       - name: Export and upload to App Store Connect
         env:

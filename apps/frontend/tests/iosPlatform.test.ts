@@ -195,9 +195,17 @@ const linkedPluginSources = (opts: { raw?: boolean } = {}): Record<string, strin
   return out;
 };
 
+// The app target's own Swift (2026-09-30: DocumentScannerPlugin.swift wraps
+// VisionKit's document camera). Apple scans the linked code, and code compiled
+// into the app is linked code: it is audited with the plugins, under this name.
+const APP_TARGET = 'the app target';
+const appTargetFiles = (): string[] => walk(join(__dirname, '..', 'ios', 'App', 'App'));
+const appTargetSources = (): string => appTargetFiles().map((f) => readFileSync(f, 'utf8')).join('\n');
+const auditedSources = (): Record<string, string> => ({ ...linkedPluginSources(), [APP_TARGET]: appTargetSources() });
+
 // API symbol in native code -> Info.plist key iOS requires for it.
 const PURPOSE_STRING_MARKERS: Array<[RegExp, string]> = [
-  [/AVCaptureDevice/, 'NSCameraUsageDescription'],
+  [/AVCaptureDevice|VNDocumentCameraViewController/, 'NSCameraUsageDescription'],
   [/PHPhotoLibrary|PHPickerViewController|PHAsset\b/, 'NSPhotoLibraryUsageDescription'],
   [/UIImageWriteToSavedPhotosAlbum|PHAssetChangeRequest/, 'NSPhotoLibraryAddUsageDescription'],
   [/recordVideo|AVAudioSession|AVMediaType\.audio/, 'NSMicrophoneUsageDescription'],
@@ -219,8 +227,22 @@ const REQUIRED_REASON_MARKERS: Array<[RegExp, string]> = [
   [/activeInputModes/, 'NSPrivacyAccessedAPICategoryActiveKeyboards'],
 ];
 
+const purposeKeysOf = (sources: Record<string, string>): Map<string, string[]> => {
+  const out = new Map<string, string[]>();
+  for (const [name, src] of Object.entries(sources)) {
+    for (const [re, key] of PURPOSE_STRING_MARKERS) {
+      if (re.test(src)) out.set(key, [...(out.get(key) ?? []), name]);
+    }
+  }
+  return out;
+};
+const purposeStringIn = (plistText: string, key: string): string | null =>
+  plistText.match(new RegExp(`<key>${key}</key>\\s*<string>([^<]*)</string>`))?.[1] ?? null;
+const missingPurposeStrings = (plistText: string, keys: Iterable<string>): string[] =>
+  [...keys].filter((k) => (purposeStringIn(plistText, k) ?? '').trim().length <= 20).sort();
+
 describe('purpose strings: every key a linked plugin can reach is present, non-empty, in every language', () => {
-  const sources = linkedPluginSources();
+  const sources = auditedSources();
   const required = new Map<string, string[]>(); // key -> plugins that reference it
   for (const [plugin, src] of Object.entries(sources)) {
     for (const [re, key] of PURPOSE_STRING_MARKERS) {
@@ -232,9 +254,9 @@ describe('purpose strings: every key a linked plugin can reach is present, non-e
 
   it('reads the plugin sources it audits (positive control)', () => {
     expect(Object.keys(sources).sort()).toEqual(
-      ['@capacitor/app', '@capacitor/camera', '@capacitor/splash-screen', '@capacitor/status-bar', '@capgo/capacitor-social-login'],
+      ['@capacitor/app', '@capacitor/camera', '@capacitor/splash-screen', '@capacitor/status-bar', '@capgo/capacitor-social-login', APP_TARGET],
     );
-    expect(required.get('NSCameraUsageDescription')).toEqual(['@capacitor/camera']);
+    expect(required.get('NSCameraUsageDescription')).toEqual(['@capacitor/camera', APP_TARGET]);
     // The tracking call exists in the plugin's text and is compiled out: the
     // raw source names ATTrackingManager (so the stripper, not a missing
     // file, is what removes it), the compiled source does not.
@@ -298,7 +320,7 @@ describe('purpose strings: every key a linked plugin can reach is present, non-e
 });
 
 describe('privacy manifest: required reason APIs in plugins that ship no manifest are declared by the app', () => {
-  const sources = linkedPluginSources();
+  const sources = auditedSources();
   const categories = new Map<string, string[]>();
   for (const [plugin, src] of Object.entries(sources)) {
     const hasOwnManifest = existsSync(join(__dirname, '..', 'node_modules', plugin, 'ios', 'PrivacyInfo.xcprivacy'));
@@ -606,5 +628,190 @@ describe('Swift package versions are fixed by a committed Package.resolved', () 
     expect(steps[iResolve].run).toMatch(/if strict -onlyUsePackageVersionsFromResolvedFile && git diff --exit-code -- "\$resolved"; then/);
     expect(steps[iResolve].run).toMatch(/else[\s\S]*exit 1\s*\n\s*fi/);
     for (const flag of ['-disableAutomaticPackageResolution', '-onlyUsePackageVersionsFromResolvedFile']) expect(steps[iBuild].run).toContain(flag);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// The app target's own Swift (2026-09-30, the system document scanner). Until
+// this date every native line came from a package under node_modules, and the
+// audits above read only those. Code compiled into the app is linked code too.
+// ----------------------------------------------------------------------------
+describe("the app target's own Swift is audited like a plugin's", () => {
+  const pbx = F('ios/App/App.xcodeproj/project.pbxproj');
+  const names = appTargetFiles().map((f) => f.split(sep).pop()!).sort();
+
+  it('reads the four Swift files of the app target (positive control)', () => {
+    expect(names).toEqual(['AppDelegate.swift', 'DocumentScannerPlugin.swift', 'MainViewController.swift', 'SceneDelegate.swift']);
+    expect(appTargetSources()).toMatch(/VNDocumentCameraViewController/);
+  });
+  it('every Swift file on disk is compiled by the App target, and the project names no Swift file that is not on disk', () => {
+    for (const n of names) {
+      expect(pbx, n).toMatch(new RegExp(`/\\* ${n.replace('.', '\\.')} in Sources \\*/ = \\{isa = PBXBuildFile;`));
+      expect(pbx, n).toMatch(new RegExp(`/\\* ${n.replace('.', '\\.')} \\*/ = \\{isa = PBXFileReference; lastKnownFileType = sourcecode\\.swift;`));
+    }
+    const phase = pbx.match(/isa = PBXSourcesBuildPhase;[\s\S]*?files = \(([\s\S]*?)\);/)![1];
+    expect([...phase.matchAll(/\/\* (\S+) in Sources \*\//g)].map((m) => m[1]).sort()).toEqual(names);
+    // object ids are unique: a duplicated id makes Xcode drop one of the two objects silently
+    const ids = [...pbx.matchAll(/^\t\t([0-9A-F]{24}) \/\* [^*]+ \*\/ = \{/gm)].map((m) => m[1]);
+    expect(ids.length).toBeGreaterThan(20);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+  it('the scene delegate makes MainViewController the root controller (the storyboard names it too), and it registers the scanner plugin', () => {
+    // SceneDelegate installs the root controller in code over the storyboard scene;
+    // the storyboard class alone changed nothing at runtime (launch smoke run
+    // 36772794873, 2026-09-30: no marker, no plugin).
+    const sd = F('ios/App/App/SceneDelegate.swift');
+    expect(sd).toContain('window?.rootViewController = MainViewController()');
+    expect(sd).not.toContain('CAPBridgeViewController()');
+    const sb = F('ios/App/App/Base.lproj/Main.storyboard');
+    expect(sb).toContain('customClass="MainViewController" customModule="App" customModuleProvider="target"');
+    expect(sb).not.toContain('customClass="CAPBridgeViewController"');
+    const vc = F('ios/App/App/MainViewController.swift');
+    expect(vc).toMatch(/class MainViewController: CAPBridgeViewController/);
+    expect(vc).toMatch(/override open func capacitorDidLoad\(\) \{\s*bridge\?\.registerPluginInstance\(DocumentScannerPlugin\(\)\)/);
+    // the name JavaScript asks for is the name Swift registers
+    const plugin = F('ios/App/App/DocumentScannerPlugin.swift');
+    expect(plugin).toMatch(/public let jsName = "DocumentScanner"/);
+    expect(F('src/native/documentScanner.ts')).toMatch(/registerPlugin<DocumentScannerPlugin>\('DocumentScanner'\)/);
+    for (const method of ['isSupported', 'scan', 'discard']) {
+      expect(plugin).toContain(`CAPPluginMethod(name: "${method}", returnType: CAPPluginReturnPromise)`);
+    }
+  });
+  it('from the app target ALONE the camera string is required, whatever the plugins link', () => {
+    expect([...purposeKeysOf({ [APP_TARGET]: appTargetSources() }).keys()]).toEqual(['NSCameraUsageDescription']);
+  });
+  it('the check fails against an Info.plist without the camera string, or with an empty one (control), and passes on the real file', () => {
+    const plist = F('ios/App/App/Info.plist');
+    const keys = [...purposeKeysOf({ [APP_TARGET]: appTargetSources() }).keys()];
+    expect(missingPurposeStrings(plist, keys)).toEqual([]);
+    const without = plist.replace(/\s*<key>NSCameraUsageDescription<\/key>\s*<string>[^<]*<\/string>/, '');
+    expect(without).not.toBe(plist);
+    expect(missingPurposeStrings(without, keys)).toEqual(['NSCameraUsageDescription']);
+    const emptied = plist.replace(/(<key>NSCameraUsageDescription<\/key>\s*<string>)[^<]*(<\/string>)/, '$1$2');
+    expect(emptied).not.toBe(plist);
+    expect(missingPurposeStrings(emptied, keys)).toEqual(['NSCameraUsageDescription']);
+  });
+  it('the scanner keeps nothing and calls nothing: no network, no defaults, no photo library, no log', () => {
+    const src = F('ios/App/App/DocumentScannerPlugin.swift').split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    expect(src).not.toMatch(/URLSession|URLRequest|https?:\/\/|UserDefaults|PHPhotoLibrary|UIImageWriteToSavedPhotosAlbum|NSLog|print\(/);
+    expect(src).toMatch(/FileManager\.default\.temporaryDirectory/);
+    expect(src).not.toMatch(/documentDirectory|cachesDirectory/);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// Private API (2026-09-30). The maintained third-party plugin over the same
+// VisionKit controller caps the page count by reaching into private classes:
+// it looks a private class up by name, exchanges a private method, and reads
+// private ivars off gesture recognizers. Apple 2.5.1: "Apps may only use
+// public APIs." Nothing in this pipeline would have noticed. Two readings now:
+// the sources (here) and the strings of the linked binary (the workflows).
+// ----------------------------------------------------------------------------
+const PRIVATE_API_MARKERS: Array<[RegExp, string]> = [
+  [/NSClassFromString\s*\(/, 'a class looked up by name'],
+  [/NSSelectorFromString\s*\(/, 'a selector built from a string'],
+  [/method_exchangeImplementations|method_setImplementation|class_replaceMethod/, 'a method implementation swapped'],
+  [/class_getInstanceVariable|object_getIvar/, 'an ivar read through the runtime'],
+  [/(?:value|setValue)\([^)\n]*forKey(?:Path)?:\s*"_/, 'key-value access to an underscore-prefixed member'],
+  [/_InProcess\b/, 'a private in-process class'],
+];
+const privateApiFindings = (sources: Record<string, string>): string[] => {
+  const out: string[] = [];
+  for (const [name, src] of Object.entries(sources)) {
+    for (const [re, what] of PRIVATE_API_MARKERS) if (re.test(src)) out.push(`${name}: ${what}`);
+  }
+  return out.sort();
+};
+
+describe('no linked source reaches for a private API', () => {
+  // The lines that do it in @capgo/capacitor-document-scanner 8.4.6,
+  // ios/Sources/DocumentScannerPlugin/DocScanner.swift (read 2026-09-30).
+  const PLANTED = [
+    'guard let inProcessClass = NSClassFromString("VNDocumentCameraViewController_InProcess") else {',
+    'let originalSelector = NSSelectorFromString("documentCameraController:canAddImages:")',
+    'method_exchangeImplementations(originalMethod, swizzledMethod)',
+    'guard let internalTargets = gestureRecognizer.value(forKey: "_targets") as? [NSObject] else {',
+    'let targetIvar = class_getInstanceVariable(targetClass, "_target"),',
+  ].join('\n');
+
+  it('the scan finds all six kinds in the planted sample (control)', () => {
+    expect(privateApiFindings({ planted: PLANTED })).toEqual([
+      'planted: a class looked up by name',
+      'planted: a method implementation swapped',
+      'planted: a private in-process class',
+      'planted: a selector built from a string',
+      'planted: an ivar read through the runtime',
+      'planted: key-value access to an underscore-prefixed member',
+    ]);
+  });
+  it('each planted line is caught on its own', () => {
+    for (const line of PLANTED.split('\n')) expect(privateApiFindings({ planted: line }).length, line).toBeGreaterThan(0);
+  });
+  it('the app target and the five linked plugins are clean', () => {
+    const sources = { ...linkedPluginSources({ raw: true }), [APP_TARGET]: appTargetSources() };
+    expect(Object.keys(sources)).toHaveLength(6);
+    expect(privateApiFindings(sources)).toEqual([]);
+  });
+
+  const stepOf = (file: string, job: string, name: string) => {
+    const { load } = createRequire(import.meta.url)('js-yaml') as { load: (s: string) => unknown };
+    return (load(ROOT(file)) as Workflow).jobs[job].steps.find((s) => s.name === name);
+  };
+  it('the pull-request audit reads the binary for private names, after proving the reading on a planted binary', () => {
+    const step = stepOf('.github/workflows/ios-audit.yml', 'audit', 'No private API name in the binary');
+    expect(step?.run).toBeDefined();
+    const run = step!.run!;
+    // the control comes first and must be CAUGHT; then the real binary must be clean
+    expect(run.indexOf('if ! private_names "$RUNNER_TEMP/planted"')).toBeGreaterThan(-1);
+    expect(run.indexOf('if ! private_names "$RUNNER_TEMP/planted"')).toBeLessThan(run.indexOf('if private_names "$bin"'));
+    expect(run).toMatch(/if ! private_names "\$RUNNER_TEMP\/planted"[^\n]*; then\s*\n[^\n]*exit 1/);
+    expect(run).toMatch(/if private_names "\$bin"[^\n]*; then\s*\n[^\n]*exit 1/);
+    for (const name of ['VNDocumentCameraViewController_InProcess', 'documentCameraController:canAddImages:', '_InProcess']) expect(run).toContain(name);
+    // and the scanner is really in the binary it read (positive control)
+    expect(run).toMatch(/grep -q 'DocumentScannerPlugin' [^\n]* \|\| \{[^}]*exit 1; \}/);
+  });
+  it('the archive in ios-testflight.yml takes the same reading before the export', () => {
+    const archive = stepOf('.github/workflows/ios-testflight.yml', 'testflight', 'Archive (automatic signing with the API key)');
+    expect(archive?.run).toMatch(/grep -q 'DocumentScannerPlugin' "\$RUNNER_TEMP\/strings\.txt" \|\| \{[^}]*exit 1; \}/);
+    expect(archive?.run).toMatch(/if grep -qE '_InProcess\|documentCameraController:canAddImages:' "\$RUNNER_TEMP\/strings\.txt"; then [^\n]*exit 1; fi/);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// A build is not a launch (2026-09-30). The storyboard and the project file
+// are edited by hand; a class name the runtime cannot resolve builds cleanly
+// and opens a blank app. The audit starts the app in a simulator and reads the
+// marker MainViewController writes. Proven red on a storyboard naming a class
+// that does not exist (run recorded in WORK-QUEUE.md).
+// ----------------------------------------------------------------------------
+describe('the pull-request audit launches the app and reads what loaded', () => {
+  const { load } = createRequire(import.meta.url)('js-yaml') as { load: (s: string) => unknown };
+  const steps = (load(ROOT('.github/workflows/ios-audit.yml')) as Workflow).jobs.audit.steps;
+  const smoke = steps.find((s) => (s.name ?? '').startsWith('Launch smoke test'));
+  const vc = F('ios/App/App/MainViewController.swift');
+
+  it('runs after the build, on a booted simulator, with the marker switched on through the launch environment', () => {
+    expect(smoke?.run).toBeDefined();
+    const iBuild = steps.findIndex((s) => s.name === 'Build for the iOS Simulator (unsigned)');
+    expect(steps.indexOf(smoke!)).toBeGreaterThan(iBuild);
+    const run = smoke!.run!;
+    for (const cmd of ['xcrun simctl boot "$udid"', 'xcrun simctl install "$udid" "$app"', 'SIMCTL_CHILD_SA_LAUNCH_SMOKE=1 xcrun simctl launch "$udid" com.scanaction.app']) expect(run).toContain(cmd);
+  });
+  it('a missing marker fails, and so does a marker lacking any of the six facts', () => {
+    const run = smoke!.run!;
+    expect(run).toMatch(/if \[ ! -f "\$marker" \]; then\s*\n[\s\S]*?exit 1\s*\n\s*fi/);
+    for (const fact of ['"controller":"MainViewController"', '"ready":"complete"', '"href":"capacitor://localhost', '"native":true', '"scanner":true', '"root":true']) {
+      expect(run).toContain(`'${fact}'`);
+    }
+    expect(run).toMatch(/grep -qF "\$want" "\$marker" \|\| \{[^}]*exit 1; \}/);
+  });
+  it('the marker code is compiled for the simulator only and runs only when asked', () => {
+    expect(vc.match(/#if targetEnvironment\(simulator\)/g)).toHaveLength(2);
+    expect(vc.match(/#endif/g)).toHaveLength(2);
+    expect(vc).toMatch(/environment\["SA_LAUNCH_SMOKE"\] == "1"/);
+    // nothing about the marker sits outside the two guarded regions
+    const outside = vc.replace(/#if targetEnvironment\(simulator\)[\s\S]*?#endif/g, '').split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    expect(outside).not.toMatch(/launch-smoke|evaluateJavaScript|SA_LAUNCH_SMOKE|FileManager/);
+    expect(outside).toMatch(/registerPluginInstance\(DocumentScannerPlugin\(\)\)/);
   });
 });

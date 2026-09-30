@@ -8,7 +8,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         window = UIWindow(windowScene: windowScene)
-        window?.rootViewController = CAPBridgeViewController()
+        // The root controller is made HERE, not by Main.storyboard: UIKit
+        // instantiates the storyboard scene first and this line replaces it.
+        // MainViewController registers the plugins compiled into the app; the
+        // launch smoke test in ios-audit.yml read the plain bridge controller
+        // here on 2026-09-30 as "the scanner plugin never registered".
+        window?.rootViewController = MainViewController()
         window?.makeKeyAndVisible()
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
