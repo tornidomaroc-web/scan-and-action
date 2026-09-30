@@ -1001,8 +1001,27 @@ restyled.** Do not start at login, although a reviewer sees it first:
     - **What it is:** Apple's VisionKit document camera
       (`VNDocumentCameraViewController`, public API only) behind a plugin in
       the app target, `ios/App/App/DocumentScannerPlugin.swift`, registered by
-      `MainViewController.swift`, which `Main.storyboard` now names. No
-      package was added: `Package.swift` and `Package.resolved` are untouched.
+      `MainViewController.swift`, which `SceneDelegate.swift` installs as the
+      root controller (`Main.storyboard` names it too, and that alone did
+      nothing: UIKit builds the storyboard scene, then the scene delegate's
+      line replaces it). No package was added: `Package.swift` and
+      `Package.resolved` are untouched.
+    - **The launch smoke test, and what it caught on its first day.** A build
+      is not a launch, so `ios-audit.yml` now boots a simulator, installs and
+      starts the app with `SA_LAUNCH_SMOKE=1`, and reads the marker file
+      `MainViewController` writes (simulator builds only): the class ran, the
+      web view finished loading the bundled page as a native Capacitor page,
+      the scanner plugin is registered in it. Runs 36727666450, 36730444641
+      and 36772794873 (2026-09-30) stayed red on the real branch with no
+      marker while the storyboard change was the only wiring: the scene
+      delegate still created the plain bridge controller in code, so the
+      plugin was never registered and the scanner would have been silently
+      absent on the phone, the capture sheet falling back to the camera every
+      time. Controls: a storyboard naming a class that does not exist (run
+      36727665346, "Unknown class ... in Interface Builder file") and the
+      scene delegate with the plain controller, both red. The test costs
+      about 15 minutes of free macOS time, most of it the first boot of the
+      simulator.
     - **Why not a package.** `@capgo/capacitor-document-scanner` 8.4.6, the
       one maintained plugin with a Swift package, was read on 2026-09-30: its
       `DocScanner.swift` looks up the private class
