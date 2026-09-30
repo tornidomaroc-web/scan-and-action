@@ -442,14 +442,19 @@ a store screenshot.**
     to read. Residual: a manifest that misses SwiftPM's cache is re-run
     during the archive, sandboxed; the archive step prints the count of
     manifest cache files touched (0 expected).
-  - **Fixed versions, the next step:** each run uploads the `Package.resolved`
-    it resolved as artifact `package-resolved-<sha>` (7 days). Commit the one
-    from the first green run into
-    `ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/` and add
-    `-onlyUsePackageVersionsFromResolvedFile` to the resolve step; from then
-    on an upstream release cannot move the build without a commit here.
-    Owner: engineering. **EXPIRY:** the file is committed and the resolve
-    step carries the flag.
+  - **Fixed versions: DONE 2026-09-30 (the PR recording this).**
+    `ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`
+    is committed: eleven pins, taken from artifact
+    `package-resolved-5454f465...` of run 36693536724 (build 11), sha256
+    `3a4d8dc1...24a20`, byte-identical to build 10's artifact (run
+    36644629023), and its eleven identities are the eleven checkouts that
+    run's signing job listed. The signing job's resolve step carries
+    `-onlyUsePackageVersionsFromResolvedFile` and a `cmp` proving the file
+    left the step unchanged; `ios-audit.yml` runs the same strict resolution
+    on a pull request before its build. **When a plugin change moves the
+    package graph,** the audit fails, resolves again without the flag and
+    prints the new file in its log: commit that. An upstream release can no
+    longer move the build without a commit here.
   - **Still tag-pinned, deliberately:** `ci.yml` and
     `password-policy-drift.yml`; they hold no Apple secret, and editing
     `ci.yml` risks every merge, so they are a separate change.

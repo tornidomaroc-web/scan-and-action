@@ -37,8 +37,10 @@ name: iOS — TestFlight
 # anything; it compiles the sources already on disk. Residual, stated: a
 # manifest whose evaluation misses SwiftPM's cache is re-run during the
 # archive, sandboxed as above; the archive step counts touched manifest cache
-# files as a reading. Package.resolved is uploaded as an artifact so the
-# versions can be committed and the resolution made fixed by a later PR.
+# files as a reading. Package.resolved is committed (2026-09-30, from run
+# 36693536724): the resolve step fetches exactly those revisions or fails,
+# so an upstream release cannot move the build without a commit here. It is
+# still uploaded as an artifact, as the record of what each build used.
 #
 # ACTIONS are pinned to full commit SHAs, the release as a comment. Dependabot
 # (.github/dependabot.yml, github-actions, weekly) opens the PR that moves a
@@ -186,16 +188,24 @@ jobs:
       # Network fetches and manifest evaluation happen here, with no key on
       # the runner. The clones and the binary artifacts land in
       # $RUNNER_TEMP/spm; Package.resolved is written into the project.
+      # Package.resolved is committed (2026-09-30) and arrives in the artifact:
+      # the flag makes xcodebuild fetch exactly those revisions or fail, and
+      # the cmp proves the file left this step as it entered it.
       - name: Resolve Swift packages (no key on this runner yet)
         run: |
           set -eu -o pipefail
+          resolved=ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+          test -f "$resolved" || { echo "no committed Package.resolved in the artifact"; exit 1; }
+          cp "$resolved" "$RUNNER_TEMP/Package.resolved.committed"
           xcodebuild \
             -resolvePackageDependencies \
             -project ios/App/App.xcodeproj \
             -scheme App \
             -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -onlyUsePackageVersionsFromResolvedFile \
             2>&1 | tee "$RUNNER_TEMP/resolve.log" | { grep -E '^(warning|error|\*\*|Resolved|Fetching|Cloning|Creating)|: (error|warning):' || true; }
           test -f ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved || { echo "no Package.resolved was written"; tail -n 40 "$RUNNER_TEMP/resolve.log"; exit 1; }
+          cmp "$RUNNER_TEMP/Package.resolved.committed" "$resolved" || { echo "the resolution rewrote the committed Package.resolved"; exit 1; }
           echo "resolved packages:"; ls "$RUNNER_TEMP/spm/checkouts"
 
       # Still no key. Build tool plugins and macros are the only package code

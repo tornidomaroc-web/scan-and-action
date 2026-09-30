@@ -102,6 +102,34 @@ jobs:
           sudo xcode-select -p
           xcodebuild -version
 
+      # The same resolution the signing job runs, on the pull request: the
+      # committed Package.resolved or nothing. When a plugin change moves the
+      # package graph this step fails, resolves again without the flag and
+      # prints the file to commit; that is the way a new one is made without
+      # a Mac.
+      - name: Resolve Swift packages from the committed Package.resolved
+        run: |
+          set -eu -o pipefail
+          resolved=ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+          test -f "$resolved" || { echo "Package.resolved is not committed"; exit 1; }
+          strict() {
+            xcodebuild \
+              -resolvePackageDependencies \
+              -project ios/App/App.xcodeproj \
+              -scheme App \
+              -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+              "$@" 2>&1 | tee "$RUNNER_TEMP/resolve.log" | { grep -E '^(warning|error|\*\*|Resolved|Fetching|Cloning|Creating)|: (error|warning):' || true; }
+          }
+          if strict -onlyUsePackageVersionsFromResolvedFile && git diff --exit-code -- "$resolved"; then
+            echo "the committed Package.resolved resolves as written"
+          else
+            echo "FAIL: the committed Package.resolved does not match the package graph. Resolving without the flag; commit the file printed below."
+            tail -n 20 "$RUNNER_TEMP/resolve.log"
+            strict || true
+            echo "===== Package.resolved ====="; cat "$resolved"; echo "===== end ====="
+            exit 1
+          fi
+
       - name: Build for the iOS Simulator (unsigned)
         run: |
           set -eu -o pipefail
@@ -113,6 +141,8 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/dd" \
             -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -disableAutomaticPackageResolution \
+            -onlyUsePackageVersionsFromResolvedFile \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
