@@ -661,7 +661,7 @@ describe("the app target's own Swift is audited like a plugin's", () => {
     // the storyboard class alone changed nothing at runtime (launch smoke run
     // 36772794873, 2026-09-30: no marker, no plugin).
     const sd = F('ios/App/App/SceneDelegate.swift');
-    expect(sd).toMatch(/window?.rootViewController = MainViewController()/);
+    expect(sd).toContain('window?.rootViewController = MainViewController()');
     expect(sd).not.toContain('CAPBridgeViewController()');
     const sb = F('ios/App/App/Base.lproj/Main.storyboard');
     expect(sb).toContain('customClass="MainViewController" customModule="App" customModuleProvider="target"');
