@@ -63,7 +63,7 @@ describe('IngestionService.processUploadAsync — multi-document → NEEDS_REVIE
     await expect(run()).resolves.toBeUndefined();
 
     expect(isSingleDocument).toHaveBeenCalledOnce();
-    expect(markAsNeedsReview).toHaveBeenCalledWith('doc-1');
+    expect(markAsNeedsReview).toHaveBeenCalledWith('doc-1', 'Multiple documents');
     // Extraction is aborted for a multi-doc — no Gemini extraction call.
     expect(extractFromImage).not.toHaveBeenCalled();
   });
@@ -76,7 +76,7 @@ describe('IngestionService.processUploadAsync — multi-document → NEEDS_REVIE
     // failure is logged and swallowed — the background task never rejects.
     await expect(run()).resolves.toBeUndefined();
 
-    expect(markAsNeedsReview).toHaveBeenCalledWith('doc-1');
+    expect(markAsNeedsReview).toHaveBeenCalledWith('doc-1', 'Multiple documents');
     expect(extractFromImage).not.toHaveBeenCalled();
   });
 });

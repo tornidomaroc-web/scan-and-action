@@ -18,7 +18,8 @@ import { isRequestTimeout } from '../lib/fetchWithTimeout';
 import { visibleDetailFacts, detailFactLabel } from '../lib/detailFacts';
 import { getDocumentCategory } from '../lib/documentCategory';
 import { documentCurrency, ledgerAmount } from '../lib/ledgerAmount';
-import { canInlinePdf, isPdfFileName, pdfPreviewSrc } from '../lib/pdfPreview';
+import { isPdfFileName } from '../lib/pdfPreview';
+import { PdfPagePreview } from '../components/PdfPagePreview';
 import { useProcessingOptional } from '../contexts/ProcessingContext';
 import { Lang, figureSizeClass, fullDayLabel, moneyParts } from '../lib/ledgerView';
 import {
@@ -99,6 +100,8 @@ export const DocumentDetailScreen = () => {
   // (an expired signed URL, a dropped connection) the frame says so and
   // offers the original, instead of an empty box where a picture should be.
   const [imageState, setImageState] = useState<'loading' | 'loaded' | 'failed'>('loading');
+  // A scanned PDF's first page (PdfPagePreview): drawn, or fallen back to the link row.
+  const [pdfState, setPdfState] = useState<'drawing' | 'failed'>('drawing');
   // The reading note switches to "longer than usual" after READING_SLOW_MS.
   const [readingSlow, setReadingSlow] = useState(false);
   // The tray, when this screen is inside the shell; null in a bare render.
@@ -248,7 +251,15 @@ export const DocumentDetailScreen = () => {
     const tick = async () => {
       try {
         const next = await documentService.getDocumentDetail(documentId!);
-        if (next) setDoc(next);
+        // THE PICTURE'S URL MUST NOT ROTATE. Every read signs a fresh storage
+        // URL (getSignedFileUrl.ts, ten minutes each), so handing each answer
+        // straight to the screen changed the <img src> on every tick and
+        // reset it to the skeleton: on the owner's iPhone (build 15) the
+        // picture area stayed an empty grey box for the whole read and
+        // appeared only when the polling stopped. The file behind a document
+        // never changes, so the first URL is kept for as long as this screen
+        // polls (READING_MAX_MS, well inside the URL's life).
+        if (next) setDoc((prev: any) => (prev?.signedFileUrl && prev.id === next.id ? { ...next, signedFileUrl: prev.signedFileUrl } : next));
       } catch {
         /* asked again on the next tick */
       }
@@ -268,6 +279,7 @@ export const DocumentDetailScreen = () => {
   // "preview unavailable", and a loaded state would skip its skeleton.
   useEffect(() => {
     setImageState('loading');
+    setPdfState('drawing');
   }, [doc?.signedFileUrl]);
 
   const DocumentDetailSkeleton = () => (
@@ -314,8 +326,9 @@ export const DocumentDetailScreen = () => {
 
   const isImageFile = typeof doc.signedFileUrl === 'string' && /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.originalFileName || '');
   // A scanned PDF (several pages become one, DocumentScannerPlugin.swift) gets
-  // a picture too, where the browser can draw one (lib/pdfPreview.ts).
-  const isPdfInline = typeof doc.signedFileUrl === 'string' && isPdfFileName(doc.originalFileName) && canInlinePdf();
+  // a picture too: its first page, drawn by pdf.js at the card's width
+  // (components/PdfPagePreview.tsx). Until it fails, the card is the picture.
+  const isPdfInline = typeof doc.signedFileUrl === 'string' && isPdfFileName(doc.originalFileName) && pdfState !== 'failed';
 
   const decisionFact = doc.facts?.find((f: any) => f.key === 'decision');
   const reasonFact = doc.facts?.find((f: any) => f.key === 'decision_reason');
@@ -521,21 +534,11 @@ export const DocumentDetailScreen = () => {
               </span>
             </a>
           ) : isPdfInline ? (
-            // The browser's own PDF viewer draws the first page into the same
-            // card the photo gets. The frame takes no taps (pointer-events-none)
-            // so the whole card stays the one tap target that opens the
-            // original, as for a photo.
+            // The first page, drawn at the card's width and cropped to the
+            // card's height from the top: the same picture a photo gets. The
+            // whole card is the one tap target that opens the original.
             <a href={doc.signedFileUrl} target="_blank" rel="noreferrer" className="block" aria-label={s.openOriginalSource}>
-              <div className="relative h-44 bg-surface-muted" data-detail-pdf>
-                <iframe
-                  src={pdfPreviewSrc(doc.signedFileUrl)}
-                  title={doc.originalFileName || s.sourceVisualization}
-                  tabIndex={-1}
-                  aria-hidden="true"
-                  scrolling="no"
-                  className="pointer-events-none h-full w-full border-0"
-                />
-              </div>
+              <PdfPagePreview url={doc.signedFileUrl} fileName={doc.originalFileName || s.sourceVisualization} onFailed={() => setPdfState('failed')} />
               <span className="flex items-center justify-between gap-3 border-t border-divider px-4 py-2.5 text-xs font-semibold text-ink">
                 <span className="flex min-w-0 items-center gap-2">
                   <IconTile icon={FileText} size="sm" />

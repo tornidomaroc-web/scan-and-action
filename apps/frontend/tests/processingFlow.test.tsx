@@ -229,9 +229,11 @@ describe('CaptureSheet — one-tap mobile capture', () => {
 
     await vi.waitFor(() => expect(uploadDocument).toHaveBeenCalled());
     expect((uploadDocument as any).mock.calls[0][0].name).toBe('invoice.pdf');
-    await vi.waitFor(() =>
-      expect(document.body.textContent).toContain(strings.en.processingChip.replace('{n}', '1'))
-    );
+    // The hand-off to the tray: it polls the new document. (The chip itself
+    // is not shown here any more: the sheet opens the receipt screen of the
+    // document, and on that screen the tray draws no chip; see
+    // captureOpensReadingState.test.tsx and processingChipOutcome.test.tsx.)
+    await vi.waitFor(() => expect(documentService.getDocumentDetail).toHaveBeenCalledWith('doc-pdf'));
   });
 
   it('MONEY PATH: LIMIT_REACHED via the file-picker path still triggers the paywall', async () => {
@@ -271,11 +273,10 @@ describe('CaptureSheet — one-tap mobile capture', () => {
     click(extract);
 
     await vi.waitFor(() => expect(uploadDocument).toHaveBeenCalled());
-    // sheet gone, user is free; chip carries the job
+    // sheet gone, user is free; the tray carries the job (it polls it). The
+    // chip is not on screen: the sheet opened the document's own receipt
+    // screen, where the tray draws no chip (processingChipOutcome.test.tsx).
     await vi.waitFor(() => expect(document.body.querySelector('[data-testid="capture-sheet"]')).toBeNull());
-    await vi.waitFor(() =>
-      expect(document.body.textContent).toContain(strings.en.processingChip.replace('{n}', '1'))
-    );
     expect(documentService.getDocumentDetail).toHaveBeenCalledWith('doc-cam');
   });
 

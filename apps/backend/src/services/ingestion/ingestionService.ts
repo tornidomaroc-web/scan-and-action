@@ -1,7 +1,7 @@
 import { GeminiExtractionAdapter } from '../extraction/geminiAdapter';
 import { resolveModelForDocument } from '../extraction/modelArm';
 import { formatErrorForLog } from '../../redaction';
-import { PersistenceService } from './persistence';
+import { PersistenceService, MULTIPLE_DOCUMENTS_REASON } from './persistence';
 import { PrismaClient } from '@prisma/client';
 import { recheckAfterChange, vendorNamesOf } from '../duplicateGroupRecheck';
 
@@ -126,7 +126,7 @@ export class IngestionService {
       // reachable here — it is precisely the write that just threw — and this
       // function is about to resolve, so nothing else will move the row until
       // staleSweepService picks it up 15-20 minutes later. Same state, on time.
-      await this.persistenceService.markAsNeedsReview(documentId).catch(async err => {
+      await this.persistenceService.markAsNeedsReview(documentId, MULTIPLE_DOCUMENTS_REASON).catch(async err => {
         console.error(`[Background] Failed to mark ${documentId} as NEEDS_REVIEW:`, formatErrorForLog(err));
         // try/catch, not .catch(): this must swallow a SYNCHRONOUS throw from
         // the call as well as a rejected promise. Anything escaping this

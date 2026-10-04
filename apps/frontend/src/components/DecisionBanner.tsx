@@ -25,6 +25,9 @@ const REASON_LABEL_KEY: Record<string, string> = {
   // Rule E (ruleEngineService.ts, totalProvenance.ts): the model summed the
   // items because the page prints no total line.
   'Total not printed': 'reasonTotalNotPrinted',
+  // The single-document check refused the file (persistence.ts
+  // MULTIPLE_DOCUMENTS_REASON): no extraction ran, by design.
+  'Multiple documents': 'reasonMultipleDocuments',
 };
 
 export const translateDecisionReasons = (

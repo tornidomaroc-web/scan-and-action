@@ -1619,11 +1619,63 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
     refreshes without blanking (its own comment at the `refreshCount` effect).
     The screen that still blanks on `fetchData(true)` is `DashboardScreen.tsx`
     at `/overview`, which design step 6 redraws.
-  - **What only the phone can show:** the hand-off from the sheet to the
-    screen, the picture of a fresh upload arriving (a second request to
-    storage), and the poll against a real 8 to 16 s read.
-  - **EXPIRY:** the owner has scanned one receipt on the build and watched it
-    settle on the screen it opened.
+  - **JUDGED by the owner on build 15 (2026-10-04): the loop works end to
+    end.** One receipt (`scan-20261004-022706.jpg`): the screen opened on it,
+    "Reading your receipt…", then Berghotel, 54.50 CHF, Needs review from the
+    duplicate rule. The no-total page (`scan-20261004-023106.jpg`): Needs
+    review with the "No total line is printed…" sentence, 54.50 at the top.
+    Two pages of one receipt (`scan-20261004-023738.pdf`, 2.01 MB): "Pages
+    scanned: 2", one PDF, Berghotel, 54.50, Jul 30 2007 read across both
+    pages. **The several-pages-one-PDF path has run end to end.** Cancel and
+    Choose file: not done on the phone (rule 6 now applies; see below).
+  - **Three defects he saw, FIXED in the defects PR (2026-10-04), each cause
+    read from the code first, each shown before and after in the harness:**
+    1. **An empty grey box where the picture should be, for the whole read.**
+       Cause: `getSignedFileUrl.ts` signs a fresh ten-minute URL on every
+       detail read, and the reading state's 3 s poll handed each answer
+       straight to the screen, so `<img src>` changed every tick and the
+       `[signedFileUrl]` effect reset it to the skeleton; on a phone network
+       no load finished inside a tick. Fix: the poll keeps the first URL for
+       the same document (`DocumentDetailScreen.tsx`, the tick's `setDoc`).
+       Harness, image delayed 2.5 s like a phone: before, the card never
+       left the skeleton; after, loaded at 4 s and 7 s and settled, one URL.
+    2. **The tray chip across Approve / Reject, and over the reason field.**
+       Cause: geometry. The chip is `fixed bottom-24` (96 px) for a screen
+       with the tab bar; Detail has no tab bar and its bar is `fixed` at
+       `safe-area + 0.75rem`, 68 px tall, so with the iPhone's 34 px inset
+       the bar spans 46 to 114 px and the chip 96 to 140 px: 18 px over both
+       buttons' inner halves. Fix: the tray draws no chip on `/documents/`
+       routes (`ProcessingTray.tsx`); the screen carries the state itself,
+       the chip returns with the list. Harness with the inset pinned to 34
+       px: before, overlap 18 px measured; after, no chip, overlap 0.
+    3. **The PDF preview a zoomed fragment ("Walm", a blank strip).** Cause:
+       the card showed the PDF through WebKit's plugin in an `<iframe>`,
+       which draws at its own zoom and cannot be told to fit or read back.
+       Fix: pdf.js (`pdfjs-dist`, loaded on first use, worker as a bundled
+       asset) draws page 1 into a canvas at the card's width, cropped from
+       the top like a photo (`lib/pdfFirstPage.ts`,
+       `components/PdfPagePreview.tsx`); any failure falls back to the link
+       row the card had before. Harness: a two-page PDF built the plugin's
+       way drew page 1 at 358 x 478 CSS px, the receipt's head readable.
+    - **And the two-receipts-in-one-PDF outcome** (his first attempt at check
+      3): the refusal is right and stays; the message was wrong because the
+      refusal wrote a status and nothing else. `markAsNeedsReview` now takes
+      the reason (`MULTIPLE_DOCUMENTS_REASON`, written as the decision facts),
+      and Detail says "This file seems to hold more than one receipt or
+      invoice, so nothing was read from it. Scan one document at a time and
+      upload it again." (en/fr/ar). The emergency fallback with no reason is
+      unchanged and still reads "uncertain".
+    - Tests: `readingState.test.tsx` (the URL does not rotate),
+      `processingChipOutcome.test.tsx` (no chip on a receipt screen),
+      `pdfPreview.test.tsx` (drawn, held, fallen back),
+      `multipleDocumentsDetail.test.tsx`, `ingestionService.multiDocument
+      .test.ts`; four single-line mutants of the fixes each turned the
+      matching file red.
+  - **What the harness cannot show and the real-backend run does** (rule 6):
+    the hand-off from the sheet after a real upload, a real storage URL for
+    the picture, and the poll against a real read; see the defects PR for the
+    run against the Vercel preview with the review account.
+  - **EXPIRY MET 2026-10-04** by the owner's judgement above.
 - **What a finished upload shows.** The confirmation panel in `UploadModal.tsx`
   (Done / Manage Files) sits inside the `files.length > 0` block, and has been
   unreachable since #236. Redesign it or delete it.
@@ -1936,6 +1988,20 @@ This is also Apple 3.1.3(f)'s condition, word for word (APPLE TRACK), and
    fallback in place, and he judges it on the TestFlight build that follows.
    The fallback must keep the path that existed before working when the
    native piece fails or is missing, and a test must hold it.
+6. **The owner runs no manual tests on his phone** (the owner, 2026-10-04).
+   Functional testing is engineering's, by every free means: the unit suites;
+   the simulator job (`ios-audit.yml`, dispatched by hand when its path filter
+   skips a PR); the phone-viewport harness outside the repository
+   (`D:\RAGHAD JAD\sa-search-harness`, `detail.html`, the real `Layout` with
+   the service modules replaced; pictures with Playwright at 390 x 844); and
+   the real backend with the review account `22d51116`, signed in through an
+   admin magic link minted from `apps/backend` with the key dotenv loads,
+   with every document it creates rejected afterwards so the ledger is left
+   as it was. Each report says what was witnessed (picture, run id) and what
+   was not and why. Only an action that genuinely needs a camera on a real
+   iPhone is his, named, justified with evidence, and kept to the smallest
+   possible step. Rule 5 stands for judgement: he looks at what ships when he
+   chooses to; he is not a test script.
 
 The incidents behind each rule are in git, in the RECURRING FAILURE and recovery
 sections of the file at `9751e813`.

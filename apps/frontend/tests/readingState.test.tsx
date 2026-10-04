@@ -141,6 +141,23 @@ describe('a document being read', () => {
     expect(h.getDocumentDetail).toHaveBeenCalledTimes(3);
   });
 
+  it('the picture does not change hands: every read signs a new URL, the <img> keeps the first one, through settling', async () => {
+    // getSignedFileUrl.ts signs per request; on the phone this reset the
+    // picture to the skeleton every 3 s (build 15, defect 1).
+    let n = 0;
+    h.getDocumentDetail.mockImplementation(async () => (n++ < 2 ? { ...STUB, signedFileUrl: `${STUB.signedFileUrl}&n=${n}` } : { ...SETTLED, signedFileUrl: `${STUB.signedFileUrl}&n=${n}` }));
+    mount('en');
+    await settle();
+    const first = q('[data-detail-receipt] img')!.getAttribute('src')!;
+    expect(first).toContain('&n=1');
+    await tick(READING_POLL_MS + 5);
+    expect(q('[data-detail-receipt] img')!.getAttribute('src')).toBe(first);
+    await tick(READING_POLL_MS + 5);
+    expect(q('#detail-title')!.textContent).toBe('Corner Hardware');
+    expect(q('[data-detail-receipt] img')!.getAttribute('src')).toBe(first);
+    expect(n).toBe(3);
+  });
+
   it('a failed ask is not the document\'s failure: the screen stays, the next tick asks again', async () => {
     h.getDocumentDetail.mockResolvedValueOnce(STUB).mockRejectedValueOnce(new Error('offline')).mockResolvedValue(SETTLED);
     mount('en');

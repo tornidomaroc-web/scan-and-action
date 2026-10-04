@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Loader2, CheckCircle, AlertCircle, FileText, X, ChevronRight } from 'lucide-react';
 import { useProcessing, ProcessingJob } from '../contexts/ProcessingContext';
 import { useStrings } from '../i18n/useStrings';
@@ -28,11 +28,19 @@ export const ProcessingTray: React.FC = () => {
   const navigate = useNavigate();
   const { jobs, processingCount, clearSettled } = useProcessing();
   const [open, setOpen] = useState(false);
+  // On a pushed receipt screen the chip has no place: the shell draws no tab
+  // bar there (Layout.tsx), the screen's own fixed Approve / Reject bar takes
+  // the bottom, and on the owner's iPhone (build 15, 2026-10-04) the chip at
+  // `bottom-24` sat across both buttons: 34 px of safe area lifted the bar
+  // into the chip's 96 px, an 18 px overlap over the buttons' inner halves.
+  // The screen itself carries the state the chip would show (the reading
+  // state, one status), so nothing is lost; the chip returns with the list.
+  const onDetail = /^\/documents\//.test(useLocation().pathname);
 
   // Android back button closes the tray sheet before navigating (no-op on web).
   useBackDismiss(open, () => setOpen(false));
 
-  if (jobs.length === 0) return null;
+  if (jobs.length === 0 || onDetail) return null;
 
   // Once nothing is in flight the chip names the OUTCOME, not the end of the
   // wait: "Processing complete" above a document that needs review told the
