@@ -1716,6 +1716,76 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
   - How often a real receipt trips it is unmeasured. Recomputing `isWeak` over the
     historical corpus fails its own control, so measure only on rows the current
     code wrote.
+  - **MEASURED 2026-10-04 on production `2371c9bd`: 48 of 56 clean real
+    receipts landed in "Needs review" with no cause on the receipt (86%,
+    Wilson 95% 74% to 93%). Silent errors: 0 of the 7 that landed Processed
+    (95% upper bound 35%).**
+    - **Sample.** 11 distinct real receipts from the owner's own uploads (of
+      95 unique stored files; the rest were templates, stock mock-ups, AI
+      images, earlier sessions' fixtures and copies), and 45 of a seeded
+      random 140 drawn from Wikimedia Commons' receipt categories (3,532
+      photos free-licensed, taken 2010 or later), kept when whole, single and
+      legible. Licences: CC BY-SA 4.0 (36), CC BY-SA 3.0 (4), CC BY 4.0 (2),
+      CC0 (2), public domain (1). Regions follow Commons: mostly Dutch,
+      Taiwanese, Japanese, Polish; 9 English-language receipts in all.
+    - **Method.** Merchant, total and date labelled from each image and
+      written to disk before any upload. Uploaded one at a time through
+      `POST /api/documents/upload` as the owner (org `5ce3e185`), the same
+      endpoint Choose file uses; each settled before the next. Cause of each
+      status recomputed read-only from the stored text with the conditions of
+      `updateDocumentWithExtraction`; control: the recompute reproduced the
+      stored status on 56 of 56 rows.
+    - **Causes of the 49 rows in Needs review:** English anchor words below
+      two, on every non-English receipt (43; French, German, Italian,
+      Indonesian, Dutch, Polish, Japanese, Chinese); repeated "total",
+      "subtotal", "tax" read as several documents, on English receipts (3 of
+      9: Cabana, a US store, TK Maxx); the single-document check refusing a
+      file (2: a receipt with its card slip, justified; a Taiwanese
+      e-invoice with its sales detail, one transaction, not justified); a
+      printed total read as not printed (1, `總計:1`). Only the card-slip row
+      had a cause on the paper.
+    - **English receipts alone:** 6 of 9 Processed, 3 of 9 in review, all 3
+      from the repeated-marker heuristic. That is what an App Store reviewer
+      scanning a US receipt meets.
+    - **Rule decisions never move status.** `evaluateRulesAndSave` writes
+      the decision facts only; status comes from the gate alone. So a
+      receipt the duplicate rule flags, or Rule A sends to review, stays
+      "Processed" (5 rows here) while Detail shows "Needs your attention".
+    - **Reading quality, separately:** total exact on 53 of 54 extracted
+      rows; date exact on every scored row; merchant right except the
+      collapse below.
+    - **Cost:** 110 Gemini calls (56 single-document checks, 54
+      extractions, no retries), 158,500 input and 148,076 output tokens,
+      $1.57 at the paid tier's published $1.50 / $9.00 per million (AI
+      Studio usage, project `gen-lang-client-0493028299`, 3 Oct PT, before
+      and after). All 56 rows rejected; read-only: 56 REJECTED in
+      `5ce3e185`, none elsewhere, the org's 85 earlier documents unchanged.
+    - **EXPIRY:** the gate stops sending a well-read receipt to review for
+      its language or for repeating "total", measured the same way with the
+      false-review rate reported per language.
+- **Merchants written only in Chinese, Japanese or Arabic collapse into one
+  merchant per organisation. FOUND 2026-10-04 by the measurement above.**
+  - `canonicalizeEntityName` (`utils/canonicalName.ts`) keeps `[A-Z0-9\s]`
+    and deletes everything else, so a name with no Latin letter or digit
+    becomes `''`. `resolveOrGenerateEntity` (`entityResolution.ts`) then
+    finds the first entity of the org with `canonicalName: ''` and reuses it.
+  - Measured: 9 of 9 all-CJK merchants in the run (McDonald's Japan, Camel
+    Mart, 伊神切手社, 美麗華百樂園 and five more) were shown as
+    "新宇科技服務(股)公司", the first all-CJK merchant uploaded.
+  - **Production before the run: no entity had an empty key** (read-only:
+    152 entities, 1 empty, created by the run). The run left that entity
+    (`7fb4df45`, org `5ce3e185`, 10 rejected documents attached), so the
+    next all-CJK or all-Arabic merchant uploaded to that org will read as
+    "新宇科技服務(股)公司" until the code is fixed or the entity removed. For a
+    Moroccan user this is every receipt printed only in Arabic.
+  - The duplicate rule is safe from it: `checkDuplicate` returns false on an
+    empty key.
+  - **EXPIRY:** an all-Arabic and an all-CJK merchant each resolve to their
+    own entity, held by a test that fails on today's code.
+- **Smaller readings from the same run:** a "$" on a Taiwanese receipt was
+  stored as USD (medFirst, TWD 5,041), and "NTD" and "Rp" as no currency;
+  Rule A (`amount > 500`) and Rule B (food over 50) fire on yen, NT dollars,
+  rupiah and rupees by their face value.
 - **A total the page never printed is stored as if it had been. RULED
   2026-10-04: it must say "Needs review", with the figure kept as a draft.**
   Found on the owner's iPhone test of build 13: a page with no Total line came
