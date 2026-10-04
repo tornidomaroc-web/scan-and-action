@@ -294,14 +294,19 @@ jobs:
           print(f"{head}.{body}.{sig}")
           PY
           ) || { echo "::warning::could not mint an App Store Connect token; the sweep is skipped"; exit 0; }
-          api() { curl -sS -o "$RUNNER_TEMP/asc-body.json" -w '%{http_code}' -X "$1" -H "Authorization: Bearer $token" "https://api.appstoreconnect.apple.com$2"; }
-          code=$(api GET '/v1/certificates?limit=200&fields[certificates]=certificateType,displayName,expirationDate')
+          # -g: curl reads the brackets of fields[certificates] as a glob range and
+          # refuses the URL ("bad range", exit 3) without it. A curl that fails
+          # outright reports 000 instead of ending the step under bash -e.
+          api() { curl -g -sS -o "$RUNNER_TEMP/asc-body.json" -w '%{http_code}' -X "$1" -H "Authorization: Bearer $token" "https://api.appstoreconnect.apple.com$2"; }
+          code=$(api GET '/v1/certificates?limit=200&fields[certificates]=certificateType,displayName,expirationDate') || code=000
           [ "$code" = 200 ] || { echo "::warning::GET /v1/certificates returned $code; the sweep is skipped"; exit 0; }
-          python3 - < "$RUNNER_TEMP/asc-body.json" > "$RUNNER_TEMP/stale-certs.txt" <<'PY'
+          # The body is passed by path: the heredoc is python's stdin, and a second
+          # stdin redirect on the same command is silently replaced by it.
+          python3 - "$RUNNER_TEMP/asc-body.json" > "$RUNNER_TEMP/stale-certs.txt" <<'PY' || { echo "::warning::could not read the certificate list; the sweep is skipped"; rm -f "$RUNNER_TEMP/asc-body.json"; exit 0; }
           import datetime as dt, json, sys
           now = dt.datetime.now(dt.timezone.utc)
           total = stale = young = 0
-          for cert in json.load(sys.stdin)["data"]:
+          for cert in json.load(open(sys.argv[1]))["data"]:
               a = cert["attributes"]
               total += 1
               if a["certificateType"] != "DEVELOPMENT" or a["displayName"] != "Created via API":
@@ -317,7 +322,7 @@ jobs:
           revoked=0
           while read -r id; do
             [ -n "$id" ] || continue
-            code=$(api DELETE "/v1/certificates/$id")
+            code=$(api DELETE "/v1/certificates/$id") || code=000
             if [ "$code" = 204 ]; then revoked=$((revoked + 1)); else echo "::warning::DELETE /v1/certificates/$id returned $code"; fi
           done < "$RUNNER_TEMP/stale-certs.txt"
           echo "stale API-made Development certificates revoked: $revoked"

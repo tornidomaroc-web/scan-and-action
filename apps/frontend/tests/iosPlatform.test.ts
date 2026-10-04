@@ -418,6 +418,14 @@ describe('1. the Admin key is never on a runner that has run npm', () => {
     expect(run.match(/https?:\/\/[^"' $]+/g)).toEqual(['https://api.appstoreconnect.apple.com']);
     expect(run.match(/api (GET|DELETE) ['"]?\/v1\/certificates/g)).toEqual(["api GET '/v1/certificates", 'api DELETE "/v1/certificates']);
     expect(run).not.toMatch(/api (POST|PATCH|PUT)/);
+    // two ways the first version (692bef74) ended the step under bash -e before
+    // the archive: curl globs fields[certificates] without -g ("bad range",
+    // exit 3), and a file redirect on the same line as the heredoc is replaced
+    // by it, so the filter parsed an empty stdin
+    expect(run).toContain('api() { curl -g -sS ');
+    expect(run).not.toMatch(/< "[^"\n]*"[^\n]*<<'PY'/);
+    expect(run).toContain('json.load(open(sys.argv[1]))');
+    expect(run.match(/\$\(api (GET|DELETE) [^\n]*\) \|\| code=000\n/g)).toHaveLength(2);
     // what it deletes: DEVELOPMENT, named "Created via API", older than six hours
     expect(run).toContain('a["certificateType"] != "DEVELOPMENT" or a["displayName"] != "Created via API"');
     expect(run).toContain('dt.timedelta(hours=6)');
