@@ -8,6 +8,13 @@ import { formatErrorForLog } from '../../redaction';
 
 const CONFIDENCE_THRESHOLD = 0.98; // Anything below this requires human review
 
+/**
+ * The reason written when the single-document check refuses a file. Same
+ * finite vocabulary as the rule engine's reasons; the client maps it to a
+ * sentence (DecisionBanner.REASON_LABEL_KEY).
+ */
+export const MULTIPLE_DOCUMENTS_REASON = 'Multiple documents';
+
 export class PersistenceService {
   private prisma: PrismaClient;
   private entityResolver: EntityResolutionService;
@@ -534,7 +541,7 @@ export class PersistenceService {
    * Emergency fallback to force a document out of PROCESSING state.
    * Used when the main transaction fails due to data constraints or DB hiccups.
    */
-  public async markAsNeedsReview(documentId: string): Promise<void> {
+  public async markAsNeedsReview(documentId: string, reason?: string): Promise<void> {
     console.warn(`[Persistence] Emergency fallback: Marking document ${documentId} as NEEDS_REVIEW.`);
     await this.prisma.document.update({
       where: { id: documentId },
@@ -543,6 +550,22 @@ export class PersistenceService {
         processedAt: new Date()
       }
     });
+    // WHY, when the caller knows. The multi-document refusal used to leave
+    // the stub with a status and nothing else, so the receipt screen could
+    // only say "The reading was uncertain" (the owner's iPhone, build 15,
+    // two receipts in one PDF). With a reason the screen says what happened
+    // and what to do, through the same decision facts the rule engine
+    // writes and the same translation table the client already has. The
+    // emergency fallback (no reason) is unchanged.
+    if (reason) {
+      await this.prisma.documentFact.deleteMany({ where: { documentId, key: { in: ['decision', 'decision_reason'] } } });
+      await this.prisma.documentFact.create({
+        data: { documentId, factType: 'RULE_RESULT', key: 'decision', valueString: 'NEEDS_REVIEW', confidence: 1.0, sourceSpan: 'ingestion', isReviewed: false }
+      });
+      await this.prisma.documentFact.create({
+        data: { documentId, factType: 'RULE_RESULT', key: 'decision_reason', valueString: reason, confidence: 1.0, sourceSpan: 'ingestion', isReviewed: false }
+      });
+    }
   }
 
   /**
