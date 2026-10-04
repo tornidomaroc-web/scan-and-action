@@ -1,5 +1,6 @@
 import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { Camera, FileText, FolderOpen, Loader2, ScanLine, X } from 'lucide-react';
 import { uploadDocument } from '../services/uploadService';
 import { preprocessImage } from '../lib/imagePreprocess';
@@ -46,6 +47,7 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
   const useScanner = hasScannerPlatform() && !scannerOff;
   const { trackUpload } = useProcessing();
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   useImperativeHandle(ref, () => ({
     open: () => setChooserOpen(true),
@@ -134,12 +136,17 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
     try {
       const processed = await preprocessImage(file);
       const result = await uploadDocument(processed);
-      if (result?.documentId) {
-        // Hand off to the app-level tray and free the user immediately.
-        trackUpload(result.documentId, file.name);
-      }
       showToast(s.uploadedProcessing, 'success');
       close();
+      if (result?.documentId) {
+        // The tray follows the read wherever the person goes next, and the
+        // receipt screen shows the document at once, with its picture, while
+        // it is being read (the reading state, design step 3). The toast and
+        // the tray are unchanged, so a read that outlives the screen still
+        // reports where it always did.
+        trackUpload(result.documentId, file.name);
+        navigate(`/documents/${result.documentId}`);
+      }
     } catch (err: any) {
       // Raw API code; it becomes words only via translateUploadError (which never
       // renders the backend `message` field — see that module's header).

@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { matchesAnyKeyword } from '../utils/textMatch';
 import { canonicalizeEntityName } from '../utils/canonicalName';
 import { CopySelf, findOriginal } from './duplicateRule';
+import { isInferredTotal, TOTAL_NOT_PRINTED_REASON } from './totalProvenance';
 
 export interface RuleResult {
   decision: 'APPROVED' | 'NEEDS_REVIEW' | 'FLAGGED';
@@ -80,6 +81,25 @@ export class RuleEngineService {
     if (amount === null) {
       setDecision('NEEDS_REVIEW');
       reasons.push('Missing amount');
+    }
+
+    // Rule E: the total was not printed on the page -> NEEDS_REVIEW
+    //
+    // The extraction says so on the TOTAL_AMOUNT fact itself (totalProvenance.ts:
+    // sourceSpan 'Inferred Total', written when the model summed the items
+    // because the page prints no total line). The figure is a draft until the
+    // person has looked at it. The rule stands down once they have: a typed
+    // correction (manual_amount, which resolveAmount already prefers) or a
+    // "keep this amount" (review_action marked_valid) ends it, so a document
+    // the owner has settled is not sent back to review by its own re-evaluation.
+    // On both the ingestion and the re-evaluation path the facts carry their
+    // sourceSpan: the adapter's raw facts do, and so do the stored rows.
+    const manualAmount = facts.find(f => f.key === 'manual_amount')?.valueNumber;
+    const totalFact = facts.find(f => f.key === 'TOTAL_AMOUNT');
+    const keptByOwner = facts.some(f => f.key === 'review_action' && f.valueString === 'marked_valid');
+    if (manualAmount == null && isInferredTotal(totalFact) && !keptByOwner) {
+      setDecision('NEEDS_REVIEW');
+      reasons.push(TOTAL_NOT_PRINTED_REASON);
     }
 
     // Rule D: duplicate merchant + amount -> FLAGGED

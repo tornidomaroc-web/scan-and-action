@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { formatErrorForLog } from '../../redaction';
 import { pinnedModelId } from './modelArm';
 import { isIsoCurrency } from '../ledger/ledgerCore';
+import { INFERRED_TOTAL_CONFIDENCE, INFERRED_TOTAL_SPAN, PRINTED_TOTAL_SPAN } from '../totalProvenance';
 
 /**
  * Sentinel for "the response carried no usable resolved version".
@@ -245,7 +246,8 @@ export class GeminiExtractionAdapter {
 
         ### EXTRACTION PRIORITIES:
         1. MERCHANT: The legal name of the issuer. Avoid "Visa", "Mastercard", or "Stripe".
-        2. FINAL TOTAL: The actual amount paid/due. Mandatory.
+        2. FINAL TOTAL: The actual amount paid/due. Mandatory. If the document prints no total line, give the sum of the items as totalAmount and set totalPrinted to false.
+           - totalPrinted: true ONLY when a line such as Total, Amount due, Net to pay or Grand total (in any language) is printed on the document with this exact figure. false when you computed or estimated it.
         3. DATE (ABSOLUTE PRIORITY): Find the document date. Search everywhere (headers, footers, tiny print). 
            - Search for patterns like: DD/MM/YYYY, MM-DD-YY, YYYY.MM.DD, or "Mar 23, 2024".
            - Normalize to YYYY-MM-DD.
@@ -261,6 +263,7 @@ export class GeminiExtractionAdapter {
           "language": "string (ISO)",
           "date": "string (YYYY-MM-DD or UNKNOWN)",
           "totalAmount": number,
+          "totalPrinted": boolean,
           "taxAmount": number,
           "currency": "string (3-letter or symbol)",
           "merchantName": "string",
@@ -302,8 +305,13 @@ export class GeminiExtractionAdapter {
         dateScore = finalDate === 'UNKNOWN' ? 0.3 : 0.99;
       }
 
+      // Was the total PRINTED on the page, or worked out from the items? Only
+      // an explicit `false` counts as inferred: a model that omits the field
+      // (an older prompt, a partial answer) is read as today's behaviour, a
+      // printed total at 0.99. See services/totalProvenance.ts.
+      const totalPrinted = rawJson.totalPrinted !== false;
       if (rawJson.totalAmount !== null && rawJson.totalAmount !== undefined) {
-        amountScore = 0.99;
+        amountScore = totalPrinted ? 0.99 : INFERRED_TOTAL_CONFIDENCE;
       }
 
       const completenessScore = (dateScore + amountScore) / 2;
@@ -323,7 +331,7 @@ export class GeminiExtractionAdapter {
       // bugs are diagnosed from. They are the only extracted values that survive.
       console.log(
         `[Gemini] Extraction complete: type=${(rawJson.documentType || 'Other').toUpperCase()} ` +
-          `hasMerchant=${!!rawJson.merchantName} hasTotal=${rawJson.totalAmount !== null && rawJson.totalAmount !== undefined} ` +
+          `hasMerchant=${!!rawJson.merchantName} hasTotal=${rawJson.totalAmount !== null && rawJson.totalAmount !== undefined} totalPrinted=${totalPrinted} ` +
           `hasDate=${finalDate !== 'UNKNOWN'} currency=${finalCurrency} completeness=${completenessScore.toFixed(2)}`
       );
 
@@ -355,8 +363,11 @@ export class GeminiExtractionAdapter {
           // string, and a null there would throw and discard the whole
           // extraction through the catch.
           currency: finalCurrency ?? undefined,
-          sourceSpan: 'Primary Total',
-          confidence: 0.99
+          // The provenance rides on the fact (totalProvenance.ts): an inferred
+          // total sits below persistence's threshold, so the document goes to
+          // review, and its span is what the rule engine names as the reason.
+          sourceSpan: totalPrinted ? PRINTED_TOTAL_SPAN : INFERRED_TOTAL_SPAN,
+          confidence: totalPrinted ? 0.99 : INFERRED_TOTAL_CONFIDENCE
         });
       }
 
