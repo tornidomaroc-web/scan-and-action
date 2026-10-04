@@ -1087,6 +1087,23 @@ restyled.** Do not start at login, although a reviewer sees it first:
       two pages (the PDF, and whether the total is read); cancel; Choose file
       still working. **EXPIRY:** he has judged it, and the multi-page
       extraction is a measured number.
+    - **Judged on build 1.0.0 (13), 2026-09-30 to 10-01 (run 36789875056,
+      attempt 2, `5cee03c5`); the owner moved on 2026-10-04 and ruled that
+      nothing below blocks other work.** One receipt: PASSED, witnessed. Two
+      pages: reported fine by the owner, NOT witnessed (no screenshot of
+      "Pages scanned: 2"). Cancel and Choose file: NOT DONE.
+      **The database does not hold a multi-page scan.** Every upload whose
+      name the scanner writes (`scan-<stamp>.jpg|pdf`,
+      `src/native/documentScanner.ts`) is one of two, both `.jpg`, both in the
+      owner's organisation `5ce3e185`, at 2026-09-30T23:43:45Z and 23:53:33Z;
+      a scanner-named `.pdf` has never been uploaded (control: 393 documents
+      in all, 5 of them PDFs from the file picker). A two-page scan makes a
+      PDF by construction (`DocumentScannerPlugin.swift`, `pageCount == 1`
+      is the only JPEG branch), so whatever "two pages" was, it did not reach
+      the backend as one document. Instrument: from `apps/backend`, inside
+      `SET TRANSACTION READ ONLY`, count `Document` rows whose
+      `originalFileName ~ '^scan-[0-9]'`, by extension. The EXPIRY above is
+      not met: the several-pages-one-PDF path has never run end to end.
   - **The result screen (Detail): REDRAWN FROM ZERO in the detail PR
     (opened 2026-09-25); open until the owner has judged it on his iPhone.**
     The owner rejected the previous one on 2026-09-25 (see "The owner's
@@ -1592,6 +1609,47 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
   - How often a real receipt trips it is unmeasured. Recomputing `isWeak` over the
     historical corpus fails its own control, so measure only on rows the current
     code wrote.
+- **A total the page never printed is stored as if it had been. RULED
+  2026-10-04: it must say "Needs review", with the figure kept as a draft.**
+  Found on the owner's iPhone test of build 13: a page with no Total line came
+  back as 54.50, the sum of its items.
+  - **Why the code cannot tell.** The prompt calls the total mandatory
+    (`2. FINAL TOTAL: The actual amount paid/due. Mandatory.` in
+    `geminiAdapter.ts`), and its schema has no field saying whether the figure
+    was printed or worked out. Every total is then written with confidence
+    0.99 and `sourceSpan: 'Primary Total'`. The two rows of that test
+    (2026-09-30T23:43:45Z and 23:53:33Z, organisation `5ce3e185`) hold
+    exactly that: `TOTAL_AMOUNT` 54.5, confidence 0.99, "Primary Total",
+    byte-identical to a printed total.
+  - **Why nothing catches it.** `isWeak` in `persistence.ts` and Rule C in
+    `ruleEngineService.ts` react to a MISSING amount only, and nothing reads
+    how a total was obtained. Those two rows say "Needs review" for an
+    unrelated reason: `decision_reason` is "Possible duplicate expense"
+    (Rule D) on both. Uploaded once, the page reaches review only if some
+    other check happens to fire.
+  - **Why it matters here more than in general.** The ledger counts
+    `TOTAL_AMOUNT` as money, and Home leads with that figure. A sum of items
+    leaves out tax, service, discounts and tip. On page one of a long receipt
+    it also leaves out every item on the pages after it: the multi-page
+    ruling exists because "a long receipt carries its total on the last
+    page". A page with no Total line is most often exactly that page.
+  - **The change, not built yet:** the schema gains `totalPrinted` (true only
+    when a total is printed on the page); when it is false, the adapter
+    writes the total below `CONFIDENCE_THRESHOLD` and a fact says so, the
+    rule engine sends the document to review with its own reason, and Detail
+    says it in a sentence (en/fr/ar), e.g. "No total is printed on this
+    receipt. This amount adds up its items: check it." The figure is kept as
+    a draft; the prompt is not changed to refuse a sum. No ledger rule
+    changes: `COUNTED_STATUSES` in `ledgerCore.ts` counts NEEDS_REVIEW too,
+    so the figure stays in the ledger; what changes is that it waits in the
+    Queue with a reason the owner can read, and an edit there is what the
+    ledger then counts.
+  - **Its control, both ways, before merge:** a receipt with a printed total
+    must read `totalPrinted: true` and stay COMPLETED. The no-total page must
+    read false and go to review. The model's honesty about the flag is the
+    unmeasured part, so measure it on his real receipts.
+  - **EXPIRY:** a total the page does not print is never COMPLETED: it
+    always arrives in the Queue saying it was added up.
 - **Ingestion durations: the wait the reading state is designed around.**
   - The 2026-09-23 paced run took 8.4 s, then 9.9–16.3 s.
   - Every line of `processUploadAsync` in `ingestionService.ts` is a marker with
