@@ -18,6 +18,8 @@ import { isRequestTimeout } from '../lib/fetchWithTimeout';
 import { visibleDetailFacts, detailFactLabel } from '../lib/detailFacts';
 import { getDocumentCategory } from '../lib/documentCategory';
 import { documentCurrency, ledgerAmount } from '../lib/ledgerAmount';
+import { canInlinePdf, isPdfFileName, pdfPreviewSrc } from '../lib/pdfPreview';
+import { useProcessingOptional } from '../contexts/ProcessingContext';
 import { Lang, figureSizeClass, fullDayLabel, moneyParts } from '../lib/ledgerView';
 import {
   isSourceFileUnavailable,
@@ -54,7 +56,20 @@ import {
 // the lockout handling and the image fallback are the same code paths as
 // before; tests pin each. No amount is added or converted here: the figure is
 // one document's own, read by the ledger's rule.
+//
+// THE READING STATE (design step 3, 2026-10-04). While the server says
+// PROCESSING, for a fresh upload or a retry alike, the screen shows the document
+// at once, with its picture, and asks again every few seconds without the
+// skeleton until the read settles into one of the states above. The same
+// cadence as the tray's poll; the two run side by side for the seconds a read
+// takes. After READING_SLOW_MS the note says so and names where the result
+// will show; after READING_MAX_MS the screen stops asking (a row stuck in
+// PROCESSING is the stale sweep's to settle, not this screen's to poll forever).
 // ============================================================================
+export const READING_POLL_MS = 3_000;
+export const READING_SLOW_MS = 90_000;
+export const READING_MAX_MS = 5 * 60_000;
+
 export const DocumentDetailScreen = () => {
   const s = useStrings();
   const { language } = useLanguage();
@@ -84,6 +99,10 @@ export const DocumentDetailScreen = () => {
   // (an expired signed URL, a dropped connection) the frame says so and
   // offers the original, instead of an empty box where a picture should be.
   const [imageState, setImageState] = useState<'loading' | 'loaded' | 'failed'>('loading');
+  // The reading note switches to "longer than usual" after READING_SLOW_MS.
+  const [readingSlow, setReadingSlow] = useState(false);
+  // The tray, when this screen is inside the shell; null in a bare render.
+  const processing = useProcessingOptional();
 
   // Same review actions as the queue, surfaced here so a mobile user who
   // tapped through to the detail can resolve the document in place.
@@ -130,7 +149,13 @@ export const DocumentDetailScreen = () => {
     try {
       await documentService.reextract(documentId!);
       showToast(s.reextractStarted, 'info');
-      handleRefresh();
+      // The server has moved the row to PROCESSING (documentController
+      // reextractDocument). Say so here at once, which puts the screen into
+      // the reading state and starts its poll, and tell the tray, which until
+      // now learnt of uploads only (CaptureSheet, UploadModal) and went quiet
+      // on a retry.
+      processing?.trackUpload(documentId!, doc?.originalFileName ?? '');
+      setDoc((prev: any) => (prev ? { ...prev, status: 'PROCESSING' } : prev));
     } catch (error) {
       console.error('[DocumentDetail] Re-extraction failed:', error);
       // By EXACT code, never by status (lib/reextractErrors.ts). The two 409s
@@ -210,6 +235,33 @@ export const DocumentDetailScreen = () => {
     handleRefresh();
   }, [documentId]);
 
+  // The reading state's poll: silent (no skeleton, the picture stays), every
+  // READING_POLL_MS while the row is PROCESSING, for at most READING_MAX_MS.
+  // A failed ask is not the document's failure; the next tick asks again.
+  const reading = doc?.status === 'PROCESSING';
+  useEffect(() => {
+    if (!reading) {
+      setReadingSlow(false);
+      return;
+    }
+    const startedAt = Date.now();
+    const tick = async () => {
+      try {
+        const next = await documentService.getDocumentDetail(documentId!);
+        if (next) setDoc(next);
+      } catch {
+        /* asked again on the next tick */
+      }
+      if (Date.now() - startedAt > READING_SLOW_MS) setReadingSlow(true);
+    };
+    const timer = setInterval(tick, READING_POLL_MS);
+    const stop = setTimeout(() => clearInterval(timer), READING_MAX_MS);
+    return () => {
+      clearInterval(timer);
+      clearTimeout(stop);
+    };
+  }, [reading, documentId]);
+
   // Each read signs a fresh URL, so a new URL is a new image to load. Without
   // this, the state of the LAST image survives a move to another document:
   // a failure on one receipt would hide the next one's picture behind
@@ -261,6 +313,9 @@ export const DocumentDetailScreen = () => {
   if (!doc) return <div className="mx-auto w-full max-w-xl py-12"><ErrorState title={s.errorTitle} message={s.docNotFound} /></div>;
 
   const isImageFile = typeof doc.signedFileUrl === 'string' && /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.originalFileName || '');
+  // A scanned PDF (several pages become one, DocumentScannerPlugin.swift) gets
+  // a picture too, where the browser can draw one (lib/pdfPreview.ts).
+  const isPdfInline = typeof doc.signedFileUrl === 'string' && isPdfFileName(doc.originalFileName) && canInlinePdf();
 
   const decisionFact = doc.facts?.find((f: any) => f.key === 'decision');
   const reasonFact = doc.facts?.find((f: any) => f.key === 'decision_reason');
@@ -300,7 +355,9 @@ export const DocumentDetailScreen = () => {
   const dateText = printed
     ? fullDayLabel(printed, lang)
     : doc.uploadedAt ? s.ledgerNoDate.replace('{day}', fullDayLabel(doc.uploadedAt, lang, 'local')) : null;
-  const metaLine = [category ? (s as any)[`cat${category}`] : null, typeLabel, dateText].filter(Boolean);
+  // While reading, nothing has been read yet: the stub's type is UNKNOWN and its
+  // only date is the upload's, so the line stays empty rather than saying so.
+  const metaLine = reading ? [] : [category ? (s as any)[`cat${category}`] : null, typeLabel, dateText].filter(Boolean);
 
   // What needs the person, as sentences. Each rule-engine reason is one
   // sentence in the reader's language (the raw English enum never renders).
@@ -318,7 +375,8 @@ export const DocumentDetailScreen = () => {
   // that already worked.
   const canRetry = doc.status === 'FAILED' || (doc.status === 'NEEDS_REVIEW' && doc.reextractable === true);
   const showFix = !!decision && decision !== 'APPROVED';
-  const showIssues = issues.length > 0 || showFix || canRetry;
+  // Nothing needs the person while the document is still being read.
+  const showIssues = !reading && (issues.length > 0 || showFix || canRetry);
 
   return (
     // pb-28 under Layout's own bottom padding: the fixed Approve / Reject bar
@@ -335,15 +393,16 @@ export const DocumentDetailScreen = () => {
       </button>
 
       {/* ── Who, how much, when, one status ── */}
-      <section className={`mt-4 p-4 ${panelClass}`} data-detail-header aria-labelledby="detail-title">
+      <section className={`mt-4 p-4 ${panelClass}`} data-detail-header data-detail-reading={reading || undefined} aria-labelledby="detail-title" aria-busy={reading || undefined}>
         <div className="flex items-start gap-3">
           <DocumentIcon doc={doc} />
           <div className="min-w-0 flex-1">
             {/* A merchant name is natural language of unknown direction, kept
                 whole: it wraps, it is never cut. dir="auto" on the element
-                itself, with no isolate child to swallow it. */}
+                itself, with no isolate child to swallow it. While reading, the
+                title says what the screen is doing instead of "Unknown vendor". */}
             <h1 id="detail-title" dir="auto" className="break-words text-title-lg font-semibold tracking-tight text-ink">
-              {merchant ?? <span className="text-ink-muted">{s.ledgerUnknownVendor}</span>}
+              {reading ? s.detailReadingTitle : merchant ?? <span className="text-ink-muted">{s.ledgerUnknownVendor}</span>}
             </h1>
             {metaLine.length > 0 && (
               <p className="mt-0.5 text-xs font-medium text-ink-muted" data-detail-meta>
@@ -358,7 +417,10 @@ export const DocumentDetailScreen = () => {
           </div>
         </div>
         <div className="mt-4 flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
-          {money && amount ? (
+          {reading ? (
+            // The figure's place, held: the same shape the amount will take.
+            <div className="h-9 w-40 rounded-pill skeleton" data-detail-reading-amount aria-hidden="true" />
+          ) : money && amount ? (
             <div className="flex flex-wrap items-baseline gap-x-2" aria-label={`${money.number} ${money.name ?? money.code ?? s.ledgerNoCurrency}`}>
               <bdi dir="ltr" data-detail-amount className={`${figureSizeClass(money.number)} font-extrabold leading-none tracking-tight tabular-nums text-ink`}>
                 {money.number}
@@ -377,6 +439,11 @@ export const DocumentDetailScreen = () => {
             </CountChip>
           )}
         </div>
+        {reading && (
+          <p className="mt-3 text-sm leading-relaxed text-ink-secondary" data-detail-reading-note={readingSlow ? 'slow' : 'reading'}>
+            <bdi dir="auto">{readingSlow ? s.detailReadingSlow : s.detailReadingBody}</bdi>
+          </p>
+        )}
         {/* RE-PROCESSED NOTICE. A document recovered by the re-extraction
             endpoint gains its amounts, and they enter the totals the moment
             they land; a money figure that moves unexplained reads as a bug.
@@ -453,6 +520,30 @@ export const DocumentDetailScreen = () => {
                 <ArrowUpRight size={16} className="flex-none text-ink-muted" aria-hidden="true" />
               </span>
             </a>
+          ) : isPdfInline ? (
+            // The browser's own PDF viewer draws the first page into the same
+            // card the photo gets. The frame takes no taps (pointer-events-none)
+            // so the whole card stays the one tap target that opens the
+            // original, as for a photo.
+            <a href={doc.signedFileUrl} target="_blank" rel="noreferrer" className="block" aria-label={s.openOriginalSource}>
+              <div className="relative h-44 bg-surface-muted" data-detail-pdf>
+                <iframe
+                  src={pdfPreviewSrc(doc.signedFileUrl)}
+                  title={doc.originalFileName || s.sourceVisualization}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  scrolling="no"
+                  className="pointer-events-none h-full w-full border-0"
+                />
+              </div>
+              <span className="flex items-center justify-between gap-3 border-t border-divider px-4 py-2.5 text-xs font-semibold text-ink">
+                <span className="flex min-w-0 items-center gap-2">
+                  <IconTile icon={FileText} size="sm" />
+                  <span className="truncate">{s.openOriginalSource}</span>
+                </span>
+                <ArrowUpRight size={16} className="flex-none text-ink-muted" aria-hidden="true" />
+              </span>
+            </a>
           ) : (
             <div className="flex items-center gap-3 p-4">
               <IconTile icon={FileText} />
@@ -474,8 +565,8 @@ export const DocumentDetailScreen = () => {
         </section>
       )}
 
-      {/* ── The facts, as rows ── */}
-      <section className={`mt-4 ${panelClass}`} data-detail-facts>
+      {/* ── The facts, as rows (none while the document is being read) ── */}
+      {!reading && <section className={`mt-4 ${panelClass}`} data-detail-facts>
         <ul className="divide-y divide-divider">
           {rowFacts.map((fact: any, i: number) => (
             <li key={i} className="flex items-baseline justify-between gap-3 px-4 py-3">
@@ -500,7 +591,7 @@ export const DocumentDetailScreen = () => {
             </li>
           )}
         </ul>
-      </section>
+      </section>}
 
       {/* Approve / Reject, FIXED to the viewport while the document waits.
           Not `sticky`: Layout's <main> is `overflow-y-auto`, which makes it a

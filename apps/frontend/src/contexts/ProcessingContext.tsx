@@ -198,3 +198,8 @@ export const useProcessing = () => {
   if (!ctx) throw new Error('useProcessing must be used within ProcessingProvider');
   return ctx;
 };
+
+// For a screen that works with or without the tray. Detail uses it to hand a
+// retry to the tray when there is one (inside Layout) and to carry on alone
+// when there is not (its tests, a render outside the shell).
+export const useProcessingOptional = (): ProcessingContextType | null => useContext(ProcessingContext) ?? null;

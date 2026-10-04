@@ -34,18 +34,33 @@ export const ProcessingTray: React.FC = () => {
 
   if (jobs.length === 0) return null;
 
+  // Once nothing is in flight the chip names the OUTCOME, not the end of the
+  // wait: "Processing complete" above a document that needs review told the
+  // person the opposite of what the row inside says (board, Step 3). A failure
+  // outranks a review, which outranks a clean finish.
+  const outcome = jobs.some((j) => j.status === 'FAILED') ? 'failed'
+    : jobs.some((j) => j.status === 'NEEDS_REVIEW') ? 'review'
+    : 'done';
   const chipLabel =
-    processingCount > 0 ? s.processingChip.replace('{n}', formatCount(processingCount, language)) : s.processingDone;
+    processingCount > 0 ? s.processingChip.replace('{n}', formatCount(processingCount, language))
+    : outcome === 'failed' ? s.processingFailedChip
+    : outcome === 'review' ? s.processingNeedsReviewChip
+    : s.processingDone;
 
   return (
     <>
       <button
         onClick={() => setOpen(true)}
         data-testid="processing-chip"
+        data-processing-outcome={processingCount > 0 ? 'processing' : outcome}
         className="fixed bottom-24 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:bottom-8 md:translate-x-0 z-[70] min-h-[44px] flex items-center gap-2 px-5 py-2.5 rounded-full bg-slate-900 dark:bg-slate-800 text-white text-xs font-black uppercase tracking-wider shadow-2xl shadow-slate-900/30 border border-slate-700 transition-all active:scale-95"
       >
         {processingCount > 0 ? (
           <Loader2 size={16} className="animate-spin text-blue-400" />
+        ) : outcome === 'failed' ? (
+          <AlertCircle size={16} className="text-red-400" />
+        ) : outcome === 'review' ? (
+          <AlertCircle size={16} className="text-amber-400" />
         ) : (
           <CheckCircle size={16} className="text-emerald-400" />
         )}

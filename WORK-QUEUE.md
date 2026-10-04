@@ -474,7 +474,12 @@ a store screenshot.**
     run's signing job listed. The signing job's resolve step carries
     `-onlyUsePackageVersionsFromResolvedFile` and a `cmp` proving the file
     left the step unchanged; `ios-audit.yml` runs the same strict resolution
-    on a pull request before its build. **When a plugin change moves the
+    on a pull request before its build. **Its `paths` are the iOS project,
+    `capacitor.config.ts`, `patches/`, `package.json` and the lock file only
+    (read 2026-10-04): a pull request that changes web code alone runs no
+    simulator smoke test, and nothing on the PR says so. Dispatch it by hand
+    on such a branch: `gh workflow run ios-audit.yml --ref <branch>`, then
+    `gh run list --workflow=ios-audit.yml --branch <branch>`.** **When a plugin change moves the
     package graph,** the audit fails, resolves again without the flag and
     prints the new file in its log: commit that. An upstream release can no
     longer move the build without a commit here.
@@ -1091,9 +1096,16 @@ restyled.** Do not start at login, although a reviewer sees it first:
       note says to scan one receipt or invoice at a time. Dext's "Multiple"
       mode (several receipts, one upload each) is not built: a burst of
       uploads is what met the quota on 2026-09-08 and 09.
-    - **A PDF has no picture on the result screen.** `DocumentDetailScreen.tsx`
-      draws the receipt card for image file names only; a scanned PDF gets
-      the link. That belongs to the reading-state PR.
+    - **A PDF has no picture on the result screen: FIXED where the browser
+      can draw one (the reading-state PR, 2026-10-04).** `lib/pdfPreview.ts`:
+      on an iPhone (WKWebView draws PDFs natively) and wherever
+      `navigator.pdfViewerEnabled` is true, the first page sits in the same
+      card a photo gets, in a frame that takes no taps so the card still
+      opens the original; on Android and anywhere unknown the link row stays
+      as it was. Held by `pdfPreview.test.tsx`. The frame on a real iPhone,
+      with a real Supabase signed URL, is unwitnessed until the owner scans
+      two pages on the build; a frame that shows nothing there means the
+      storage response, not the code path, and the link below it still works.
     - **Guards added with it.** The purpose-string and privacy-manifest
       audits now read the app target's own Swift, and fail on an `Info.plist`
       without the camera string (`iosPlatform.test.ts`). A private-API scan
@@ -1579,19 +1591,39 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
 
 **Step 3: the loop**
 
-- **The reading state.** Today three things go wrong:
-  - After a retry, the detail screen goes quiet. `POST /:id/reextract` sets
-    `PROCESSING`, but `DocumentDetailScreen.tsx` has no `PROCESSING` branch, and
-    `trackUpload` is called only from `CaptureSheet.tsx` and `UploadModal.tsx`,
-    so the tray is never told.
-  - Each upload blanks the whole dashboard into skeletons twice. `Layout.tsx`
-    raises `refreshCount` on dialog success and again when processing settles,
-    and `DashboardScreen.tsx` calls `fetchData(true)`, which replaces the screen.
-    Nothing calls `fetchData(false)`.
-  - The tray says `processingDone` ("Processing complete") for a `NEEDS_REVIEW`
-    document too.
-  - The rule for the new state: a document being read shows it, however the read
-    started, and the settled state names its verdict.
+- **The reading state. BUILT 2026-10-04 (the reading-state PR), UNJUDGED until
+  the owner has used it on the TestFlight build that follows its merge**
+  (standing rule 5). The rule it was built to: a document being read shows it,
+  however the read started, and the settled state names its verdict.
+  - **What it is.** A scan from `CaptureSheet.tsx` opens the receipt screen of
+    the new document at once (`navigate` after `trackUpload`; the toast and the
+    tray are unchanged). While the row is `PROCESSING` the screen shows the
+    picture, "Reading your receipt…" in place of the merchant, the figure's
+    place held, one status "Processing", and a note saying where the result
+    shows; no facts, no "Needs your attention", no Approve / Reject. It asks
+    again every 3 s without the skeleton (`READING_POLL_MS`), says "longer than
+    usual" after 90 s and stops asking after 5 min
+    (`DocumentDetailScreen.tsx`). A retry from the screen puts it into the
+    same state at once and tells the tray (`useProcessingOptional`, so a bare
+    render still works). The tray chip, once nothing is in flight, names the
+    outcome: a failure, else a document that needs review, else "Processing
+    complete" (`processingFailedChip`, `processingNeedsReviewChip`).
+    `readingState.test.tsx`, `captureOpensReadingState.test.tsx` and
+    `processingChipOutcome.test.tsx` hold it in en/fr/ar; each assertion was
+    shown red against the behaviour it replaces.
+  - **What was wrong before,** kept for the record: after a retry the screen
+    went quiet (`POST /:id/reextract` set `PROCESSING`, the screen had no such
+    branch, and `trackUpload` was called from the two upload sheets only); the
+    tray said "Processing complete" above a `NEEDS_REVIEW` document.
+  - **Not in it: the double skeleton.** Home (`LedgerScreen.tsx`) already
+    refreshes without blanking (its own comment at the `refreshCount` effect).
+    The screen that still blanks on `fetchData(true)` is `DashboardScreen.tsx`
+    at `/overview`, which design step 6 redraws.
+  - **What only the phone can show:** the hand-off from the sheet to the
+    screen, the picture of a fresh upload arriving (a second request to
+    storage), and the poll against a real 8 to 16 s read.
+  - **EXPIRY:** the owner has scanned one receipt on the build and watched it
+    settle on the screen it opened.
 - **What a finished upload shows.** The confirmation panel in `UploadModal.tsx`
   (Done / Manage Files) sits inside the `files.length > 0` block, and has been
   unreachable since #236. Redesign it or delete it.
@@ -1656,23 +1688,42 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
     it also leaves out every item on the pages after it: the multi-page
     ruling exists because "a long receipt carries its total on the last
     page". A page with no Total line is most often exactly that page.
-  - **The change, not built yet:** the schema gains `totalPrinted` (true only
-    when a total is printed on the page); when it is false, the adapter
-    writes the total below `CONFIDENCE_THRESHOLD` and a fact says so, the
-    rule engine sends the document to review with its own reason, and Detail
-    says it in a sentence (en/fr/ar), e.g. "No total is printed on this
-    receipt. This amount adds up its items: check it." The figure is kept as
-    a draft; the prompt is not changed to refuse a sum. No ledger rule
-    changes: `COUNTED_STATUSES` in `ledgerCore.ts` counts NEEDS_REVIEW too,
-    so the figure stays in the ledger; what changes is that it waits in the
-    Queue with a reason the owner can read, and an edit there is what the
-    ledger then counts.
-  - **Its control, both ways, before merge:** a receipt with a printed total
-    must read `totalPrinted: true` and stay COMPLETED. The no-total page must
-    read false and go to review. The model's honesty about the flag is the
-    unmeasured part, so measure it on his real receipts.
+  - **The change, BUILT 2026-10-04 in the reading-state PR:** the prompt's
+    schema gains `totalPrinted` (true only when a Total / Amount due / Net to
+    pay line with that figure is printed, in any language). An explicit
+    `false` writes the total at confidence 0.6 with `sourceSpan
+    'Inferred Total'` (`totalProvenance.ts`); anything else, the field absent
+    included, is today's 0.99 "Primary Total", so a silent model changes
+    nothing. The 0.6 sends the document to review through the existing gate
+    (`persistence.ts`, `isReviewed`); Rule E in `ruleEngineService.ts` reads
+    the span and writes "Total not printed", and stands down once the owner
+    has typed the printed amount (`manual_amount`) or kept the figure
+    (`review_action marked_valid`). Detail says it in a sentence (en/fr/ar,
+    `reasonTotalNotPrinted`) above the same amount field "Missing amount"
+    gets. The figure is kept as a draft; the prompt is not changed to refuse
+    a sum. No ledger rule changes: `COUNTED_STATUSES` in `ledgerCore.ts`
+    counts NEEDS_REVIEW too, so the figure stays in the ledger; what changes
+    is that it waits in the Queue with a reason the owner can read, and an
+    edit there is what the ledger then counts. No stored row changes: a
+    `TOTAL_AMOUNT` without the span is a printed total, as it was read.
+  - **Its control, both ways, measured 2026-10-04 against the pinned model
+    (`gemini-3.5-flash` reported), two synthetic receipt photos identical but
+    for the TOTAL block, from `apps/backend` with the key loaded by dotenv:**
+    with a printed "TOTAL 58.86" (items 54.50 plus tax) the answer was 58.86,
+    0.99, "Primary Total", overall 0.99; the same page cut before the tax and
+    total lines answered 54.50, 0.6, "Inferred Total", overall 0.795. Both in
+    about 5 s, the same as before the field. One pair, not a rate: the
+    model's honesty on his real receipts is still the unmeasured part.
+    `geminiAdapter.totalPrinted.test.ts`, `ruleEngineService.totalNotPrinted
+    .test.ts`, `persistence.inferredTotal.test.ts` and
+    `inferredTotalDetail.test.tsx` pin the path; each was shown red against
+    the behaviour it replaces.
+  - **Cost on the extraction side:** one boolean in the JSON answer and two
+    prompt sentences; no second call, no schema change in `types/schemas.ts`,
+    no latency the probe could see.
   - **EXPIRY:** a total the page does not print is never COMPLETED: it
-    always arrives in the Queue saying it was added up.
+    always arrives in the Queue saying it was added up. Judge it on the
+    owner's phone with the page that found it.
 - **Ingestion durations: the wait the reading state is designed around.**
   - The 2026-09-23 paced run took 8.4 s, then 9.9–16.3 s.
   - Every line of `processUploadAsync` in `ingestionService.ts` is a marker with

@@ -29,7 +29,11 @@ export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, 
 
   if (!decision || decision === 'APPROVED') return null;
 
-  const isMissingAmount = decision === 'NEEDS_REVIEW' && reason?.toLowerCase().includes('missing amount');
+  // The amount field serves two reasons: no total was read at all, and a total
+  // the page never printed (the model added the items up; totalProvenance.ts).
+  // Both are fixed the same way, by typing the figure on the receipt.
+  const lowerReason = reason?.toLowerCase() ?? '';
+  const isMissingAmount = decision === 'NEEDS_REVIEW' && (lowerReason.includes('missing amount') || lowerReason.includes('total not printed'));
   const isFlagged = decision === 'FLAGGED';
 
   if (!isMissingAmount && !isFlagged) return null;

@@ -22,6 +22,9 @@ const REASON_LABEL_KEY: Record<string, string> = {
   'High food expense': 'reasonHighFoodExpense',
   'Missing amount': 'reasonMissingAmount',
   'Possible duplicate expense': 'reasonPossibleDuplicateExpense',
+  // Rule E (ruleEngineService.ts, totalProvenance.ts): the model summed the
+  // items because the page prints no total line.
+  'Total not printed': 'reasonTotalNotPrinted',
 };
 
 export const translateDecisionReasons = (
