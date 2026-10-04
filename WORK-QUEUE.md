@@ -393,9 +393,32 @@ a store screenshot.**
     code signing identity Apple Distribution has been manually specified".
     #262 reverted it; `iosPlatform.test.ts` forbids the override.
   - **Recorded facts about the owner's Apple account, both load-bearing, do
-    not remove:** Certificates holds a Development certificate "Created via
-    API", expiring 2027/09/27, made by the first run and used by every archive
-    since. Devices holds the owner's iPhone, "Abo Jad iPhone", iPhone 15,
+    not remove:** **CORRECTED 2026-10-01:** there is no single Development
+    certificate. A hosted runner keeps no private key, so every run's
+    automatic signing creates a new one, all named "Created via API", and
+    Apple caps them at ten. Run 13 (36789875056, the scanner merge, 2026-09-30
+    23:15Z) failed its archive with "Your account has reached the maximum
+    number of certificates" and "No profiles for 'com.scanaction.app'", 45
+    minutes after run 12 had succeeded and made the tenth. Read through the
+    ASC API with the owner's local Admin key (2026-10-01): 10 DEVELOPMENT
+    certificates expiring 2027-09-27 to 2027-09-30, 0 profiles (Xcode-managed
+    profiles are not listed), one app and one bundle id on the team
+    (`com.scanaction.app`; KnowFlow is not on it). The owner approved
+    revoking all ten; done through the API, count 0 after; revocation does
+    not touch builds already on TestFlight, which Apple re-signs at upload.
+    **The durable fix** (the PR recording this): the signing job, after the
+    key is placed, deletes every DEVELOPMENT certificate named "Created via
+    API" that is older than six hours (age read from expirationDate minus one
+    year, since Apple gives no created date and names every API-made
+    certificate the same), so a certificate that a run in progress on this
+    team may be using is never touched, whichever project the run belongs
+    to. Cost: the cap returns only if more than ten runs start within six
+    hours across the team. No certificate or .p12 becomes a secret. The sweep
+    warns and continues on an API failure; the archive is what fails a run.
+    Instrument for the state: `GET /v1/certificates` with a JWT from the key.
+    **The sweep's first execution is the run after this PR merges;** the
+    `testflight` environment deploys from `main` only, so no pull request can
+    run it. Devices holds the owner's iPhone, "Abo Jad iPhone", iPhone 15,
     identifier `00008120-00060CC93A72201E`, registered 2026/09/28; the
     development profile cannot exist without it. The Distribution certificate,
     the App Store profile and the development profile for `com.scanaction.app`
