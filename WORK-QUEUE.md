@@ -1770,9 +1770,11 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
       measured read-only in its place (the stored date in any numeric form,
       Arabic-Indic digits folded, ROC and era years included) catches 0 of
       that 1 and sends 5 of 54 correct reads to review (two English, two
-      Japanese, one Dutch). The marker heuristic fired on 16 of 162 earlier
-      rows in the owner's orgs, all English, all consistent with one invoice
-      or receipt printing its own label twice.
+      Japanese, one Dutch). The marker heuristic, narrowed to the owner's
+      spec (subtotal and tax no longer counted), still fires on 16 of 162
+      earlier rows with text in the owner's orgs, all English, each an
+      invoice or receipt printing "invoice", "receipt" or "total" two to
+      five times; whole, it fires on 21.
       - **Predicted over the same 56 stored texts, zero cost** (old gate
         recomputed as control, 56 of 56 statuses reproduced): 3 of 56 in
         review, down from 49. By language, old then new: zh 15 then 1 of 16,
