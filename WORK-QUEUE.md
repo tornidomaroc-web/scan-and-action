@@ -794,6 +794,22 @@ revocation row removed 2026-09-30), the index; details under each item:**
   SHA-1s match the installed APK is exactly what only a device can say.
   - Owner: the owner. **EXPIRY:** one Google sign-in on a Play-installed build
     on a borrowed Android device.
+  - **REGISTERED 2026-10-07, NOT ACTED ON: the emulator route is refused.**
+    Proposed that day: the local Android emulator (WHPX usable, an API 36
+    `google_apis` AVD exists), a Google Play system image, the app installed
+    from Play's internal testing track, and one Google sign-in on the
+    emulator. That sign-in needs a Google account password typed on the
+    emulator; the owner refuses to type an email or Google password anywhere
+    in this workflow, and the session never types one. **Open question for a
+    later run:** a route that proves the Play-signed build's Credential
+    Manager sign-in with no password typed by anyone, or a plain statement
+    that none exists. Leads to test, none verified: Firebase Test Lab's Robo
+    automatic sign-in with a Google test account it creates (documented for
+    standard Android widgets; whether it completes the Credential Manager
+    sheet in this WebView app is unverified); and a config-only check, the
+    Play App Signing SHA-1 (Play Console › App integrity) byte-compared
+    with the Android OAuth clients' SHA-1s, which proves the `[28444]`
+    mismatch absent but is not a sign-in.
 - [ ] **A Hide-My-Email sign-in by someone who already has an email-and-password
   account makes a second, empty account.** Ruled invisible in v1 (the owner,
   2026-09-26): the backend refuses every address-keyed read on a request (#147),
