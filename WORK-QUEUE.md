@@ -1786,9 +1786,62 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
       - **The measurement half stays open:** the re-run costs about $1.57
         and needs the owner's approval. The prediction is a recompute of the
         gate, not of the model: it cannot see a different extraction.
-      - **PREPARED 2026-10-07, NOT RUN. The re-run, once #283 (the two prompt
-        wordings) is merged and `/api/version` reports a commit holding both
-        #282 and #283:**
+      - **RUN 2026-10-07 on production `a0cead0c` (#282 + #283): 1 of 56 in
+        review, and that one is the card-slip refusal, which is right. False
+        review 0 of 54 correct reads, in every language. EXPIRY MET for the
+        gate item.**
+        - **Four cells, in review of 56:** old text + old gate 49; old text +
+          new gate 3; new text + old gate 49; new text + new gate 1 (stored
+          status 1; the new gate reproduced the stored status on 56 of 56).
+          Gate effect, same text: 49 to 3 and 49 to 1. Wording effect, same
+          gate: 3 to 1 under the new gate, 49 to 49 under the old one (the old
+          gate held both target rows anyway for their missing English words).
+        - **Targets, both fixed:** c083 (Taiwanese e-invoice with its sales
+          detail) not refused, COMPLETED, 75 TWD, as labelled. c119 (`總計:1`)
+          now `Primary Total` (printed), COMPLETED, 1 TWD, as labelled.
+          No other row's refusal or `totalPrinted` flipped.
+        - **Controls, both held:** c004 (receipt with its card slip) refused,
+          `Multiple documents`. The owner's Walmart + Berghotel PDF
+          (`scan-20261004-023429.pdf`, document `ceedd270`, hash
+          `cf2b6dfc8ff3953d`, page 1 Walmart $98.21, page 2 Berghotel CHF
+          54.50) refused, `Multiple documents`.
+        - **CORRECTION to the plan below:** it named `scan-20261004-023738.pdf`
+          as the Walmart + Berghotel control without anyone opening it. It is
+          two pages of ONE Berghotel receipt (items on page 1, the total on
+          page 2), which is what the build-15 judgement above already said.
+          Uploaded as the 57th file it came back COMPLETED, CHF 54.50: the
+          right answer, and a positive case of the new "continuation"
+          wording. The real control was found by listing every PDF in the
+          owner's orgs, opened, and uploaded as the 58th file (worst case 58
+          × 3 × $0.0143 = $2.49, inside the cap).
+        - **Silent errors: 1 of 55 Processed:** o19, the French receipt whose
+          year is read one off (total right). It is the residual registered
+          below, unchanged.
+        - **Per language (correct reads sent to review / correct reads):** zh
+          0/17, nl 0/15, en 0/9, ja 0/5, pl 0/5, de 0/1, id 0/1, it 0/1; fr
+          has no correct read (o19 is the date error).
+        - **Run mechanics:** 58 uploads as the owner, org `5ce3e185`,
+          07:15:46Z to 07:38:04Z. One upload attempt hit a TCP connect timeout
+          to Railway (`UND_ERR_CONNECT_TIMEOUT`, no request sent; the org
+          count read 141 + 26 = 167 at that moment, so nothing was half
+          uploaded) and the run resumed with a connect-only retry. All 58
+          rows REJECTED through the app (`{"uploaded":58,"rejected":58}`),
+          read-only: 58 REJECTED, the org's 141 earlier documents identical
+          to the before snapshot (0 changed).
+        - **Cost, read from AI Studio usage (project
+          `gen-lang-client-0493028299`, day 6 Oct in the chart's UTC-8, which
+          read 0 requests before the run):** Gemini 3.5 Flash 114 requests
+          (= 56 × 2 + 2 refusals × 1, exactly), 172.73K input and 158.55K
+          output tokens. At the published $1.50 / $9.00 per million: $0.26
+          + $1.43 = **$1.69**, $0.029 per upload, inside the $2.50 cap. The
+          other product on the same project shows 3 requests that day on its
+          own key and on Gemini 2.5 Flash, so the attribution is clean.
+          Against 2026-10-04 (1,441 input tokens per call): 1,515 per call,
+          +74, the size #283 predicted. The Spend page lags up to 24 h and
+          read $1.70 of the $20.00 monthly cap before the run.
+      - **The plan as prepared, kept for the method. The re-run, once #283
+        (the two prompt wordings) is merged and `/api/version` reports a
+        commit holding both #282 and #283:**
         - **Files:** the same 56 (`manifest-owner.json` + `manifest-commons.json`
           from the 2026-10-04 run, copied out of temp into the 2026-10-07
           session scratchpad `run-prev/`), plus one control the 56 never
