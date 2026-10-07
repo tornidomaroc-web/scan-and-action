@@ -1786,6 +1786,50 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
       - **The measurement half stays open:** the re-run costs about $1.57
         and needs the owner's approval. The prediction is a recompute of the
         gate, not of the model: it cannot see a different extraction.
+      - **PREPARED 2026-10-07, NOT RUN. The re-run, once #283 (the two prompt
+        wordings) is merged and `/api/version` reports a commit holding both
+        #282 and #283:**
+        - **Files:** the same 56 (`manifest-owner.json` + `manifest-commons.json`
+          from the 2026-10-04 run, copied out of temp into the 2026-10-07
+          session scratchpad `run-prev/`), plus one control the 56 never
+          held: the owner's two-page PDF `scan-20261004-023738.pdf` (Walmart
+          page, Berghotel page; two purchases, hash `0387db891f826480`). 57
+          uploads, as the owner, org `5ce3e185`, one at a time through
+          `POST /api/documents/upload`, each settled before the next
+          (`run.mjs`), then every row REJECTED through `PATCH
+          /documents/:id/status` (`reject.mjs`), counts printed, and the
+          org's earlier documents counted unchanged before and after.
+        - **Calls and cap:** expected 2 calls per upload, 1 if refused, 3
+          with a retry: about 112 calls. Priced at the measured $0.0143 per
+          call (158,500 in + 148,076 out over 110 calls, 3 Oct), about
+          $1.60 expected; worst case 57 × 3 = 171 calls, $2.45. **Hard cap
+          $2.50**: `run.mjs` stops before the upload whose worst case would
+          pass it, and `PER_CALL` is corrected from 0.0095 to 0.0143 first.
+          Read the Spend page before and the usage page after; the price is
+          the same-day token delta, not the estimate.
+        - **What it measures, per row:** status as written by the current
+          gate; `totalPrinted`; the refusal, if any; merchant, total and date
+          against the labels written 2026-10-04.
+        - **Separating the gate from the wording.** Four cells, two of them
+          free: the gate is a pure function of the stored text (`gate.js`),
+          the wording changes only what the model returns. Old text + old
+          gate = the 2026-10-04 statuses (`gate.json`, 49 in review). Old
+          text + new gate = the 2026-10-05 recompute (3 in review). New text
+          + new gate = what this run writes. New text + old gate = `gate.js`
+          with the old conditions over the new text, free. The gate's effect
+          is the difference down a column (same text); the wording's effect
+          is the difference across a row (same gate), and it can only show
+          on rows whose extraction changed. The two wordings are judged on
+          their target rows directly: c083 (e-invoice with sales detail)
+          must not be refused and must read 75 TWD; c119 must come back
+          `totalPrinted: true` with 1. Their control: c004 (receipt with its
+          card slip) must still be refused, and the two-page PDF must still
+          be refused, with MULTIPLE_DOCUMENTS as the reason on both. Any
+          other row whose refusal or `totalPrinted` flips is reported by
+          name as a side effect of the wording.
+        - **Expiry of the item:** the false-review rate per language from
+          the new text + new gate cell, with the two refusals and the
+          `總計` row accounted for individually.
       - **Residual, registered:** a wrong date at 0.99 confidence is
         invisible to the gate (1 of 54 dated reads here). No language-neutral
         signal measured so far catches it at an acceptable false-review cost.
