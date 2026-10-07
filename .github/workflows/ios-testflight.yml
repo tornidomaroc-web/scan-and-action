@@ -10,14 +10,32 @@ name: iOS — TestFlight
 # TWO JOBS, ONE RULE (2026-09-28). The Admin key is never on a runner that has
 # run npm. Job `web` installs packages and builds the bundle with no access to
 # the `testflight` environment; it hands the synced iOS project to job
-# `testflight` as an artifact. Job `testflight` has no checkout, no setup-node,
-# no npm, no npx and no node step: the only code it runs is xcodebuild, on
-# files it downloaded. Package install scripts can run only in `web`, where the
-# key does not exist. `iosPlatform.test.ts` pins this shape.
+# `testflight` as an artifact. Job `testflight` has no setup-node, no npm, no
+# npx and no node step. Package install scripts can run only in `web`, where
+# the key does not exist. `iosPlatform.test.ts` pins this shape.
+#
+# THE ARTIFACT IS UNTRUSTED (2026-10-07). Until this date job `testflight`
+# archived the artifact as received, so a package script in `web` could have
+# written a Run Script build phase into project.pbxproj, a manifest SwiftPM
+# evaluates, or a source Xcode compiles, and xcodebuild would have run it here
+# with the key on the runner (found by a read-only review from the KnowFlow
+# repository). Now this job checks the commit out itself (git only; checkout
+# runs no repository code) and archives THAT. ios/ci/assemble.sh decides what
+# the artifact may contribute: every tracked file under ios/ must be
+# byte-identical to the commit (a difference fails the job, loudly), the web
+# bundle is taken after an allowlist of inert file types (Xcode copies the
+# `public` folder reference verbatim and compiles nothing in it), the two
+# generated config files must equal the committed copies in ios/ci/expected,
+# and the five plugin packages are fetched from the npm registry at the
+# tarballs package-lock.json pins and verified against its sha512, never taken
+# from the artifact. ios-audit.yml runs that script on every pull request
+# with no secrets: once untouched, and once per tampered artifact, which must
+# fail before anything is archived (ios/ci/assemble-mutations.sh).
 #
 # The Package.swift the CLI writes points at ../../../node_modules/<plugin>
 # for the five Capacitor plugins, so those five directories travel in the
-# artifact next to ios/. Nothing else under node_modules is read by Xcode.
+# artifact next to ios/ (and are compared to the registry build here).
+# Nothing else under node_modules is read by Xcode.
 #
 # WHAT RUNS WHILE THE KEY EXISTS. Swift packages are resolved, fetched and
 # their manifests evaluated in their own step, BEFORE the key is written
@@ -149,12 +167,20 @@ jobs:
       run:
         working-directory: apps/frontend
     steps:
-      # No checkout: the project arrives as files, and no repository script or
-      # package hook is ever executed on this runner.
+      # The commit itself, by git alone: checkout executes no repository
+      # script and no package hook. The token it would otherwise leave in
+      # .git/config is not persisted.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      # The web job's output lands OUTSIDE the workspace; nothing in it is read
+      # by Xcode until assemble.sh has judged it.
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: ios-project-${{ github.sha }}
-          path: ${{ github.workspace }}/apps/frontend
+          path: ${{ runner.temp }}/from-web
 
       # The `runner` context is not available in a job-level `env`, only inside
       # steps; GitHub refuses the whole file otherwise (a startup failure with
@@ -163,22 +189,29 @@ jobs:
       - name: Key directory for this job only
         run: echo "APP_STORE_CONNECT_KEY_DIR=$RUNNER_TEMP/asc" >> "$GITHUB_ENV"
 
-      # The state this job relies on, checked rather than assumed: the synced
-      # bundle is here, the five plugin packages are here, and nothing that
-      # could run a package script came with them.
+      # The project Xcode will read: the commit, plus what ios/ci/assemble.sh
+      # accepts from the artifact (the header above). A refusal fails here,
+      # before the key exists, and leaves no archivable tree behind.
+      - name: Assemble the iOS project from the commit (the artifact contributes the web bundle only)
+        run: bash ios/ci/assemble.sh "$RUNNER_TEMP/from-web" "$PWD"
+
+      # The state this job relies on, checked rather than assumed: the bundle
+      # and the generated config are in place, the five plugin packages came
+      # from the registry, and nothing that could run a package script is here.
       - name: Only the iOS project is on this runner
         run: |
           set -eu
           test -f ios/App/App/public/index.html
           test -f ios/App/App/capacitor.config.json
+          test -f ios/App/App/config.xml
           test -f ios/App/CapApp-SPM/Package.swift
           for p in @capacitor/app @capacitor/camera @capacitor/splash-screen @capacitor/status-bar @capgo/capacitor-social-login; do
             test -f "node_modules/$p/Package.swift" || { echo "missing plugin package: $p"; exit 1; }
           done
-          test ! -e package.json
           test ! -e node_modules/.bin
           test ! -e node_modules/.package-lock.json
           test "$(ls node_modules | sort | tr '\n' ' ')" = "@capacitor @capgo "
+          test "$(git status --porcelain --untracked-files=no ios | wc -l | tr -d ' ')" -eq 0 || { echo "a tracked file under ios/ changed after checkout"; git status --porcelain ios; exit 1; }
 
       - name: Xcode in use
         run: |

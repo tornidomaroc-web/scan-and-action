@@ -97,6 +97,36 @@ jobs:
           grep -n 'import AppTrackingTransparency' -B1 "$p"
           grep -qF '#if canImport(FBSDKLoginKit) && canImport(AppTrackingTransparency)' "$p" || { echo "the AppTrackingTransparency import guard from patches/ is not applied"; exit 1; }
 
+      # The signing job never takes these from the artifact: it uses the
+      # committed copies (ios/ci/expected). A pull request that changes
+      # capacitor.config.ts, the plugin set, or the social-login plugin must
+      # update them, and this is where a stale copy shows.
+      - name: The committed expectations are what cap sync wrote
+        run: |
+          set -eu
+          cmp ios/App/App/capacitor.config.json ios/ci/expected/capacitor.config.json || { echo "capacitor.config.json changed: copy ios/App/App/capacitor.config.json over ios/ci/expected/capacitor.config.json and commit"; exit 1; }
+          cmp ios/App/App/config.xml ios/ci/expected/config.xml || { echo "config.xml changed: copy ios/App/App/config.xml over ios/ci/expected/config.xml and commit"; exit 1; }
+          cmp node_modules/@capgo/capacitor-social-login/Package.swift ios/ci/expected/capgo-capacitor-social-login.Package.swift || { echo "the social-login manifest changed: copy node_modules/@capgo/capacitor-social-login/Package.swift over ios/ci/expected/capgo-capacitor-social-login.Package.swift and commit"; exit 1; }
+          echo "the three committed expectations match this sync"
+
+      # The same assembly the signing job performs, on this runner image, with
+      # no secret: a staged copy of what the web job uploads, judged against a
+      # fresh worktree of the commit. The assembled tree is not what this job
+      # builds (it builds the synced tree, as before); this proves the script
+      # and the tool set on macOS before the first run on main.
+      - name: Assemble from the commit, as the signing job does (untouched artifact)
+        run: |
+          set -eu
+          art="$RUNNER_TEMP/artifact"
+          mkdir -p "$art/node_modules/@capacitor" "$art/node_modules/@capgo"
+          cp -R ios "$art/ios"
+          for p in app camera splash-screen status-bar; do cp -R "node_modules/@capacitor/$p" "$art/node_modules/@capacitor/$p"; done
+          cp -R node_modules/@capgo/capacitor-social-login "$art/node_modules/@capgo/"
+          git worktree add -q "$RUNNER_TEMP/clean" HEAD
+          bash ios/ci/assemble.sh "$art" "$RUNNER_TEMP/clean/apps/frontend" | tee "$RUNNER_TEMP/assemble.log"
+          grep -q '^ASSEMBLED from the commit' "$RUNNER_TEMP/assemble.log"
+          git worktree remove --force "$RUNNER_TEMP/clean"
+
       - name: Xcode in use
         run: |
           sudo xcode-select -p
@@ -272,3 +302,50 @@ jobs:
             echo "FAIL: the binary carries a private API name:"; cat "$RUNNER_TEMP/private.txt"; exit 1
           fi
           echo "PRIVATE API SCAN PASSED: the scanner is in the binary, and no private name is"
+
+  # The tamper proof, where no key can exist: ios/ci/assemble-mutations.sh
+  # assembles an untouched artifact and then refuses eleven tampered copies
+  # (a Run Script build phase in project.pbxproj, ExportOptions.plist flipped,
+  # Package.resolved moved, a tracked file dropped, a script, a plist, a
+  # hidden file and a symlink in the web bundle, capacitor.config.json
+  # pointed at a remote server, the social-login manifest linking Facebook
+  # again, a plugin source edited, a plugin source added), each before any
+  # archive, each naming what was tampered. Linux is enough: the script is
+  # bash, git, python3, curl, tar, patch, cmp and diff, and the audit job
+  # above runs the untouched case on the macOS image.
+  assemble-mutations:
+    name: iOS — assemble.sh refuses a tampered artifact (no signing, no secrets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Build the web bundle and sync, as the web job does
+        run: |
+          npm run build
+          npx cap sync ios
+
+      - name: Stage what the web job uploads
+        run: |
+          set -eu
+          art="$RUNNER_TEMP/artifact"
+          mkdir -p "$art/node_modules/@capacitor" "$art/node_modules/@capgo"
+          cp -R ios "$art/ios"
+          for p in app camera splash-screen status-bar; do cp -R "node_modules/@capacitor/$p" "$art/node_modules/@capacitor/$p"; done
+          cp -R node_modules/@capgo/capacitor-social-login "$art/node_modules/@capgo/"
+
+      - name: One untouched artifact assembles; every tampered one is refused before any archive
+        env:
+          REQUIRE_SYMLINK_CASE: "1"
+        run: bash ios/ci/assemble-mutations.sh "$RUNNER_TEMP/artifact" "$GITHUB_WORKSPACE"

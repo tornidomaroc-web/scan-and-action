@@ -376,19 +376,22 @@ describe('1. the Admin key is never on a runner that has run npm', () => {
     for (const [, j] of others) expect(j.environment).toBeUndefined();
   });
 
-  it('the signing job runs no npm, npx or node, installs nothing and checks nothing out', () => {
+  it('the signing job runs no npm, npx or node, installs nothing, and checks the commit out with git alone', () => {
     const steps = signing[0][1].steps;
     for (const s of steps) {
-      expect(s.uses ?? '').not.toMatch(/actions\/(checkout|setup-node)/);
+      expect(s.uses ?? '').not.toMatch(/actions\/setup-node/);
       expect(s.run ?? '').not.toMatch(/(^|[\s;|&(])(npm|npx|node|corepack|yarn|pnpm)\b/);
     }
-    // the only actions it uses are GitHub's artifact download and upload, and every one runs BEFORE the key exists
+    // the only actions it uses are GitHub's checkout, artifact download and upload, and every one runs BEFORE the key exists
     const uses = steps.map((s) => s.uses).filter(Boolean) as string[];
-    expect(uses.map((u) => u.split('@')[0])).toEqual(['actions/download-artifact', 'actions/upload-artifact']);
+    expect(uses.map((u) => u.split('@')[0])).toEqual(['actions/checkout', 'actions/download-artifact', 'actions/upload-artifact']);
+    // the checkout is the commit being built, and leaves no token in .git/config
+    const checkout = steps.find((s) => s.uses?.startsWith('actions/checkout'))!;
+    expect(checkout.with).toEqual({ ref: '${{ github.sha }}', 'persist-credentials': false });
     const iDownload = steps.findIndex((s) => s.uses?.startsWith('actions/download-artifact'));
     const iKey = steps.findIndex((s) => s.name === 'Place the App Store Connect key');
     const iRemove = steps.findIndex((s) => s.name === 'Remove the key');
-    expect(iDownload).toBeGreaterThanOrEqual(0);
+    expect(iDownload).toBeGreaterThan(steps.indexOf(checkout));
     expect(iKey).toBeGreaterThan(iDownload);
     for (const [i, s] of steps.entries()) if (s.uses) expect(i, s.uses).toBeLessThan(iKey);
     expect(iRemove).toBe(steps.length - 1);
@@ -488,8 +491,105 @@ describe('1. the Admin key is never on a runner that has run npm', () => {
     expect(web.steps.indexOf(upload!)).toBeGreaterThan(sync);
     // and the signing job proves that state on its runner before the key is placed
     const proof = wf.jobs.testflight.steps.find((s) => s.name === 'Only the iOS project is on this runner');
-    expect(proof?.run).toMatch(/test ! -e package\.json/);
     expect(proof?.run).toMatch(/test ! -e node_modules\/\.bin/);
+    expect(proof?.run).toContain('test "$(ls node_modules | sort | tr \'\\n\' \' \')" = "@capacitor @capgo "');
+    expect(proof?.run).toMatch(/git status --porcelain --untracked-files=no ios/);
+  });
+
+  // 2026-10-07: the artifact is untrusted. The signing job archives the
+  // commit, and ios/ci/assemble.sh decides what the artifact contributes.
+  describe('the artifact is judged by ios/ci/assemble.sh before the key exists, and never archived as received', () => {
+    const steps = wf.jobs.testflight.steps;
+    const iDownload = steps.findIndex((s) => s.uses?.startsWith('actions/download-artifact'));
+    const iAssemble = steps.findIndex((s) => /ios\/ci\/assemble\.sh/.test(s.run ?? ''));
+    const iKey = steps.findIndex((s) => s.name === 'Place the App Store Connect key');
+    const script = F('ios/ci/assemble.sh');
+
+    it('the artifact is downloaded outside the workspace, and assembled between the download and the key', () => {
+      const download = steps[iDownload];
+      expect(String(download.with!.path)).toBe('${{ runner.temp }}/from-web');
+      expect(iAssemble).toBeGreaterThan(iDownload);
+      expect(iKey).toBeGreaterThan(iAssemble);
+      expect(steps[iAssemble].run!.trim()).toBe('bash ios/ci/assemble.sh "$RUNNER_TEMP/from-web" "$PWD"');
+      expect(stepText(steps[iAssemble])).not.toMatch(/ASC_|APP_STORE_CONNECT/);
+    });
+
+    it('every tracked file under ios/ must be byte-identical to the commit, and a difference fails', () => {
+      expect(script).toContain('done < <(git ls-files ios)');
+      expect(script).toMatch(/cmp -s "\$f" "\$ART\/\$f" \|\| fail "tracked file differs from the commit: \$f"/);
+      expect(script).toMatch(/test -f "\$ART\/\$f" \|\| fail "tracked file missing from the artifact: \$f"/);
+      expect(script).toMatch(/test "\$tracked" -ge 20 \|\| fail/); // the positive control: an empty listing is not a pass
+    });
+
+    it('the web bundle is taken only after an allowlist of inert types, with no symlink and no hidden file', () => {
+      const allowed = script.match(/^ALLOWED='([^']+)'$/m)![1];
+      expect(allowed).toBe('\\.(html|js|css|json|webmanifest|map|txt|png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf)$');
+      // nothing Xcode compiles or runs is on the list
+      for (const ext of ['plist', 'strings', 'storyboard', 'xib', 'xcassets', 'swift', 'm', 'sh', 'rb', 'py', 'mlmodel', 'metal', 'xcdatamodeld', 'intentdefinition', 'entitlements', 'xcconfig']) {
+        expect(allowed, ext).not.toMatch(new RegExp(`\\|${ext}\\b|\\(${ext}\\b`));
+      }
+      expect(script).toMatch(/find "\$PUB" -type l/);
+      expect(script).toMatch(/find "\$PUB" -name '\.\*'/);
+      // and public is a folder reference in the Resources phase, which Xcode copies verbatim
+      const pbx = F('ios/App/App.xcodeproj/project.pbxproj');
+      expect(pbx).toMatch(/\/\* public \*\/ = \{isa = PBXFileReference; lastKnownFileType = folder; path = public;/);
+      expect(pbx).toMatch(/\/\* public in Resources \*\//);
+      expect(pbx).not.toMatch(/PBXShellScriptBuildPhase/);
+    });
+
+    it('the generated config files must equal the committed copies, and the copies are current', () => {
+      expect(script).toContain('"capacitor.config.json:ios/ci/expected/capacitor.config.json" "config.xml:ios/ci/expected/config.xml"');
+      const cfg = JSON.parse(F('ios/ci/expected/capacitor.config.json'));
+      expect(cfg.appId).toBe('com.scanaction.app');
+      expect(cfg.plugins.SocialLogin.providers).toEqual(socialLoginProviders());
+      expect(cfg.server).toBeUndefined();
+      expect(cfg.packageClassList).toHaveLength(5);
+      expect(F('ios/ci/expected/config.xml')).toContain('<widget ');
+    });
+
+    it('the plugin packages come from the registry at the lockfile pins, verified by sha512, then patched and fixed up, and the artifact copies must match', () => {
+      expect(script).toContain('case "$url" in https://registry.npmjs.org/*) ;;');
+      expect(script).toContain('case "$integrity" in sha512-*) ;;');
+      expect(script).toContain('hashlib.sha512(open(sys.argv[1], "rb").read())');
+      expect(script).toMatch(/test "\$actual" = "\$integrity" \|\| fail/);
+      expect(script).toContain('tar -xzf "$tgz" -C "node_modules/$p" --strip-components=1');
+      expect(script).toContain('patch -p1 --forward --batch --silent < "$patch" || fail');
+      expect(script).toContain('HOOKED=ios/ci/expected/capgo-capacitor-social-login.Package.swift');
+      // the fixture is the tarball's manifest with only the Facebook lines commented
+      const hooked = F('ios/ci/expected/capgo-capacitor-social-login.Package.swift');
+      expect(hooked.match(/^\s*\/\/.*(facebook-ios-sdk|FacebookCore|FacebookLogin)/gm)).toHaveLength(3);
+      expect(hooked).not.toMatch(/^\s*\.(package|product)\(.*(facebook-ios-sdk|FacebookCore|FacebookLogin)/m);
+      expect(script).toMatch(/cmp -s "node_modules\/\$p\/Package\.swift" "\$ART\/node_modules\/\$p\/Package\.swift" \|\| fail/);
+      expect(script).toMatch(/diff -r "node_modules\/\$p\/ios" "\$ART\/node_modules\/\$p\/ios" >\/dev\/null \|\| fail/);
+      // nothing from the artifact or npm is ever executed (the comments say so in words; the commands are what is read)
+      const commands = script.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+      expect(commands).not.toMatch(/(^|[\s;|&(])(npm|npx|node|corepack|yarn|pnpm)\b/m);
+      expect(script).not.toMatch(/\. "\$ART|source "\$ART|bash "\$ART/);
+    });
+
+    it('a refusal leaves nothing an archive could read', () => {
+      expect(script).toMatch(/fail\(\) \{\n\s*echo "ASSEMBLE FAIL: \$\*" >&2\n\s*rm -rf node_modules ios\/App\/App\/public ios\/App\/App\/capacitor\.config\.json ios\/App\/App\/config\.xml\n\s*exit 1\n\}/);
+    });
+
+    it('ios-audit.yml runs the untouched assembly on macOS, checks the fixtures against a real sync, and runs the mutation suite with the symlink case required', () => {
+      const audit = (createRequire(import.meta.url)('js-yaml') as { load: (s: string) => unknown }).load(ROOT('.github/workflows/ios-audit.yml')) as Workflow;
+      const names = audit.jobs.audit.steps.map((s) => s.name);
+      expect(names).toContain('The committed expectations are what cap sync wrote');
+      expect(names).toContain('Assemble from the commit, as the signing job does (untouched artifact)');
+      const mut = audit.jobs['assemble-mutations'];
+      expect(mut['runs-on']).toBe('ubuntu-latest');
+      expect(mut.environment).toBeUndefined();
+      const run = mut.steps[mut.steps.length - 1];
+      expect(run.run!.trim()).toBe('bash ios/ci/assemble-mutations.sh "$RUNNER_TEMP/artifact" "$GITHUB_WORKSPACE"');
+      expect(run.env).toEqual({ REQUIRE_SYMLINK_CASE: '1' });
+      for (const s of [...audit.jobs.audit.steps, ...mut.steps]) expect(stepText(s)).not.toMatch(/ASC_|APP_STORE_CONNECT|secrets\./);
+      // the suite names the tamper the finding described, and at least ten others
+      const suite = F('ios/ci/assemble-mutations.sh');
+      expect(suite).toContain('run_case pbxproj-build-phase fail');
+      expect(suite).toContain('PBXShellScriptBuildPhase');
+      expect((suite.match(/^\s*run_case \S+ fail /gm) ?? []).length).toBeGreaterThanOrEqual(11);
+      expect(suite).toContain("run_case untouched 0 '' 'true'");
+    });
   });
 });
 
@@ -594,13 +694,14 @@ describe('the binary audit runs on a pull request without secrets, and on the ar
     expect(text).not.toContain('pull_request_target');
     expect(wf.permissions).toEqual({ contents: 'read' });
   });
-  it('one macOS job, no environment, no secret reference, no signing', () => {
-    expect(Object.keys(wf.jobs)).toEqual(['audit']);
+  it('one macOS audit job and one Linux mutation job, no environment, no secret reference, no signing', () => {
+    expect(Object.keys(wf.jobs)).toEqual(['audit', 'assemble-mutations']);
     const job = wf.jobs.audit;
     expect(job['runs-on']).toBe('macos-26');
-    expect(job.environment).toBeUndefined();
+    expect(wf.jobs['assemble-mutations']['runs-on']).toBe('ubuntu-latest');
+    for (const j of Object.values(wf.jobs)) expect(j.environment).toBeUndefined();
     expect(text).not.toMatch(/secrets\./);
-    for (const step of job.steps) expect(stepText(step), step.name).not.toMatch(/ASC_|APP_STORE_CONNECT|authenticationKey|allowProvisioningUpdates|archive/);
+    for (const j of Object.values(wf.jobs)) for (const step of j.steps) expect(stepText(step), step.name).not.toMatch(/ASC_|APP_STORE_CONNECT|authenticationKey|allowProvisioningUpdates|archive/);
     const build = job.steps.find((s) => s.name === 'Build for the iOS Simulator (unsigned)');
     expect(build?.run).toContain('CODE_SIGNING_ALLOWED=NO');
     expect(build?.run).toContain("-destination 'generic/platform=iOS Simulator'");
