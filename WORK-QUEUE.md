@@ -363,6 +363,22 @@ a store screenshot.**
     … provided those items are also available as in-app purchases within the
     app."* A reviewer who reads the app under (b) rather than (f) will ask for
     IAP, so the review notes must argue (f).
+  - **RULED 2026-10-07: no Paid Apps Agreement is needed to submit version 1.**
+    Apple (App Store Connect Help, "Sign and update agreements", read
+    2026-10-07): *"To sell your apps on the App Store or offer In-App
+    Purchases, the Account Holder must sign the Paid Apps Agreement."* Version
+    1 does neither: it is free on the store, and the app holds no purchase
+    code (`grep` for StoreKit, SKProduct, RevenueCat and in-app-purchase over
+    `apps/frontend/src`, `ios/App/App` and `package.json`: no match);
+    `PaywallModal.tsx` returns early under `isNativePlatform()`. The Free Apps
+    Agreement reads Active, Aug 27, 2026 to Aug 27, 2027 (Business ›
+    Agreements, 2026-10-07). The banner there ("To offer apps or other in-app
+    purchases, you must update your legal entity information prior to signing
+    the Paid Apps Agreement") is a prerequisite of the Paid agreement, not of
+    submission. **It becomes required the day IAP is added** (3.1.3(b), or the
+    deferred RevenueCat item); then: the legal entity update, then the Paid
+    Apps Agreement with its tax forms and a bank account, all the owner's.
+    **EXPIRY:** IAP enters the plan.
 - **ATT is moot for the product, not for the binary.** App Tracking
   Transparency was on this list only for ads, and ads left the plan on
   2026-09-23. But `Info.plist` carries `NSUserTrackingUsageDescription` since
@@ -437,6 +453,11 @@ a store screenshot.**
     `testFlightInternalTestingOnly`, so every build it uploads "cannot be
     distributed via external TestFlight or the App Store". The submission
     build is a later PR that removes that key, after the blockers below.
+    **STALE comment, marked 2026-10-07:** the comment in
+    `apps/frontend/ios/ExportOptions.plist` (lines 10-13) ties the key to the
+    token-revocation item, which closed 2026-09-30 (#272). The reason that
+    holds is this line's: the remaining blockers. The submission-build PR
+    corrects the comment when it removes the key.
   - **Automatic distribution works:** build 5 joined the internal group
     "Internal" on processing with nobody clicking (the owner, 2026-09-28).
   - **Hardened 2026-09-28 (the PR recording this):** two jobs, the Admin key
@@ -513,7 +534,12 @@ a store screenshot.**
     in design step 5.
   - **EXPIRY:** no `comingSoon`, `moreSettingsSoon` or `dataComingSoon` string can
     render in a native build.
-- [ ] **No support page.**
+- [ ] **No support page. STALE 2026-10-07: the page EXISTS.** #268
+  (`2850da7`, 2026-09-29) added the public `/support` route
+  (`apps/frontend/src/App.tsx`) carrying support@scan-action.com, and the
+  production bundle served on 2026-10-07 contains it. What remains is the
+  console half of the EXPIRY: paste `https://www.scan-action.com/support`
+  into App Store Connect (the owner).
   - App Store Connect requires a Support URL. `App.tsx` declares `/`, `/login`,
     `/privacy`, `/terms`, `/refund`, `/delete-account` and the app screens, and
     nothing else. Contact addresses appear only on the legal pages and on
@@ -620,7 +646,7 @@ revocation row removed 2026-09-30), the index; details under each item:**
 
 | Condition | Owner | EXPIRY |
 |---|---|---|
-| Trader status for the EU | the owner, App Store Connect | the app's trader status reads provided and verified before submission |
+| Trader status for the EU (SUBMITTED 2026-10-07, In Review at Apple) | the owner, App Store Connect | the app's trader status reads provided and verified before submission |
 | Brand verification on the Google consent screen | the owner, Google Auth Platform | the consent page names the app |
 | Android Google sign-in unverified | the owner, a borrowed device | one Google sign-in on a Play-installed build |
 
@@ -665,13 +691,44 @@ revocation row removed 2026-09-30), the index; details under each item:**
     (patch-package) first. The purpose-string test derives keys from plugin
     SOURCE text, so it must learn the guard in the same PR.
   - Owner: engineering. **EXPIRY:** in the table above.
-- [ ] **Trader status for the EU.** The Digital Services Act requires a trader
+- [ ] **Trader status for the EU. SUBMITTED 2026-10-07, IN REVIEW at Apple.**
+  The Digital Services Act requires a trader
   status declaration in App Store Connect for apps distributed in the EU;
   Apple removes apps without one from the EU storefront. Read Apple's current
   page (App Store Connect Help, "Provide trader status") at submission time
   rather than this line; the owner declares as a trader with his business
   contact details, which then appear on the product page in the EU.
-  - Owner: the owner, App Store Connect. **EXPIRY:** in the table above.
+  - **Submitted 2026-10-07 by the owner (he pressed Confirm):** trader, as an
+    individual, Abdelfettah Amellah. Address Al Mhamid, Marrakech 40160,
+    Morocco (no street line, by the owner's choice; the form accepted it);
+    phone +212 610 650 105; email support@scan-action.com. Email and phone
+    verified by code; identification documents uploaded by the owner.
+    Business › Agreements now reads Compliance › Digital Services Act, 27
+    Countries or Regions, last updated Oct 7, 2026, **In Review**. Apple
+    publishes the address, phone and email on the EU product page once
+    verified (Apple's DSA help page, read 2026-10-07). Review time: not
+    documented by Apple.
+  - **The real console path differs from Apple's docs.** The docs say
+    Business › Agreements tab › scroll to the Compliance section › Digital
+    Services Act › Complete Compliance Requirements. Live on 2026-10-07,
+    before the declaration, there was no Compliance section:
+    *Complete Compliance Requirements* was a link in a **red banner at the
+    top** of Business › Agreements. The Compliance table appears only after
+    submitting.
+  - **Per app: already set, nothing to do.** Apps › Scan & Action › App
+    Information › "App Store Regulations **&** Permits" › Digital Services
+    Act reads, on 2026-10-07 while the account level is In Review: *"This
+    developer has identified itself as a trader for this app."* The account
+    declaration carried over.
+  - **The email code's route.** support@scan-action.com is Cloudflare Email
+    Routing (MX `route{1,2,3}.mx.cloudflare.net`; RCPT TO probe 2026-10-07:
+    `250` for support@, `550 5.1.1` for a made-up address). Apple's code
+    arrived in **tornido.maroc@gmail.com** (the owner, 2026-10-07). The
+    Gmail connected to sessions, tornido.maroc2024@gmail.com, has never
+    received mail addressed to support@, so a session cannot read that inbox.
+  - Owner: the owner, App Store Connect. **EXPIRY:** Business › Agreements ›
+    Compliance › Digital Services Act reads verified (not In Review), read
+    in the console.
 - [x] **Submission is BLOCKED until Apple token revocation on account deletion
   ships. CLOSED 2026-09-30 by #272 (`5454f465`, TestFlight build 11, run
   36693536724), proven by one real deletion on the owner's iPhone.**
@@ -767,7 +824,10 @@ revocation row removed 2026-09-30), the index; details under each item:**
      `Default`, wired by `CODE_SIGN_ENTITLEMENTS` in both configurations.
   - **EXPIRY (met 2026-09-28):** the first TestFlight build signs in with
     Apple and with Google.
-- [ ] **Register `scan-action.com` as an email source for Apple's Private
+- [ ] **DUPLICATE, marked 2026-10-07: "Step 10" below supersedes this
+  item.** It names only the apex domain; Step 10 registers both
+  `scan-action.com` and `send.scan-action.com`, with the reason. Follow Step
+  10. **Register `scan-action.com` as an email source for Apple's Private
   Email Relay.** Apple ("configuring-your-environment-for-sign-in-with-apple",
   read 2026-09-26): *"you must register your outbound email domains ... as email
   sources for the Private Email Relay Service"*, authenticated by SPF and/or
@@ -871,13 +931,24 @@ revocation row removed 2026-09-30), the index; details under each item:**
   Required to submit.
   - Derive the processor list from the code at submission time, never from a
     list here.
+  - **STALE 2026-10-07: the list below omits Sentry.** `@sentry/react` and
+    `@sentry/node` are dependencies of both apps, each gated on a DSN. The
+    production frontend bundle read 2026-10-07 carries Sentry code but no
+    `ingest.sentry.io` host, so the web side sends nothing today; whether
+    `SENTRY_DSN` is set on Railway is a dashboard read (the owner). If set,
+    Sentry belongs in this list.
   - Today that list is Google Gemini (document analysis), Supabase (auth,
     database, storage) and Resend. Resend carries transactional mail, and
     Supabase Auth mail through custom SMTP; see "Where a confirmation email comes
     from".
   - Recipient addresses go to Resend, a US email processor.
   - **EXPIRY:** the labels are submitted, and match the build and the Gemini tier.
-- [ ] **Gemini's data terms in the privacy label: write it for the free tier.**
+- [ ] **STALE 2026-10-07: the project IS on the paid tier.** AI Studio
+  shows project `gen-lang-client-0493028299` as "Niveau 1" (paid Tier 1)
+  on its Usage and Spend pages, read 2026-10-07, with a $20 monthly cap.
+  The label is written to the paid tier's terms, not the free tier's;
+  re-read https://ai.google.dev/gemini-api/terms at writing time.
+  **Gemini's data terms in the privacy label: write it for the free tier.**
   - The label must say what Google does with document content. On the free tier,
     Google may use submitted content to improve its products (terms:
     https://ai.google.dev/gemini-api/terms).
