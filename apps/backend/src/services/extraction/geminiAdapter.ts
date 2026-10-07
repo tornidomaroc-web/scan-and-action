@@ -156,6 +156,8 @@ export class GeminiExtractionAdapter {
       const prompt = `
         Analyze this image for a document intelligence pipeline.
         Does this image contain more than one distinct document, receipt, or business card?
+        ONE document: a single purchase printed in several parts, such as a receipt with its own itemised detail, a continuation, a customer stub, or an e-invoice with its QR section. Count the purchases, not the pieces of paper.
+        MORE THAN ONE: a receipt next to a separate card-terminal slip, or receipts from different purchases.
         Answer ONLY 'YES' or 'NO'.
       `;
 
@@ -248,6 +250,7 @@ export class GeminiExtractionAdapter {
         1. MERCHANT: The legal name of the issuer. Avoid "Visa", "Mastercard", or "Stripe".
         2. FINAL TOTAL: The actual amount paid/due. Mandatory. If the document prints no total line, give the sum of the items as totalAmount and set totalPrinted to false.
            - totalPrinted: true ONLY when a line such as Total, Amount due, Net to pay or Grand total (in any language) is printed on the document with this exact figure. false when you computed or estimated it.
+           - Printed total labels include: Total TTC, Montant TTC, Net à payer, المجموع, الإجمالي, المبلغ الإجمالي, صافي المبلغ, 總計, 合計, 合计, Totaal, Gesamt, Totale. A subtotal line (Sous-total, 小計, Subtotaal) is not the total.
         3. DATE (ABSOLUTE PRIORITY): Find the document date. Search everywhere (headers, footers, tiny print). 
            - Search for patterns like: DD/MM/YYYY, MM-DD-YY, YYYY.MM.DD, or "Mar 23, 2024".
            - Normalize to YYYY-MM-DD.
