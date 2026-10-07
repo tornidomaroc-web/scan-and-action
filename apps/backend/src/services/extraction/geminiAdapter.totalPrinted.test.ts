@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { GeminiExtractionAdapter } from './geminiAdapter';
 import { INFERRED_TOTAL_CONFIDENCE, INFERRED_TOTAL_SPAN, PRINTED_TOTAL_SPAN } from '../totalProvenance';
 
@@ -76,5 +78,46 @@ describe('the prompt asks for it', () => {
     expect(sentPrompt).toContain('"totalPrinted": boolean');
     expect(sentPrompt).toMatch(/totalPrinted to false/);
     expect(sentPrompt).toMatch(/true ONLY when a line such as Total/);
+  });
+
+  // The 2026-10-04 run read a printed `總計:1` as "not printed" (c119, a
+  // Taiwanese e-invoice). The prompt now lists the labels Moroccan, Arabic,
+  // Chinese, Japanese and European receipts actually print. The non-Latin
+  // strings are written as code points here, so the assertion is about the
+  // bytes in the file and not about what a terminal or an editor renders.
+  it.each([
+    ['Total TTC', 'Total TTC'],
+    ['Montant TTC', 'Montant TTC'],
+    ['Net à payer', 'Net à payer'],
+    ['المجموع', 'المجموع'],
+    ['الإجمالي', 'الإجمالي'],
+    ['المبلغ الإجمالي', 'المبلغ الإجمالي'],
+    ['صافي المبلغ', 'صافي المبلغ'],
+    ['總計', '總計'],
+    ['合計', '合計'],
+    ['合计', '合计'],
+  ])('lists the printed total label %s', async (_label, codePoints) => {
+    await total({});
+    // As a whole list entry, delimited: `الإجمالي` is also the tail of
+    // `المبلغ الإجمالي`, and a bare toContain would let one of the two be wrong.
+    const escaped = codePoints.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    expect(sentPrompt).toMatch(new RegExp(`[:,] ${escaped}[,.]`));
+  });
+
+  it('says a subtotal line is not the total, naming 小計', async () => {
+    await total({});
+    expect(sentPrompt).toMatch(/subtotal line .* is not the total/i);
+    expect(sentPrompt).toContain('小計');
+  });
+
+  it('every label is sound UTF-8 in the source file itself, not only in memory', () => {
+    // A mis-saved file (ANSI code page, a stray BOM mid-file) would still load
+    // as *some* string; U+FFFD is what a broken byte decodes to.
+    const src = readFileSync(join(__dirname, 'geminiAdapter.ts'), 'utf8');
+    const line = src.split('\n').find(l => l.includes('Printed total labels include'))!;
+    expect(line).toBeDefined();
+    expect(line).not.toContain('�');
+    expect(line).toContain('المجموع');
+    expect(line).toContain('總計');
   });
 });
