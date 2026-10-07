@@ -1,0 +1,32 @@
+{
+	"appId": "com.scanaction.app",
+	"appName": "Scan & Action",
+	"webDir": "dist",
+	"android": {
+		"appendUserAgent": "ScanActionAndroid"
+	},
+	"plugins": {
+		"SocialLogin": {
+			"providers": {
+				"google": true,
+				"apple": true,
+				"facebook": false,
+				"twitter": false
+			}
+		},
+		"SplashScreen": {
+			"launchShowDuration": 1500,
+			"launchAutoHide": true,
+			"backgroundColor": "#0F1014",
+			"androidSplashResourceName": "splash",
+			"showSpinner": false
+		}
+	},
+	"packageClassList": [
+		"AppPlugin",
+		"CAPCameraPlugin",
+		"SplashScreenPlugin",
+		"StatusBarPlugin",
+		"SocialLoginPlugin"
+	]
+}
