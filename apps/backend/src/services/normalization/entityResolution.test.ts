@@ -86,3 +86,48 @@ describe('EntityResolutionService.resolveOrGenerateEntity (item B)', () => {
     expect(prisma.store.length).toBe(2);
   });
 });
+
+// ============================================================================
+// Merchants with no Latin letter resolve to their own rows (FOUND 2026-10-04).
+// ============================================================================
+describe('EntityResolutionService with non-Latin merchant names', () => {
+  it('an Arabic merchant and a Chinese merchant are two rows, not one', async () => {
+    const prisma = makeFakePrisma();
+    const svc = new EntityResolutionService(prisma);
+    const arabic = await svc.resolveOrGenerateEntity('org', raw('مقهى الأمل'));
+    const chinese = await svc.resolveOrGenerateEntity('org', raw('新宇科技服務(股)公司'));
+    expect(chinese.id).not.toBe(arabic.id);
+    expect(prisma.store.length).toBe(2);
+    expect(arabic.canonicalName).not.toBe('');
+    expect(chinese.canonicalName).not.toBe('');
+  });
+
+  it('two different Arabic shops are two rows', async () => {
+    const prisma = makeFakePrisma();
+    const svc = new EntityResolutionService(prisma);
+    const a = await svc.resolveOrGenerateEntity('org', raw('مقهى الأمل'));
+    const b = await svc.resolveOrGenerateEntity('org', raw('صيدلية النور'));
+    expect(b.id).not.toBe(a.id);
+  });
+
+  it('an Arabic merchant re-sighted with tatweel resolves to the same row', async () => {
+    const prisma = makeFakePrisma();
+    const svc = new EntityResolutionService(prisma);
+    const first = await svc.resolveOrGenerateEntity('org', raw('مقهى الأمل'));
+    const second = await svc.resolveOrGenerateEntity('org', raw('مـقـهـى الأمـل'));
+    expect(second.id).toBe(first.id);
+    expect(prisma.store.length).toBe(1);
+  });
+
+  it('a stored row with an empty key (the production entity the run left) is never matched by key', async () => {
+    const prisma = makeFakePrisma();
+    // What org 5ce3e185 holds today: entity 7fb4df45, canonicalName '', created
+    // by the first all-CJK merchant of the measurement run.
+    prisma.store.push({ id: 'ent-left-behind', organizationId: 'org', entityType: 'VENDOR', canonicalName: '', displayName: '新宇科技服務(股)公司', aliases: ['新宇科技服務(股)公司'] });
+    const svc = new EntityResolutionService(prisma);
+    const symbols = await svc.resolveOrGenerateEntity('org', raw('***'));
+    expect(symbols.id).not.toBe('ent-left-behind');
+    const arabic = await svc.resolveOrGenerateEntity('org', raw('مقهى الأمل'));
+    expect(arabic.id).not.toBe('ent-left-behind');
+  });
+});

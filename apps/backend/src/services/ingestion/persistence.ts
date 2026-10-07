@@ -92,29 +92,44 @@ export class PersistenceService {
     const rawConfidence = extraction.overallConfidence ?? 0;
     const normalizedOverallConfidence = rawConfidence > 1 ? rawConfidence / 100 : rawConfidence;
 
-    // Phase 2.3 & 2.4: Structural & Anchor Validation (Receipt Focus)
-    // We prevent "Completed" status if core facts or commercial anchors are missing.
-    const hasDate = extraction.facts.some(f => 
+    // THE REVIEW GATE. It judges the READ, never the language of the page.
+    //
+    // Two conditions used to sit here and were removed on 2026-10-05 after the
+    // Step 3 measurement (WORK-QUEUE.md): 56 clean real receipts uploaded to
+    // production 2371c9bd, 48 of them landing in "Needs review" with no cause
+    // on the paper.
+    //
+    //   - "at least two of thirteen English words in rawText" (total, subtotal,
+    //     tax, vat, amount, item, receipt, invoice, cash, card, payment,
+    //     merchant, store). 43 of the 48: every Arabic, French, Dutch, Polish,
+    //     Japanese and Chinese receipt, all read correctly (total exact on 53
+    //     of 54). The one bad read it happened to hold back, a French receipt
+    //     whose year was read one off, it held for being French, not for the
+    //     year: a date-echo signal measured in its place catches 0 of that 1
+    //     and sends 5 of 54 correct reads to review, so nothing replaces it.
+    //   - "two of invoice/receipt/subtotal/total/tax/thank you each appear
+    //     twice" as a sign of several documents. 3 of the 48, all single
+    //     English receipts: "subtotal" contains "total", and one receipt
+    //     prints "Receipt" in its header and "keep this receipt" at its foot.
+    //     Several documents in one picture are caught before extraction by
+    //     the vision check (ingestionService.ts, isSingleDocument), which
+    //     writes its own reason; this text heuristic never found one.
+    //
+    // persistence.languageNeutralGate.test.ts holds both removals and the
+    // conditions that stay.
+    const hasDate = extraction.facts.some(f =>
       f.factType === 'DATE' && (f.valueDate != null || (f.valueString != null && f.valueString.trim() !== ''))
     );
-    const hasAmount = extraction.facts.some(f => 
+    const hasAmount = extraction.facts.some(f =>
       f.factType === 'AMOUNT' && (f.valueNumber != null || (f.valueString != null && f.valueString.trim() !== ''))
     );
     const isEmpty = extraction.facts.length === 0;
 
     const text = (extraction.rawText || '').toLowerCase();
-    const anchors = ['total', 'subtotal', 'tax', 'vat', 'amount', 'item', 'receipt', 'invoice', 'cash', 'card', 'payment', 'merchant', 'store'];
-    const foundAnchors = anchors.filter(anchor => text.includes(anchor));
-    const hasAnchors = foundAnchors.length >= 2;
-
     const templateSignals = ['template', 'sample', 'example', 'your business name', 'lorem ipsum'];
     const hasTemplateSignal = templateSignals.some(signal => text.includes(signal));
 
-    const repeatedMarkers = ['invoice', 'receipt', 'subtotal', 'total', 'tax', 'thank you'];
-    const repeatedCount = repeatedMarkers.filter(marker => text.split(marker).length - 1 > 1).length;
-    const hasMultiDocumentSignal = repeatedCount >= 2;
-
-    const isWeak = normalizedOverallConfidence < 0.6 || isEmpty || !hasDate || !hasAmount || !hasAnchors || hasTemplateSignal || hasMultiDocumentSignal;
+    const isWeak = normalizedOverallConfidence < 0.6 || isEmpty || !hasDate || !hasAmount || hasTemplateSignal;
 
     let documentStatus = 'COMPLETED';
     if (normalizedOverallConfidence < CONFIDENCE_THRESHOLD || isWeak) {
@@ -124,8 +139,7 @@ export class PersistenceService {
     // DEBUG LOGGING - PHASE 2.4.2 INVESTIGATION
     console.log(`[Persistence DEBUG] Doc: ${documentId}`);
     console.log(`[Persistence DEBUG] Confidence: ${normalizedOverallConfidence} (Threshold: ${CONFIDENCE_THRESHOLD})`);
-    console.log(`[Persistence DEBUG] Anchors: [${foundAnchors.join(', ')}] (Count: ${foundAnchors.length}, met: ${hasAnchors})`);
-    console.log(`[Persistence DEBUG] Structure: hasDate=${hasDate}, hasAmount=${hasAmount}, isEmpty=${isEmpty}`);
+    console.log(`[Persistence DEBUG] Structure: hasDate=${hasDate}, hasAmount=${hasAmount}, isEmpty=${isEmpty}, template=${hasTemplateSignal}`);
     console.log(`[Persistence DEBUG] Final Decision: isWeak=${isWeak} => Status=${documentStatus}`);
 
     console.log(`[Persistence] Updating stub document ${documentId} with extraction results...`);

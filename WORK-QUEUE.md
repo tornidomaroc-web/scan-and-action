@@ -1763,6 +1763,32 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
     - **EXPIRY:** the gate stops sending a well-read receipt to review for
       its language or for repeating "total", measured the same way with the
       false-review rate reported per language.
+    - **CODE HALF DONE 2026-10-05, PR #282:** both conditions left the gate,
+      removed rather than replaced. The anchor condition held back exactly
+      one bad read in the run (o19, a French receipt whose year was read one
+      off, total right), and held it for being French: a date-echo signal
+      measured read-only in its place (the stored date in any numeric form,
+      Arabic-Indic digits folded, ROC and era years included) catches 0 of
+      that 1 and sends 5 of 54 correct reads to review (two English, two
+      Japanese, one Dutch). The marker heuristic, narrowed to the owner's
+      spec (subtotal and tax no longer counted), still fires on 16 of 162
+      earlier rows with text in the owner's orgs, all English, each an
+      invoice or receipt printing "invoice", "receipt" or "total" two to
+      five times; whole, it fires on 21.
+      - **Predicted over the same 56 stored texts, zero cost** (old gate
+        recomputed as control, 56 of 56 statuses reproduced): 3 of 56 in
+        review, down from 49. By language, old then new: zh 15 then 1 of 16,
+        nl 15 then 0 of 15, en 5 then 2 of 11, ja 5 then 0 of 5, pl 5 then 0
+        of 5, fr/id/it/de 1 then 0 of 1 each. The 3 are the two
+        single-document refusals (decided before this gate) and the `總計:1`
+        row (total at 0.6). With no cause on the receipt: 2 of 56 (the
+        e-invoice refusal and the `總計` read), down from 48.
+      - **The measurement half stays open:** the re-run costs about $1.57
+        and needs the owner's approval. The prediction is a recompute of the
+        gate, not of the model: it cannot see a different extraction.
+      - **Residual, registered:** a wrong date at 0.99 confidence is
+        invisible to the gate (1 of 54 dated reads here). No language-neutral
+        signal measured so far catches it at an acceptable false-review cost.
 - **Merchants written only in Chinese, Japanese or Arabic collapse into one
   merchant per organisation. FOUND 2026-10-04 by the measurement above.**
   - `canonicalizeEntityName` (`utils/canonicalName.ts`) keeps `[A-Z0-9\s]`
@@ -1782,10 +1808,39 @@ wrong today. Nothing in the frontend calls `/api/reports` or `/api/expenses`.
     empty key.
   - **EXPIRY:** an all-Arabic and an all-CJK merchant each resolve to their
     own entity, held by a test that fails on today's code.
-- **Smaller readings from the same run:** a "$" on a Taiwanese receipt was
-  stored as USD (medFirst, TWD 5,041), and "NTD" and "Rp" as no currency;
-  Rule A (`amount > 500`) and Rule B (food over 50) fire on yen, NT dollars,
-  rupiah and rupees by their face value.
+  - **FIXED IN CODE 2026-10-05, PR #282.** A name with no Latin letter is
+    keyed from the letters it has (`canonicalName.ts`); every name holding a
+    Latin letter keeps its key byte for byte (read 2026-10-05: 152 entities,
+    0 keys of digits alone, 1 empty). `resolveOrGenerateEntity` never matches
+    an empty key. Held by `canonicalName.test.ts` and
+    `entityResolution.test.ts`, 9 cases red on `2371c9bd`.
+    - **Entity `7fb4df45` stays as it is.** No production write is needed:
+      after the fix nothing can match its empty key, and its 10 documents are
+      all REJECTED. Removing it would change nothing a user sees.
+    - **Side effect, intended:** the duplicate rule (Rule D) now reaches
+      Arabic and CJK merchants, since their keys are no longer empty.
+- **Registered 2026-10-05 from the same run, each needing a Gemini call to
+  verify, so none is in PR #282:**
+  - **The single-document check refuses a Taiwanese e-invoice with its sales
+    detail** (one transaction, two printed sections). The prompt in
+    `geminiAdapter.ts` asks only "more than one distinct document, receipt,
+    or business card?". Proposed wording, to test on the next approved run:
+    "A receipt printed with its own itemised detail, QR section or
+    duplicate stub is ONE document. A card-terminal slip beside a receipt is
+    TWO." The card-slip refusal in the run was fair and must stay.
+  - **A printed total read as not printed** (`總計:1`, the row then carries
+    "Total not printed" at 0.6). The prompt names Total, Amount due, Net to
+    pay and Grand total "in any language"; proposed: add 總計, 合計, 合计,
+    المجموع, الإجمالي, Montant, Totaal as examples. Verifiable only by a call.
+  - **Rule A is currency-blind:** `amount > 500` fires on the face value, so
+    JPY 1,200 and TWD 5,041 read as "Amount exceeds threshold" while MAD 500
+    does not. In the run: a "$" on a Taiwanese receipt was stored as USD
+    (medFirst, TWD 5,041), and "NTD" and "Rp" as no currency; Rule B (food
+    over 50) fires on yen, NT dollars, rupiah and rupees the same way. The
+    threshold's currency is the owner's call: the smallest change is a
+    per-currency table with MAD as the reference and the rule standing down
+    when the currency is unknown. Rule decisions never move status, so this
+    shows as "Needs your attention" on Detail, not as "Needs review".
 - **A total the page never printed is stored as if it had been. RULED
   2026-10-04: it must say "Needs review", with the figure kept as a draft.**
   Found on the owner's iPhone test of build 13: a page with no Total line came

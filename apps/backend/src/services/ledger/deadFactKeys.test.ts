@@ -22,12 +22,12 @@ import { join, relative } from 'node:path';
 const BACKEND = join(__dirname, '..', '..', '..');
 const DEAD = /(['"`])(EXPENSE_CATEGORY|amount)\1/;
 
-// One line may carry the word: it is searched for in the receipt's raw TEXT
-// (`text.includes(anchor)`), to judge whether a document looks like a receipt.
-// It is not a fact key. Matched on the whole line, so any edit to it re-arms.
-const ALLOWED = new Set([
-  "src/services/ingestion/persistence.ts|    const anchors = ['total', 'subtotal', 'tax', 'vat', 'amount', 'item', 'receipt', 'invoice', 'cash', 'card', 'payment', 'merchant', 'store'];",
-]);
+// A line may be allowed to carry the word when it is not a fact key. Matched on
+// the whole line, so any edit to it re-arms. Until 2026-10-05 one line was
+// allowed: the review gate's list of English anchor words, searched for in the
+// receipt's raw text; that condition is gone (persistence.ts, the review gate),
+// and with it the allowance.
+const ALLOWED = new Set<string>([]);
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap(name => {
@@ -85,9 +85,11 @@ describe('dead fact keys', () => {
       'src/services/ingestion/persistence.ts',
       'scripts/ledgerReconcile.ts',
     ]) expect(paths).toContain(p);
-    // and the allowed line still exists, so the allowance is not stale.
-    const persistence = tree().find(f => f.path === 'src/services/ingestion/persistence.ts')!;
-    const allowedLine = [...ALLOWED][0].split('|')[1];
-    expect(persistence.text.split(/\r?\n/)).toContain(allowedLine);
+    // and every allowed line still exists, so no allowance is stale.
+    for (const entry of ALLOWED) {
+      const [path, allowedLine] = entry.split('|');
+      const file = tree().find(f => f.path === path)!;
+      expect(file.text.split(/\r?\n/)).toContain(allowedLine);
+    }
   });
 });

@@ -27,11 +27,19 @@ export class EntityResolutionService {
     const canonical = canonicalizeEntityName(searchName);
 
     // Attempt 1: Search by canonical matching key or an exact stored alias.
+    //
+    // An EMPTY key never matches. Until 2026-10-05 every merchant with no Latin
+    // letter had the key '' (utils/canonicalName.ts), and this lookup handed all
+    // of them the first such row of the organisation: 9 of 9 all-CJK merchants
+    // in the Step 3 run showed as one. The key is non-empty for those names
+    // now, but production still holds one row with '' (entity 7fb4df45 in org
+    // 5ce3e185, left by that run) and a name of symbols alone still produces
+    // ''. Neither may ever be matched by key; the alias branch still applies.
     let entity = await this.prisma.entity.findFirst({
       where: {
         organizationId,
         OR: [
-          { canonicalName: canonical },
+          ...(canonical ? [{ canonicalName: canonical }] : []),
           { aliases: { has: searchName } } // Available if using PostgreSQL string arrays
         ]
       }
