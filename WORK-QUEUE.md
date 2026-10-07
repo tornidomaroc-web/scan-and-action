@@ -401,6 +401,36 @@ a store screenshot.**
     GitHub Environment `testflight`, restricted to deployments from `main`
     (`gh api repos/{owner}/{repo}/environments/testflight` shows the policy,
     `gh secret list --env testflight` the names). The key has the Admin role.
+    - **RULED 2026-10-07: Admin is required in practice; App Manager is not
+      enough, whatever Apple's roles table says.** Apple's table
+      (developer.apple.com/support/roles, parsed from the raw HTML) checks
+      "Create and revoke distribution certificates" and "Create and delete
+      distribution provisioning profiles" for App Manager, so a team key with
+      that role was created (Users and Access › Integrations › App Store
+      Connect API › Team Keys; the dialog offers roles only, no separate
+      Certificates, Identifiers & Profiles grant), its secrets swapped into
+      the `testflight` environment, and one run dispatched: **37616885844**.
+      The assembly, the certificate sweep (GET /v1/certificates answered, 1
+      certificate listed) and the archive (development signing) all passed;
+      the export failed in 11 s with `error: exportArchive Cloud signing
+      permission error` and `No signing certificate "iOS Distribution"
+      found`, four times. No build was uploaded (run number 18 is a gap in
+      the build numbers). The Admin key's secrets were restored from the
+      owner's stored `.p8`, and the rollback was proven by run
+      **37620796106**: assemble, sweep, archive, export and upload all green,
+      build 19 uploaded. The App Manager key (ID 2B2D78FJD4) is to be
+      revoked by the owner; its `.p8` was shredded the same hour, so no one
+      holds its private key. So cloud-managed
+      App Store signing through `-allowProvisioningUpdates` needs Admin, and
+      the exposure of that key is bounded by the pipeline instead: the
+      environment deploys from `main` only, the key exists on one runner
+      for the archive and export only, and the project it signs is the
+      commit (#287), never the artifact.
+    - **The rollback assumption that was wrong:** "keep the old key's
+      values available" is not something GitHub offers (secrets are
+      write-only). The rollback worked because the Admin `.p8` still existed
+      at `D:\keys\`. Before any future key swap, confirm the outgoing key's
+      `.p8` is on disk, or the rollback is a new key, not a restore.
   - **The archive signs for DEVELOPMENT and the export re-signs for the App
     Store.** Run 36355312731 (2026-09-27): "Your team has no devices from
     which to generate a provisioning profile". #261 forced `Apple Distribution`
@@ -460,6 +490,29 @@ a store screenshot.**
     corrects the comment when it removes the key.
   - **Automatic distribution works:** build 5 joined the internal group
     "Internal" on processing with nobody clicking (the owner, 2026-09-28).
+  - **HARDENED 2026-10-07 (#287, `f67d46c2`): the signing job archives the
+    commit, not the artifact.** Found by a read-only review from the KnowFlow
+    repository (its docs/store/STORE_PATH.md, section 8.5): job `testflight`
+    archived the project job `web` produced after `npm ci` and `cap sync`, as
+    received, with the key on the runner; a package script in `web` could
+    have written a Run Script build phase, a manifest, a source or
+    ExportOptions.plist. No evidence any did. Now `testflight` checks the
+    commit out (git only, no token persisted), downloads the artifact outside
+    the workspace, and `ios/ci/assemble.sh` decides what it contributes before
+    the key exists: every tracked file under ios/ byte-identical or the job
+    fails naming it; the web bundle through an allowlist of inert types, no
+    symlink, no hidden file (Xcode copies the `public` folder reference
+    verbatim); the generated capacitor.config.json and config.xml equal to
+    `ios/ci/expected`; the five plugin packages fetched from the registry at
+    the lockfile's tarballs and verified against its sha512, patched, the
+    social-login manifest from the committed hook output, and the artifact's
+    copies compared. `ios-audit.yml` proves it on every PR with no secret:
+    the fixtures against a real sync, the untouched assembly on macOS, and
+    `ios/ci/assemble-mutations.sh` on Linux: 1 untouched assembled, 12
+    tampered artifacts refused before any archive (run 37607035376). First
+    run on main: 37612042008, build 17, assemble step 5 of 15, key placed at
+    step 11, archive and upload green. The KnowFlow claim that this team
+    also hosts KnowFlow is not supported by the console: Apps lists one app.
   - **Hardened 2026-09-28 (the PR recording this):** two jobs, the Admin key
     never on a runner that has run npm (`web` builds and syncs with no
     environment secret and hands an artifact to `testflight`, which has no
