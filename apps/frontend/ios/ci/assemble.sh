@@ -83,7 +83,7 @@ odd=$(find "$PUB" ! -type f ! -type d)
 test -z "$odd" || fail "non-regular file in the web bundle: $odd"
 hidden=$(find "$PUB" -name '.*')
 test -z "$hidden" || fail "hidden file in the web bundle: $hidden"
-ALLOWED='\.(html|js|css|json|webmanifest|map|txt|png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf)$'
+ALLOWED='\.(html|js|mjs|css|json|webmanifest|map|txt|png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf)$'
 bad=$(find "$PUB" -type f | grep -vE "$ALLOWED" || true)
 test -z "$bad" || fail "file type not allowed in the web bundle: $bad"
 rm -rf ios/App/App/public

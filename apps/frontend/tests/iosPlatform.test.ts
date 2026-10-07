@@ -523,7 +523,7 @@ describe('1. the Admin key is never on a runner that has run npm', () => {
 
     it('the web bundle is taken only after an allowlist of inert types, with no symlink and no hidden file', () => {
       const allowed = script.match(/^ALLOWED='([^']+)'$/m)![1];
-      expect(allowed).toBe('\\.(html|js|css|json|webmanifest|map|txt|png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf)$');
+      expect(allowed).toBe('\\.(html|js|mjs|css|json|webmanifest|map|txt|png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf)$');
       // nothing Xcode compiles or runs is on the list
       for (const ext of ['plist', 'strings', 'storyboard', 'xib', 'xcassets', 'swift', 'm', 'sh', 'rb', 'py', 'mlmodel', 'metal', 'xcdatamodeld', 'intentdefinition', 'entitlements', 'xcconfig']) {
         expect(allowed, ext).not.toMatch(new RegExp(`\\|${ext}\\b|\\(${ext}\\b`));
