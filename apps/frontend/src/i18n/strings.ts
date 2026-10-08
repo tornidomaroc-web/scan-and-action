@@ -425,6 +425,13 @@ export const strings = {
     landingFooterTerms: "Terms",
     landingFooterPrivacy: "Privacy",
     landingFooterRefund: "Refunds",
+    // The privacy policy's sign-in section (PrivacyPolicy.tsx), the one section of that
+    // page that follows the language switch. What it states was read from the code on
+    // 2026-10-08: lib/socialAuth.ts requests Google `email profile` and Apple
+    // `email name`; Apple's ID token, the only thing Supabase receives, carries no name;
+    // the User table keeps `email` only; PaywallModal prefills Paddle with the email.
+    privacySignInTitle: "Signing in with Google or Apple",
+    privacySignInBody: "If you sign in with Google, Google shares your name, email address and profile photo with us. If you sign in with Apple, we receive only your email address, or the relay address Apple creates if you choose Hide My Email; Apple shares no photo, and we keep no name from Apple. We use this information only to create your account, sign you in, and link it to an existing account with the same verified email address, never for advertising. It is stored by Supabase, our authentication provider. Our own database keeps only your email address, and the app does not display or use your name or photo. We do not sell this information. We share it only with the services that run the app for us: Supabase stores it, our email provider delivers account emails to your address, and Paddle receives your email address if you subscribe on the web. It is deleted with your account, as described in section 7 below.",
     authForgotPassword: 'Forgot password?',
     authSigningIn: 'Signing in...',
     authRegistering: 'Registering...',
@@ -1008,6 +1015,8 @@ export const strings = {
     landingFooterTerms: "Conditions",
     landingFooterPrivacy: "Confidentialité",
     landingFooterRefund: "Remboursements",
+    privacySignInTitle: "Connexion avec Google ou Apple",
+    privacySignInBody: "Si vous vous connectez avec Google, Google nous transmet votre nom, votre adresse e-mail et votre photo de profil. Si vous vous connectez avec Apple, nous recevons uniquement votre adresse e-mail, ou l'adresse relais créée par Apple si vous choisissez « Masquer mon adresse e-mail »  Apple ne transmet aucune photo et nous ne conservons aucun nom venant d'Apple. Nous utilisons ces informations uniquement pour créer votre compte, vous connecter et le relier à un compte existant ayant la même adresse e-mail vérifiée, jamais à des fins publicitaires. Elles sont conservées par Supabase, notre fournisseur d'authentification. Notre propre base de données ne conserve que votre adresse e-mail, et l'application n'affiche ni n'utilise votre nom ou votre photo. Nous ne vendons pas ces informations. Nous les partageons uniquement avec les services qui font fonctionner l'application pour nous  Supabase les conserve, notre prestataire d'e-mail envoie les messages liés au compte à votre adresse, et Paddle reçoit votre adresse e-mail si vous vous abonnez sur le web. Elles sont supprimées avec votre compte, comme décrit à la section 7 ci-dessous.",
     authForgotPassword: 'Mot de passe oublié ?',
     authSigningIn: 'Connexion...',
     authRegistering: 'Inscription...',
@@ -1565,6 +1574,8 @@ export const strings = {
     landingFooterTerms: "الشروط",
     landingFooterPrivacy: "الخصوصية",
     landingFooterRefund: "الاسترداد",
+    privacySignInTitle: "تسجيل الدخول باستخدام Google أو Apple",
+    privacySignInBody: "إذا سجّلت الدخول باستخدام Google، تشارك Google معنا اسمك وعنوان بريدك الإلكتروني وصورة ملفك الشخصي. وإذا سجّلت الدخول باستخدام Apple، فلا نتلقى إلا عنوان بريدك الإلكتروني، أو عنوان الترحيل الذي تنشئه Apple إذا اخترت «إخفاء بريدي الإلكتروني»؛ ولا تشارك Apple أي صورة، ولا نحتفظ بأي اسم من Apple. نستخدم هذه المعلومات فقط لإنشاء حسابك وتسجيل دخولك وربطه بحساب موجود يحمل عنوان البريد الإلكتروني الموثّق نفسه، ولا نستخدمها أبدًا للإعلانات. تحفظها Supabase، مزوّد المصادقة لدينا. ولا تحتفظ قاعدة بياناتنا إلا بعنوان بريدك الإلكتروني، ولا يعرض التطبيق اسمك أو صورتك ولا يستخدمهما. نحن لا نبيع هذه المعلومات، ولا نشاركها إلا مع الخدمات التي تشغّل التطبيق لصالحنا: تحفظها Supabase، ويرسل مزوّد البريد الإلكتروني رسائل الحساب إلى عنوانك، وتتلقى Paddle عنوان بريدك الإلكتروني إذا اشتركت عبر الويب. وتُحذف مع حسابك كما هو موضّح في القسم 7 أدناه.",
     authForgotPassword: 'هل نسيت كلمة المرور؟',
     authSigningIn: 'جارٍ تسجيل الدخول...',
     authRegistering: 'جارٍ التسجيل...',
