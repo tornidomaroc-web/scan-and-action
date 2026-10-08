@@ -968,6 +968,55 @@ revocation row removed 2026-09-30), the index; details under each item:**
   business days". Sign-in works without it.
   - Owner: the owner, Google Auth Platform, Branding, with a logo and the
     `scan-action.com` domain. **EXPIRY:** the consent page names the app.
+  - **Read live 2026-10-08, nothing submitted, nothing changed.** Chrome is
+    signed in as the project's only principal (IAM page: Owner, Organization
+    Administrator). Audience: External, **In production**. Data Access:
+    `openid`, `userinfo.email`, `userinfo.profile` only; Verification Center:
+    data-access verification "not required". Branding: name "Scan & Action",
+    **no logo**, home `https://www.scan-action.com`, `/privacy`, `/terms`,
+    authorized domains `scan-action.com` and the project's `*.supabase.co`
+    host; status "needs to be verified", button **Verify branding**, which per
+    Google's brand-verification help page starts an evaluation that "usually
+    completes in a few minutes" (not a multi-day manual review).
+  - **Blocker 1, domain ownership: NOT verified.** Search Console for the
+    owning account, `resource_id=sc-domain:scan-action.com`, answers "you don't
+    have access to this property"; public TXT for `scan-action.com`
+    (`dns.google/resolve?type=TXT`) holds only the Cloudflare SPF, no
+    `google-site-verification`. Fix, the owner's hand: Search Console, Add a
+    website, Domain, `scan-action.com`, copy the TXT it shows, add it in
+    Cloudflare as TXT, name `@`, content `google-site-verification=<value>`,
+    proxy n/a, then Verify. Additive; touches no existing record. (The session
+    stopped before Search Console showed the value: the auto-mode classifier
+    refused the Continue click as a domain change.)
+  - **Blocker 2, privacy policy: says nothing about Google user data.**
+    Google's requirement: it "must disclose how the app accesses, uses,
+    stores, and/or shares Google user data". `/privacy` (rendered, read
+    2026-10-08) names Gemini, Supabase and Paddle and never Google Sign-In.
+    Fix: a paragraph in `apps/frontend/src/screens/PrivacyPolicy.tsx` (all
+    three languages): with Google (or Apple) sign-in we receive name, email
+    and profile picture, use them only to create and identify the account,
+    store them in Supabase, never share or sell them, deleted with the account.
+  - **Risk, not a blocker until seen:** the `*.supabase.co` authorized domain
+    cannot be verified by us (`supabase.co` is on the Public Suffix List, so
+    the project host is its own top private domain). Developer reports split:
+    some passed after replying that it is the auth provider, some stuck. The
+    certain fix is a Supabase custom domain, which costs money: not taken.
+  - **The 7-day lapse does not bite here:** it applies to a result not
+    published within 7 days, and this screen is already In production.
+  - **Order:** privacy paragraph merged and serving, then the TXT record and
+    Search Console verified, then the owner presses **Verify branding**; a
+    logo (120x120 PNG) may be added in the same pass.
+  - **Blocker 2 CLOSED 2026-10-08 by #290 (c2a1a1c0).** Live `/privacy`
+    (rendered, `[data-privacy-sign-in]`) shows "4. Signing in with Google or
+    Apple"; deletion is now section 7. Push runs on c2a1a1c0: CI,
+    Password policy drift, iOS TestFlight, Vercel all success.
+  - **Blocker 1 in progress.** The Domain property `scan-action.com` exists
+    in Search Console, unverified; its TXT value is shown under "Any DNS
+    provider" (not the "Start verification" route, which grants Google
+    access to the Cloudflare account). The record is not yet in Cloudflare:
+    the controlled Chrome profile was not signed in to Cloudflare. **EXPIRY:**
+    `dns.google/resolve?name=scan-action.com&type=TXT` returns the
+    `google-site-verification` record and Search Console reads Verified.
 - [ ] **Step 10, the Private Email Relay registration, with the exact
   entries.** Read 2026-09-27 through public DNS only, nothing changed:
   - The backend welcome mail: Resend, From `noreply@scan-action.com`
