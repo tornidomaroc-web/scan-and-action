@@ -1,6 +1,7 @@
 import React from 'react';
 import { LandingHeader } from '../components/LandingHeader';
 import { Eye } from 'lucide-react';
+import { useStrings } from '../i18n/useStrings';
 
 const PrivacyPolicy: React.FC = () => {
   // A visitor who taps a footer link lands here with no header, no logo and no
@@ -19,6 +20,13 @@ const PrivacyPolicy: React.FC = () => {
   //
   // `showAnchors={false}`: `#how-it-works` and `#pricing` are landing-page sections
   // and neither id exists here, so the anchors would scroll nowhere and say nothing.
+  //
+  // Section 4 is the one part of this page that follows the language switch
+  // (s.privacySignInTitle / s.privacySignInBody). Google's brand verification
+  // requires the policy to say how the app uses Google user data, and the rest of
+  // the page stays English under the legal-page deferral recorded in
+  // noHardcodedUserFacingText.test.ts.
+  const s = useStrings();
   return (
     <>
       <LandingHeader showAnchors={false} />
@@ -46,28 +54,33 @@ const PrivacyPolicy: React.FC = () => {
             <p>We use Supabase for secure data storage and authentication. All data is encrypted at rest and in transit using industry-standard protocols.</p>
           </section>
 
+          <section data-privacy-sign-in>
+            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">4. {s.privacySignInTitle}</h2>
+            <p>{s.privacySignInBody}</p>
+          </section>
+
           <section>
-            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">4. Third Party Services</h2>
+            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">5. Third Party Services</h2>
             <p>Document analysis is performed via Google Gemini Vision API. Data shared with this provider is limited to the minimum required for extraction and is subject to their privacy policies. Payments are processed by Paddle.com, our Merchant of Record, which handles your payment details under its own privacy policy.</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">5. User Rights</h2>
+            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">6. User Rights</h2>
             <p>You have the right to access, correct, or delete your personal data at any time. You can manage most data directly through your account dashboard.</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">6. Account &amp; Data Deletion</h2>
+            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">7. Account &amp; Data Deletion</h2>
             <p>You can permanently delete your account at any time from Settings &rarr; Delete account inside the app, or from the web at <a href="/delete-account" className="text-blue-600 font-bold underline">www.scan-action.com/delete-account</a>. Deletion permanently removes your account, your workspace, and all documents, scans, extracted data, and reports it contains &mdash; from both our database and file storage &mdash; and deletes your authentication identity. This action cannot be undone. Deleting your account does not cancel an active subscription; cancel that separately via the App Store, Google Play, or the billing portal.</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">7. Contact</h2>
+            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">8. Contact</h2>
             <p>For any privacy-related inquiries, please contact us at support@scan-action.com.</p>
           </section>
 
           <footer className="pt-10 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-500">
-            Last updated: September 29, 2026 | Contact: support@scan-action.com
+            Last updated: October 8, 2026 | Contact: support@scan-action.com
           </footer>
         </div>
       </div>
