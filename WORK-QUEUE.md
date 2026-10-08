@@ -700,6 +700,14 @@ revocation row removed 2026-09-30), the index; details under each item:**
 | Condition | Owner | EXPIRY |
 |---|---|---|
 | Trader status for the EU (SUBMITTED 2026-10-07, In Review at Apple) | the owner, App Store Connect | the app's trader status reads provided and verified before submission |
+
+**Conditions blocking republishing on Play (opened 2026-10-08).** The Android
+row moved here from the App Store list: the owner's sign-in condition for the
+App Store was met on iOS on 2026-09-28 (the first TestFlight build signed in
+with Apple and with Google), and an Android sign-in gates Play only.
+
+| Condition | Owner | EXPIRY |
+|---|---|---|
 | Android Google sign-in unverified | the owner, a borrowed device | one Google sign-in on a Play-installed build |
 
 - [x] **Remove the Facebook SDK, then the tracking string. CLOSED 2026-09-30 by
@@ -876,8 +884,8 @@ revocation row removed 2026-09-30), the index; details under each item:**
      `Default`, wired by `CODE_SIGN_ENTITLEMENTS` in both configurations.
   - **EXPIRY (met 2026-09-28):** the first TestFlight build signs in with
     Apple and with Google.
-- [ ] **DUPLICATE, marked 2026-10-07: "Step 10" below supersedes this
-  item.** It names only the apex domain; Step 10 registers both
+- [x] **CLOSED 2026-10-08 with Step 10 below. DUPLICATE, marked 2026-10-07:
+  "Step 10" below supersedes this item.** It names only the apex domain; Step 10 registers both
   `scan-action.com` and `send.scan-action.com`, with the reason. Follow Step
   10. **Register `scan-action.com` as an email source for Apple's Private
   Email Relay.** Apple ("configuring-your-environment-for-sign-in-with-apple",
@@ -1054,8 +1062,32 @@ revocation row removed 2026-09-30), the index; details under each item:**
     is not reachable). Adding one later means verifying and publishing the
     branding again; whether the verified name keeps showing in the meantime
     has not been checked, so do it only with time to finish both steps.
-- [ ] **Step 10, the Private Email Relay registration, with the exact
-  entries.** Read 2026-09-27 through public DNS only, nothing changed:
+- [x] **Step 10, the Private Email Relay registration. CLOSED 2026-10-08:
+  both domains were ALREADY registered, and this item never knew.** Read
+  live in Certificates, Identifiers & Profiles › Services › Sign in with
+  Apple for Email Communication › Configure (the path Apple documents;
+  the page lands at `/account/resources/services/configure`): Email
+  Sources lists `scan-action.com` (Domain, STATUS green check "SPF") and
+  `send.scan-action.com` (Domain, green check "SPF"). Nothing was added or
+  changed; no registration date is shown, so who registered them and when
+  is unknown (not this session).
+  - **What the status proves, and what it does not.** Apple's help page:
+    *"The table will display if the registered email source passed an SPF
+    check."* So both domains pass Apple's SPF check. The portal shows no
+    DKIM status and no delivery; the owner ruled the status sufficient
+    (2026-10-08), so the relay delivery in the EXPIRY below was not run.
+  - **Public DNS re-read 2026-10-08 (`dns.google/resolve`), unchanged from
+    2026-09-27:** apex TXT `v=spf1 include:_spf.mx.cloudflare.net ~all`
+    (plus the Search Console token); `send.` TXT `v=spf1 include:amazonses.com
+    ~all` and MX `feedback-smtp.eu-west-1.amazonses.com`;
+    `resend._domainkey` holds a key; `_dmarc` `v=DMARC1; p=none;`. Nothing
+    in DNS was touched.
+  - **Residual, not a blocker:** the Supabase auth mail's From address is
+    still read only by inference (Resend accepts only verified domains). If
+    a Hide-My-Email user ever reports a missing reset mail, read Supabase ›
+    Authentication › SMTP settings first.
+  - The original entry, kept for its reasoning. Read 2026-09-27 through
+    public DNS only, nothing changed:
   - The backend welcome mail: Resend, From `noreply@scan-action.com`
     (`mailer.ts`, `DEFAULT_MAIL_FROM`, and `MAIL_FROM` in Railway). Supabase
     auth mail (confirm, reset): custom SMTP through Resend ("Where a
