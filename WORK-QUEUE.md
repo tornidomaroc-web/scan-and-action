@@ -700,7 +700,6 @@ revocation row removed 2026-09-30), the index; details under each item:**
 | Condition | Owner | EXPIRY |
 |---|---|---|
 | Trader status for the EU (SUBMITTED 2026-10-07, In Review at Apple) | the owner, App Store Connect | the app's trader status reads provided and verified before submission |
-| Brand verification on the Google consent screen (VERIFIED and PUBLISHED 2026-10-08; the consent page itself still to be seen) | the owner, Google Auth Platform | the consent page names the app |
 | Android Google sign-in unverified | the owner, a borrowed device | one Google sign-in on a Play-installed build |
 
 - [x] **Remove the Facebook SDK, then the tracking string. CLOSED 2026-09-30 by
@@ -959,9 +958,16 @@ revocation row removed 2026-09-30), the index; details under each item:**
   `"User"` 31, social identities 0 before and 1 after. No production user was
   created; nothing to clean up. Control on the same session: Settings shows
   no "Sign in on other devices" card, since the account has an email identity.
-- [ ] **Brand verification on the Google consent screen. VERIFIED and
-  PUBLISHED 2026-10-08; open only on its EXPIRY, one look at the consent
-  page.** Observed live before: the
+- [x] **Brand verification on the Google consent screen. CLOSED 2026-10-08
+  on its EXPIRY, read with no account.** Headless Playwright Chromium (not
+  the owner's Chrome), www.scan-action.com/login, "Continue with Google",
+  landed on accounts.google.com `/v3/signin/identifier` and read: "Sign in
+  / to continue to Scan & Action", "Before using this app, you can review
+  Scan & Action's Privacy Policy and Terms of Service." Nothing typed, no
+  account picked. The redirect_uri host is still the Supabase project host,
+  so the name comes from the published branding, not from a domain change;
+  the control is the 2026-09-27 reading below, the same flow naming that
+  host. Observed live before: the
   chooser and the consent page read "to continue to
   ujpdvjaxitgykrrsblfk.supabase.co", not "Scan & Action", because the
   project has no verified brand (Supabase's Google guide: *"Branding and
