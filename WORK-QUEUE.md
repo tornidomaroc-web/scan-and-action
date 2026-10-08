@@ -1006,6 +1006,17 @@ revocation row removed 2026-09-30), the index; details under each item:**
   - **Order:** privacy paragraph merged and serving, then the TXT record and
     Search Console verified, then the owner presses **Verify branding**; a
     logo (120x120 PNG) may be added in the same pass.
+  - **Blocker 2 CLOSED 2026-10-08 by #290 (c2a1a1c0).** Live `/privacy`
+    (rendered, `[data-privacy-sign-in]`) shows "4. Signing in with Google or
+    Apple"; deletion is now section 7. Push runs on c2a1a1c0: CI,
+    Password policy drift, iOS TestFlight, Vercel all success.
+  - **Blocker 1 in progress.** The Domain property `scan-action.com` exists
+    in Search Console, unverified; its TXT value is shown under "Any DNS
+    provider" (not the "Start verification" route, which grants Google
+    access to the Cloudflare account). The record is not yet in Cloudflare:
+    the controlled Chrome profile was not signed in to Cloudflare. **EXPIRY:**
+    `dns.google/resolve?name=scan-action.com&type=TXT` returns the
+    `google-site-verification` record and Search Console reads Verified.
 - [ ] **Step 10, the Private Email Relay registration, with the exact
   entries.** Read 2026-09-27 through public DNS only, nothing changed:
   - The backend welcome mail: Resend, From `noreply@scan-action.com`
