@@ -700,7 +700,7 @@ revocation row removed 2026-09-30), the index; details under each item:**
 | Condition | Owner | EXPIRY |
 |---|---|---|
 | Trader status for the EU (SUBMITTED 2026-10-07, In Review at Apple) | the owner, App Store Connect | the app's trader status reads provided and verified before submission |
-| Brand verification on the Google consent screen | the owner, Google Auth Platform | the consent page names the app |
+| Brand verification on the Google consent screen (VERIFIED and PUBLISHED 2026-10-08; the consent page itself still to be seen) | the owner, Google Auth Platform | the consent page names the app |
 | Android Google sign-in unverified | the owner, a borrowed device | one Google sign-in on a Play-installed build |
 
 - [x] **Remove the Facebook SDK, then the tracking string. CLOSED 2026-09-30 by
@@ -959,7 +959,9 @@ revocation row removed 2026-09-30), the index; details under each item:**
   `"User"` 31, social identities 0 before and 1 after. No production user was
   created; nothing to clean up. Control on the same session: Settings shows
   no "Sign in on other devices" card, since the account has an email identity.
-- [ ] **Brand verification on the Google consent screen.** Observed live: the
+- [ ] **Brand verification on the Google consent screen. VERIFIED and
+  PUBLISHED 2026-10-08; open only on its EXPIRY, one look at the consent
+  page.** Observed live before: the
   chooser and the consent page read "to continue to
   ujpdvjaxitgykrrsblfk.supabase.co", not "Scan & Action", because the
   project has no verified brand (Supabase's Google guide: *"Branding and
@@ -1001,8 +1003,13 @@ revocation row removed 2026-09-30), the index; details under each item:**
     the project host is its own top private domain). Developer reports split:
     some passed after replying that it is the auth provider, some stuck. The
     certain fix is a Supabase custom domain, which costs money: not taken.
-  - **The 7-day lapse does not bite here:** it applies to a result not
-    published within 7 days, and this screen is already In production.
+  - **CORRECTION 2026-10-08: the 7-day lapse DID apply.** This line said it
+    could not, because the screen is In production. Wrong: the lapse is about
+    the *branding* result, which has its own publish step whatever the
+    screen's publishing status. Google answered the owner's press with "Your
+    branding has been verified, but is not yet being shown to users. Publish
+    it before the verified result expires in 7 days.", and he pressed
+    Publish branding the same minute, so nothing was lost.
   - **Order:** privacy paragraph merged and serving, then the TXT record and
     Search Console verified, then the owner presses **Verify branding**; a
     logo (120x120 PNG) may be added in the same pass.
@@ -1017,6 +1024,30 @@ revocation row removed 2026-09-30), the index; details under each item:**
     the controlled Chrome profile was not signed in to Cloudflare. **EXPIRY:**
     `dns.google/resolve?name=scan-action.com&type=TXT` returns the
     `google-site-verification` record and Search Console reads Verified.
+  - **Blocker 1 CLOSED 2026-10-08.** The owner added the TXT record (name
+    `@`) in Cloudflare himself. `dns.google/resolve?name=scan-action.com&type=TXT`
+    returned it byte for byte on the first poll, beside the unchanged SPF (2
+    TXT records). Search Console: "Ownership auto verified", method Domain
+    name provider; the ownership page reads "You are a verified owner".
+    **Keep the TXT record:** removing it un-verifies the domain.
+  - **Verified and published 2026-10-08, without a logo.** The owner pressed
+    Verify branding, then Publish branding. Read afterwards: Branding,
+    "Your branding has been verified and is being shown to users.";
+    Verification Center, the same for branding, and data access "Verification
+    is not required since your app is not requesting any sensitive or
+    restricted scopes."; the console's only notification, "Verify branding
+    information", succeeded. The `*.supabase.co` authorized domain was NOT
+    flagged. Nothing paid.
+  - **Not yet observed:** the consent page itself. Chrome extension reads on
+    `scan-action.com` were refused in that session ("Permission denied for
+    reading pages on this domain"), so the EXPIRY stays open until someone
+    taps Continue with Google on www.scan-action.com and reads the chooser:
+    it should name Scan & Action instead of the Supabase project host.
+  - **Logo, optional, owner's hand:** a 120x120 PNG of the shipped iOS icon
+    was made but could not be uploaded by tooling (the console's file input
+    is not reachable). Adding one later means verifying and publishing the
+    branding again; whether the verified name keeps showing in the meantime
+    has not been checked, so do it only with time to finish both steps.
 - [ ] **Step 10, the Private Email Relay registration, with the exact
   entries.** Read 2026-09-27 through public DNS only, nothing changed:
   - The backend welcome mail: Resend, From `noreply@scan-action.com`
