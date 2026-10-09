@@ -23,6 +23,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- App Link for the confirmation and password-reset emails (design
+                 step 5). autoVerify checks https://www.scan-action.com/.well-known/
+                 assetlinks.json against the Play app-signing key; until it verifies
+                 (or on a build signed with another key) Android opens the link in
+                 the browser, where /auth/confirm is a working page: the fallback.
+                 Only /auth/confirm, so no other page of the site opens the app. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="www.scan-action.com" android:path="/auth/confirm" />
+            </intent-filter>
+
         </activity>
 
         <provider
