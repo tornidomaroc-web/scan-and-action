@@ -429,8 +429,44 @@ a store screenshot.**
     - **The rollback assumption that was wrong:** "keep the old key's
       values available" is not something GitHub offers (secrets are
       write-only). The rollback worked because the Admin `.p8` still existed
-      at `D:\keys\`. Before any future key swap, confirm the outgoing key's
-      `.p8` is on disk, or the rollback is a new key, not a restore.
+      at `D:\keys\`. ~~Before any future key swap, confirm the outgoing key's
+      `.p8` is on disk~~ (superseded below).
+    - **RULED 2026-10-09 by the owner: no `.p8` is kept on any machine. The
+      rollback for a key swap is a NEW key**, generated free in Users and
+      Access › Integrations › Team Keys, its three secrets set in the
+      `testflight` environment, the old key revoked. A plain-text Admin key
+      on disk is the whole Apple team for anyone who reaches the machine,
+      and this PC is to be sold.
+      - **Read 2026-10-09:** Team Keys, Active (2): `ZZG9KP5UBK` "Scan
+        Action CI", Admin, last used Oct 9, 2026, and `62PF9JC44N` "KnowFlow
+        CI", Admin (the other product on the same team); Revoked (1):
+        `2B2D78FJD4` (App Manager), Oct 7, 2026. Secrets `ASC_KEY_ID` and
+        `ASC_KEY_P8` last set 2026-10-07T12:24:44Z
+        (`gh api repos/{owner}/{repo}/environments/testflight/secrets`).
+      - **The pipeline needs no local file:** `ios-testflight.yml` takes the
+        key only from `secrets.ASC_KEY_P8`, writes it to
+        `$RUNNER_TEMP/asc` on the GitHub-hosted runner (`macos-26`, job
+        API `runner_name` "GitHub Actions 1000011040") and deletes it at the
+        end; no path on this PC appears in it. Run **37912863180** (push of
+        #294) logged `ASC_KEY_P8: ***`, archived, exported and uploaded
+        **build 21**.
+      - **The file is gone, and was already gone:** a name scan of
+        2,579,348 files (`C:\Users`, `D:\`, `C:\ProgramData`,
+        `C:\Windows\Temp`, both `$Recycle.Bin`) found no
+        `AuthKey_ZZG9KP5UBK.p8` and no `AuthKey_62PF9JC44N.p8`. Both were
+        deleted by hand after the KnowFlow session reported them
+        (2026-10-08), not through the Recycle Bin, so an
+        overwrite-before-delete was no longer possible. `git log --all
+        --diff-filter=A --name-only` holds no `.p8`, `.p12`, `.pfx`, `.jks`
+        or keystore. The disk is one NVMe SSD (Crucial P3) with TRIM on
+        (`fsutil behavior query DisableDeleteNotify` = 0), so deleted
+        blocks are normally discarded, but no tool can prove that from
+        software.
+      - **What closes it for the sale:** a full wipe before the PC leaves
+        (Windows "Reset this PC › Remove everything" with drive cleaning,
+        or the SSD maker's sanitize). That covers every key file listed in
+        the PR recording this, not just this one. Rotating `ZZG9KP5UBK` to a
+        new key is the fallback if the PC leaves without a wipe.
   - **The archive signs for DEVELOPMENT and the export re-signs for the App
     Store.** Run 36355312731 (2026-09-27): "Your team has no devices from
     which to generate a provisioning profile". #261 forced `Apple Distribution`
@@ -1519,6 +1555,31 @@ restyled.** Do not start at login, although a reviewer sees it first:
     the lockout were proven byte-identical in that PR. The rest of this step
     (email confirmation back into the app, icon and splash, the "coming
     soon" removals, `ProfileScreen.tsx`, the privacy link) is still open.
+  - **The code half MERGED 2026-10-09 as #294 (`8031ae3a`), TestFlight build
+    21** (run 37912863180; CI 37912863195 and password-policy drift
+    37912863265 green on the push). Removed: the native plan sheet's "Pro is
+    coming soon" / "coming in a future update" (en/fr/ar), and
+    `ProfileScreen.tsx` with `moreSettingsSoon` and five other keys. Its
+    import and `profile` route left `App.tsx` in `67feaa5` (2026-03-27), and
+    its JSX literal was in 0 production bundle files (the control was in 1).
+    The terms and privacy line is now on Login in both modes and on native.
+    The English privacy and terms bodies are pinned LTR under the Arabic
+    UI. `firstRunPlaceholders.test.tsx` holds it.
+  - **Still open in this step:**
+    - **The confirmation link back into the app.** Route chosen: universal
+      links / App Links on `https://www.scan-action.com/auth/...`, with the
+      web page as the fallback; one change covers the password-reset mail
+      too. It touches the Associated Domains entitlement (#287's signing
+      path) and needs the Supabase Redirect URLs entry and the Play App
+      Signing SHA-256. **Unread:** the Site URL and the redirect allowlist.
+      The owner's Chrome is not signed in to Supabase, and the OAuth `state`
+      probe now returns an opaque UUID. **Read:** the last Scan & Action
+      confirmation mail (2026-08-24) came From `noreply@scan-action.com`
+      (Gmail sender metadata). The public `/auth/v1/settings` shows
+      `mailer_autoconfirm: false` and apple/google/email on.
+    - **The icon and the splash** (the round below owns the icon and the
+      accent; the Android `#0F1014` splash is still UNVERIFIED, and the local
+      emulator can now show it).
   - **Login rejected by the owner on 2026-09-25.** It is redrawn in its own
     PR.
     - **What it shows today** (`AuthScreen.tsx`): a dark panel reading "Turn
@@ -2372,9 +2433,31 @@ This is also Apple 3.1.3(f)'s condition, word for word (APPLE TRACK), and
   triggers in `CaptureSheet.tsx` and `UploadModal.tsx` show neutral status. The
   strings are `freePlanLimitReached`, `freePlanSingleDoc` and `proAutoUnlock`.
 - Any new Pro or upgrade surface goes behind `!isNativePlatform()`.
-- `/privacy` and `/refund` mention Paddle and subscription cancellation, and no
-  in-app surface links them. **Apple 5.1.1(i) now requires an in-app privacy
-  link** (APPLE TRACK), so revisit that copy before linking it.
+- `/privacy` and `/terms` ARE linked in the app: from Settings since #271 and
+  from Login since #294. They name Paddle as the payment processor, as
+  information; no price, no purchase link.
+- **Ruled 2026-10-09 on two items flagged after #294 (Apple 3.1.1, the 3.1.3
+  intro and 3.1.3(f), read that day).** The app unlocks web-bought Pro and
+  sells nothing in-app, so 3.1.3(b) does not cover it (it needs the items
+  "also available as in-app purchases") and **3.1.3(f) is the exemption it
+  stands on**: "no purchasing inside the app, or calls to action for
+  purchase outside of the app".
+  - **"Start free" in the legal-page header on native: LOW risk.** It leads
+    to `/login` with no price, so it is not a purchase call to action, but
+    it advertises a paid tier and does nothing inside the app. **#295
+    removes it on native.**
+  - **"billing portal" in privacy §7: LOW risk under 3.1, but untrue.** The
+    same untrue route sat in the native delete-account dialog (en/fr/ar),
+    which the reviewer opens for 5.1.1(v), and on `/delete-account`: "the
+    App Store or Google Play" and "the billing portal". No purchase SDK has
+    ever shipped (`git log -S"@revenuecat" -- apps/frontend/package.json` is
+    empty), `Subscription` holds 0 REVENUECAT rows, and neither the
+    frontend nor the backend has a billing portal. **#295 names the route
+    the Refund Policy already gives: writing to support@scan-action.com.**
+    #295 is NOT merged; legal wording is the owner's call. Merging it starts
+    a TestFlight build.
+  - If in-app purchase ever ships, its store route returns to all three
+    places with it.
 
 ### Other kept items
 
