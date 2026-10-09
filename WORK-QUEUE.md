@@ -2454,8 +2454,11 @@ This is also Apple 3.1.3(f)'s condition, word for word (APPLE TRACK), and
     empty), `Subscription` holds 0 REVENUECAT rows, and neither the
     frontend nor the backend has a billing portal. **#295 names the route
     the Refund Policy already gives: writing to support@scan-action.com.**
-    #295 is NOT merged; legal wording is the owner's call. Merging it starts
-    a TestFlight build.
+    **MERGED 2026-10-09 as #295 (`f82be378`), TestFlight build 22**, after
+    the owner approved the legal wording. It was squash-merged pinned to head
+    `844dc080`. Push runs: TestFlight 37924557072 ("Uploaded build 22 … for
+    commit f82be378"), CI 37924557006, password-policy drift 37924557059,
+    all green. `nativeNoStoreBillingClaims.test.tsx` holds it.
   - If in-app purchase ever ships, its store route returns to all three
     places with it.
 
