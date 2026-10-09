@@ -81,14 +81,14 @@ const DeleteAccountInfo: React.FC = () => {
           <section>
             <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-red-600">Subscriptions</h2>
             <p>
-              Deleting your account does <strong>not</strong> cancel an active subscription. Cancel it
-              separately: in-app subscriptions through the App Store or Google Play, and web
-              subscriptions through the billing portal. Otherwise you may continue to be charged.
+              Deleting your account does <strong>not</strong> cancel an active subscription. If you
+              have one, cancel it first by writing to support@scan-action.com. Otherwise you may
+              continue to be charged.
             </p>
           </section>
 
           <footer className="pt-10 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-500">
-            Last updated: June 18, 2026 | Contact: support@scan-action.com
+            Last updated: October 9, 2026 | Contact: support@scan-action.com
           </footer>
         </div>
       </div>

@@ -78,7 +78,7 @@ const PrivacyPolicy: React.FC = () => {
 
           <section>
             <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">7. Account &amp; Data Deletion</h2>
-            <p>You can permanently delete your account at any time from Settings &rarr; Delete account inside the app, or from the web at <a href="/delete-account" className="text-blue-600 font-bold underline">www.scan-action.com/delete-account</a>. Deletion permanently removes your account, your workspace, and all documents, scans, extracted data, and reports it contains &mdash; from both our database and file storage &mdash; and deletes your authentication identity. This action cannot be undone. Deleting your account does not cancel an active subscription; cancel that separately via the App Store, Google Play, or the billing portal.</p>
+            <p>You can permanently delete your account at any time from Settings &rarr; Delete account inside the app, or from the web at <a href="/delete-account" className="text-blue-600 font-bold underline">www.scan-action.com/delete-account</a>. Deletion permanently removes your account, your workspace, and all documents, scans, extracted data, and reports it contains &mdash; from both our database and file storage &mdash; and deletes your authentication identity. This action cannot be undone. Deleting your account does not cancel an active subscription; if you have one, cancel it by writing to support@scan-action.com.</p>
           </section>
 
           <section>
@@ -87,7 +87,7 @@ const PrivacyPolicy: React.FC = () => {
           </section>
 
           <footer className="pt-10 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-500">
-            Last updated: October 8, 2026 | Contact: support@scan-action.com
+            Last updated: October 9, 2026 | Contact: support@scan-action.com
           </footer>
         </div>
       </div>
