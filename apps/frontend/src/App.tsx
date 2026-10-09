@@ -9,6 +9,7 @@ import { ActivityScreen } from './screens/ActivityScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { ResetPasswordScreen } from './screens/ResetPasswordScreen';
+import { AuthConfirmScreen } from './screens/AuthConfirmScreen';
 import { Layout } from './components/Layout';
 import { LandingScreen } from './screens/LandingScreen';
 import { TermsOfService } from './screens/TermsOfService';
@@ -19,6 +20,7 @@ import { SupportPage } from './screens/SupportPage';
 import { useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { NativeBackButton } from './native/NativeBackButton';
+import { NativeAuthLinks } from './native/NativeAuthLinks';
 import { hideSplash, isNativePlatform } from './native/shell';
 
 // Language and direction are owned by LanguageContext (persisted to
@@ -76,6 +78,7 @@ function App() {
     <ToastProvider>
       <BrowserRouter>
         <NativeBackButton />
+        <NativeAuthLinks />
         {/* ══ RECOVERY PRECEDENCE ═══════════════════════════════════════════
             A user who clicked a password-reset email arrives ALREADY
             AUTHENTICATED: Supabase parses the link and establishes a full
@@ -123,6 +126,11 @@ function App() {
             <Route path="/delete-account" element={<DeleteAccountInfo />} />
             {/* Public support page: the App Store Connect Support URL. */}
             <Route path="/support" element={<SupportPage />} />
+
+            {/* Where the confirmation and password-reset emails land, signed
+                in or not, on the web and (as a universal link / App Link)
+                in the app. lib/authLinks.ts explains the link shape. */}
+            <Route path="/auth/confirm" element={<AuthConfirmScreen />} />
 
             {/* Protected Routes */}
             {user ? (
