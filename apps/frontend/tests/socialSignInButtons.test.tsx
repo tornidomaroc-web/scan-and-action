@@ -233,7 +233,9 @@ describe('the native surface is unchanged by the buttons', () => {
     vi.stubEnv('VITE_GOOGLE_IOS_CLIENT_ID', 'i');
     mount();
     expect(container.textContent).not.toMatch(/\$|€|USD|Pro\b|Paddle|checkout/i);
-    expect(q('[data-auth-legal]')).toBeNull();
+    // The legal line is there on native too (design step 5): two links to
+    // the public pages, nothing else.
+    expect(qa('[data-auth-legal] a').map((a) => a.getAttribute('href'))).toEqual(['/terms', '/privacy']);
   });
 });
 

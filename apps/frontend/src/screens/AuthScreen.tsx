@@ -7,7 +7,6 @@ import { useToast } from '../contexts/ToastContext';
 import { translateAuthError } from '../lib/serverErrors';
 import { MIN_PASSWORD_LENGTH } from '../lib/passwordPolicy';
 import { isRequestTimeout, REQUEST_TIMEOUT_MS, withTimeout } from '../lib/fetchWithTimeout';
-import { isNativePlatform } from '../native/shell';
 import { AuthFrame } from '../components/auth/AuthFrame';
 import { SocialSignIn } from '../components/auth/SocialSignIn';
 import { TextField } from '../components/ui/TextField';
@@ -283,19 +282,19 @@ export const AuthScreen: React.FC = () => {
           the form's error panel above. */}
       <SocialSignIn onError={setError} />
 
-      {!isLogin && !isNativePlatform() && (
-        // The legal line, on the web only for now: the in-app privacy link
-        // is its own board item (APPLE TRACK, "No privacy-policy link
-        // inside the native app"), and that page's wording is what it
-        // waits on, not this screen. It closes the screen, under every
-        // way of creating an account.
-        <p className="mt-4 text-start text-xs leading-relaxed text-ink-muted" data-auth-legal>
-          {s.authLegalNotice}{' '}
-          <Link to="/terms" className="font-semibold text-ink-secondary underline">{s.authTermsLink}</Link>
-          {' · '}
-          <Link to="/privacy" className="font-semibold text-ink-secondary underline">{s.authPrivacyLink}</Link>
-        </p>
-      )}
+      {/* The legal line, in both modes and on every platform (design step 5).
+          Apple and Google sign-in create an account from the sign-in mode
+          too, so "by continuing" is true under every button above it, and
+          the reviewer reaches the privacy policy from the first screen,
+          before any account exists (Apple 5.1.1(i)). Both pages are public
+          routes whose copy carries no purchase link (#269, #271), and their
+          header's home link returns a native user to /login. */}
+      <p className="mt-4 text-start text-xs leading-relaxed text-ink-muted" data-auth-legal>
+        {s.authLegalNotice}{' '}
+        <Link to="/terms" className="whitespace-nowrap font-semibold text-ink-secondary underline">{s.authTermsLink}</Link>
+        {' · '}
+        <Link to="/privacy" className="whitespace-nowrap font-semibold text-ink-secondary underline">{s.authPrivacyLink}</Link>
+      </p>
     </AuthFrame>
   );
 };

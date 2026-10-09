@@ -233,8 +233,7 @@ describe('structural sink guard — no bare string literals reach user-facing si
 //     localized Sidebar.tsx:213 ('Checking Plan...' -> {s.verifyingAccount}),
 //     a third leak this census never reached because the sink scan is blind to
 //     JSX text and no other test asserted the ABSENCE of English here.
-//   * ProfileScreen.tsx is UNREACHABLE and deliberately left alone: it is not
-//     imported by App.tsx and has no route (`git grep -n ProfileScreen --
-//     apps/frontend/src` returns only its own definition). Localizing dead code
-//     would make this census look complete while adding nothing a user can see.
+//   * ProfileScreen.tsx is DELETED (design step 5). Its import and its
+//     `profile` route left App.tsx in 67feaa5 (2026-03-27) and nothing
+//     referenced it after; firstRunPlaceholders.test.tsx asserts it stays gone.
 // ============================================================================
