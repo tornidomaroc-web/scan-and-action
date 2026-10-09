@@ -520,16 +520,18 @@ describe('NATIVE anti-steering invariant — CaptureSheet limit guard', () => {
 // by NOTHING in this file.
 // ============================================================================
 // This modal renders inside the native shell and contains the required
-// cancellation disclosure (`deleteAccountSubscriptionWarning`, strings.ts:178),
-// which names "the App Store or Google Play, and web subscriptions via the
-// billing portal".
+// cancellation disclosure (`deleteAccountSubscriptionWarning`), which names
+// one route: writing to support@scan-action.com. It named "the App Store or
+// Google Play, and web subscriptions via the billing portal" until 2026-10-09,
+// when the database held 3 subscriptions, all PADDLE, and 0 REVENUECAT, and
+// the app had never shipped a purchase SDK: no store route existed to name,
+// and there is no billing portal in the app.
 //
 // Auditing it against the same contract as every other native surface: it holds
-// NO price, NO purchase CTA and NO link. Its only imperative is *cancel*. Naming
-// the billing portal as a CANCELLATION route is the opposite of steering — and
-// it is load-bearing: a native user can hold a WEB subscription (subscribed on
-// web, then installed the app), and a Play subscription can only be cancelled
-// through Play. Omitting either route would leave users unable to stop charges.
+// NO price, NO purchase CTA and NO link. Its only imperative is *cancel*. The
+// route is load-bearing: a native user can hold a WEB subscription (subscribed
+// on web, then installed the app). If in-app purchase ever ships, its store
+// route comes back here with it.
 //
 // So these tests lock BOTH directions, and the second one matters more:
 //
@@ -609,8 +611,8 @@ describe('NATIVE anti-steering invariant — DeleteAccountModal (cancellation di
     expect(arabicBlock, 'must be real Arabic, not English left in place').toBeGreaterThan(80);
     // No bidi/zero-width control characters smuggled into the copy.
     expect(points.some((p) => (p >= 0x200b && p <= 0x200f) || (p >= 0x202a && p <= 0x202e) || p === 0xfeff)).toBe(false);
-    // The only Latin permitted is the untranslated store brand names.
-    expect([...copy].filter((c) => /[A-Za-z]/.test(c)).join('')).toBe('AppStoreGooglePlay');
+    // The only Latin permitted is the support address.
+    expect([...copy].filter((c) => /[A-Za-z]/.test(c)).join('')).toBe('supportscanactioncom');
 
     // Verbs: cancel yes, buy/upgrade no.
     expect(copy).toMatch(/ألغِ/);                 // "cancel" (imperative)

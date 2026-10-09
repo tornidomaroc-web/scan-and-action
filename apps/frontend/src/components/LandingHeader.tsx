@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { BrandMark } from './BrandMark';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useStrings } from '../i18n/useStrings';
+import { isNativePlatform } from '../native/shell';
 
 // ============================================================================
 // The header of the unregistered routes (the landing and the four legal
@@ -50,9 +51,16 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({ showAnchors = true
           <Link to="/login" className="px-2.5 py-2 text-sm font-semibold text-ink-secondary transition-colors hover:text-ink motion-reduce:transition-none">
             {s.landingLogIn}
           </Link>
-          <Link to="/login" className="rounded-pill bg-ink px-4 py-2 text-sm font-semibold text-surface-raised transition-opacity hover:opacity-90 motion-reduce:transition-none">
-            {s.landingStartFree}
-          </Link>
+          {/* Not in the native app: "Start free" is marketing for a paid tier,
+              and inside the app it has no job (the reader is already in it).
+              Apple 3.1.3(f) allows the web-bought Pro only with no purchasing
+              and no call to action for purchase in the app; this header shows
+              on the legal pages, one tap from Login and Settings. */}
+          {!isNativePlatform() && (
+            <Link to="/login" className="rounded-pill bg-ink px-4 py-2 text-sm font-semibold text-surface-raised transition-opacity hover:opacity-90 motion-reduce:transition-none">
+              {s.landingStartFree}
+            </Link>
+          )}
         </div>
       </div>
     </header>
