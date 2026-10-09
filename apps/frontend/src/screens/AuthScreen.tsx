@@ -291,9 +291,9 @@ export const AuthScreen: React.FC = () => {
           header's home link returns a native user to /login. */}
       <p className="mt-4 text-start text-xs leading-relaxed text-ink-muted" data-auth-legal>
         {s.authLegalNotice}{' '}
-        <Link to="/terms" className="font-semibold text-ink-secondary underline">{s.authTermsLink}</Link>
+        <Link to="/terms" className="whitespace-nowrap font-semibold text-ink-secondary underline">{s.authTermsLink}</Link>
         {' · '}
-        <Link to="/privacy" className="font-semibold text-ink-secondary underline">{s.authPrivacyLink}</Link>
+        <Link to="/privacy" className="whitespace-nowrap font-semibold text-ink-secondary underline">{s.authPrivacyLink}</Link>
       </p>
     </AuthFrame>
   );

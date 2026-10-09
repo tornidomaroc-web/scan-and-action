@@ -158,6 +158,8 @@ describe('3. the Login screen links the privacy policy, on native, in both modes
           // RTL: the line aligns by logical side, so Arabic starts at the right.
           expect(legal!.className).toContain('text-start');
           expect(legal!.className).not.toMatch(/\btext-(left|right)\b/);
+          // A link name never breaks across lines ("سياسة / الخصوصية" did).
+          for (const a of qa('[data-auth-legal] a')) expect(a.className).toContain('whitespace-nowrap');
         }
         expect(document.documentElement.getAttribute('dir')).toBe(lang === 'ar' ? 'rtl' : 'ltr');
       });
