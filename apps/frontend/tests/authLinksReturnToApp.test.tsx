@@ -3,7 +3,7 @@ import React, { StrictMode } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot, Root } from 'react-dom/client';
 import { MemoryRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // ============================================================================
@@ -256,10 +256,16 @@ describe('3. the native listener follows only that link', () => {
 });
 
 describe('4. the well-known files', () => {
-  const read = (rel: string) => JSON.parse(readFileSync(join(CWD, 'public/.well-known', rel), 'utf8'));
+  // Stored as ordinary .json under public/app-links/ and served at
+  // /.well-known/ by a Vercel REWRITE (not a redirect, which Apple refuses).
+  // public/ is copied into the iOS app's web bundle, and assemble.sh (#287)
+  // refuses hidden files and any extension outside its allowlist; the first
+  // cut, public/.well-known/apple-app-site-association, failed ios-audit run
+  // 37943266429 on exactly that and would have failed the TestFlight build.
+  const read = (rel: string) => JSON.parse(readFileSync(join(CWD, 'public/app-links', rel), 'utf8'));
 
   it('apple-app-site-association names team NQ23SMHXJV and com.scanaction.app, for /auth/confirm only', () => {
-    const aasa = read('apple-app-site-association');
+    const aasa = read('apple-app-site-association.json');
     expect(aasa.applinks.details).toHaveLength(1);
     expect(aasa.applinks.details[0].appIDs).toEqual(['NQ23SMHXJV.com.scanaction.app']);
     const comps = aasa.applinks.details[0].components;
@@ -277,12 +283,32 @@ describe('4. the well-known files', () => {
     ]);
   });
 
-  it('vercel.json serves both as application/json and keeps the SPA rewrite', () => {
+  it('vercel.json rewrites both well-known paths to the files, as JSON, before the SPA catch-all', () => {
     const v = JSON.parse(readFileSync(join(CWD, 'vercel.json'), 'utf8'));
     for (const src of ['/.well-known/apple-app-site-association', '/.well-known/assetlinks.json']) {
       const rule = v.headers.find((r: { source: string }) => r.source === src);
       expect(rule.headers).toContainEqual({ key: 'Content-Type', value: 'application/json' });
     }
-    expect(v.rewrites).toEqual([{ source: '/(.*)', destination: '/index.html' }]);
+    expect(v.rewrites).toEqual([
+      { source: '/.well-known/apple-app-site-association', destination: '/app-links/apple-app-site-association.json' },
+      { source: '/.well-known/assetlinks.json', destination: '/app-links/assetlinks.json' },
+      { source: '/(.*)', destination: '/index.html' },
+    ]);
+    expect(v.redirects).toBeUndefined();
+  });
+
+  it('public/ passes the iOS web-bundle rules, read from assemble.sh itself', () => {
+    const sh = readFileSync(join(CWD, 'ios/ci/assemble.sh'), 'utf8');
+    const allowed = new RegExp(sh.match(/ALLOWED='([^']+)'/)![1]);
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+        e.isDirectory() ? [join(dir, e.name) + '/', ...walk(join(dir, e.name))] : [join(dir, e.name)],
+      );
+    const all = walk(join(CWD, 'public'));
+    expect(all.length).toBeGreaterThan(3);
+    expect(all.filter((f) => /[\/]\./.test(f.slice(join(CWD, 'public').length)))).toEqual([]);
+    expect(all.filter((f) => !f.endsWith('/') && !allowed.test(f))).toEqual([]);
+    // The control: the rule really does refuse the old name.
+    expect(allowed.test('public/.well-known/apple-app-site-association')).toBe(false);
   });
 });
