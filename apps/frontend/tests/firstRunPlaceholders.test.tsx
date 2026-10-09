@@ -187,3 +187,30 @@ describe('the native plan sheet states the rule, and promises nothing', () => {
     });
   }
 });
+
+describe('the pages the Login links open read left to right where they are English', () => {
+  it('ar: the privacy body is LTR English; its sign-in section follows the reader (RTL Arabic)', async () => {
+    const { PrivacyPolicy } = await import('../src/screens/PrivacyPolicy');
+    mount(<PrivacyPolicy />, 'ar');
+    const body = container.querySelector<HTMLElement>('[lang="en"]')!;
+    expect(body.getAttribute('dir')).toBe('ltr');
+    expect(body.textContent).toContain('Data Collected');
+    const signIn = container.querySelector<HTMLElement>('[data-privacy-sign-in]')!;
+    expect([signIn.getAttribute('dir'), signIn.getAttribute('lang')]).toEqual(['rtl', 'ar']);
+    expect(signIn.textContent).toContain(strings.ar.privacySignInBody);
+  });
+
+  it('en: the sign-in section is LTR too', async () => {
+    const { PrivacyPolicy } = await import('../src/screens/PrivacyPolicy');
+    mount(<PrivacyPolicy />, 'en');
+    expect(container.querySelector('[data-privacy-sign-in]')!.getAttribute('dir')).toBe('ltr');
+  });
+
+  it('ar: the terms body is LTR English', async () => {
+    const { TermsOfService } = await import('../src/screens/TermsOfService');
+    mount(<TermsOfService />, 'ar');
+    const body = container.querySelector<HTMLElement>('[lang="en"]')!;
+    expect(body.getAttribute('dir')).toBe('ltr');
+    expect(body.querySelector('h1')).not.toBeNull();
+  });
+});

@@ -22,7 +22,8 @@ const TermsOfService: React.FC = () => {
   return (
     <>
       <LandingHeader showAnchors={false} />
-      <div className="max-w-4xl mx-auto px-6 py-20 font-sans text-slate-800 dark:text-slate-200">
+      {/* English only (the legal-page deferral), so pinned LTR under the Arabic UI. */}
+      <div dir="ltr" lang="en" className="max-w-4xl mx-auto px-6 py-20 font-sans text-slate-800 dark:text-slate-200">
         <div className="flex items-center gap-4 mb-10">
           <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-2xl text-blue-600">
             <ShieldCheck size={32} />

@@ -2,6 +2,7 @@ import React from 'react';
 import { LandingHeader } from '../components/LandingHeader';
 import { Eye } from 'lucide-react';
 import { useStrings } from '../i18n/useStrings';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const PrivacyPolicy: React.FC = () => {
   // A visitor who taps a footer link lands here with no header, no logo and no
@@ -27,10 +28,16 @@ const PrivacyPolicy: React.FC = () => {
   // the page stays English under the legal-page deferral recorded in
   // noHardcodedUserFacingText.test.ts.
   const s = useStrings();
+  const { language } = useLanguage();
+  // The body is English under the deferral above, so it is pinned LTR: under
+  // the Arabic UI it inherited dir="rtl" and rendered right-aligned with its
+  // full stops on the wrong side (".security"), seen on the Android emulator
+  // 2026-10-09 after the Login link made this page one tap from the first
+  // screen. Section 4 follows the language, so it takes the reader's direction.
   return (
     <>
       <LandingHeader showAnchors={false} />
-      <div className="max-w-4xl mx-auto px-6 py-20 font-sans text-slate-800 dark:text-slate-200">
+      <div dir="ltr" lang="en" className="max-w-4xl mx-auto px-6 py-20 font-sans text-slate-800 dark:text-slate-200">
         <div className="flex items-center gap-4 mb-10">
           <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl text-emerald-600">
             <Eye size={32} />
@@ -54,7 +61,7 @@ const PrivacyPolicy: React.FC = () => {
             <p>We use Supabase for secure data storage and authentication. All data is encrypted at rest and in transit using industry-standard protocols.</p>
           </section>
 
-          <section data-privacy-sign-in>
+          <section data-privacy-sign-in dir={language === 'ar' ? 'rtl' : 'ltr'} lang={language}>
             <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-emerald-600">4. {s.privacySignInTitle}</h2>
             <p>{s.privacySignInBody}</p>
           </section>
