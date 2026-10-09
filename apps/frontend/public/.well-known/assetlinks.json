@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.scanaction.app",
+      "sha256_cert_fingerprints": [
+        "B6:EA:0E:B6:75:AE:D7:C4:79:48:4B:FB:3B:5B:E4:C5:78:7C:D5:BC:35:D0:64:3B:9D:86:C7:F0:FB:A8:BB:58"
+      ]
+    }
+  }
+]
