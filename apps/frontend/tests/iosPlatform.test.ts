@@ -43,6 +43,24 @@ describe('entitlements and project settings', () => {
     expect(ent).toMatch(/<key>com\.apple\.developer\.applesignin<\/key>\s*<array>\s*<string>Default<\/string>\s*<\/array>/);
     expect(pbx.match(/CODE_SIGN_ENTITLEMENTS = App\/App\.entitlements;/g)).toHaveLength(2);
   });
+  // Universal links for the confirmation and reset emails (design step 5).
+  // ONE domain, applinks only: the AASA file on www.scan-action.com claims
+  // only /auth/confirm, so nothing else on the site opens the app. The apex
+  // redirects to www with a 307, and Apple does not follow redirects for the
+  // association file, so the apex is deliberately absent. Requires the
+  // Associated Domains capability on the App ID (owner, developer portal).
+  it('Associated Domains carries exactly applinks:www.scan-action.com', () => {
+    const ent = F('ios/App/App/App.entitlements');
+    const m = ent.match(/<key>com\.apple\.developer\.associated-domains<\/key>\s*<array>([\s\S]*?)<\/array>/);
+    expect(m).not.toBeNull();
+    const domains = [...m![1].matchAll(/<string>([^<]*)<\/string>/g)].map((x) => x[1]);
+    expect(domains).toEqual(['applinks:www.scan-action.com']);
+    // The plist holds exactly the two capabilities, nothing picked up by accident.
+    expect([...ent.matchAll(/<key>([^<]*)<\/key>/g)].map((x) => x[1])).toEqual([
+      'com.apple.developer.applesignin',
+      'com.apple.developer.associated-domains',
+    ]);
+  });
   it('automatic signing under the owner team, bundle com.scanaction.app, in both configurations', () => {
     expect(pbx.match(/CODE_SIGN_STYLE = Automatic;/g)).toHaveLength(2);
     expect(pbx.match(/DEVELOPMENT_TEAM = NQ23SMHXJV;/g)).toHaveLength(2);
