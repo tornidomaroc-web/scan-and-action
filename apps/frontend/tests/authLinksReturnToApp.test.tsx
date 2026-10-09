@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React, { StrictMode } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot, Root } from 'react-dom/client';
-import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -53,7 +53,7 @@ vi.mock('@capacitor/app', () => ({
 import { strings } from '../src/i18n/strings';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { AuthConfirmScreen } from '../src/screens/AuthConfirmScreen';
-import { NativeAuthLinks } from '../src/native/NativeAuthLinks';
+import { NativeAuthLinks, resetAuthLinkLaunchForTests } from '../src/native/NativeAuthLinks';
 import { inAppPathForAuthLink, readAuthLinkParams } from '../src/lib/authLinks';
 
 type Lang = 'en' | 'fr' | 'ar';
@@ -102,6 +102,7 @@ beforeEach(() => {
   h.listeners = [];
   h.launchUrl = undefined;
   where = '';
+  resetAuthLinkLaunchForTests();
 });
 afterEach(() => {
   root?.unmount();
@@ -222,6 +223,27 @@ describe('3. the native listener follows only that link', () => {
     h.launchUrl = `https://www.scan-action.com/auth/confirm?token_hash=${HASH}&type=email`;
     mount('/start', 'en', <NativeAuthLinks />);
     await vi.waitFor(() => expect(where).toBe(`/auth/confirm?token_hash=${HASH}&type=email`));
+  });
+
+  // Found on the Android emulator 2026-10-09: in a BrowserRouter, navigate()
+  // changes identity on every navigation, the effect re-ran, getLaunchUrl()
+  // returned the cold-start link again, and "Back to sign in" bounced the
+  // person straight back to /auth/confirm (spending the token a second time).
+  it('the launch URL is followed once: navigating away does not bounce back', async () => {
+    h.platform = 'android';
+    h.launchUrl = `https://www.scan-action.com/auth/confirm?token_hash=${HASH}&type=email`;
+    let go!: (to: string) => void;
+    const Go = () => {
+      const nav = useNavigate();
+      go = nav;
+      return null;
+    };
+    mount('/start', 'en', <><Go /><NativeAuthLinks /></>);
+    await vi.waitFor(() => expect(where).toBe(`/auth/confirm?token_hash=${HASH}&type=email`));
+    flushSync(() => go('/elsewhere'));
+    await settle();
+    await settle();
+    expect(where).toBe('/elsewhere');
   });
 
   it('App.tsx mounts the listener and the public route', () => {
