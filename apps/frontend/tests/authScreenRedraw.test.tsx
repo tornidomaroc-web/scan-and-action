@@ -153,13 +153,14 @@ describe('what the first screen shows', () => {
     expect((q('#password') as HTMLInputElement).type).toBe('password');
   });
 
-  it('the legal line with its two links is on the sign-up form, and not on sign-in', () => {
+  it('the legal line with its two links is on the sign-in form and on the sign-up form', () => {
     mount();
-    expect(q('[data-auth-legal]')).toBeNull();
-    click(buttonByText(strings.en.authCreateAccountCta)!);
-    const legal = q('[data-auth-legal]')!;
-    expect(legal.textContent).toContain(strings.en.authLegalNotice);
-    expect(qa('[data-auth-legal] a').map((a) => a.getAttribute('href'))).toEqual(['/terms', '/privacy']);
+    for (const label of [strings.en.authSignInCta, strings.en.authCreateAccountCta]) {
+      click(qa('[data-auth-mode-switch] button').find((b) => b.textContent === label)!);
+      const legal = q('[data-auth-legal]')!;
+      expect(legal.textContent).toContain(strings.en.authLegalNotice);
+      expect(qa('[data-auth-legal] a').map((a) => a.getAttribute('href'))).toEqual(['/terms', '/privacy']);
+    }
   });
 });
 

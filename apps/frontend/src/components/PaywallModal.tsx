@@ -116,9 +116,11 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
 
   // Google Play forbids non-Play payment UI for digital goods. Inside the native
   // app we never render the Paddle checkout, never call getPaddle()/Checkout.open,
-  // and never load the Paddle SDK — we show a neutral "coming soon" placeholder
-  // with NO link or reference to paying on the web (anti-steering). Real in-app
-  // purchase is a later chunk. This branch is dead on web (isNativePlatform() is
+  // and never load the Paddle SDK. No caller opens this sheet on native (the
+  // limit shows a neutral toast instead), so this is the second line of
+  // defence: a sheet stating the entitlement rule only, with NO link or
+  // reference to paying on the web (anti-steering) and no promise of a future
+  // update (Apple 2.1(a)). This branch is dead on web (isNativePlatform() is
   // false there), so the web checkout flow below is unchanged.
   if (isNativePlatform()) {
     return createPortal(
@@ -136,7 +138,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
                 <Crown size={32} className="text-white" fill="white" />
               </div>
               <h2 className="text-2xl font-black text-white tracking-tight uppercase italic">
-                {s.proComingSoonTitle}
+                {s.nativePlanTitle}
               </h2>
             </div>
             <button
@@ -150,13 +152,13 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
 
           <div className="p-5 sm:p-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-8">
             <p className="text-slate-600 dark:text-slate-400 font-bold text-center mb-8 leading-relaxed">
-              {s.proComingSoonBody}
+              {s.nativePlanBody}
             </p>
             <button
               onClick={onClose}
               className="w-full min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-all"
             >
-              {s.proComingSoonDismiss}
+              {s.nativePlanDismiss}
             </button>
           </div>
         </div>

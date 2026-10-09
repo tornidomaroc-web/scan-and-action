@@ -132,9 +132,9 @@ describe('NATIVE anti-steering invariant — PaywallModal (primary gate)', () =>
 
   afterEach(cleanup);
 
-  it('renders the neutral "coming soon" placeholder, NOT the paid upsell', () => {
+  it('renders the neutral plan sheet, NOT the paid upsell', () => {
     // Native branch copy is present…
-    expect(document.body.textContent).toContain(strings.en.proComingSoonTitle);
+    expect(document.body.textContent).toContain(strings.en.nativePlanTitle);
     // …and the web upsell heading is not.
     expect(document.body.textContent).not.toContain('Upgrade to PRO');
   });
@@ -312,7 +312,7 @@ describe('NATIVE anti-steering invariant — "/" never renders the marketing/pri
 // CTA would make them the only defense. Lock them now, before that restyle.
 //
 // The load-bearing assertion in each case is that the paywall NEVER OPENS AT
-// ALL: we assert the absence of the NATIVE paywall panel (proComingSoonTitle),
+// ALL: we assert the absence of the NATIVE paywall panel (nativePlanTitle),
 // not merely the absence of a price. Asserting "no price" alone would pass even
 // if the guard broke, because PaywallModal would neutralize it downstream.
 // ============================================================================
@@ -323,7 +323,7 @@ const expectSilentNative = (neutralMessage: string) => {
   const text = document.body.textContent ?? '';
   expect(text).toContain(neutralMessage);              // neutral status shown
   expect(text).not.toContain(PAYWALL_WEB_MARKER);      // web upsell absent
-  expect(text).not.toContain(strings.en.proComingSoonTitle); // paywall NEVER opened
+  expect(text).not.toContain(strings.en.nativePlanTitle); // paywall NEVER opened
   expect(text).not.toMatch(PRICE_REGEX);               // no price anywhere
   for (const cta of FORBIDDEN_CTA) expect(text).not.toContain(cta);
   expect(h.getPaddle).not.toHaveBeenCalled();          // checkout SDK untouched
@@ -574,7 +574,7 @@ describe('NATIVE anti-steering invariant — DeleteAccountModal (cancellation di
       expect(text).not.toMatch(PRICE_REGEX);
       for (const cta of FORBIDDEN_CTA) expect(text).not.toContain(cta);
       // The paywall must not be mounted from this modal at all.
-      expect(text).not.toContain(strings.en.proComingSoonTitle);
+      expect(text).not.toContain(strings.en.nativePlanTitle);
       expect(text).not.toContain(PAYWALL_WEB_MARKER);
       expect(h.getPaddle).not.toHaveBeenCalled();
       expect(h.checkoutOpen).not.toHaveBeenCalled();
