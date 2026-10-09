@@ -1566,17 +1566,60 @@ restyled.** Do not start at login, although a reviewer sees it first:
     The English privacy and terms bodies are pinned LTR under the Arabic
     UI. `firstRunPlaceholders.test.tsx` holds it.
   - **Still open in this step:**
-    - **The confirmation link back into the app.** Route chosen: universal
-      links / App Links on `https://www.scan-action.com/auth/...`, with the
-      web page as the fallback; one change covers the password-reset mail
-      too. It touches the Associated Domains entitlement (#287's signing
-      path) and needs the Supabase Redirect URLs entry and the Play App
-      Signing SHA-256. **Unread:** the Site URL and the redirect allowlist.
-      The owner's Chrome is not signed in to Supabase, and the OAuth `state`
-      probe now returns an opaque UUID. **Read:** the last Scan & Action
-      confirmation mail (2026-08-24) came From `noreply@scan-action.com`
-      (Gmail sender metadata). The public `/auth/v1/settings` shows
-      `mailer_autoconfirm: false` and apple/google/email on.
+    - **The confirmation and reset links back into the app.** Route: universal
+      links / App Links on `https://www.scan-action.com/auth/confirm`, with
+      that page as the web fallback. **PR A MERGED 2026-10-09 as #298
+      (`5f037880`), TestFlight build 23** (run 37955763659; CI 37955763685
+      and password-policy drift 37955763673 green). `assemble.sh` passed
+      with a 37-file web bundle carrying `app-links/*.json` (`cap copy ios`
+      reproduces 37). Production serves `5f037880`. `/.well-known/
+      apple-app-site-association` and `/.well-known/assetlinks.json` answer
+      200 with no redirect, as `application/json`, byte-identical to the
+      repo. `/auth/confirm` with a fake token got Supabase's real 403 and
+      the failed page in en and ar. The first cut, `public/.well-known/`,
+      failed ios-audit 37943266429 (`assemble.sh` refuses hidden files and
+      extensionless names); the files are served by a Vercel rewrite now.
+      - **Read live 2026-10-09 (Supabase, owner's Chrome profile):** Site URL
+        `https://www.scan-action.com`; Redirect URLs
+        `https://www.scan-action.com/**` and
+        `https://scan-and-action-git-*-tornidomaroc-webs-projects.vercel.app/**`
+        (no change needed). Custom SMTP on, sender `noreply@scan-action.com`
+        ("Scan & Action"), `smtp.resend.com:465`, 60 s per-user interval.
+        Both templates linked `{{ .ConfirmationURL }}`, a `supabase.co`
+        address, so the tapped link could never be a universal link.
+      - **ROLLBACK: the two templates as they stood before the 2026-10-09
+        change**, read from the console's editor model and proven identical
+        by an in-page equality check (Reset: 832 characters). To roll back,
+        paste each body back into Authentication › Emails › Templates and
+        Save. The subjects did not change.
+        - Confirm sign up, subject `Confirm Your Signup`, body:
+
+          ```html
+          <h2>Confirm your signup</h2>
+
+          <p>Follow this link to confirm your user:</p>
+          <p><a href="{{ .ConfirmationURL }}">Confirm your mail</a></p>
+          ```
+
+        - Reset password, subject `Reset your Scan & Action password`, body:
+
+          ```html
+          <h2>Reset your Scan &amp; Action password</h2>
+
+          <p>Hello,</p>
+
+          <p>We received a request to reset the password for your Scan &amp; Action account ({{ .Email }}). Click the button below to choose a new password.</p>
+
+          <p><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;">Set a new password</a></p>
+
+          <p>If the button does not work, copy and paste this address into your browser:</p>
+
+          <p style="word-break:break-all;font-size:13px;color:#444444;">{{ .ConfirmationURL }}</p>
+
+          <p>This link can only be used once. If you did not request a password reset, you can safely ignore this email and your password will stay the same.</p>
+
+          <p>Scan &amp; Action<br><a href="https://www.scan-action.com">www.scan-action.com</a></p>
+          ```
     - **The icon and the splash** (the round below owns the icon and the
       accent; the Android `#0F1014` splash is still UNVERIFIED, and the local
       emulator can now show it).
