@@ -1696,14 +1696,16 @@ restyled.** Do not start at login, although a reviewer sees it first:
            `com.scanaction.app` in Certificates, Identifiers & Profiles (it
            read OFF on 2026-10-09; Sign In with Apple, known on, was the
            control) and saved.
-           - **2026-10-10: not done yet; the portal was signed out.**
-             developer.apple.com redirected to "Sign in to Apple Developer"
-             in the session's Chrome profile, so nothing was read or changed
-             on the App ID. The owner signs in himself; the page offers
-             "Sign in with iPhone", which needs no typed password. Then the
-             session ticks Associated Domains on `com.scanaction.app` only
-             and stops before Save; the owner clicks Save, and Confirm if
-             Apple asks; the session re-reads it as ON from a fresh tab.
+           - **DONE 2026-10-10: Associated Domains reads ON.** The portal
+             was first signed out; the owner signed in with "Sign in with
+             iPhone" (no typed password), header "… - NQ23SMHXJV". On the
+             edit page of `com.scanaction.app (explicit)`, 2 of 130 boxes were
+             ticked before (In-App Purchase, Sign In with Apple, the known-on
+             control). The session ticked Associated Domains only ("MDM
+             Managed Associated Domains" left off) and stopped; the owner
+             clicked Save and Confirm. A fresh tab read exactly 3 ticked
+             (Associated Domains, In-App Purchase, Sign In with Apple), by the
+             DOM and by eye, with Save disabled (nothing unsaved).
            - **What the save does, from Apple's docs (read 2026-10-10):**
              Account Help, Enable app capabilities: "Provisioning profiles
              that contain a modified App ID become invalid", and "Click Save.
@@ -1720,6 +1722,13 @@ restyled.** Do not start at login, although a reviewer sees it first:
              not start TestFlight (`paths: apps/frontend/**`); #299 does.
         3. #299 is still at head `1125b645`, rebased or not, with CI and
            ios-audit green on that head.
+           - **2026-10-10: rebased onto `main` (`677c452f`), no code
+             added.** `1125b645` branched from `526dd088`, before #298, so
+             its green checks never built #298's native listener with the
+             entitlement. After `gh pr update-branch 299 --rebase` it is one
+             commit on `main`, the same two files, and its added and removed
+             lines are byte-identical to `1125b645`'s. CI and ios-audit re-run
+             on the new head before any merge.
         - Merging starts a TestFlight run. It is the first archive whose
           automatic signing meets the new entitlement. Watch: no "doesn't
           include the com.apple.developer.associated-domains entitlement"
