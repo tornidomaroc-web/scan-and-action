@@ -42,17 +42,10 @@ jobs:
           js = open(sys.argv[1], encoding='utf-8', errors='replace').read()
           url = sorted(set(re.findall(r'https://[a-z0-9]{20}\.supabase\.co', js)))
           assert len(url) == 1, url
-          ref = url[0][8:28]
-          key = None
-          for t in set(re.findall(r'eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+', js)):
-              p = t.split('.')[1]
-              p += '=' * (-len(p) % 4)
-              c = json.loads(base64.urlsafe_b64decode(p))
-              if c.get('role') == 'anon' and c.get('ref') == ref:
-                  key = t
-          assert key, 'no anon key for the ref'
+          keys = sorted(set(re.findall(r'sb_publishable_[A-Za-z0-9_-]+', js)))
+          assert len(keys) == 1, f'{len(keys)} publishable keys'
           print(f'VITE_SUPABASE_URL={url[0]}')
-          print(f'VITE_SUPABASE_ANON_KEY={key}')
+          print(f'VITE_SUPABASE_ANON_KEY={keys[0]}')
           PY
           echo "VITE_API_URL=https://backend-blocked.invalid/api" >> "$GITHUB_ENV"
           echo "supabase settings read from $asset"
