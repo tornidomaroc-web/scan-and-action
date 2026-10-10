@@ -94,37 +94,56 @@ jobs:
           set +e
           out="$RUNNER_TEMP/probe"; mkdir -p "$out"
           udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; c=[(r,x["udid"],x["name"]) for r,v in d.items() if "iOS" in r for x in v if x["name"].startswith("iPhone")]; c.sort(); print(c[-1][1])')
+          dev="$HOME/Library/Developer/CoreSimulator/Devices/$udid"
           echo "simulator: $(xcrun simctl list devices available | grep "$udid")"
           xcrun simctl boot "$udid"; xcrun simctl bootstatus "$udid" -b | tail -n 1
           xcrun simctl install "$udid" "$APP"
-          echo "installed at $(date -u +%T); waiting 90 s for swcd to fetch the association"
-          sleep 90
-          xcrun simctl spawn "$udid" log show --last 4m --predicate 'process == "swcd"' --style compact 2>/dev/null | grep -iE 'scan-action|scanaction' | tail -n 40 > "$out/swcd.txt" || true
-          echo "== swcd lines mentioning us or errors =="; cat "$out/swcd.txt"
-          echo "== swcutil show (if present) =="; xcrun simctl spawn "$udid" swcutil show 2>&1 | grep -iE -B2 -A12 'scan-action' | head -n 40 || echo "(swcutil unavailable)"
+          echo "installed at $(date -u +%T)"
 
-          front() {
-            sleep 15
-            echo "  running: $(xcrun simctl spawn "$udid" launchctl list 2>/dev/null | grep -oE 'UIKitApplication:(com\.scanaction\.app|com\.apple\.mobilesafari)' | sort -u | tr '\n' ' ')"
-            xcrun simctl io "$udid" screenshot "$out/$1.png" >/dev/null 2>&1 && echo "  screenshot $1.png"
-          }
+          running() { xcrun simctl spawn "$udid" launchctl list 2>/dev/null | grep -oE 'UIKitApplication:(com\.scanaction\.app|com\.apple\.mobilesafari)' | sort -u | tr '\n' ' '; }
+          shot() { xcrun simctl io "$udid" screenshot "$out/$1.png" >/dev/null 2>&1 && echo "  screenshot $1.png"; }
           reset() { xcrun simctl terminate "$udid" com.scanaction.app >/dev/null 2>&1; xcrun simctl terminate "$udid" com.apple.mobilesafari >/dev/null 2>&1; sleep 3; }
+
+          echo "== 0: does the re-signed app launch at all? =="
+          xcrun simctl launch "$udid" com.scanaction.app; echo "  launch rc=$?"; sleep 12
+          echo "  running: $(running)"; shot 0-plain-launch
+          reset
+
+          echo "== swc database: wait up to 6 min for www.scan-action.com =="
+          db=""
+          for i in $(seq 1 36); do
+            db=$(find "$dev/data" -name 'swc.db' 2>/dev/null | head -n 1)
+            if [ -n "$db" ] && sqlite3 "$db" .dump 2>/dev/null | grep -q 'scan-action'; then echo "  listed after $((i*10)) s"; break; fi
+            sleep 10
+          done
+          echo "  db: ${db:-(none found)}"
+          if [ -n "$db" ]; then
+            echo "  tables: $(sqlite3 "$db" '.tables' 2>/dev/null | tr -s ' \n' ' ')"
+            sqlite3 "$db" .dump 2>/dev/null | grep -i 'scan-action' | cut -c1-400 | head -n 12 > "$out/swcdb.txt"
+            cat "$out/swcdb.txt"
+          fi
+          xcrun simctl spawn "$udid" log show --last 10m --predicate 'process == "swcd"' --style compact 2>/dev/null | grep -iE 'scan-action|scanaction|NQ23SMHXJV' | tail -n 20
+
           LINK='https://www.scan-action.com/auth/confirm?token_hash=ulprobe0000&type=email'
 
           echo "== A: confirm link, app not running (cold start) =="
-          reset; xcrun simctl openurl "$udid" "$LINK"; front A-cold-confirm
-
-          echo "== B: CONTROL, an unclaimed path (/login), app not running =="
-          reset; xcrun simctl openurl "$udid" "https://www.scan-action.com/login"; front B-control-login
+          reset; xcrun simctl openurl "$udid" "$LINK"; echo "  openurl rc=$?"; sleep 15
+          echo "  running: $(running)"; shot A-cold-confirm
 
           echo "== C: confirm link, app already running (warm) =="
-          reset; xcrun simctl launch "$udid" com.scanaction.app >/dev/null; sleep 12
-          xcrun simctl openurl "$udid" "$LINK"; front C-warm-confirm
+          reset; xcrun simctl launch "$udid" com.scanaction.app >/dev/null; echo "  launch rc=$?"; sleep 12
+          xcrun simctl openurl "$udid" "$LINK"; echo "  openurl rc=$?"; sleep 15
+          echo "  running: $(running)"; shot C-warm-confirm
 
-          xcrun simctl spawn "$udid" log show --last 6m --predicate 'process == "App"' --style compact 2>/dev/null \
-            | grep -iE 'appUrlOpen|auth/confirm|continueUserActivity|userActivity|getLaunchUrl|verify|To Native|Result' \
-            | sed -E 's/token_hash=[^& ]+/token_hash=<probe>/g' | tail -n 60 > "$out/app.txt" || true
+          echo "== B: CONTROL, an unclaimed path (/login), app not running =="
+          reset; sleep 5; xcrun simctl openurl "$udid" "https://www.scan-action.com/login"; echo "  openurl rc=$?"; sleep 15
+          echo "  running: $(running)"; shot B-control-login
+
+          xcrun simctl spawn "$udid" log show --last 12m --predicate 'process == "App"' --style compact 2>/dev/null \
+            | grep -iE 'appUrlOpen|auth/confirm|userActivity|getLaunchUrl|verify' \
+            | sed -E 's/token_hash=[^& ]+/token_hash=<probe>/g' | tail -n 40 > "$out/app.txt"
           echo "== app log lines =="; cat "$out/app.txt"
+          xcrun simctl spawn "$udid" log show --last 12m --predicate 'process == "SpringBoard" AND eventMessage CONTAINS[c] "scanaction"' --style compact 2>/dev/null | grep -iE 'denied|fail|error|launch' | tail -n 15
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
