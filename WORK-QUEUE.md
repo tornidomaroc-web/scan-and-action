@@ -1633,7 +1633,8 @@ restyled.** Do not start at login, although a reviewer sees it first:
         to the approved text, with no `ConfirmationURL` left. Supabase offers
         no preview with data, and the owner ruled out a test mail that would
         expose a live token, so the stored text is the verification.
-      - **NOT YET WITNESSED: a real confirmation mail end to end.** The
+      - **WITNESSED 2026-10-10 (web signup), see below: a real confirmation
+        mail end to end.** Before that, the
         session does not create accounts on production (its safety rules,
         whether through the browser or the API), and reading a reset link
         for a real account would put a live token in a transcript. **The
@@ -1658,25 +1659,38 @@ restyled.** Do not start at login, although a reviewer sees it first:
             accounts on any host that is not local development, and an
             authorization does not lift them. This is that rule, not the
             auto-mode classifier.
-          - **Route needing no password from the owner:** he runs
-            `! node D:\pw-run\signup-confirm1009.mjs` himself. It drives the
-            live web form at `https://www.scan-action.com/login` in headless
-            Playwright, generates a 32-character password in memory and never
-            prints or stores it, blocks the Railway backend, and prints the
-            GoTrue `/auth/v1/signup` status (or the error body verbatim) and
-            what the app shows. The web form is the same `AuthScreen` code
-            the native app bundles, and the Confirm sign up template is
-            project-wide, so it is the template the app's signup sends.
-          - **Then the session:** reads the mail's link (Gmail; refused on
-            2026-10-08, so it may be refused again), pipes it into
-            `D:\pw-run\open-sa-confirm.mjs` (checks origin, path,
-            `token_hash`, `type=email`; backend blocked), reads
-            `email_confirmed_at` read-only, and checks the app tables for
-            records created anyway.
-          - **Cleanup needs no password:** on 2026-10-10 the session's Chrome
-            profile was already signed in to supabase.com (organizations
-            listed) and to GitHub. The delete is Authentication › Users,
-            search the alias, the row's menu, Delete user, confirm.
+          - **WITNESSED END TO END 2026-10-10, web signup.** The owner ran
+            `! node D:/pw-run/signup-confirm1009.mjs` (forward slashes: `!`
+            runs Git Bash, which eats backslashes). It drove the live form at
+            `https://www.scan-action.com/login` headless, with a password
+            generated in memory and never printed or stored, and the Railway
+            backend blocked.
+            - Signup: GoTrue `POST /auth/v1/signup` 200, no session,
+              `confirmation_sent_at` 14:11:06Z. The app showed, verbatim: "We
+              sent a confirmation link to this address. Open it to finish
+              creating your account." and "Back to sign in".
+            - Mail: 14:11:07Z, from `noreply@scan-action.com`, subject
+              `Confirm Your Signup`, Inbox. Gmail showed the body this time.
+              Link: `https://www.scan-action.com/auth/confirm` with
+              `token_hash` (56 characters) and `type=email`, nothing else.
+            - Opened by `D:/pw-run/open-sa-confirm.mjs` (backend blocked):
+              `POST /auth/v1/verify` 200, landed on `/dashboard`.
+            - `auth.users` (read-only): `email_confirmed_at` null before,
+              14:11:56Z after.
+            - App records: none. `User` 0 for the address, so 0 Membership,
+              0 Organization, no welcome mail; `User` total 32 before and
+              after. The block was needed and held: the dashboard's
+              `GET /api/ledger` and `GET /api/documents/stats` were aborted.
+            - What this does not show: the link opening inside the native
+              app (#299, #300). The template is project-wide and the form is
+              the `AuthScreen` the app bundles, so the mail is the same.
+          - **Cleanup NOT done.** Account `f6d245cf-…-c9028e770e02` (the id
+            the console and the database agree on) still exists, confirmed.
+            The console was signed in, but the auto-mode classifier denied
+            the session's click on Delete user (External System Writes). The
+            owner deletes it: Authentication › Users, search the full address
+            (a fragment finds nothing), open the row, Danger zone, Delete
+            user, confirm. Then `auth.users` must read 0 rows for it.
       - **PR B, #299, the iOS entitlement: merge only when ALL hold.**
         1. Build 23 (#298) is green: it is, run 37955763659.
         2. The owner has turned on **Associated Domains** for App ID
