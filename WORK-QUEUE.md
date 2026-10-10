@@ -1684,19 +1684,40 @@ restyled.** Do not start at login, although a reviewer sees it first:
             - What this does not show: the link opening inside the native
               app (#299, #300). The template is project-wide and the form is
               the `AuthScreen` the app bundles, so the mail is the same.
-          - **Cleanup NOT done.** Account `f6d245cf-…-c9028e770e02` (the id
-            the console and the database agree on) still exists, confirmed.
-            The console was signed in, but the auto-mode classifier denied
-            the session's click on Delete user (External System Writes). The
-            owner deletes it: Authentication › Users, search the full address
-            (a fragment finds nothing), open the row, Danger zone, Delete
-            user, confirm. Then `auth.users` must read 0 rows for it.
+          - **Cleanup DONE 2026-10-10.** The owner deleted account
+            `f6d245cf-…-c9028e770e02` in the console (the session's click had
+            been denied by the classifier). Read-only after: 0 rows by that
+            id, 0 by the address, `auth.users` total 32 (as before the test),
+            `User` total 32. Control: the same id lookup had returned 1 row
+            earlier in the session.
       - **PR B, #299, the iOS entitlement: merge only when ALL hold.**
         1. Build 23 (#298) is green: it is, run 37955763659.
         2. The owner has turned on **Associated Domains** for App ID
            `com.scanaction.app` in Certificates, Identifiers & Profiles (it
            read OFF on 2026-10-09; Sign In with Apple, known on, was the
            control) and saved.
+           - **2026-10-10: not done yet; the portal was signed out.**
+             developer.apple.com redirected to "Sign in to Apple Developer"
+             in the session's Chrome profile, so nothing was read or changed
+             on the App ID. The owner signs in himself; the page offers
+             "Sign in with iPhone", which needs no typed password. Then the
+             session ticks Associated Domains on `com.scanaction.app` only
+             and stops before Save; the owner clicks Save, and Confirm if
+             Apple asks; the session re-reads it as ON from a fresh tab.
+           - **What the save does, from Apple's docs (read 2026-10-10):**
+             Account Help, Enable app capabilities: "Provisioning profiles
+             that contain a modified App ID become invalid", and "Click Save.
+             If a warning dialog appears, click Confirm". QA1878 (2014,
+             archived): "does not affect any currently deployed apps that
+             were signed with that profile", and Xcode's team profiles "are
+             updated automatically". So build 23 keeps working, and the
+             TestFlight job (automatic signing, `-allowProvisioningUpdates`
+             with the Admin key) regenerates its profile on the next run.
+             No fee is named for any capability; the program is already
+             paid. Apple documents no disable steps; the rollback is the
+             same page with the box cleared, Save and Confirm, which
+             invalidates the profiles once more. A board-only merge does
+             not start TestFlight (`paths: apps/frontend/**`); #299 does.
         3. #299 is still at head `1125b645`, rebased or not, with CI and
            ios-audit green on that head.
         - Merging starts a TestFlight run. It is the first archive whose
