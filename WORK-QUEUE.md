@@ -1646,26 +1646,37 @@ restyled.** Do not start at login, although a reviewer sees it first:
         `https://www.scan-action.com/auth/confirm` with a `token_hash`,
         opens it headless, and reads `email_confirmed_at` (read-only). The
         owner then deletes that account in Supabase › Authentication › Users.
-        - **Attempted 2026-10-10: NOTHING TO CONFIRM, the signup never landed.**
-          The owner reported one signup with `+confirm1009` and the link left
-          untapped. No account and no mail exist:
-          - `auth.users` (read-only transaction from `apps/backend`): 0 rows
-            for `tornido.maroc2024+%`; the newest account of any address was
-            created 2026-09-28. Control: 32 rows in the table, and the
-            served bundle's Supabase ref is the one in the backend's
-            `DATABASE_URL`, so this is the live project.
-          - Gmail, `in:anywhere newer_than:7d`: no mail to the alias, from
-            `noreply@scan-action.com` or from Supabase. Control: the same
-            search returned two plus-alias mails from another product.
-          - Why it failed is unread. Supabase Logs › Auth is the only reader,
-            and the session's Chrome profile was signed out of Supabase.
-            `auth.audit_log_entries` holds 0 rows, and the backend's Resend
-            key is send-only (401 `restricted_api_key`), so neither can
-            answer. Nothing to delete in Authentication › Users.
-          - **Next, owner:** sign in to supabase.com in the session's Chrome
-            profile, then sign up once more with the same alias and note the
-            app's exact message. The session reads the matching Logs › Auth
-            line (status and error) and carries on with the steps above.
+        - **Read 2026-10-10: no signup has been made yet. Nothing failed.**
+          #302 recorded "the signup never landed" on a wrong premise: the
+          owner had not signed up. What it measured still stands as a
+          baseline: `auth.users` held 0 rows for `tornido.maroc2024+%` and
+          no account newer than 2026-09-28 (control: 32 rows; the served
+          bundle's Supabase ref is the backend's `DATABASE_URL` project), and
+          Gmail held no mail to the alias. Neither is a failure signal.
+          - **The session will not create the account**, even with the
+            owner's written authorization: its safety rules forbid creating
+            accounts on any host that is not local development, and an
+            authorization does not lift them. This is that rule, not the
+            auto-mode classifier.
+          - **Route needing no password from the owner:** he runs
+            `! node D:\pw-run\signup-confirm1009.mjs` himself. It drives the
+            live web form at `https://www.scan-action.com/login` in headless
+            Playwright, generates a 32-character password in memory and never
+            prints or stores it, blocks the Railway backend, and prints the
+            GoTrue `/auth/v1/signup` status (or the error body verbatim) and
+            what the app shows. The web form is the same `AuthScreen` code
+            the native app bundles, and the Confirm sign up template is
+            project-wide, so it is the template the app's signup sends.
+          - **Then the session:** reads the mail's link (Gmail; refused on
+            2026-10-08, so it may be refused again), pipes it into
+            `D:\pw-run\open-sa-confirm.mjs` (checks origin, path,
+            `token_hash`, `type=email`; backend blocked), reads
+            `email_confirmed_at` read-only, and checks the app tables for
+            records created anyway.
+          - **Cleanup needs no password:** on 2026-10-10 the session's Chrome
+            profile was already signed in to supabase.com (organizations
+            listed) and to GitHub. The delete is Authentication › Users,
+            search the alias, the row's menu, Delete user, confirm.
       - **PR B, #299, the iOS entitlement: merge only when ALL hold.**
         1. Build 23 (#298) is green: it is, run 37955763659.
         2. The owner has turned on **Associated Domains** for App ID
