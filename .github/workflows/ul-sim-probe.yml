@@ -82,11 +82,16 @@ jobs:
             build 2>&1 | tee "$RUNNER_TEMP/build.log" | { grep -E '^(error|\*\*)|: error:' || true; }
           app=$(find "$RUNNER_TEMP/dd/Build/Products" -maxdepth 2 -name 'App.app' -type d | head -n 1)
           echo "APP=$app" >> "$GITHUB_ENV"
-          echo "== entitlements in the signature =="; codesign -d --entitlements - "$app" 2>&1 | tail -n 30
+          echo "== as built: signature =="; codesign -d --entitlements - --xml "$app" 2>/dev/null | plutil -p - 2>&1 | head -n 20 || echo "(empty)"
+          echo "== as built: __entitlements section names associated-domains? =="; strings - "$app/App" | grep -c 'com.apple.developer.associated-domains' || true
+          # Re-sign ad hoc WITH the entitlements, so the signature itself carries them.
+          codesign --force --sign - --timestamp=none --entitlements "$ent" "$app"
+          echo "== after re-sign: signature =="; codesign -d --entitlements - --xml "$app" 2>/dev/null | plutil -p - | tee "$RUNNER_TEMP/sig.txt"
+          grep -q 'applinks:www.scan-action.com' "$RUNNER_TEMP/sig.txt" || { echo "FAIL: the re-signed app still carries no associated-domains entitlement"; exit 1; }
 
       - name: Open the confirm link through the system, three ways
         run: |
-          set -u
+          set +e
           out="$RUNNER_TEMP/probe"; mkdir -p "$out"
           udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; c=[(r,x["udid"],x["name"]) for r,v in d.items() if "iOS" in r for x in v if x["name"].startswith("iPhone")]; c.sort(); print(c[-1][1])')
           echo "simulator: $(xcrun simctl list devices available | grep "$udid")"
@@ -94,7 +99,7 @@ jobs:
           xcrun simctl install "$udid" "$APP"
           echo "installed at $(date -u +%T); waiting 90 s for swcd to fetch the association"
           sleep 90
-          xcrun simctl spawn "$udid" log show --last 4m --predicate 'process == "swcd"' --style compact 2>/dev/null | grep -iE 'scan-action|scanaction|applinks|error|fail' | tail -n 40 > "$out/swcd.txt" || true
+          xcrun simctl spawn "$udid" log show --last 4m --predicate 'process == "swcd"' --style compact 2>/dev/null | grep -iE 'scan-action|scanaction' | tail -n 40 > "$out/swcd.txt" || true
           echo "== swcd lines mentioning us or errors =="; cat "$out/swcd.txt"
           echo "== swcutil show (if present) =="; xcrun simctl spawn "$udid" swcutil show 2>&1 | grep -iE -B2 -A12 'scan-action' | head -n 40 || echo "(swcutil unavailable)"
 
