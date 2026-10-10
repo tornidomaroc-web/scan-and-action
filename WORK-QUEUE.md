@@ -1646,6 +1646,26 @@ restyled.** Do not start at login, although a reviewer sees it first:
         `https://www.scan-action.com/auth/confirm` with a `token_hash`,
         opens it headless, and reads `email_confirmed_at` (read-only). The
         owner then deletes that account in Supabase › Authentication › Users.
+        - **Attempted 2026-10-10: NOTHING TO CONFIRM, the signup never landed.**
+          The owner reported one signup with `+confirm1009` and the link left
+          untapped. No account and no mail exist:
+          - `auth.users` (read-only transaction from `apps/backend`): 0 rows
+            for `tornido.maroc2024+%`; the newest account of any address was
+            created 2026-09-28. Control: 32 rows in the table, and the
+            served bundle's Supabase ref is the one in the backend's
+            `DATABASE_URL`, so this is the live project.
+          - Gmail, `in:anywhere newer_than:7d`: no mail to the alias, from
+            `noreply@scan-action.com` or from Supabase. Control: the same
+            search returned two plus-alias mails from another product.
+          - Why it failed is unread. Supabase Logs › Auth is the only reader,
+            and the session's Chrome profile was signed out of Supabase.
+            `auth.audit_log_entries` holds 0 rows, and the backend's Resend
+            key is send-only (401 `restricted_api_key`), so neither can
+            answer. Nothing to delete in Authentication › Users.
+          - **Next, owner:** sign in to supabase.com in the session's Chrome
+            profile, then sign up once more with the same alias and note the
+            app's exact message. The session reads the matching Logs › Auth
+            line (status and error) and carries on with the steps above.
       - **PR B, #299, the iOS entitlement: merge only when ALL hold.**
         1. Build 23 (#298) is green: it is, run 37955763659.
         2. The owner has turned on **Associated Domains** for App ID
