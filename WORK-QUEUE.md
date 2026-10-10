@@ -1684,21 +1684,51 @@ restyled.** Do not start at login, although a reviewer sees it first:
             - What this does not show: the link opening inside the native
               app (#299, #300). The template is project-wide and the form is
               the `AuthScreen` the app bundles, so the mail is the same.
-          - **Cleanup NOT done.** Account `f6d245cf-…-c9028e770e02` (the id
-            the console and the database agree on) still exists, confirmed.
-            The console was signed in, but the auto-mode classifier denied
-            the session's click on Delete user (External System Writes). The
-            owner deletes it: Authentication › Users, search the full address
-            (a fragment finds nothing), open the row, Danger zone, Delete
-            user, confirm. Then `auth.users` must read 0 rows for it.
+          - **Cleanup DONE 2026-10-10.** The owner deleted account
+            `f6d245cf-…-c9028e770e02` in the console (the session's click had
+            been denied by the classifier). Read-only after: 0 rows by that
+            id, 0 by the address, `auth.users` total 32 (as before the test),
+            `User` total 32. Control: the same id lookup had returned 1 row
+            earlier in the session.
       - **PR B, #299, the iOS entitlement: merge only when ALL hold.**
         1. Build 23 (#298) is green: it is, run 37955763659.
         2. The owner has turned on **Associated Domains** for App ID
            `com.scanaction.app` in Certificates, Identifiers & Profiles (it
            read OFF on 2026-10-09; Sign In with Apple, known on, was the
            control) and saved.
+           - **DONE 2026-10-10: Associated Domains reads ON.** The portal
+             was first signed out; the owner signed in with "Sign in with
+             iPhone" (no typed password), header "… - NQ23SMHXJV". On the
+             edit page of `com.scanaction.app (explicit)`, 2 of 130 boxes were
+             ticked before (In-App Purchase, Sign In with Apple, the known-on
+             control). The session ticked Associated Domains only ("MDM
+             Managed Associated Domains" left off) and stopped; the owner
+             clicked Save and Confirm. A fresh tab read exactly 3 ticked
+             (Associated Domains, In-App Purchase, Sign In with Apple), by the
+             DOM and by eye, with Save disabled (nothing unsaved).
+           - **What the save does, from Apple's docs (read 2026-10-10):**
+             Account Help, Enable app capabilities: "Provisioning profiles
+             that contain a modified App ID become invalid", and "Click Save.
+             If a warning dialog appears, click Confirm". QA1878 (2014,
+             archived): "does not affect any currently deployed apps that
+             were signed with that profile", and Xcode's team profiles "are
+             updated automatically". So build 23 keeps working, and the
+             TestFlight job (automatic signing, `-allowProvisioningUpdates`
+             with the Admin key) regenerates its profile on the next run.
+             No fee is named for any capability; the program is already
+             paid. Apple documents no disable steps; the rollback is the
+             same page with the box cleared, Save and Confirm, which
+             invalidates the profiles once more. A board-only merge does
+             not start TestFlight (`paths: apps/frontend/**`); #299 does.
         3. #299 is still at head `1125b645`, rebased or not, with CI and
            ios-audit green on that head.
+           - **2026-10-10: rebased onto `main` (`677c452f`), no code
+             added.** `1125b645` branched from `526dd088`, before #298, so
+             its green checks never built #298's native listener with the
+             entitlement. After `gh pr update-branch 299 --rebase` it is one
+             commit on `main`, the same two files, and its added and removed
+             lines are byte-identical to `1125b645`'s. CI and ios-audit re-run
+             on the new head before any merge.
         - Merging starts a TestFlight run. It is the first archive whose
           automatic signing meets the new entitlement. Watch: no "doesn't
           include the com.apple.developer.associated-domains entitlement"
