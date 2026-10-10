@@ -84,10 +84,9 @@ jobs:
           echo "APP=$app" >> "$GITHUB_ENV"
           echo "== as built: signature =="; codesign -d --entitlements - --xml "$app" 2>/dev/null | plutil -p - 2>&1 | head -n 20 || echo "(empty)"
           echo "== as built: __entitlements section names associated-domains? =="; strings - "$app/App" | grep -c 'com.apple.developer.associated-domains' || true
-          # Re-sign ad hoc WITH the entitlements, so the signature itself carries them.
-          codesign --force --sign - --timestamp=none --entitlements "$ent" "$app"
-          echo "== after re-sign: signature =="; codesign -d --entitlements - --xml "$app" 2>/dev/null | plutil -p - | tee "$RUNNER_TEMP/sig.txt"
-          grep -q 'applinks:www.scan-action.com' "$RUNNER_TEMP/sig.txt" || { echo "FAIL: the re-signed app still carries no associated-domains entitlement"; exit 1; }
+          # Run 4: a signature carrying them makes SpringBoard refuse the launch
+          # (POSIX 162). This run keeps Xcode's own simulator form: entitlements in
+          # the __entitlements section, plain ad-hoc signature.
 
       - name: Open the confirm link through the system, three ways
         run: |
