@@ -1738,6 +1738,56 @@ restyled.** Do not start at login, although a reviewer sees it first:
           returns our file. If the archive fails, nothing reaches App Store
           Connect, the run number becomes a gap, and reverting #299 restores
           build 23's inputs.
+        - **MERGED 2026-10-10 as `6b4d0a7a` (head `d15cdeb1`), TestFlight
+          build 24.** `gh pr view 299 --json mergeCommit,headRefOid`. Run
+          38066341877 on `6b4d0a7a`: "ARCHIVE SUCCEEDED", "Uploaded build 24",
+          and no "doesn't include the com.apple.developer.associated-domains"
+          line (`gh run view 38066341877 --log`).
+          - **App Store Connect, the owner's reading (no call from a
+            session):** build 24 lists `com.apple.developer.associated-domains`
+            with `applinks:www.scan-action.com`, and build 23 does not. To
+            re-read: App Store Connect › the app › TestFlight › the build ›
+            Build Metadata › Entitlements.
+          - **Apple's CDN serves our file, read 2026-10-12:**
+            `curl https://app-site-association.cdn-apple.com/a/v1/www.scan-action.com`
+            answered 200 `application/json`, byte-identical (`cmp`) to
+            `apps/frontend/public/app-links/apple-app-site-association.json`;
+            `https://www.scan-action.com/.well-known/apple-app-site-association`
+            likewise (200, `application/json; charset=utf-8`).
+          - **Not yet seen: a tap on the owner's iPhone.** Build 24 is the first
+            build that can show it. Everything below is a simulator.
+      - **The native handoff, WITNESSED IN A SIMULATOR 2026-10-10 and held by
+        a check from #305.**
+        - **The probe** (throwaway branch `probe/ul-sim`, never merged; run
+          38074908976, a free `macos-26` runner): the committed entitlements
+          in the binary's `__entitlements` section under an ad-hoc signature;
+          swcd fetched the association through Apple's CDN (`route: cdn`);
+          `/auth/confirm` with a fake token opened the app cold and warm and
+          reached its "This link no longer works" screen (Supabase's real
+          403); the control `/login` opened Safari. Read from its screenshots
+          and `launchctl list`. Its link step ran under `set +e` with no
+          assertions, so its green proved nothing by itself. It also used the
+          production Supabase project and production's association, not the
+          branch's. Branch deleted 2026-10-12 (`git ls-remote` returns
+          nothing). Its workflow (id 380680903) is `disabled_manually`; the
+          run is kept as evidence.
+        - **The check, #305 (open, not merged):** a third job in
+          `ios-audit.yml`, "iOS — a confirm link opens the app, offline (no
+          Apple CDN, no production, no Supabase)". The test entitlements add
+          `?mode=developer` to each committed `applinks` entry; the runner's
+          hosts file sends `www.scan-action.com` to a local server that answers
+          only what `vercel.json` rewrites, from `dist/`. The bundle is built
+          against `https://supabase.invalid`, and the confirm screen must read
+          `network`. Cold, warm, and two controls (`/login`, and a tokenless
+          `/auth/confirm`) that must stay in Safari, plus a static step tying
+          the entitlement to `AUTH_LINK_HOST` and the association.
+          - Green: run 38249600821 on `4e761f1e`. Red on purpose: run
+            38253651531 on a throwaway branch (`b0a13cce`, deleted) that
+            removed only the entitlement. Both halves failed and named it.
+          - Not required, and should not be: its path filter would leave a
+            required context pending on every PR that skips it.
+          - Merging #305 starts a TestFlight run, because its simulator-only
+            change to `MainViewController.swift` is under `apps/frontend/**`.
       - **PR C, #300, the Android App Link: merge when** #299's TestFlight
         run is green (so only one native change is in flight at a time), and
         #300 is at head `fcf324ee` with CI green. Merging starts a TestFlight
@@ -1746,6 +1796,10 @@ restyled.** Do not start at login, although a reviewer sees it first:
         com.scanaction.app` on a Play-installed build must read
         `verified`. The emulator debug build reads `1024` (unverified),
         because it is signed `85:E3:…`, not with the Play key.
+        - **2026-10-12: the first condition holds** (run 38066341877, #299's
+          TestFlight run, `success`). `gh pr view 300 --json headRefOid`
+          reads `fcf324ee`. #305 also starts a TestFlight run, so merge the
+          two one at a time.
     - **The icon and the splash** (the round below owns the icon and the
       accent; the Android `#0F1014` splash is still UNVERIFIED, and the local
       emulator can now show it).
