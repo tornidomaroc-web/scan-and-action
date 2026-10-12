@@ -71,7 +71,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({ pendingCount = 0, on
             onClick={onScan}
             aria-label={s.scanWithCamera}
             data-testid="scan-slot"
-            className="flex h-14 w-14 items-center justify-center rounded-nav bg-accent text-on-accent shadow-raised transition-all hover:bg-accent-hover active:scale-95 motion-reduce:transition-none"
+            className="flex h-14 w-14 items-center justify-center rounded-nav bg-accent text-on-accent shadow-accent transition-all hover:bg-accent-hover active:scale-95 motion-reduce:transition-none"
           >
             <Camera size={24} strokeWidth={2.5} aria-hidden="true" />
           </button>

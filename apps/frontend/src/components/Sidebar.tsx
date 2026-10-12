@@ -94,7 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
         onClick={onNewScan}
         aria-label={s.newScan}
         title={s.newScan}
-        className="mt-1 flex h-12 w-12 items-center justify-center rounded-nav bg-accent text-on-accent shadow-raised transition-colors hover:bg-accent-hover motion-reduce:transition-none"
+        className="mt-1 flex h-12 w-12 items-center justify-center rounded-nav bg-accent text-on-accent shadow-accent transition-colors hover:bg-accent-hover motion-reduce:transition-none"
       >
         <Plus size={22} strokeWidth={2.5} aria-hidden="true" />
         <span className="sr-only">{s.newScan}</span>

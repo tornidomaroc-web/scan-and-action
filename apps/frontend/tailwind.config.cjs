@@ -95,6 +95,10 @@ module.exports = {
         card: 'var(--sa-shadow-card)',
         raised: 'var(--sa-shadow-raised)',
         lg: 'var(--sa-shadow-lg)',
+        // The soft language (2026-10-12): the inset for fields and inner
+        // cells, and the primary button's glow in its own accent.
+        pressed: 'var(--sa-shadow-pressed)',
+        accent: 'var(--sa-shadow-accent)',
       },
       // ── The overlay ladder (documented in D8b PR-2) ───────────────────
       // Until now these were hand-picked magic numbers spread across 8
