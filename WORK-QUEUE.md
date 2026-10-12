@@ -1253,6 +1253,14 @@ well-measured admin panel rather than an app.**
 **The ruling: start at the scan → read → result loop, redrawn from zero, not
 restyled.** Do not start at login, although a reviewer sees it first:
 
+> **DEFERRED 2026-10-12 by the owner to a post-launch update, not cancelled.**
+> He chose to RESTYLE now, before the App Store submission (the soft
+> neumorphic language below, in six PRs), then take the store screenshots,
+> then submit: the first impression in the store matters more to him than a
+> few days. The redraw-from-zero of the loop stays the first design item
+> after launch. The arguments under this ruling still hold; only its timing
+> moved.
+
 - Both judges decide on the first scan: the reviewer's 4.2 ruling, and a
   first-time visitor's keep-or-delete.
 - It is the furthest point from the market's best. System document scanners give
@@ -1288,13 +1296,59 @@ restyled.** Do not start at login, although a reviewer sees it first:
     by the owner from three concepts (private page, artifact
     `KWMnD7L81GdwrmX3V4AkcX`), in the icon colour family: navy `#00286D` to
     teal `#00BB9F`, cyan `#8CFCF9`, white. Applied to every app-icon surface
-    in #307 (open, not merged). No screen colour changed there.
-  - **OPEN QUESTION, for the design-system step, not decided:** whether the
-    screens move from the blue accent (`#3563F0`, `tokens.css`) to the icon
-    family. Today the two families share no colour. Two strays belong to the
-    same decision: Android's `colorAccent` still falls back to Capacitor's
-    `#FF4081` (#307 left it alone because it tints controls inside the app),
-    and the screens' accent itself.
+    in #307, **MERGED 2026-10-12 as `aa750c7e`, TestFlight build 26** (run
+    38280231382: "ARCHIVE SUCCEEDED", "Uploaded build 26 … for commit
+    aa750c7e", no icon-transparency error; `gh run view 38280231382 --log`).
+    The live site serves `aa750c7e` with the new favicon and icons
+    (byte-compared to the repo), the backend reports it at `/api/version`.
+    No screen colour changed there.
+  - **DECIDED 2026-10-12 by the owner: the screens move to the icon
+    family.** Primary button `#006784` (the mark's middle colour; white on
+    it 6.42:1, white on the teal end 2.44:1), the same value settling
+    Android's `colorAccent` (which fell back to Capacitor's `#FF4081`).
+    **This explicitly REVERSES the blue accent `#3563F0` locked on
+    2026-09-26** (the lock lived in `designTokens.test.ts`, "the blue accent
+    (locked 2026-09-26)", and in `tokens.css`'s header; #255 shipped it). The five
+    assertions in `designTokens.test.ts` that pinned the blue were replaced
+    openly: the `describe` is named for the reversal, pins the new ramp, and
+    holds the old hexes OUT of `tokens.css`. Landed in PR 1 (#309, open).
+  - **The redesign: a modified soft-neumorphic language, DECIDED 2026-10-12
+    by the owner, restyle now before submission, six PRs in this order**
+    (proposal, measured: artifact `YJEQctuE9fCuaE69po2qbs`; every text,
+    button and review-state pair at or above 4.5:1 in both themes by the
+    arithmetic `kitLanguage.test.ts` runs). Raised cards and lists on soft
+    shadows; text, primary buttons and the review states keep strong
+    contrast, because people check amounts and decisions.
+    1. **Tokens and primitives, #309 (open).** `tokens.css`, Tailwind,
+       `PrimaryButton`, `TextField`, the scan buttons, `.skeleton`, Android
+       `colorAccent`. Also the one live contrast defect: `--sa-ink-muted`
+       `#858A99` read 3.45:1 on a white card (dates, categories, captions on
+       every row); now `#6E7383`, 4.73:1, pinned with the old value as the
+       failing control. No screen file. Merging it starts a TestFlight run
+       (`apps/frontend/**`).
+    2. Dynamic Type: the app sets every size in fixed px and reads no device
+       text size (no `@capacitor/text-zoom`); Apple's Typography page asks
+       for layouts that adapt to all sizes. Root font from the content size
+       category, px to rem. Independent of 1.
+    3. Home and Detail (judged on the owner's iPhone).
+    4. Queue, Search, Activity.
+    5. Sign-in, Settings, the sheets (the paywall and processing tray carry
+       raw `slate-*` classes no token reaches; by hand).
+    6. Landing and the legal pages (51 raw palette classes; last).
+    - **What the proposal got wrong, corrected 2026-10-12 from git:** it said
+      the "inferred-total flag" did not exist. It does: #279 (`b1f78c16`,
+      2026-10-04) added `totalProvenance.ts` (confidence 0.6, sourceSpan
+      `Inferred Total`, reason `Total not printed`), and Detail shows it as
+      the reason sentence `reasonTotalNotPrinted` under "Needs your
+      attention" with the amount field, not as a chip; #280 (`2371c9bd`)
+      touched the PDF preview and the processing chip, not the total. Never
+      removed; `inferredTotalDetail.test.tsx` passes on `main`. The grep had
+      looked for the word "inferred" in the frontend, which names it by the
+      reason string. It is a fourth review state for PR 3 to style, not add.
+    - **The proposals page drew the header mark as a plain teal square.**
+      That was the mockup's own CSS (a placeholder), not a defect of #307:
+      `BrandMark` at the header's 28px on `main` keeps its corners and
+      check in both themes (rendered from the component, 1x and 3x).
 - [ ] **2. The design system, in code.**
   - **Started in the ledger-home PR (2026-09-24):** `components/ui/`
     (`CategoryIcon`, `Panel`, `CountChip`) and the figure / code / label / meta /
@@ -1821,7 +1875,8 @@ restyled.** Do not start at login, although a reviewer sees it first:
     - **The icon and the splash.** Order ruled 2026-10-12 by the owner:
       app icon and accent, then the iOS launch screen and the Android splash,
       then the store screenshots (step 7).
-      - **The icon: concept A, in #307 (open, not merged).** One master,
+      - **The icon: concept A, #307 MERGED 2026-10-12 as `aa750c7e`,
+        TestFlight build 26** (see DESIGN TRACK, step 1). One master,
         `apps/frontend/assets/scan-action-mark.svg`, generates every icon
         (iOS 1024, Android adaptive with a new monochrome layer, web, Play
         512). #307 also regenerates both splashes with the new mark at the
