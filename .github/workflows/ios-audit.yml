@@ -498,7 +498,7 @@ jobs:
           CNF
           openssl req -x509 -newkey rsa:2048 -nodes -days 2 -keyout "$srv/key.pem" -out "$srv/cert.pem" -config "$srv/openssl.cnf" 2>/dev/null
           cat > "$srv/server.py" <<'PY'
-          import http.server, json, mimetypes, os, socket, ssl, sys
+          import http.server, json, mimetypes, os, socket, ssl, sys, time
           root, vercel, log, cert, key = sys.argv[1:6]
           root = os.path.realpath(root)
           cfg = json.load(open(vercel))
@@ -517,7 +517,7 @@ jobs:
                           ctype = mimetypes.guess_type(f)[0] or 'application/octet-stream'
                   status = 200 if body is not None else 404
                   with open(log, 'a') as out:
-                      out.write(f"{status} {path} agent={self.headers.get('User-Agent', '-')}\n")
+                      out.write(f"{status} {path} at={time.strftime('%H:%M:%S', time.gmtime())} agent={self.headers.get('User-Agent', '-')}\n")
                   self.send_response(status)
                   sent = {k.lower(): v for k, v in headers.get(path, {}).items()} if body is not None else {}
                   if body is not None and 'content-type' not in sent:
@@ -589,8 +589,17 @@ jobs:
           stop
           mkdir -p "$data/Library"; touch "$data/Library/sa-smoke-watch"
 
-          echo "== swcd: wait up to 8 min for it to ask this runner's server =="
-          for i in $(seq 1 96); do [ "$(swcd_asked)" -gt 0 ] && break; sleep 5; done
+          # Run 38240130251: swcd tried at boot, its connections were
+          # cancelled, and it fetched only when a link on the domain was
+          # opened. So while it has not fetched, open /login (a path the app
+          # never claims) once a minute to make it look the domain up. The
+          # measured opens below start only after a 200 reached swcd.
+          echo "== swcd: wait up to 10 min for it to fetch from this runner's server (started $(date -u +%T)) =="
+          for i in $(seq 1 120); do
+            [ "$(swcd_asked)" -gt 0 ] && break
+            if [ $((i % 12)) -eq 0 ]; then xcrun simctl openurl "$udid" https://www.scan-action.com/login; sleep 3; xcrun simctl terminate "$udid" com.apple.mobilesafari >/dev/null 2>&1; echo "  nudged swcd at $(date -u +%T)"; fi
+            sleep 5
+          done
           asked=$(swcd_asked)
           echo "requests swcd made: $(tail -n +"$((HOST_READS+1))" "$AASA_DIR/requests.log" | wc -l | tr -d ' ')"
           tail -n +"$((HOST_READS+1))" "$AASA_DIR/requests.log" | sed 's/^/  /'
@@ -600,9 +609,10 @@ jobs:
             else
               fail "the binary claims no applinks:www.scan-action.com, so swcd had nothing to fetch"
             fi
-            xcrun simctl spawn "$udid" log show --last 15m --predicate 'process == "swcd"' --style compact 2>/dev/null | grep -iE 'scan-action|scanaction|developer|mode' | tail -n 20
+            xcrun simctl spawn "$udid" log show --last 15m --predicate 'process == "swcd"' --style compact 2>/dev/null | grep -iE 'scan-action|scanaction|developer|mode|AASA|error|fail' | tail -n 30
+            echo "server stderr:"; sudo cat "$AASA_DIR/server.out" | tail -n 30
           fi
-          sleep 5
+          sleep 10
 
           echo "== A: the confirm link, app not running (cold start) =="
           stop; xcrun simctl openurl "$udid" "$LINK"
