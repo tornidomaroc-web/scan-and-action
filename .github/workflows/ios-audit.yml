@@ -401,6 +401,16 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      # Booted first, so the simulator's first-boot work is over by the time
+      # the app is installed, about five minutes of build later.
+      - name: Boot the simulator now
+        run: |
+          set -eu
+          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; c=[(r,x["udid"],x["name"]) for r,v in d.items() if "iOS" in r for x in v if x["name"].startswith("iPhone")]; c.sort(); print(c[-1][1])')
+          echo "UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          echo "booting $(xcrun simctl list devices | grep "$udid") at $(date -u +%T)"
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
@@ -544,7 +554,7 @@ jobs:
                   self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
                   super().server_bind()
               def finish_request(self, request, client_address):
-                  request.settimeout(20)
+                  request.settimeout(120)
                   try:
                       tls = ctx.wrap_socket(request, server_side=True)
                   except Exception as err:
@@ -580,12 +590,10 @@ jobs:
           set +e -u
           out="$RUNNER_TEMP/ul"; mkdir -p "$out"
           fails=0; fail() { echo "FAIL: $*"; fails=$((fails+1)); }
-          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; c=[(r,x["udid"],x["name"]) for r,v in d.items() if "iOS" in r for x in v if x["name"].startswith("iPhone")]; c.sort(); print(c[-1][1])')
-          echo "simulator: $(xcrun simctl list devices available | grep "$udid")"
-          xcrun simctl boot "$udid"; xcrun simctl bootstatus "$udid" -b | tail -n 1
+          udid="$UDID"
+          echo "simulator: $(xcrun simctl list devices | grep "$udid")"
+          xcrun simctl bootstatus "$udid" -b | tail -n 1
           xcrun simctl keychain "$udid" add-root-cert "$AASA_DIR/cert.pem" || echo "(root certificate not added; developer mode accepts an untrusted one)"
-          xcrun simctl install "$udid" "$APP"
-          echo "installed at $(date -u +%T)"
 
           running() { xcrun simctl spawn "$udid" launchctl list 2>/dev/null | grep -oE 'UIKitApplication:(com\.scanaction\.app|com\.apple\.mobilesafari)' | sort -u | tr '\n' ' '; }
           shot() { xcrun simctl io "$udid" screenshot "$out/$1.png" >/dev/null 2>&1 || true; }
@@ -593,26 +601,35 @@ jobs:
           seen() { for i in $(seq 1 "$2"); do [ -f "$marker" ] && grep -qF "$1" "$marker" && return 0; sleep 1; done; return 1; }
           swcd_asked() { tail -n +"$((HOST_READS+1))" "$AASA_DIR/requests.log" | grep -c '^200 /.well-known/apple-app-site-association' || true; }
 
-          # A plain launch first: it makes the data container, and a launch
-          # that fails here is not a link failure.
+          # Install, then a plain launch: it makes the data container, and a
+          # launch that fails here is not a link failure.
           marker=/dev/null/none
-          SIMCTL_CHILD_SA_LAUNCH_SMOKE=1 xcrun simctl launch "$udid" "$BUNDLE_ID" >/dev/null
-          data=$(xcrun simctl get_app_container "$udid" "$BUNDLE_ID" data)
-          marker="$data/tmp/launch-smoke.json"
-          seen '"ready":"complete"' 120 || { echo "FAIL (not a link failure): the app did not launch to a loaded page"; cat "$marker" 2>/dev/null; exit 1; }
-          stop
-          mkdir -p "$data/Library"; touch "$data/Library/sa-smoke-watch"
+          install_app() {
+            xcrun simctl uninstall "$udid" "$BUNDLE_ID" >/dev/null 2>&1
+            xcrun simctl install "$udid" "$APP"
+            echo "  installed at $(date -u +%T)"
+            marker=/dev/null/none
+            SIMCTL_CHILD_SA_LAUNCH_SMOKE=1 xcrun simctl launch "$udid" "$BUNDLE_ID" >/dev/null
+            data=$(xcrun simctl get_app_container "$udid" "$BUNDLE_ID" data)
+            marker="$data/tmp/launch-smoke.json"
+            seen '"ready":"complete"' 120 || { echo "FAIL (not a link failure): the app did not launch to a loaded page"; cat "$marker" 2>/dev/null; exit 1; }
+            stop
+            mkdir -p "$data/Library"; touch "$data/Library/sa-smoke-watch"
+          }
 
-          # Run 38240130251: swcd tried at boot, its connections were
-          # cancelled, and it fetched only when a link on the domain was
-          # opened. So while it has not fetched, open /login (a path the app
-          # never claims) once a minute to make it look the domain up. The
-          # measured opens below start only after a 200 reached swcd.
-          echo "== swcd: wait up to 10 min for it to fetch from this runner's server (started $(date -u +%T)) =="
-          for i in $(seq 1 120); do
-            [ "$(swcd_asked)" -gt 0 ] && break
-            if [ $((i % 12)) -eq 0 ]; then xcrun simctl openurl "$udid" https://www.scan-action.com/login; sleep 3; xcrun simctl terminate "$udid" com.apple.mobilesafari >/dev/null 2>&1; echo "  nudged swcd at $(date -u +%T)"; fi
-            sleep 5
+          # swcd fetches an app's domains when the app is installed. On these
+          # runners its first try can fail (runs 38240130251, 38242407082,
+          # 38245951307: connections cancelled, connect times of 26 to 40 s
+          # just after boot), and it then backs off for longer than a job
+          # lasts; opening /login did not bring it back. Installing again
+          # does. So: up to three installs, four minutes each. The measured
+          # opens below start only after a 200 reached swcd.
+          echo "== swcd: wait for it to fetch from this runner's server =="
+          for attempt in 1 2 3; do
+            install_app
+            for i in $(seq 1 48); do [ "$(swcd_asked)" -gt 0 ] && break; sleep 5; done
+            [ "$(swcd_asked)" -gt 0 ] && { echo "  swcd fetched on install $attempt"; break; }
+            echo "  no fetch within 4 min of install $attempt"
           done
           asked=$(swcd_asked)
           echo "requests swcd made: $(tail -n +"$((HOST_READS+1))" "$AASA_DIR/requests.log" | wc -l | tr -d ' ')"
