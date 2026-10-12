@@ -735,7 +735,7 @@ revocation row removed 2026-09-30), the index; details under each item:**
 
 | Condition | Owner | EXPIRY |
 |---|---|---|
-| Trader status for the EU (SUBMITTED 2026-10-07, In Review at Apple) | the owner, App Store Connect | the app's trader status reads provided and verified before submission |
+| Trader status for the EU (VERIFIED 2026-10-12 12:39, the owner's reading) | the owner, App Store Connect | MET: at submission, ask App Store Connect again whether the trader status reads verified |
 
 **Conditions blocking republishing on Play (opened 2026-10-08).** The Android
 row moved here from the App Store list: the owner's sign-in condition for the
@@ -787,7 +787,10 @@ with Apple and with Google), and an Android sign-in gates Play only.
     (patch-package) first. The purpose-string test derives keys from plugin
     SOURCE text, so it must learn the guard in the same PR.
   - Owner: engineering. **EXPIRY:** in the table above.
-- [ ] **Trader status for the EU. SUBMITTED 2026-10-07, IN REVIEW at Apple.**
+- [x] **Trader status for the EU. VERIFIED by Apple 2026-10-12 at 12:39**
+  (the owner's reading in App Store Connect; no call from a session can read
+  it). This was the last external App Store blocker. Re-read it at submission
+  rather than trusting this line.
   The Digital Services Act requires a trader
   status declaration in App Store Connect for apps distributed in the EU;
   Apple removes apps without one from the EU storefront. Read Apple's current
@@ -1271,8 +1274,9 @@ restyled.** Do not start at login, although a reviewer sees it first:
   the icon is the App Store's first pixel and a required asset). **Ruled
   2026-09-24: it comes AFTER the ledger home**, as the owner's locked order
   has it (item 4), not with it. The ledger home ships on the current tokens:
-  its accent is already the prototypes' own (`--sa-accent: #635BFF` in
-  `tokens.css`), a palette change repaints the finished landing through the
+  its accent was the prototypes' own (`--sa-accent: #635BFF` in
+  `tokens.css` then; **corrected 2026-10-12: the code has said `#3563F0`
+  since #255**, read in `apps/frontend/src/styles/tokens.css`), a palette change repaints the finished landing through the
   pin (`landingLightPin.test.tsx`), and judging structure and colour in one
   sitting makes neither judgement readable.
   **Category colours are NOT part of that round (ruled 2026-09-24, on the
@@ -1280,6 +1284,17 @@ restyled.** Do not start at login, although a reviewer sees it first:
   like the status colours, not brand identity, so they shipped with the home
   (`--sa-cat-*` in `tokens.css`, held to 3:1 in both themes by
   `categoryPalette.test.ts`). The round still owns the app icon and the accent.
+  - **The icon round: DONE 2026-10-12, concept A "Viewfinder check" chosen**
+    by the owner from three concepts (private page, artifact
+    `KWMnD7L81GdwrmX3V4AkcX`), in the icon colour family: navy `#00286D` to
+    teal `#00BB9F`, cyan `#8CFCF9`, white. Applied to every app-icon surface
+    in #307 (open, not merged). No screen colour changed there.
+  - **OPEN QUESTION, for the design-system step, not decided:** whether the
+    screens move from the blue accent (`#3563F0`, `tokens.css`) to the icon
+    family. Today the two families share no colour. Two strays belong to the
+    same decision: Android's `colorAccent` still falls back to Capacitor's
+    `#FF4081` (#307 left it alone because it tints controls inside the app),
+    and the screens' accent itself.
 - [ ] **2. The design system, in code.**
   - **Started in the ledger-home PR (2026-09-24):** `components/ui/`
     (`CategoryIcon`, `Panel`, `CountChip`) and the figure / code / label / meta /
@@ -1800,9 +1815,27 @@ restyled.** Do not start at login, although a reviewer sees it first:
           TestFlight run, `success`). `gh pr view 300 --json headRefOid`
           reads `fcf324ee`. #305 also starts a TestFlight run, so merge the
           two one at a time.
-    - **The icon and the splash** (the round below owns the icon and the
-      accent; the Android `#0F1014` splash is still UNVERIFIED, and the local
-      emulator can now show it).
+        - **DEFERRED 2026-10-12 by the owner until before the Play release.**
+          Apple submission is the priority. Merge it in the run-up to the
+          next Play release, not before.
+    - **The icon and the splash.** Order ruled 2026-10-12 by the owner:
+      app icon and accent, then the iOS launch screen and the Android splash,
+      then the store screenshots (step 7).
+      - **The icon: concept A, in #307 (open, not merged).** One master,
+        `apps/frontend/assets/scan-action-mark.svg`, generates every icon
+        (iOS 1024, Android adaptive with a new monochrome layer, web, Play
+        512). #307 also regenerates both splashes with the new mark at the
+        approved 42% width; the splash redesign itself is the next item.
+      - **RELEASE-TIME STEP for Play, never before:** upload
+        `apps/frontend/assets/store/play-store-icon-512.png` as the Play
+        listing icon **in the same Play release** that first ships #307's
+        launcher icons. Play rejected the app on 2026-07-17 because the
+        launcher icon did not match the listing icon
+        (`docs/ANDROID_LAUNCHER_ICON_MISMATCH_MAP.md`). Uploading it earlier
+        creates that same mismatch in the other direction. Check it in Play
+        Console › Store presence › Main store listing › App icon.
+      - The Android `#0F1014` splash is still UNVERIFIED on a device; the
+        local emulator can show it.
   - **Login rejected by the owner on 2026-09-25.** It is redrawn in its own
     PR.
     - **What it shows today** (`AuthScreen.tsx`): a dark panel reading "Turn
