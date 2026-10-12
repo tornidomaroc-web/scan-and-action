@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The app's own theme colours (2026-10-12). Until now styles.xml named
+      @color/colorPrimary and @color/colorPrimaryDark and the app defined
+      neither, so Capacitor's defaults applied (#3F51B5 indigo, #303F9F).
+
+      Both are the icon family's navy #00286D, the mark's own darkest colour:
+      it is the one icon colour that holds white system text and icons
+      (13.78:1; the teal end, #00BB9F, gives 2.44:1), and it is the colour the
+      launcher icon starts from, so the system's tint for the app and the icon
+      agree.
+
+      colorAccent is deliberately NOT defined here. It tints controls inside
+      the app (selection handles, native widgets), which makes it a screen
+      colour, and screen colours belong to the design-system step. It still
+      falls back to Capacitor's #FF4081; see WORK-QUEUE.md.
+    -->
+    <color name="colorPrimary">#00286D</color>
+    <color name="colorPrimaryDark">#00286D</color>
+</resources>
