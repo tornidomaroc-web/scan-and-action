@@ -530,15 +530,29 @@ jobs:
                       self.wfile.write(body)
               def log_message(self, *a):
                   pass
+          ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+          ctx.load_cert_chain(cert, key)
+          # The handshake runs in the connection's own thread, with a timeout.
+          # Wrapping the listening socket instead (run 38242407082) does it in
+          # accept() on the one main thread: a preconnect that never speaks
+          # TLS then stalls every connection behind it, and swcd's request
+          # timed out after 66 s with 0 bytes sent.
           class Server(http.server.ThreadingHTTPServer):
               address_family = socket.AF_INET6
+              daemon_threads = True
               def server_bind(self):
                   self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
                   super().server_bind()
+              def finish_request(self, request, client_address):
+                  request.settimeout(20)
+                  try:
+                      tls = ctx.wrap_socket(request, server_side=True)
+                  except Exception as err:
+                      with open(log, 'a') as out:
+                          out.write(f"TLS-FAIL at={time.strftime('%H:%M:%S', time.gmtime())} {type(err).__name__}: {err}\n")
+                      return
+                  self.RequestHandlerClass(tls, client_address, self)
           httpd = Server(('::', 443), Handler)
-          ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-          ctx.load_cert_chain(cert, key)
-          httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
           httpd.serve_forever()
           PY
           : > "$srv/requests.log"
