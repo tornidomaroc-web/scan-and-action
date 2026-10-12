@@ -7,12 +7,13 @@ import { Loader2 } from 'lucide-react';
 // mode). `loading` swaps the label for the busy one and disables the button
 // without changing its size, so nothing under it moves.
 //
-// The same shape as CaptureSheet's main action (rounded-btn, accent, quiet
-// shadow), lifted out for the sign-in screens (2026-09-26).
+// The same shape as CaptureSheet's main action (rounded-btn, accent), lifted
+// out for the sign-in screens (2026-09-26). Since 2026-10-12 it lifts in its
+// own colour (shadow-accent) and presses into the page (shadow-pressed).
 // ============================================================================
 
 export const primaryButtonClass =
-  'flex min-h-[52px] w-full items-center justify-center gap-2 rounded-btn bg-accent px-5 text-[15px] font-semibold text-on-accent shadow-card transition-all hover:bg-accent-hover active:scale-[0.98] motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-60';
+  'flex min-h-[52px] w-full items-center justify-center gap-2 rounded-btn bg-accent px-5 text-[15px] font-semibold text-on-accent shadow-accent transition-all hover:bg-accent-hover active:scale-[0.98] active:shadow-pressed motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-60';
 
 export interface PrimaryButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;

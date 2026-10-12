@@ -109,8 +109,13 @@ describe('category colours', () => {
 
   it('every fill stays apart from every other fill and from the warning fill, the warning text, danger and success (controls: a near twin and the old Bills fail)', () => {
     expect(deltaE('#E8590C', root['--sa-cat-food'])).toBeLessThan(DISTANCE_FLOOR);
-    // The first Bills fill, against the amber text of the review chips: 7.4.
-    expect(deltaE('#B7791F', root['--sa-warning-text'])).toBeLessThan(DISTANCE_FLOOR);
+    // The first Bills fill, against the amber text of the review chips: 7.4
+    // against the #B26A0A of 2026-09-25. The text darkened to #8A5200 on
+    // 2026-10-12 (the soft language, 5.44:1 on its tint), so the control
+    // names that text directly rather than the token: the point is that a
+    // near twin of the warning text is CAUGHT, whatever today's text is.
+    expect(deltaE('#B7791F', '#B26A0A')).toBeLessThan(DISTANCE_FLOOR);
+    expect(deltaE('#7E4A00', root['--sa-warning-text'])).toBeLessThan(DISTANCE_FLOOR);
     const others = [...LEDGER_CATEGORIES.map(tokenOf), '--sa-warning', '--sa-warning-text', '--sa-danger', '--sa-success'];
     for (const c of LEDGER_CATEGORIES) {
       for (const o of others.filter(t => t !== tokenOf(c))) {
