@@ -697,7 +697,7 @@ describe('the binary audit runs on a pull request without secrets, and on the ar
     const { load } = createRequire(import.meta.url)('js-yaml') as { load: (s: string) => unknown };
     return load(text) as Workflow & { on: Record<string, unknown>; permissions: Record<string, string> };
   })();
-  it('triggers on pull_request restricted to the paths that change what Xcode links, plus manual dispatch', () => {
+  it('triggers on pull_request restricted to the paths that change what Xcode links or where a confirm link lands, plus manual dispatch', () => {
     const pr = wf.on.pull_request as { branches: string[]; paths: string[] };
     expect(pr.branches).toEqual(['main']);
     expect(pr.paths).toEqual([
@@ -707,13 +707,20 @@ describe('the binary audit runs on a pull request without secrets, and on the ar
       'apps/frontend/package.json',
       'apps/frontend/package-lock.json',
       '.github/workflows/ios-audit.yml',
+      'apps/frontend/public/app-links/**',
+      'apps/frontend/vercel.json',
+      'apps/frontend/src/App.tsx',
+      'apps/frontend/src/native/NativeAuthLinks.tsx',
+      'apps/frontend/src/lib/authLinks.ts',
+      'apps/frontend/src/screens/AuthConfirmScreen.tsx',
     ]);
     expect(wf.on.workflow_dispatch).toBeDefined();
     expect(text).not.toContain('pull_request_target');
     expect(wf.permissions).toEqual({ contents: 'read' });
   });
-  it('one macOS audit job and one Linux mutation job, no environment, no secret reference, no signing', () => {
-    expect(Object.keys(wf.jobs)).toEqual(['audit', 'assemble-mutations']);
+  it('a macOS audit job, a Linux mutation job and a macOS universal link job, no environment, no secret reference, no signing', () => {
+    expect(Object.keys(wf.jobs)).toEqual(['audit', 'assemble-mutations', 'universal-link']);
+    expect(wf.jobs['universal-link']['runs-on']).toBe('macos-26');
     const job = wf.jobs.audit;
     expect(job['runs-on']).toBe('macos-26');
     expect(wf.jobs['assemble-mutations']['runs-on']).toBe('ubuntu-latest');
@@ -731,6 +738,29 @@ describe('the binary audit runs on a pull request without secrets, and on the ar
     expect(audit?.run).toMatch(/if grep -iqE 'AppTrackingTransparency\|FBSDK\|Facebook' [^\n]*; then\n[^\n]*exit 1\n\s*fi/);
     // never the negated form, which set -e ignores
     expect(audit?.run).not.toMatch(/^\s*! /m);
+  });
+  it('the universal link job reaches no Apple CDN, no production and no Supabase, and derives its entitlements from the committed file', () => {
+    const steps = wf.jobs['universal-link'].steps;
+    const run = (name: string) => steps.find((s) => s.name === name)?.run ?? '';
+    const bundle = steps.find((s) => s.name === 'Build the web bundle against addresses that never resolve, and sync iOS') as { env?: Record<string, string> } | undefined;
+    expect(bundle?.env).toEqual({
+      VITE_SUPABASE_URL: 'https://supabase.invalid',
+      VITE_SUPABASE_ANON_KEY: 'sb_publishable_ci_never_sent',
+      VITE_API_URL: 'https://backend.invalid/api',
+    });
+    const build = run('Build for the Simulator with the committed entitlements in developer mode');
+    expect(build).toContain('ios/App/App/App.entitlements');
+    expect(build).toContain("d + '?mode=developer' if d.startswith('applinks:')");
+    const serve = run("Serve this commit's association on www.scan-action.com, on this runner");
+    expect(serve).toContain('"$PWD/dist" "$PWD/vercel.json"');
+    expect(serve).toContain('127.0.0.1 www.scan-action.com');
+    const links = run('Open the confirm link through the system, cold and warm, and two links the app must not claim');
+    expect(links).toMatch(/^set \+e -u$/m);
+    expect(links).toContain('"confirm":"network"');
+    expect(links).toContain('https://www.scan-action.com/login');
+    expect(links).toContain("'https://www.scan-action.com/auth/confirm?type=email'");
+    // Nothing in the job may name a real Supabase project or read the live site's bundle.
+    expect(JSON.stringify(steps)).not.toMatch(/https:\/\/[a-z0-9]{20}\.supabase\.co|assets\/index-/);
   });
   it('the archive step in ios-testflight.yml takes the same reading before the export', () => {
     const tf = loadWorkflow();
