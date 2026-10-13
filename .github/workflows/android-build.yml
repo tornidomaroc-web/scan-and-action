@@ -107,9 +107,13 @@ jobs:
         run: |
           set -eu
           export JAVA_HOME="$JAVA_HOME_21_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
           java -version 2>&1 | head -n 1
           echo "ANDROID_HOME=$ANDROID_HOME"
-          ./gradlew --no-daemon --stacktrace assembleDebug
+          # gradlew is committed as 100644 (written on Windows), so it is not
+          # executable on Linux. Run it through bash rather than change its
+          # mode: that would touch apps/frontend/** and start a TestFlight run.
+          bash ./gradlew --no-daemon --stacktrace assembleDebug
           apk=app/build/outputs/apk/debug/app-debug.apk
           test -s "$apk" || { echo "no APK at $apk"; exit 1; }
           # Positive control: the APK carries the web bundle cap sync copied.
