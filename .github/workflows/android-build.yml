@@ -1,0 +1,117 @@
+name: Android build
+
+# Builds the Android app (a debug APK) on a pull request, so a change that
+# breaks the Android build turns a check red before merge. Until this file,
+# nothing in CI ran Gradle: ci.yml stops at `cap sync android` on purpose. From
+# #309 to #311, main could not build for Android ("The string "--" is not
+# permitted within comments" in res/values/colors.xml), and every check stayed
+# green (WORK-QUEUE, "Android build in CI").
+#
+# NO SECRET, NO SIGNING. A debug build signs with the debug key Gradle generates
+# on the runner. No upload keystore, no Play credential and no environment is
+# referenced, so a fork's pull request runs it with nothing to reach. The token
+# is read-only (permissions below), and the trigger is pull_request, never
+# pull_request_target.
+#
+# TRIGGER. pull_request to main, on the paths that can change what Gradle
+# builds:
+#   android/**             the native project itself (res XML, Gradle files,
+#                          the wrapper, Java sources, the manifest)
+#   capacitor.config.ts    read by `cap sync`, which writes the Android plugin
+#                          config and runs the social-login hook that picks the
+#                          plugin's Android source set
+#   package.json, package-lock.json
+#                          the Capacitor and plugin versions: each plugin is a
+#                          Gradle subproject under node_modules
+#   patches/**             patch-package edits plugin sources after npm ci
+#   this file
+# Not src/**, index.html or the Vite config: those change only the web bundle,
+# and ci.yml's required "Frontend" check already builds it. Not ios/**.
+# Not a push to main: ios-testflight.yml owns main's native pipeline, and this
+# job proves a PR before it gets there. Not a required check yet; it becomes
+# one with its context copied from the check-runs API (CLAUDE.md, the em-dash
+# trap).
+#
+# SUPPLY CHAIN. The two actions are pinned by commit, as in ios-audit.yml. The
+# Gradle wrapper jar is committed, so it is checked against a literal SHA-256
+# here (the official wrapper jar of Gradle 8.10 to 8.12.1, matched against
+# services.gradle.org's published sums on 2026-10-13), and the Gradle
+# distribution the wrapper downloads is pinned by its published SHA-256 at run
+# time. A PR that changes either must change the literal below in the same
+# diff, where a reviewer sees it.
+#
+# COST. Free: the repository is public, and Linux minutes on a public
+# repository are not billed.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/frontend/android/**'
+      - 'apps/frontend/capacitor.config.ts'
+      - 'apps/frontend/package.json'
+      - 'apps/frontend/package-lock.json'
+      - 'apps/frontend/patches/**'
+      - '.github/workflows/android-build.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Android debug build (no signing, no secrets)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      # postinstall applies patches/ to node_modules before Gradle reads them.
+      - run: npm ci
+
+      # The real web bundle, so the APK is the app and not a stub. VITE_*
+      # come from the committed .env.production only; no secret is set.
+      - run: npm run build
+
+      - run: npx cap sync android
+
+      - name: The Gradle wrapper is the one reviewed, and its download is pinned
+        working-directory: apps/frontend/android
+        run: |
+          set -eu
+          jar_sha=2db75c40782f5e8ba1fc278a5574bab070adccb2d21ca5a6e5ed840888448046
+          echo "$jar_sha  gradle/wrapper/gradle-wrapper.jar" | sha256sum -c -
+          grep -qx 'distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14.3-all.zip' gradle/wrapper/gradle-wrapper.properties \
+            || { echo "the wrapper no longer downloads gradle-8.14.3-all.zip: update the pinned sum below with it"; exit 1; }
+          # Runner copy only; the committed file is unchanged.
+          echo 'distributionSha256Sum=ed1a8d686605fd7c23bdf62c7fc7add1c5b23b2bbc3721e661934ef4a4911d7c' >> gradle/wrapper/gradle-wrapper.properties
+
+      # JDK 21 (Capacitor 8 needs it) and the Android SDK are on the runner
+      # image; no setup action is added for either.
+      - name: Assemble the debug APK
+        working-directory: apps/frontend/android
+        run: |
+          set -eu
+          export JAVA_HOME="$JAVA_HOME_21_X64"
+          java -version 2>&1 | head -n 1
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ./gradlew --no-daemon --stacktrace assembleDebug
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk" || { echo "no APK at $apk"; exit 1; }
+          # Positive control: the APK carries the web bundle cap sync copied.
+          unzip -l "$apk" | grep -q 'assets/public/index.html' || { echo "the APK has no assets/public/index.html"; exit 1; }
+          echo "BUILT $apk ($(stat -c %s "$apk") bytes)"
