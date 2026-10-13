@@ -207,34 +207,39 @@ export const ReviewQueueScreen = () => {
               >
                 <div className="flex items-start gap-3">
                   <DocumentIcon doc={doc} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    {/* No <bdi> on a TRUNCATING box: the isolate hides the text from
-                        dir="auto", which then falls back to LTR and clips the leading
-                        (identifying) end of an Arabic name. The value is the sole
-                        content of the block, so the block already isolates it. */}
-                    <p className="truncate text-[0.9375rem] font-semibold text-ink" dir="auto" data-queue-title>{row.title}</p>
-                    {row.meta.length > 0 && (
-                      <p className="mt-0.5 break-words text-xs font-medium text-ink-muted" dir="auto" data-queue-meta>
-                        {row.meta.map((part, i) => (
-                          <React.Fragment key={i}>
-                            {i > 0 && <span aria-hidden="true"> · </span>}
-                            <span>{part}</span>
-                          </React.Fragment>
-                        ))}
-                      </p>
+                  {/* The amount sits beside the title while the title keeps 7rem;
+                      at a large text size it drops under it instead of squeezing
+                      the merchant and the date into a sliver. */}
+                  <div className="flex min-w-0 flex-1 flex-wrap items-start gap-x-3 gap-y-1">
+                    <div className="min-w-[7rem] flex-1">
+                      {/* No <bdi> on a TRUNCATING box: the isolate hides the text from
+                          dir="auto", which then falls back to LTR and clips the leading
+                          (identifying) end of an Arabic name. The value is the sole
+                          content of the block, so the block already isolates it. */}
+                      <p className="truncate text-[0.9375rem] font-semibold text-ink" dir="auto" data-queue-title>{row.title}</p>
+                      {row.meta.length > 0 && (
+                        <p className="mt-0.5 break-words text-xs font-medium text-ink-muted" dir="auto" data-queue-meta>
+                          {row.meta.map((part, i) => (
+                            <React.Fragment key={i}>
+                              {i > 0 && <span aria-hidden="true"> · </span>}
+                              <span>{part}</span>
+                            </React.Fragment>
+                          ))}
+                        </p>
+                      )}
+                    </div>
+                    {row.money && (
+                      // dir="ltr" with NO isolate. <bdi> is by definition an isolate
+                      // whose direction is auto, so it re-runs the detection this pin
+                      // exists to override (currencyBidiDirection.test.tsx). The
+                      // number and the code are the ledger's parts, never a summed or
+                      // converted figure.
+                      <span className="flex-shrink-0 text-[0.9375rem] font-bold tabular-nums text-ink" dir="ltr" data-queue-amount>
+                        {row.money.number} <span className="text-xs font-bold text-ink-muted">{row.money.code ?? s.ledgerNoCurrency}</span>
+                        {row.amount?.source === 'corrected' && <CountChip className="ms-1.5 align-middle">{s.ledgerCorrectedTag}</CountChip>}
+                      </span>
                     )}
                   </div>
-                  {row.money && (
-                    // dir="ltr" with NO isolate. <bdi> is by definition an isolate
-                    // whose direction is auto, so it re-runs the detection this pin
-                    // exists to override (currencyBidiDirection.test.tsx). The
-                    // number and the code are the ledger's parts, never a summed or
-                    // converted figure.
-                    <span className="flex-shrink-0 text-[0.9375rem] font-bold tabular-nums text-ink" dir="ltr" data-queue-amount>
-                      {row.money.number} <span className="text-xs font-bold text-ink-muted">{row.money.code ?? s.ledgerNoCurrency}</span>
-                      {row.amount?.source === 'corrected' && <CountChip className="ms-1.5 align-middle">{s.ledgerCorrectedTag}</CountChip>}
-                    </span>
-                  )}
                   <ChevronRight size={16} className="flex-shrink-0 text-ink-fainter rtl:-scale-x-100" aria-hidden="true" />
                 </div>
 
