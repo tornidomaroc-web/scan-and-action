@@ -89,11 +89,13 @@ describe('Home and Detail use them', () => {
     expect(home).toMatch(/text-ink-secondary" data-ledger-empty-categories/);
   });
 
-  it("Detail's facts are inset cells whose labels are secondary, and the grid's minimum is in rem", () => {
+  it("Detail's facts are inset cells in one column, whose labels are secondary", () => {
     const facts = detail.slice(detail.indexOf('data-detail-facts'), detail.indexOf('data-detail-actions'));
     expect(facts).toContain('{s.detailWhatWasRead}');
     expect(facts).toContain('insetCellClass');
-    expect(facts).toContain('grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]');
+    // One column: on Android, rem lengths do not grow with the text zoom.
+    expect(facts).toContain('<ul className="mt-3 flex flex-col gap-2">');
+    expect(facts).not.toMatch(/grid-cols-\[repeat\(auto-fit/);
     expect(facts).not.toContain('text-ink-muted');
   });
 

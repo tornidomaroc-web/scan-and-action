@@ -569,11 +569,13 @@ export const DocumentDetailScreen = () => {
       )}
 
       {/* ── What was read: each fact in a cell pressed into the card (none
-          while the document is being read). The column minimum is in rem, so
-          at a large text size the cells fall to one column on their own. ── */}
+          while the document is being read). One column, never a grid: on
+          Android the WebView's text zoom enlarges the glyphs but not rem or em
+          lengths, so a column minimum in rem kept two narrow columns at font
+          scale 2.0 and broke a date over two lines (measured 2026-10-13). ── */}
       {!reading && <section className={`mt-4 p-4 ${panelClass}`} data-detail-facts aria-labelledby="detail-read">
         <h2 id="detail-read" className={eyebrowClass}>{s.detailWhatWasRead}</h2>
-        <ul className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-2">
+        <ul className="mt-3 flex flex-col gap-2">
           {rowFacts.map((fact: any, i: number) => (
             <li key={i} className={`flex min-w-0 flex-col items-start gap-0.5 px-3 py-2.5 ${insetCellClass}`}>
               <span className="text-xs font-medium text-ink-secondary">{fieldLabel(fact.key)}</span>
@@ -588,11 +590,10 @@ export const DocumentDetailScreen = () => {
             </li>
           ))}
           {rowFacts.length === 0 && (
-            <li className="col-span-full px-1 text-sm font-medium text-ink-secondary">{s.noFacts}</li>
+            <li className="px-1 text-sm font-medium text-ink-secondary">{s.noFacts}</li>
           )}
           {doc.originalFileName && (
-            // The file name is long and unbroken, so it takes the full width.
-            <li className={`col-span-full flex min-w-0 flex-col items-start gap-0.5 px-3 py-2.5 ${insetCellClass}`}>
+            <li className={`flex min-w-0 flex-col items-start gap-0.5 px-3 py-2.5 ${insetCellClass}`}>
               <span className="text-xs font-medium text-ink-secondary">{s.fileNameLabel}</span>
               <span className="max-w-full break-all text-sm font-medium text-ink-secondary" dir="auto">{doc.originalFileName}</span>
             </li>
