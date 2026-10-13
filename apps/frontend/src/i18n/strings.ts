@@ -622,6 +622,7 @@ export const strings = {
     detailReadingSlow: "This is taking longer than usual. You can leave this screen; the result shows in the Queue when it is ready.",
     detailExtractionFailed: "This receipt could not be read.",
     fileNameLabel: "File",
+    detailWhatWasRead: "What was read",
   },
   fr: {
     header: 'Scan & Action',
@@ -1170,6 +1171,7 @@ export const strings = {
     detailReadingSlow: "C’est plus long que d’habitude. Vous pouvez quitter cet écran ; le résultat s’affiche dans la File dès qu’il est prêt.",
     detailExtractionFailed: "Ce reçu n’a pas pu être lu.",
     fileNameLabel: "Fichier",
+    detailWhatWasRead: "Ce qui a été lu",
   },
   ar: {
     header: 'Scan & Action',
@@ -1738,5 +1740,6 @@ export const strings = {
     detailReadingSlow: "يستغرق هذا وقتًا أطول من المعتاد. يمكنك مغادرة هذه الشاشة؛ تظهر النتيجة في المراجعة عند اكتمالها.",
     detailExtractionFailed: "تعذّرت قراءة هذا الإيصال.",
     fileNameLabel: "اسم الملف",
+    detailWhatWasRead: "ما قُرئ",
   },
 };

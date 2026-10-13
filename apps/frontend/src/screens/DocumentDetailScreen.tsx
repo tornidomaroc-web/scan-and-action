@@ -6,7 +6,7 @@ import { ErrorState } from '../components/ErrorState';
 import { DocumentIcon } from '../components/ui/DocumentIcon';
 import { IconTile } from '../components/ui/IconTile';
 import { CountChip } from '../components/ui/CountChip';
-import { panelClass } from '../components/ui/Panel';
+import { panelClass, raisedPanelClass, insetCellClass, eyebrowClass } from '../components/ui/Panel';
 import { translateDecisionReasons } from '../components/DecisionBanner';
 import { FixActionPanel } from '../components/FixActionPanel';
 import { useToast } from '../contexts/ToastContext';
@@ -406,7 +406,7 @@ export const DocumentDetailScreen = () => {
       </button>
 
       {/* ── Who, how much, when, one status ── */}
-      <section className={`mt-4 p-4 ${panelClass}`} data-detail-header data-detail-reading={reading || undefined} aria-labelledby="detail-title" aria-busy={reading || undefined}>
+      <section className={`mt-4 p-4 ${raisedPanelClass}`} data-detail-header data-detail-reading={reading || undefined} aria-labelledby="detail-title" aria-busy={reading || undefined}>
         <div className="flex items-start gap-3">
           <DocumentIcon doc={doc} />
           <div className="min-w-0 flex-1">
@@ -568,12 +568,17 @@ export const DocumentDetailScreen = () => {
         </section>
       )}
 
-      {/* ── The facts, as rows (none while the document is being read) ── */}
-      {!reading && <section className={`mt-4 ${panelClass}`} data-detail-facts>
-        <ul className="divide-y divide-divider">
+      {/* ── What was read: each fact in a cell pressed into the card (none
+          while the document is being read). One column, never a grid: on
+          Android the WebView's text zoom enlarges the glyphs but not rem or em
+          lengths, so a column minimum in rem kept two narrow columns at font
+          scale 2.0 and broke a date over two lines (measured 2026-10-13). ── */}
+      {!reading && <section className={`mt-4 p-4 ${panelClass}`} data-detail-facts aria-labelledby="detail-read">
+        <h2 id="detail-read" className={eyebrowClass}>{s.detailWhatWasRead}</h2>
+        <ul className="mt-3 flex flex-col gap-2">
           {rowFacts.map((fact: any, i: number) => (
-            <li key={i} className="flex items-baseline justify-between gap-3 px-4 py-3">
-              <span className="flex-none text-xs font-medium text-ink-muted">{fieldLabel(fact.key)}</span>
+            <li key={i} className={`flex min-w-0 flex-col items-start gap-0.5 px-3 py-2.5 ${insetCellClass}`}>
+              <span className="text-xs font-medium text-ink-secondary">{fieldLabel(fact.key)}</span>
               {/* Direction is DATA, not a property of this box: the same
                   element renders an Arabic string value, a localized Arabic
                   date, a placeholder, and an Intl currency string. Only the
@@ -581,16 +586,16 @@ export const DocumentDetailScreen = () => {
                   whose precedence mirrors formatFactValue's). No <bdi>: it is
                   an isolate with dir auto and would re-run the detection the
                   pin exists to override. */}
-              <span className="min-w-0 break-words text-end text-sm font-semibold text-ink" dir={factValueDir(fact)}>{factValue(fact)}</span>
+              <span className="max-w-full break-words text-sm font-semibold text-ink" dir={factValueDir(fact)}>{factValue(fact)}</span>
             </li>
           ))}
           {rowFacts.length === 0 && (
-            <li className="px-4 py-3 text-sm font-medium text-ink-muted">{s.noFacts}</li>
+            <li className="px-1 text-sm font-medium text-ink-secondary">{s.noFacts}</li>
           )}
           {doc.originalFileName && (
-            <li className="flex items-baseline justify-between gap-3 px-4 py-3">
-              <span className="flex-none text-xs font-medium text-ink-muted">{s.fileNameLabel}</span>
-              <span className="min-w-0 break-all text-end text-sm font-medium text-ink-secondary" dir="auto">{doc.originalFileName}</span>
+            <li className={`flex min-w-0 flex-col items-start gap-0.5 px-3 py-2.5 ${insetCellClass}`}>
+              <span className="text-xs font-medium text-ink-secondary">{s.fileNameLabel}</span>
+              <span className="max-w-full break-all text-sm font-medium text-ink-secondary" dir="auto">{doc.originalFileName}</span>
             </li>
           )}
         </ul>
@@ -615,7 +620,7 @@ export const DocumentDetailScreen = () => {
             <button
               onClick={() => handleReviewAction('approve')}
               disabled={actioning}
-              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-pill bg-success-tint text-sm font-bold text-success-text ring-1 ring-line transition-colors hover:ring-success active:scale-[0.99] motion-reduce:transition-none disabled:opacity-50"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-pill bg-success-tint text-sm font-bold text-success-text shadow-card ring-1 ring-line transition-colors hover:ring-success active:scale-[0.99] motion-reduce:transition-none disabled:opacity-50"
             >
               <CheckCircle size={18} aria-hidden="true" />
               {s.approve}
@@ -623,7 +628,7 @@ export const DocumentDetailScreen = () => {
             <button
               onClick={() => handleReviewAction('reject')}
               disabled={actioning}
-              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-pill bg-danger-tint text-sm font-bold text-danger-text ring-1 ring-line transition-colors hover:ring-danger active:scale-[0.99] motion-reduce:transition-none disabled:opacity-50"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-pill bg-danger-tint text-sm font-bold text-danger-text shadow-card ring-1 ring-line transition-colors hover:ring-danger active:scale-[0.99] motion-reduce:transition-none disabled:opacity-50"
             >
               <XCircle size={18} aria-hidden="true" />
               {s.reject}

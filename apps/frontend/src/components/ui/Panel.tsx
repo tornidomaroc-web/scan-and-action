@@ -14,6 +14,20 @@ import React from 'react';
 
 export const panelClass = 'rounded-panel bg-surface-raised shadow-card ring-1 ring-line';
 
+// One step higher, for the card a screen is about: the month's totals on Home,
+// the receipt's header on Detail. The same surface and ring; a deeper shadow.
+export const raisedPanelClass = 'rounded-panel bg-surface-raised shadow-raised ring-1 ring-line';
+
+// A cell pressed into a card: the inset surface and the pressed shadow, as a
+// field is. Labels in it take ink-secondary, never ink-muted: muted on the
+// inset measures 4.49:1 in light, under 4.5 (softSurfaces.test.ts).
+export const insetCellClass = 'rounded-card bg-surface-alt shadow-pressed';
+
+// A section's label: small, uppercase, spaced. ink-secondary, because it sits
+// on the page, where muted measures 4.27:1 in light. No letter-spacing in
+// Arabic: tracking pulls apart letters that are written joined.
+export const eyebrowClass = 'text-xs font-semibold uppercase tracking-[0.06em] text-ink-secondary rtl:tracking-normal';
+
 export const Panel: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className = '', ...rest }) => (
   <div {...rest} className={`${panelClass} ${className}`} />
 );
