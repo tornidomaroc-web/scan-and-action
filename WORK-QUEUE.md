@@ -1396,7 +1396,23 @@ restyled.** Do not start at login, although a reviewer sees it first:
        private page. The owner judges the design from that page; he looks on
        his iPhone only when he chooses (rule 5), never as a step a report
        asks of him.
-    4. Queue, Search, Activity.
+    4. **Queue, Search, Activity: OPEN as #319, not merged** (2026-10-13).
+       Search's headings become eyebrows and its month totals sit on the
+       raised totals card; Queue's Approve and Reject take the card shadow;
+       Activity's status drops under the file name at a large text size.
+       A contrast audit over every text node of six screens found, on main,
+       muted text on the light page (Search, Activity; 4.27:1) and Detail's
+       amount-field currency (3.97:1); fixed. Activity's subtitle no longer
+       says "(v1: Top 100)".
+       - **Filed, not fixed: Home's currency codes wrap unevenly at the
+         largest text size** (the owner's review of #315). In Arabic at
+         accessibility xxxLarge, "USD" drops under 12,989.92 while "MAD"
+         stays beside 1,250.00: each row wraps on its own width, and the
+         longer figure runs out of room first. Not a defect (nothing is cut
+         or overlapped). Both fixes change the approved Home: put every code
+         on its own line (changes the default layout) or step the figures
+         down at the largest size (smaller amounts). It belongs to the Home
+         redraw, which waits on the owner's reasons ("Home last" above).
     5. Sign-in, Settings, the sheets (the paywall and processing tray carry
        raw `slate-*` classes no token reaches; by hand).
     6. Landing and the legal pages (51 raw palette classes; last).
@@ -2840,8 +2856,13 @@ This is also Apple 3.1.3(f)'s condition, word for word (APPLE TRACK), and
 
 ### Other kept items
 
-- [ ] **Android: cap the WebView's text zoom natively: OPEN as #317, not
-  merged** (2026-10-13). Before any Play release. `MainActivity` sets the
+- [x] **Android: cap the WebView's text zoom natively: MERGED 2026-10-13 as
+  #317 (`9757a2a1`), TestFlight build 30** (run 38453792409: "ARCHIVE
+  SUCCEEDED", "Uploaded build 30 … for commit 9757a2a1…"; `gh run view
+  38453792409 --log`), served on the web and by `/api/version` at merge.
+  Build 30 is iOS and iOS is unchanged by it; the fix reaches users only in
+  an Android build, which no CI job uploads to Play. Was: before any Play
+  release. `MainActivity` sets the
   WebView's text zoom to `min(fontScale x 100, 135)` in a try/catch; the web
   cap in `textScale.ts` is KEPT, unchanged, as the fallback: it measures the
   zoom actually applied and acts only above 23/17, so it is idle under the
