@@ -19,6 +19,7 @@
       screen the stylesheet cannot. Ruled by the owner with the move of the
       screens to the icon family.
     -->
+    <!-- PLANTED DEFECT for the #313 red run: the --sa-accent token. Never merge. -->
     <color name="colorPrimary">#00286D</color>
     <color name="colorPrimaryDark">#00286D</color>
     <color name="colorAccent">#006784</color>
