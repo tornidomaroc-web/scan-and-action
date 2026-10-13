@@ -218,3 +218,34 @@ describe('Android resource XML', () => {
     expect(xml.filter((p) => bad(readFileSync(p, 'utf8')).length > 0)).toEqual([]);
   });
 });
+
+describe('Android: the native text zoom cap and the web fallback', () => {
+  // MainActivity caps the WebView's text zoom at TEXT_ZOOM_CAP_PERCENT, so
+  // controls keep their size. rootFontSizeFor('android', z) measures the zoom
+  // actually applied and acts only above TEXT_SCALE_CAP: with the native cap in
+  // effect it does nothing; if the native cap is not applied, it holds the text
+  // at the cap as #311 did.
+  const java = readFileSync(
+    join(APP, 'android', 'app', 'src', 'main', 'java', 'com', 'scanaction', 'app', 'MainActivity.java'),
+    'utf8',
+  );
+  const nativeCap = Number(java.match(/TEXT_ZOOM_CAP_PERCENT = (\d+);/)![1]);
+
+  it('the native cap never exceeds the web cap, so the web layer stays idle under it', () => {
+    expect(nativeCap / 100).toBeLessThanOrEqual(TEXT_SCALE_CAP);
+    expect(rootFontSizeFor('android', nativeCap / 100)).toBeNull();
+  });
+
+  it('control: a zoom just above the web cap makes the web layer act', () => {
+    expect(rootFontSizeFor('android', TEXT_SCALE_CAP + 0.01)).not.toBeNull();
+  });
+
+  it('the fallback: with no native cap, font scale 2.0 still lands on the web cap', () => {
+    const root = parseFloat(rootFontSizeFor('android', 2)!);
+    expect(root * 2).toBeCloseTo(16 * TEXT_SCALE_CAP, 2);
+  });
+
+  it('a failure in MainActivity is caught and leaves the WebView as it was', () => {
+    expect(java).toMatch(/try \{[\s\S]*setTextZoom\(zoom\)[\s\S]*\} catch \(RuntimeException e\)/);
+  });
+});
