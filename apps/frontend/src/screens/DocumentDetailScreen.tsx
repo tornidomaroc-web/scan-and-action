@@ -434,7 +434,7 @@ export const DocumentDetailScreen = () => {
             // The figure's place, held: the same shape the amount will take.
             <div className="h-9 w-40 rounded-pill skeleton" data-detail-reading-amount aria-hidden="true" />
           ) : money && amount ? (
-            <div className="flex flex-wrap items-baseline gap-x-2" aria-label={`${money.number} ${money.name ?? money.code ?? s.ledgerNoCurrency}`}>
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1" aria-label={`${money.number} ${money.name ?? money.code ?? s.ledgerNoCurrency}`}>
               <bdi dir="ltr" data-detail-amount className={`${figureSizeClass(money.number)} font-extrabold leading-none tracking-tight tabular-nums text-ink`}>
                 {money.number}
               </bdi>
@@ -448,7 +448,7 @@ export const DocumentDetailScreen = () => {
           )}
           {status && (
             <CountChip tone={statusTone} data-detail-status className="max-w-full">
-              <span className="truncate">{status.label}</span>
+              <span className="whitespace-normal">{status.label}</span>
             </CountChip>
           )}
         </div>
@@ -472,7 +472,7 @@ export const DocumentDetailScreen = () => {
       {/* ── What needs the person ── */}
       {showIssues && (
         <section className={`mt-4 p-4 ${panelClass}`} data-detail-issues aria-labelledby="detail-issues">
-          <h2 id="detail-issues" className="flex items-center gap-3 text-[15px] font-bold text-ink">
+          <h2 id="detail-issues" className="flex items-center gap-3 text-[0.9375rem] font-bold text-ink">
             <IconTile icon={AlertTriangle} tone="warning" size="sm" />
             {s.detailNeedsYou}
           </h2>

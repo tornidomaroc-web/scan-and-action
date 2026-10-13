@@ -212,9 +212,9 @@ export const ReviewQueueScreen = () => {
                         dir="auto", which then falls back to LTR and clips the leading
                         (identifying) end of an Arabic name. The value is the sole
                         content of the block, so the block already isolates it. */}
-                    <p className="truncate text-[15px] font-semibold text-ink" dir="auto" data-queue-title>{row.title}</p>
+                    <p className="truncate text-[0.9375rem] font-semibold text-ink" dir="auto" data-queue-title>{row.title}</p>
                     {row.meta.length > 0 && (
-                      <p className="mt-0.5 truncate text-xs font-medium text-ink-muted" dir="auto" data-queue-meta>
+                      <p className="mt-0.5 break-words text-xs font-medium text-ink-muted" dir="auto" data-queue-meta>
                         {row.meta.map((part, i) => (
                           <React.Fragment key={i}>
                             {i > 0 && <span aria-hidden="true"> · </span>}
@@ -230,7 +230,7 @@ export const ReviewQueueScreen = () => {
                     // exists to override (currencyBidiDirection.test.tsx). The
                     // number and the code are the ledger's parts, never a summed or
                     // converted figure.
-                    <span className="flex-shrink-0 text-[15px] font-bold tabular-nums text-ink" dir="ltr" data-queue-amount>
+                    <span className="flex-shrink-0 text-[0.9375rem] font-bold tabular-nums text-ink" dir="ltr" data-queue-amount>
                       {row.money.number} <span className="text-xs font-bold text-ink-muted">{row.money.code ?? s.ledgerNoCurrency}</span>
                       {row.amount?.source === 'corrected' && <CountChip className="ms-1.5 align-middle">{s.ledgerCorrectedTag}</CountChip>}
                     </span>
@@ -241,7 +241,7 @@ export const ReviewQueueScreen = () => {
                 <div className="mt-3 flex items-center justify-between gap-3 border-t border-divider pt-3">
                   {row.status ? (
                     <CountChip tone={statusTone(row.status.key)} data-queue-status className="max-w-full">
-                      <span className="truncate">{row.status.label}</span>
+                      <span className="whitespace-normal">{row.status.label}</span>
                     </CountChip>
                   ) : (
                     <span className="text-xs font-medium text-ink-muted">{s.notAvailable}</span>

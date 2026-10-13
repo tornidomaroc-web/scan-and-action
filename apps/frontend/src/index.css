@@ -54,6 +54,14 @@
 }
 
 @layer base {
+  /* The phone's or the browser's text size reaches every font size through
+     this root: all of them are rem. On the web 100% is the browser's own
+     default; the cap is TEXT_SCALE_CAP in native/textScale.ts (23/17, iOS
+     xxxLarge), which also sets this root on iOS and caps Android's. */
+  html {
+    font-size: min(100%, 21.647px);
+  }
+
   body {
     margin: 0;
     /* Real, now-loaded stack: Inter (latin) + IBM Plex Sans Arabic (arabic),

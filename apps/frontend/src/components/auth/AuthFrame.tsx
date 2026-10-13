@@ -29,12 +29,12 @@ export const AuthFrame: React.FC<{ title: string; subtitle?: string; children: R
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <BrandMark size={36} className="rounded-[10px]" />
-              <span className="text-[15px] font-semibold tracking-tight">{s.header}</span>
+              <span className="text-[0.9375rem] font-semibold tracking-tight">{s.header}</span>
             </div>
             <LanguageSwitcher />
           </div>
-          <h1 className="mt-3 text-start text-[22px] font-semibold leading-tight tracking-tight">{title}</h1>
-          {subtitle && <p className="mt-0.5 text-start text-[13px] opacity-80">{subtitle}</p>}
+          <h1 className="mt-3 text-start text-[1.375rem] font-semibold leading-tight tracking-tight">{title}</h1>
+          {subtitle && <p className="mt-0.5 text-start text-[0.8125rem] opacity-80">{subtitle}</p>}
         </section>
         <main className="mt-4">{children}</main>
       </div>

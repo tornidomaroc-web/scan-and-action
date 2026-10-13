@@ -168,11 +168,11 @@ describe('RTL truncation — Class B: a truncating filename/email box must state
     // Not asserted in the abstract — these are the live spans the guard must not
     // fire on. Each is read from the real file, confirmed to truncate, confirmed
     // to carry no dir, and confirmed to produce zero offenders.
+    // The review states on Activity, Detail and Queue left this list with
+    // Dynamic Type (PR 2): a review state wraps and is never cut, so they no
+    // longer truncate at all.
     const LABEL_SITES = [
-      ['screens/ActivityScreen.tsx', 'status.label'],
       ['screens/DashboardScreen.tsx', 'meta.label'],
-      ['screens/DocumentDetailScreen.tsx', 'status.label'],
-      ['screens/ReviewQueueScreen.tsx', 'status.label'],
     ] as const;
 
     for (const [rel, expr] of LABEL_SITES) {

@@ -173,7 +173,9 @@ describe('ActivityScreen RTL truncation idiom (D5)', () => {
     mount('ar');
     await vi.waitFor(() => expect(text()).toContain('فاتورة.pdf'));
 
-    const valueEls = [...container.querySelectorAll('p.truncate')];
+    // The filename truncates; the date line wraps since Dynamic Type (PR 2),
+    // because a date is never cut. Both keep dir="auto".
+    const valueEls = [...container.querySelectorAll('p.truncate, p.break-words')];
     expect(valueEls.length).toBe(2); // filename + date
     for (const el of valueEls) {
       expect(el.getAttribute('dir')).toBe('auto');

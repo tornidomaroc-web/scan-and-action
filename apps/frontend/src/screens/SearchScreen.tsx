@@ -154,7 +154,7 @@ export const SearchScreen: React.FC = () => {
           onChange={e => setTyped(e.target.value)}
           placeholder={s.searchPlaceholder}
           data-search-input
-          className="h-12 w-full rounded-pill bg-surface-raised ps-12 pe-12 text-[16px] font-medium text-ink shadow-card ring-1 ring-line outline-none transition-shadow placeholder:text-ink-faint focus:ring-2 focus:ring-accent [&::-webkit-search-cancel-button]:hidden"
+          className="h-12 w-full rounded-pill bg-surface-raised ps-12 pe-12 text-[1rem] font-medium text-ink shadow-card ring-1 ring-line outline-none transition-shadow placeholder:text-ink-faint focus:ring-2 focus:ring-accent [&::-webkit-search-cancel-button]:hidden"
         />
         {typed && (
           <button
@@ -193,8 +193,8 @@ export const SearchScreen: React.FC = () => {
         >
           <ChevronLeft size={20} className="rtl:-scale-x-100" aria-hidden="true" />
         </button>
-        <span data-search-month className="flex h-11 min-w-0 flex-1 items-center justify-center rounded-pill bg-surface-raised px-3 text-[15px] font-bold text-ink ring-1 ring-line" aria-live="polite">
-          <span className="truncate">{monthLabel}</span>
+        <span data-search-month className="flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-pill bg-surface-raised px-3 text-[0.9375rem] font-bold text-ink ring-1 ring-line" aria-live="polite">
+          <span className="text-center">{monthLabel}</span>
         </span>
         <button
           type="button"
@@ -252,7 +252,7 @@ const Chip: React.FC<{ on: boolean; onClick: () => void; className: string; chil
     onClick={onClick}
     aria-pressed={on}
     {...rest}
-    className={`inline-flex h-9 flex-none items-center gap-2 whitespace-nowrap rounded-pill px-3.5 text-[13px] font-semibold transition-colors active:scale-95 ${
+    className={`inline-flex h-9 flex-none items-center gap-2 whitespace-nowrap rounded-pill px-3.5 text-[0.8125rem] font-semibold transition-colors active:scale-95 ${
       on ? className : 'bg-surface-raised text-ink-secondary ring-1 ring-line'
     }`}
   >
@@ -277,7 +277,7 @@ const Rows: React.FC<{ data: SearchResult; s: Strings; lang: Lang }> = ({ data, 
 
 const Recent: React.FC<{ data: SearchResult; s: Strings; lang: Lang }> = ({ data, s, lang }) => (
   <section className="mt-6" aria-labelledby="search-recent" data-search-recent>
-    <h2 id="search-recent" className="text-[15px] font-bold text-ink">{s.searchRecent}</h2>
+    <h2 id="search-recent" className="text-[0.9375rem] font-bold text-ink">{s.searchRecent}</h2>
     {data.receipts.length > 0 ? (
       <Rows data={data} s={s} lang={lang} />
     ) : (
@@ -285,7 +285,7 @@ const Recent: React.FC<{ data: SearchResult; s: Strings; lang: Lang }> = ({ data
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-tile bg-accent text-on-accent">
           <Receipt size={26} aria-hidden="true" />
         </div>
-        <h3 className="mt-4 text-[17px] font-bold text-ink">{s.searchEmptyTitle}</h3>
+        <h3 className="mt-4 text-[1.0625rem] font-bold text-ink">{s.searchEmptyTitle}</h3>
         <p className="mx-auto mt-1 max-w-xs text-sm text-ink-secondary">{s.searchEmptyBody}</p>
       </Panel>
     )}
@@ -310,7 +310,7 @@ const Filtered: React.FC<{
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-tile bg-surface-muted text-ink-secondary">
           <SearchIcon size={26} aria-hidden="true" />
         </div>
-        <h2 className="mt-4 text-[17px] font-bold text-ink">{s.searchNoResultsTitle}</h2>
+        <h2 className="mt-4 text-[1.0625rem] font-bold text-ink">{s.searchNoResultsTitle}</h2>
         <p className="mx-auto mt-1 max-w-xs text-sm text-ink-secondary">{s.searchNoResultsBody.replace('{scope}', scope)}</p>
         <div className="mt-6 flex flex-col items-center gap-2">
           {params.month && (
@@ -332,7 +332,7 @@ const Filtered: React.FC<{
         <section className="mt-6" aria-labelledby="search-total">
           <Panel className="p-4" data-search-total>
             <p id="search-total" className="text-sm font-semibold text-ink-secondary">{s.searchTotalHeading}</p>
-            <p className="mt-0.5 truncate text-xs font-medium text-ink-muted" data-search-scope>{scope}</p>
+            <p className="mt-0.5 break-words text-xs font-medium text-ink-muted" data-search-scope>{scope}</p>
             <ul className="mt-2 flex flex-col gap-2">
               {data.currencies.map(c => (
                 <li key={c.currency ?? 'none'} data-search-currency={c.currency ?? 'none'} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -341,7 +341,7 @@ const Filtered: React.FC<{
                     currency={c.currency}
                     lang={lang}
                     noCurrency={s.ledgerNoCurrency}
-                    numberClass={`text-[28px] font-extrabold leading-none tracking-tight ${c.currency ? 'text-ink' : 'text-ink-secondary'}`}
+                    numberClass={`text-[1.75rem] font-extrabold leading-none tracking-tight ${c.currency ? 'text-ink' : 'text-ink-secondary'}`}
                     codeClass={`text-sm font-bold tracking-wide ${c.currency ? 'text-ink-muted' : 'text-warning-text'}`}
                   />
                   <CountChip>{plural(c.receiptCount, lang, s.ledgerReceiptCount)}</CountChip>
@@ -358,7 +358,7 @@ const Filtered: React.FC<{
 
       {data.notCounted.length > 0 && (
         <section className="mt-6" aria-labelledby="search-not-counted" data-search-not-counted>
-          <h2 id="search-not-counted" className="text-[15px] font-bold text-ink">{s.searchNotCounted}</h2>
+          <h2 id="search-not-counted" className="text-[0.9375rem] font-bold text-ink">{s.searchNotCounted}</h2>
           <p className="mt-0.5 text-xs font-medium text-ink-muted">{s.searchNotCountedBody}</p>
           <ul className={`mt-3 divide-y divide-divider overflow-hidden ${panelClass}`}>
             {data.notCounted.map(h => <li key={h.documentId}><NotCountedRow h={h} s={s} lang={lang} /></li>)}
@@ -379,7 +379,7 @@ const NotCountedRow: React.FC<{ h: NotCountedHit; s: Strings; lang: Lang }> = ({
         does not have (lib/documentCategory). */}
     {wornCategory(h.category) ? <CategoryIcon category={wornCategory(h.category)!} size="sm" /> : <IconTile icon={FileText} tone="neutral" size="sm" />}
     <span className="min-w-0 flex-1">
-      <span dir="auto" className={`block truncate text-[15px] font-semibold ${h.merchant ? 'text-ink' : 'text-ink-secondary'}`}>
+      <span dir="auto" className={`block truncate text-[0.9375rem] font-semibold ${h.merchant ? 'text-ink' : 'text-ink-secondary'}`}>
         {h.merchant ?? h.fileName ?? s.ledgerUnknownVendor}
       </span>
       <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-ink-muted">

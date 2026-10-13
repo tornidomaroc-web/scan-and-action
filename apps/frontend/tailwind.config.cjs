@@ -139,10 +139,12 @@ module.exports = {
       fontSize: {
         // Additive named steps from the type scale (do NOT collide with
         // Tailwind's xs/sm/base/lg/... so existing text-* utilities are intact).
-        kpi: ['32px', { lineHeight: '1', letterSpacing: '-0.025em' }],
-        'title-lg': ['24px', { lineHeight: '1.2', letterSpacing: '-0.02em' }],
-        section: ['15px', { lineHeight: '1.4' }],
-        label: ['12px', { lineHeight: '1.3' }],
+        // In rem, like every font size in the app, so the phone's text size
+        // setting reaches them through the root (src/native/textScale.ts).
+        kpi: ['2rem', { lineHeight: '1', letterSpacing: '-0.025em' }],
+        'title-lg': ['1.5rem', { lineHeight: '1.2', letterSpacing: '-0.02em' }],
+        section: ['0.9375rem', { lineHeight: '1.4' }],
+        label: ['0.75rem', { lineHeight: '1.3' }],
       },
     },
   },

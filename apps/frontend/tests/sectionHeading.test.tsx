@@ -100,7 +100,7 @@ describe('SectionHeading — icon-less mode (optional icon)', () => {
     expect(h.className).toContain('font-semibold');
     expect(h.className).toContain('text-ink');
     expect(h.className).not.toContain('text-section');
-    expect(h.className).not.toContain('text-[13px]');
+    expect(h.className).not.toContain('text-[0.8125rem]');
     expect(h.className).not.toContain('text-ink-tertiary');
   });
 });

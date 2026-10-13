@@ -138,10 +138,10 @@ export const ActivityScreen = () => {
                         leading (identifying) end of an Arabic filename instead of the
                         trailing end. The value is the sole content of the block, so
                         the block already isolates it and dir="auto" applies. */}
-                    <p className="truncate text-[15px] font-semibold text-ink" dir="auto">
+                    <p className="truncate text-[0.9375rem] font-semibold text-ink" dir="auto">
                       {item.originalFileName || s.unnamedDocument}
                     </p>
-                    <p className="mt-0.5 truncate text-xs font-medium text-ink-muted" dir="auto">
+                    <p className="mt-0.5 break-words text-xs font-medium text-ink-muted" dir="auto">
                       {dateStr}{categoryLabel ? ` · ${categoryLabel}` : ''}
                     </p>
                     {/* The LIST is where a user reconciling against an old
@@ -160,7 +160,7 @@ export const ActivityScreen = () => {
                   {status && (
                     <span className="inline-flex min-w-0 flex-shrink-0 items-center gap-2">
                       <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-pill ${status.dot}`} />
-                      <span className={`truncate text-xs font-medium ${status.text}`}>{status.label}</span>
+                      <span className={`text-xs font-medium ${status.text}`}>{status.label}</span>
                     </span>
                   )}
                 </button>

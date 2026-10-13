@@ -43,7 +43,7 @@ export const ReceiptRow: React.FC<{ r: ReceiptRowData; lang: Lang; s: RowStrings
     <span className="min-w-0 flex-1">
       <span
         dir="auto"
-        className={`block truncate text-[15px] font-semibold ${r.merchant ? 'text-ink' : 'text-ink-muted'}`}
+        className={`block truncate text-[0.9375rem] font-semibold ${r.merchant ? 'text-ink' : 'text-ink-muted'}`}
         title={r.merchant ?? undefined}
       >
         {r.merchant ?? s.ledgerUnknownVendor}
@@ -64,8 +64,8 @@ export const ReceiptRow: React.FC<{ r: ReceiptRowData; lang: Lang; s: RowStrings
         currency={r.currency}
         lang={lang}
         noCurrency={s.ledgerNoCurrency}
-        numberClass="text-[15px] font-bold text-ink"
-        codeClass={`text-[11px] font-bold tracking-wide ${r.currency ? 'text-ink-muted' : 'text-warning-text'}`}
+        numberClass="text-[0.9375rem] font-bold text-ink"
+        codeClass={`text-[0.6875rem] font-bold tracking-wide ${r.currency ? 'text-ink-muted' : 'text-warning-text'}`}
       />
     </span>
   </Link>
