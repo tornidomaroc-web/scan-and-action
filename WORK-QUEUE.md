@@ -1382,7 +1382,10 @@ restyled.** Do not start at login, although a reviewer sees it first:
          defect:** that session's harness set `signedFileUrl` to
          `/icons/icon-512.png` (its own script, in its transcript), and
          Detail renders only `doc.signedFileUrl` there.
-    3. **Home and Detail: OPEN as #315, not merged** (2026-10-13). Home's
+    3. **Home and Detail: MERGED 2026-10-13 as #315 (`9922e79b`), TestFlight
+       build 29** (run 38434756360: "ARCHIVE SUCCEEDED", "Uploaded build 29
+       … for commit 9922e79b…"; `gh run view 38434756360 --log`), served on
+       the web and by the backend's `/api/version` at merge. Home's
        totals on a raised card under an eyebrow; Detail's facts as "What was
        read", one column of inset cells. Eyebrows and cell labels use
        ink-secondary, because ink-muted measures 4.27:1 on the light page
@@ -2837,8 +2840,17 @@ This is also Apple 3.1.3(f)'s condition, word for word (APPLE TRACK), and
 
 ### Other kept items
 
-- [ ] **Android: cap the WebView's text zoom natively. The next native change
-  after #315, and before any Play release** (found 2026-10-13).
+- [ ] **Android: cap the WebView's text zoom natively: OPEN as #317, not
+  merged** (2026-10-13). Before any Play release. `MainActivity` sets the
+  WebView's text zoom to `min(fontScale x 100, 135)` in a try/catch; the web
+  cap in `textScale.ts` is KEPT, unchanged, as the fallback: it measures the
+  zoom actually applied and acts only above 23/17, so it is idle under the
+  native cap and holds the text at the cap if the native call fails (the
+  owner's objection to removing it, 2026-10-13, accepted). Measured on the
+  API 36 emulator at font scale 2.0: back button 44x44, title 32.4px, `1rem`
+  16px; with a build whose native call throws, the #311 behaviour (30x30,
+  text at the cap). The plan below, written before #317, said to delete the
+  Android branch of `rootFontSizeFor`: superseded.
   - **What is wrong:** in the Android WebView, the system font scale zooms the
     glyphs only. rem and em lengths keep resolving against the root the page
     SETS. #311 pulls the root down above the cap (10.824px at font scale 2.0),
