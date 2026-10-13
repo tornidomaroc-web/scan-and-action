@@ -1,6 +1,7 @@
 name: Android build
 
-# Builds the Android app (a debug APK) on a pull request, so a change that
+# Builds the Android app (a debug APK) and runs its JVM unit tests on a pull
+# request, so a change that
 # breaks the Android build turns a check red before merge. Until this file,
 # nothing in CI ran Gradle: ci.yml stops at `cap sync android` on purpose. From
 # #309 to #311, main could not build for Android ("The string "--" is not
@@ -115,9 +116,11 @@ jobs:
           # gradlew is committed as 100644 (written on Windows), so it is not
           # executable on Linux. Run it through bash rather than change its
           # mode: that would touch apps/frontend/** and start a TestFlight run.
-          bash ./gradlew --no-daemon --stacktrace assembleDebug
+          bash ./gradlew --no-daemon --stacktrace assembleDebug testDebugUnitTest
           apk=app/build/outputs/apk/debug/app-debug.apk
           test -s "$apk" || { echo "no APK at $apk"; exit 1; }
           # Positive control: the APK carries the web bundle cap sync copied.
           unzip -l "$apk" | grep -q 'assets/public/index.html' || { echo "the APK has no assets/public/index.html"; exit 1; }
           echo "BUILT $apk ($(stat -c %s "$apk") bytes)"
+          # The JVM unit tests ran in the same Gradle call; show their count.
+          grep -ho 'tests="[0-9]*"' app/build/test-results/testDebugUnitTest/*.xml | head -n 5
