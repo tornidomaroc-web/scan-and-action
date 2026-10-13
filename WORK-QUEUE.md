@@ -19,6 +19,13 @@
 > is not a substitute. Where no programmatic call exists, name the system and the
 > exact question, never a cached answer. Claims about this repository need no
 > instrument: the reader can open the file.
+>
+> **BEFORE YOU END A REPORT: STANDING RULE 6.** The owner runs no manual tests
+> on his phone. Never close with "install build N" or "check this setting on
+> your iPhone". Read rule 6 under STANDING RULES at the bottom of this file
+> first: it sits 2,800 lines down, and on 2026-10-13 a session that had just
+> proved a change on the simulator, the emulator and the browser still ended
+> its report by asking him to install the TestFlight build and check it.
 
 ## THE STAGE — design, then the Apple App Store
 
@@ -1311,7 +1318,7 @@ restyled.** Do not start at login, although a reviewer sees it first:
     (locked 2026-09-26)", and in `tokens.css`'s header; #255 shipped it). The five
     assertions in `designTokens.test.ts` that pinned the blue were replaced
     openly: the `describe` is named for the reversal, pins the new ramp, and
-    holds the old hexes OUT of `tokens.css`. Landed in PR 1 (#309, open).
+    holds the old hexes OUT of `tokens.css`. Landed in PR 1, #309.
   - **The redesign: a modified soft-neumorphic language, DECIDED 2026-10-12
     by the owner, restyle now before submission, six PRs in this order**
     (proposal, measured: artifact `YJEQctuE9fCuaE69po2qbs`; every text,
@@ -1319,18 +1326,69 @@ restyled.** Do not start at login, although a reviewer sees it first:
     arithmetic `kitLanguage.test.ts` runs). Raised cards and lists on soft
     shadows; text, primary buttons and the review states keep strong
     contrast, because people check amounts and decisions.
-    1. **Tokens and primitives, #309 (open).** `tokens.css`, Tailwind,
+    1. **Tokens and primitives: MERGED 2026-10-12 as #309 (`12a24834`),
+       TestFlight build 27** (run 38301230198: "ARCHIVE SUCCEEDED",
+       "Uploaded build 27 … for commit 12a24834…"; `gh run view 38301230198
+       --log`). `tokens.css`, Tailwind,
        `PrimaryButton`, `TextField`, the scan buttons, `.skeleton`, Android
        `colorAccent`. Also the one live contrast defect: `--sa-ink-muted`
        `#858A99` read 3.45:1 on a white card (dates, categories, captions on
        every row); now `#6E7383`, 4.73:1, pinned with the old value as the
        failing control. No screen file. Merging it starts a TestFlight run
        (`apps/frontend/**`).
-    2. Dynamic Type: the app sets every size in fixed px and reads no device
-       text size (no `@capacitor/text-zoom`); Apple's Typography page asks
-       for layouts that adapt to all sizes. Root font from the content size
-       category, px to rem. Independent of 1.
-    3. Home and Detail (judged on the owner's iPhone).
+    2. **Dynamic Type: MERGED 2026-10-13 as #311 (`b561eba3`), TestFlight
+       build 28** (run 38408142269: "ARCHIVE SUCCEEDED", "Uploaded build 28
+       … for commit b561eba3…"; `gh run view 38408142269 --log`). Served:
+       the web bundle at www.scan-action.com embeds `b561eba3` and its CSS
+       carries `font-size:min(100%,21.647px)`; the backend's
+       `curl -sS https://<host>/api/version` reported
+       `{"commit":"b561eba3…"}` (host read from the served bundle). **The
+       Dynamic Type evidence is the PR 2 proof, and it stands** (rule 6):
+       143 screens audited, 0 overlaps, 0 sideways scroll, nothing cut but
+       long merchant names; iOS Simulator run 38397474462 (root 16 /
+       19.765 / 21.647px at Large / xxLarge / AX xxxLarge), the Android
+       emulator (16 / 20.8 / 21.648px at 1.0 / 1.3 / 2.0) and headless
+       Chrome; screenshots on the private page linked from #311's body.
+       The harness is on the branch `design/pr2-dynamic-type-proof`,
+       **pending deletion, not yet deleted**. Every font
+       size in rem; `src/native/textScale.ts` sets one root font size per
+       platform, with no native code: the browser's default on the web,
+       `-apple-system-body` / 17 on iOS, and on Android a cap over the
+       WebView's own scaling. **Measured on main before it** (API 36
+       emulator, WebView 133): Android already followed the system font
+       scale with NO cap, root 32px at 2.0; iOS followed nothing. **Cap
+       23/17 = 1.353** (iOS xxxLarge, the largest non-accessibility size);
+       accessibility sizes and Android 1.5 to 2.0 get the cap. Amounts,
+       dates and review states wrap instead of truncating; on main the
+       Queue card cut its date line at the default size.
+       - **The Android build defect from #309: FIXED by #311.** From #309
+         (`12a24834`) to #311, `colors.xml` carried `--sa-accent` inside an
+         XML comment and `gradlew assembleDebug` failed with "The string
+         "--" is not permitted within comments". #311 rewords the comment;
+         `textScale.test.ts` ("Android resource XML") reads every XML under
+         `android/app/src/main` and fails on a double hyphen in a comment,
+         with a planted comment as its control. That test guards this one
+         spelling; a CI job that BUILDS Android is "Android build in CI"
+         under KEPT OUTSIDE BOTH TRACKS.
+       - **Store submission: do NOT tick "Larger Text"** in the App Store
+         Connect accessibility labels while the cap stays at 23/17 (about
+         135%). Apple's criterion: text can be enlarged "to at least 200% or
+         the maximum font size for the system"
+         (developer.apple.com/help/app-store-connect/manage-app-accessibility/larger-text-evaluation-criteria,
+         read 2026-10-13). Revisit only if PRs 3 to 6 make room to raise
+         the cap (`TEXT_SCALE_CAP` in `src/native/textScale.ts`, and the
+         `min()` in `index.css` that a test holds equal to it).
+       - **The app icon in #309's Detail screenshots was mock data, not a
+         defect:** that session's harness set `signedFileUrl` to
+         `/icons/icon-512.png` (its own script, in its transcript), and
+         Detail renders only `doc.signedFileUrl` there.
+    3. **NEXT: Home and Detail.** Before it: "Android build in CI" (KEPT
+       OUTSIDE BOTH TRACKS), which touches no `apps/frontend/**` file and
+       so starts no TestFlight run. Proven like PR 2 (rule 6): the proof
+       harness, the simulator, the emulator, the browser, screenshots on a
+       private page. The owner judges the design from that page; he looks on
+       his iPhone only when he chooses (rule 5), never as a step a report
+       asks of him.
     4. Queue, Search, Activity.
     5. Sign-in, Settings, the sheets (the paywall and processing tray carry
        raw `slate-*` classes no token reaches; by hand).
@@ -2775,6 +2833,32 @@ This is also Apple 3.1.3(f)'s condition, word for word (APPLE TRACK), and
 
 ### Other kept items
 
+- [ ] **Android build in CI. Do it BEFORE restyle PR 3** (decided 2026-10-13).
+  - **Why:** from #309 to #311, `main` could not build for Android ("The
+    string "--" is not permitted within comments" in `colors.xml`) and no
+    check said so; it was found only because a session happened to build an
+    APK. Every check in `ci.yml` is web or backend.
+  - **What:** a new workflow file, NOT an edit of `ci.yml` (that file
+    produces both required contexts; a YAML mistake there stops every merge,
+    see CLAUDE.md). `ubuntu-latest`, Java 21, the runner's preinstalled
+    Android SDK: `npm ci`, `npm run build`, `npx cap sync android`,
+    `./gradlew assembleDebug`. No secret and no signing: a debug APK is the
+    question "does it build". On `pull_request` and on `push` to `main`,
+    paths `apps/frontend/**` and the workflow file.
+  - **Cost:** free; the repository is public (`gh repo view --json
+    visibility`), and Linux minutes on a public repository are not billed.
+  - **Why before PR 3:** it lives under `.github/` only, so merging it starts
+    no TestFlight run and leaves "one native change in flight" free for
+    PR 3; and every restyle PR after it is then built for Android before
+    merge. Not before this board PR: the board records state, this adds a
+    guard, and neither waits on the other.
+  - **Proof before merge:** the job goes red on a planted `--` in a res XML
+    comment (a throwaway commit, reverted) and green on the PR's head.
+  - **Required check later, not at once:** add it to the ruleset only after
+    it has run green on `main` a few times, with the context name copied
+    from the check-runs API (CLAUDE.md, the em-dash trap).
+  - **EXPIRY:** a PR that breaks the Android build shows a red check.
+
 - [ ] **Welcome email (dormant).** It is built, and held by two switches:
   - `MAIL_POSTAL_ADDRESS` must be set, because `mailer.ts` fails closed without
     a physical address (CAN-SPAM requires one).
@@ -2879,6 +2963,15 @@ This is also Apple 3.1.3(f)'s condition, word for word (APPLE TRACK), and
    iPhone is his, named, justified with evidence, and kept to the smallest
    possible step. Rule 5 stands for judgement: he looks at what ships when he
    chooses to; he is not a test script.
+   **Restated by the owner, 2026-10-13:** proof comes from the simulator, the
+   emulator, the headless browser, the real backend, automated tests and
+   screenshots. **Do not propose installing a build or checking a setting on
+   his iPhone** unless you have proved it cannot be witnessed any other way,
+   and then name the smallest action and why. Native screens signed in, with
+   no backend: the PR 2 harness (branch `design/pr2-dynamic-type-proof`,
+   `.github/dt-proof/` and `dt-proof.yml`: a fixture network, an in-page
+   layout audit, the simulator at any `content_size` and the Android
+   WebView over CDP). Copy it before that branch is deleted.
 
 The incidents behind each rule are in git, in the RECURRING FAILURE and recovery
 sections of the file at `9751e813`.
