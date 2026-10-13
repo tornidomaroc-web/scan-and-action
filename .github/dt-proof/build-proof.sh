@@ -24,7 +24,7 @@ grep -c 'sa-proof.js' "$out/index.html"
 # its end for a second shot.
 { printf 'window.addEventListener("load", function () { setTimeout(function () { var c = window.SA_PROOF; if (!c || !c.report) return; var r = '
   cat "$here/audit.js"
-  printf '; fetch(c.report, { method: "POST", body: JSON.stringify(r) }).then(function () { setTimeout(function () { window.scrollTo(0, document.documentElement.scrollHeight); }, 3000); }); }, 6000); });\n'; } > "$out/sa-report.js"
+  printf '; fetch(c.report, { method: "POST", body: JSON.stringify(r) }).then(function () { setTimeout(function () { window.scrollTo(0, document.documentElement.scrollHeight); }, 9000); }); }, 6000); });\n'; } > "$out/sa-report.js"
 python3 - "$out/index.html" <<'PY' || python - "$out/index.html" <<'PY2'
 import sys; p=sys.argv[1]; s=open(p,encoding='utf-8').read(); t='<script src="/sa-proof.js"></script>'
 open(p,'w',encoding='utf-8').write(s.replace(t, t+'<script src="/sa-report.js"></script>',1))
