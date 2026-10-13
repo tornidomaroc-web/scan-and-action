@@ -121,3 +121,66 @@ describe('the Gradle wrapper', () => {
     expect(wf).toContain(`distributionSha256Sum=${sum}`);
   });
 });
+
+// ============================================================================
+// Restyle PR 4 (Queue, Search, Activity, 2026-10-13). A contrast audit run in
+// the browser over every text node of the six screens found, on main: muted
+// text on the light page under Search's "found, not counted" heading and under
+// Activity's title (4.27:1), and the currency inside Detail's amount field on
+// the field's muted surface (3.97:1). Each is held here.
+// ============================================================================
+
+describe('PR 4: the pairs it introduces or fixes', () => {
+  for (const [name, t] of Object.entries(THEMES)) {
+    it.each([
+      ['the amount field currency (secondary) on the field surface', '--sa-ink-secondary', '--sa-surface-muted'],
+      ['the on-page notes (secondary) on the page', '--sa-ink-secondary', '--sa-surface'],
+    ])(`${name}: %s clears 4.5:1`, (_label, fg, bg) => {
+      expect(ratio(t[fg], t[bg])).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+
+  it('control: muted on the field surface fails in light, as main shipped it', () => {
+    expect(ratio(THEMES.light['--sa-ink-muted'], THEMES.light['--sa-surface-muted'])).toBeLessThan(4.5);
+  });
+});
+
+describe('PR 4: Queue, Search and Activity use the soft classes', () => {
+  const queue = F('src/screens/ReviewQueueScreen.tsx');
+  const search = F('src/screens/SearchScreen.tsx');
+  const activity = F('src/screens/ActivityScreen.tsx');
+
+  it('no note that sits on the page is muted', () => {
+    expect(queue).toContain('text-ink-secondary">{s.queueFirstFifty}');
+    expect(search).toContain('text-ink-secondary">{s.searchNotCountedBody}');
+    expect(activity).toContain('text-ink-secondary">{s.auditDesc}');
+  });
+
+  it("the amount field's currency is secondary", () => {
+    expect(F('src/components/FixActionPanel.tsx')).toContain('tracking-wide text-ink-secondary">{currency}');
+  });
+
+  it("Search's headings are eyebrows and its totals sit on the raised card, as Home's do", () => {
+    expect(search).toContain('<h2 id="search-recent" className={eyebrowClass}>');
+    expect(search).toContain('<h2 id="search-not-counted" className={eyebrowClass}>');
+    expect(search).toMatch(/<div className=\{`p-4 \$\{raisedPanelClass\}`\} data-search-total>/);
+  });
+
+  it("Queue's Approve and Reject take the card shadow and keep their semantic colours", () => {
+    expect(queue).toContain('bg-success-tint text-sm font-semibold text-success-text shadow-card');
+    expect(queue).toContain('bg-danger-tint text-sm font-semibold text-danger-text shadow-card');
+  });
+
+  it("Activity's status drops under the name rather than cutting it to a few characters", () => {
+    expect(activity).toContain('flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1');
+    expect(activity).toContain('min-w-[9rem] flex-1');
+  });
+
+  it("Activity's subtitle says what the list is, in every language, with no release name", () => {
+    const strings = F('src/i18n/strings.ts');
+    const lines = [...strings.matchAll(/auditDesc: '([^']+)'/g)].map((m) => m[1]);
+    expect(lines).toHaveLength(3);
+    for (const l of lines) expect(l).not.toMatch(/v1|Top 100|أفضل/);
+    expect(lines[0]).toBe('Your 100 most recent documents, newest first.');
+  });
+});
