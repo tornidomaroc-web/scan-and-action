@@ -1311,7 +1311,7 @@ restyled.** Do not start at login, although a reviewer sees it first:
     (locked 2026-09-26)", and in `tokens.css`'s header; #255 shipped it). The five
     assertions in `designTokens.test.ts` that pinned the blue were replaced
     openly: the `describe` is named for the reversal, pins the new ramp, and
-    holds the old hexes OUT of `tokens.css`. Landed in PR 1 (#309, open).
+    holds the old hexes OUT of `tokens.css`. Landed in PR 1, #309.
   - **The redesign: a modified soft-neumorphic language, DECIDED 2026-10-12
     by the owner, restyle now before submission, six PRs in this order**
     (proposal, measured: artifact `YJEQctuE9fCuaE69po2qbs`; every text,
@@ -1319,17 +1319,39 @@ restyled.** Do not start at login, although a reviewer sees it first:
     arithmetic `kitLanguage.test.ts` runs). Raised cards and lists on soft
     shadows; text, primary buttons and the review states keep strong
     contrast, because people check amounts and decisions.
-    1. **Tokens and primitives, #309 (open).** `tokens.css`, Tailwind,
+    1. **Tokens and primitives: MERGED 2026-10-12 as #309 (`12a24834`),
+       TestFlight build 27** (run 38301230198: "ARCHIVE SUCCEEDED",
+       "Uploaded build 27 … for commit 12a24834…"; `gh run view 38301230198
+       --log`). `tokens.css`, Tailwind,
        `PrimaryButton`, `TextField`, the scan buttons, `.skeleton`, Android
        `colorAccent`. Also the one live contrast defect: `--sa-ink-muted`
        `#858A99` read 3.45:1 on a white card (dates, categories, captions on
        every row); now `#6E7383`, 4.73:1, pinned with the old value as the
        failing control. No screen file. Merging it starts a TestFlight run
        (`apps/frontend/**`).
-    2. Dynamic Type: the app sets every size in fixed px and reads no device
-       text size (no `@capacitor/text-zoom`); Apple's Typography page asks
-       for layouts that adapt to all sizes. Root font from the content size
-       category, px to rem. Independent of 1.
+    2. **Dynamic Type: OPEN as #311, not merged** (2026-10-13). Every font
+       size in rem; `src/native/textScale.ts` sets one root font size per
+       platform, with no native code: the browser's default on the web,
+       `-apple-system-body` / 17 on iOS, and on Android a cap over the
+       WebView's own scaling. **Measured on main before it** (API 36
+       emulator, WebView 133): Android already followed the system font
+       scale with NO cap, root 32px at 2.0; iOS followed nothing. **Cap
+       23/17 = 1.353** (iOS xxxLarge, the largest non-accessibility size);
+       accessibility sizes and Android 1.5 to 2.0 get the cap. Amounts,
+       dates and review states wrap instead of truncating; on main the
+       Queue card cut its date line at the default size. Proof: PR body
+       and its private screenshots page. Merging it starts a TestFlight run.
+       - **main's Android build has been BROKEN since #309:**
+         `colors.xml` carries `--sa-accent` inside an XML comment, and
+         `gradlew assembleDebug` fails with "The string "--" is not
+         permitted within comments". No CI job builds Android, so nothing
+         went red. #311 rewords the comment and adds a test over every
+         resource XML. **A Play bundle cannot be built from main until a
+         fix merges.**
+       - **The app icon in #309's Detail screenshots was mock data, not a
+         defect:** that session's harness set `signedFileUrl` to
+         `/icons/icon-512.png` (its own script, in its transcript), and
+         Detail renders only `doc.signedFileUrl` there.
     3. Home and Detail (judged on the owner's iPhone).
     4. Queue, Search, Activity.
     5. Sign-in, Settings, the sheets (the paywall and processing tray carry
