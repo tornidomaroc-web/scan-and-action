@@ -97,8 +97,10 @@ jobs:
           echo "$jar_sha  gradle/wrapper/gradle-wrapper.jar" | sha256sum -c -
           grep -qx 'distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14.3-all.zip' gradle/wrapper/gradle-wrapper.properties \
             || { echo "the wrapper no longer downloads gradle-8.14.3-all.zip: update the pinned sum below with it"; exit 1; }
-          # Runner copy only; the committed file is unchanged.
-          echo 'distributionSha256Sum=ed1a8d686605fd7c23bdf62c7fc7add1c5b23b2bbc3721e661934ef4a4911d7c' >> gradle/wrapper/gradle-wrapper.properties
+          # The wrapper verifies the download against this sum; it is committed
+          # in gradle-wrapper.properties (restyle PR 3) and must equal the pin.
+          grep -qx 'distributionSha256Sum=ed1a8d686605fd7c23bdf62c7fc7add1c5b23b2bbc3721e661934ef4a4911d7c' gradle/wrapper/gradle-wrapper.properties \
+            || { echo "gradle-wrapper.properties does not carry the pinned distributionSha256Sum"; exit 1; }
 
       # JDK 21 (Capacitor 8 needs it) and the Android SDK are on the runner
       # image; no setup action is added for either.
