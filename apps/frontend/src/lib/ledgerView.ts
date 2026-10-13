@@ -136,10 +136,10 @@ export function formatCountLatn(n: number, lang: Lang): string {
  */
 export function figureSizeClass(numberText: string): string {
   const n = numberText.length;
-  if (n <= 9) return 'text-[44px]';
-  if (n <= 12) return 'text-[36px]';
-  if (n <= 15) return 'text-[30px]';
-  return 'text-[24px]';
+  if (n <= 9) return 'text-[2.75rem]';
+  if (n <= 12) return 'text-[2.25rem]';
+  if (n <= 15) return 'text-[1.875rem]';
+  return 'text-[1.5rem]';
 }
 
 export interface CategoryCard {

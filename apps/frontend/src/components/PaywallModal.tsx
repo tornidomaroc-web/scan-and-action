@@ -308,7 +308,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
                   }`}
               >
                 {savingsPercent !== null && (
-                  <div className="absolute top-[-10px] end-2 bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-lg">
+                  <div className="absolute top-[-10px] end-2 bg-emerald-500 text-white text-[0.5625rem] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-lg">
                     {s.paywallSave.replace('{p}', formatPercent(savingsPercent / 100, language))}
                   </div>
                 )}
@@ -319,7 +319,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
                   <bdi>{priceLabel('yearly')}</bdi>
                   <span className="text-sm font-bold opacity-50">{s.paywallPerYear}</span>
                 </span>
-                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase">{s.paywallBestValue}</span>
+                <span className="text-[0.625rem] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase">{s.paywallBestValue}</span>
               </button>
             </div>
           </div>

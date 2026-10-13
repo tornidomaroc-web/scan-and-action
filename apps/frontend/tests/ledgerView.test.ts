@@ -63,9 +63,9 @@ describe('money', () => {
   });
 
   it('steps a long figure down in size instead of cutting it', () => {
-    expect(figureSizeClass('7,282.31')).toBe('text-[44px]');
-    expect(figureSizeClass('80,616,000.00')).toBe('text-[30px]');
-    expect(figureSizeClass('1,234,567,890.12')).toBe('text-[24px]');
+    expect(figureSizeClass('7,282.31')).toBe('text-[2.75rem]');
+    expect(figureSizeClass('80,616,000.00')).toBe('text-[1.875rem]');
+    expect(figureSizeClass('1,234,567,890.12')).toBe('text-[1.5rem]');
   });
 });
 

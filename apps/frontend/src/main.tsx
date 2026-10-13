@@ -29,9 +29,12 @@ import './index.css'
 import { AuthProvider } from './contexts/AuthContext'
 import { LanguageProvider } from './i18n/LanguageContext'
 import { initNativeShell } from './native/shell'
+import { initTextScale } from './native/textScale'
 
 // Configure the native shell (status bar, etc.) before first paint. No-op on web.
 initNativeShell()
+// The phone's text size, before the first render (native/textScale.ts).
+initTextScale()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

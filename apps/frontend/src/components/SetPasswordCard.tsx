@@ -82,7 +82,7 @@ export const SetPasswordCard: React.FC<SetPasswordCardProps> = ({ user }) => {
 
   return (
     <Panel className="p-4" data-set-password-card>
-      <h3 className="flex items-center gap-3 text-[15px] font-bold text-ink">
+      <h3 className="flex items-center gap-3 text-[0.9375rem] font-bold text-ink">
         <IconTile icon={KeyRound} tone="accent" size="sm" />
         {s.setPasswordTitle}
       </h3>

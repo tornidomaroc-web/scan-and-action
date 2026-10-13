@@ -95,7 +95,7 @@ export const SocialSignIn: React.FC<SocialSignInProps> = ({ onError, platform = 
             onClick={() => void start(provider)}
             disabled={busy !== null}
             aria-busy={loading || undefined}
-            className="flex min-h-[52px] w-full items-center justify-center gap-3 rounded-btn bg-[#FFFFFF] px-5 text-[15px] font-semibold text-[#1F1F1F] ring-1 ring-[#747775] transition-all hover:bg-[#F2F2F2] active:scale-[0.98] motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-60"
+            className="flex min-h-[52px] w-full items-center justify-center gap-3 rounded-btn bg-[#FFFFFF] px-5 text-[0.9375rem] font-semibold text-[#1F1F1F] ring-1 ring-[#747775] transition-all hover:bg-[#F2F2F2] active:scale-[0.98] motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-60"
           >
             {loading ? <Loader2 size={20} className="animate-spin" aria-hidden="true" /> : <Mark />}
             {s[LABEL_KEY[provider]]}

@@ -45,7 +45,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({ pendingCount = 0, on
             {badge != null && badge > 0 && (
               <span
                 data-testid="queue-badge"
-                className="absolute -top-0.5 -end-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-pill bg-accent px-1 text-[10px] font-bold leading-none tabular-nums text-on-accent ring-2 ring-surface-raised"
+                className="absolute -top-0.5 -end-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-pill bg-accent px-1 text-[0.625rem] font-bold leading-none tabular-nums text-on-accent ring-2 ring-surface-raised"
               >
                 {badge > 9 ? '9+' : badge}
               </span>

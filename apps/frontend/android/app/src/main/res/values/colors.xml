@@ -13,7 +13,7 @@
       the system's tint for the app and the icon agree.
 
       colorAccent (2026-10-12, design PR 1): #006784, the same value as the
-      web app's --sa-accent in src/styles/tokens.css. It tints the controls
+      web app accent token (sa-accent in src/styles/tokens.css). It tints the controls
       Android draws itself inside the WebView (selection handles, the text
       cursor, native pickers), so the one accent reaches the parts of the
       screen the stylesheet cannot. Ruled by the owner with the move of the

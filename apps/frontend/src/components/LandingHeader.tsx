@@ -35,7 +35,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({ showAnchors = true
       <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-2 rounded-pill bg-surface-raised/95 ps-3 pe-2 shadow-raised ring-1 ring-line backdrop-blur">
         <Link to="/" className="flex items-center gap-2" aria-label="Scan & Action home">
           <BrandMark size={30} className="rounded-[8px]" />
-          <span className="text-[15px] font-semibold tracking-tight text-ink">{s.header}</span>
+          <span className="text-[0.9375rem] font-semibold tracking-tight text-ink">{s.header}</span>
         </Link>
         {showAnchors && (
           <nav className="hidden items-center gap-1 sm:flex">
