@@ -1382,9 +1382,13 @@ restyled.** Do not start at login, although a reviewer sees it first:
          defect:** that session's harness set `signedFileUrl` to
          `/icons/icon-512.png` (its own script, in its transcript), and
          Detail renders only `doc.signedFileUrl` there.
-    3. **NEXT: Home and Detail.** Before it: "Android build in CI" (KEPT
-       OUTSIDE BOTH TRACKS), which touches no `apps/frontend/**` file and
-       so starts no TestFlight run. Proven like PR 2 (rule 6): the proof
+    3. **Home and Detail: OPEN as #315, not merged** (2026-10-13). Home's
+       totals on a raised card under an eyebrow; Detail's facts as "What was
+       read", one column of inset cells. Eyebrows and cell labels use
+       ink-secondary, because ink-muted measures 4.27:1 on the light page
+       and 4.49:1 on the inset (`softSurfaces.test.ts`). Carries the
+       `gradlew` mode and the Gradle checksum line. "Android build in CI"
+       went first (#313, done). Proven like PR 2 (rule 6): the proof
        harness, the simulator, the emulator, the browser, screenshots on a
        private page. The owner judges the design from that page; he looks on
        his iPhone only when he chooses (rule 5), never as a step a report
@@ -2833,7 +2837,55 @@ This is also Apple 3.1.3(f)'s condition, word for word (APPLE TRACK), and
 
 ### Other kept items
 
-- [ ] **Android build in CI. Do it BEFORE restyle PR 3** (decided 2026-10-13).
+- [ ] **Android: cap the WebView's text zoom natively. The next native change
+  after #315, and before any Play release** (found 2026-10-13).
+  - **What is wrong:** in the Android WebView, the system font scale zooms the
+    glyphs only. rem and em lengths keep resolving against the root the page
+    SETS. #311 pulls the root down above the cap (10.824px at font scale 2.0),
+    so text lands on the cap but every rem box shrinks to 0.68x. Measured over
+    CDP on the API 36 emulator with #315's proof APK: `1rem` laid out as
+    10.82px at 2.0 while the root computed as 21.648px; Detail's back button
+    went from 44x44 to 30x30px, under the 48dp target; Approve stayed 44px
+    high (a px minimum). The overlap audit cannot see a small target.
+  - **Before #311**, Android at 2.0 drew text at 2x with spacing at 1x.
+    Whether any user sees the regression depends on whether a build made after
+    #311 has reached Play: ask the Play Console, every track, drafts included.
+  - **The fix:** in `MainActivity`, set the WebView's text zoom to
+    `min(round(fontScale x 100), 135)` inside a try/catch that leaves the
+    default alone on failure, and delete the Android branch of
+    `rootFontSizeFor` in `src/native/textScale.ts` (the root stays 16px, as
+    the stylesheet has it). A test holds both. Proof: the CDP measurement
+    above, 44px back button and a 135% text size at font scale 2.0.
+  - **EXPIRY:** at Android font scale 2.0, every control keeps its size at
+    1.0 and text renders at 135%.
+
+- [ ] **Muted text printed straight on the page fails 4.5:1 in light** (found
+  2026-10-13). `--sa-ink-muted` `#6E7383` measures 4.73:1 on a card but
+  4.27:1 on the light page `#F2F3F8`. #315 fixes it on Home and Detail; PRs 4
+  to 6 must check each screen's text that sits on the page, not on a card.
+  **EXPIRY:** no `text-ink-muted` element whose background is the page.
+
+- [x] **Android build in CI: DONE, merged 2026-10-13 as #313 (`b1172366`).**
+  `.github/workflows/android-build.yml`, check "Android debug build (no
+  signing, no secrets)". Proven red on a planted `--` in a `colors.xml`
+  comment (run 38419556442, "colors.xml:22:53: Error: The string "--" is not
+  permitted within comments", throwaway draft #314 closed unmerged and its
+  branch deleted) and green on #313's head (run 38419551385, "BUILD SUCCESSFUL
+  in 2m 28s", 3m06s for the job). It differs from the plan below in two ways:
+  it runs on `pull_request` only, on the Android paths (`android/**`,
+  `capacitor.config.ts`, the npm manifests, `patches/**`, the file itself),
+  not on `push` to `main`; and it pins the committed wrapper jar and the
+  Gradle download by SHA-256 (restyle PR 3 commits the
+  `distributionSha256Sum` line and makes `gradlew` executable).
+  - **NOT a required check, and it cannot become one as it stands.** A
+    path-filtered workflow does not run on a PR outside its paths, so it never
+    reports there, and GitHub leaves a required check pending, which blocks
+    that merge. Before it is required: one always-on job that decides
+    internally whether to build (or no path filter), then the context name
+    copied from the check-runs API, never typed (CLAUDE.md, the em-dash trap).
+    Ask `gh api repos/{owner}/{repo}/rules/branches/main` for what is
+    required today.
+  - The plan as written on 2026-10-13, kept for the record:
   - **Why:** from #309 to #311, `main` could not build for Android ("The
     string "--" is not permitted within comments" in `colors.xml`) and no
     check said so; it was found only because a session happened to build an
