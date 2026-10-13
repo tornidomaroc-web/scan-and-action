@@ -87,9 +87,11 @@ jobs:
             xcrun simctl ui "$udid" content_size "$size"
             xcrun simctl ui "$udid" appearance "$theme"
             xcrun simctl launch "$udid" com.scanaction.app >/dev/null
-            for i in $(seq 1 30); do [ -f "$out/$f.json" ] && break; sleep 1; done
-            xcrun simctl io "$udid" screenshot "$out/$f.png" >/dev/null 2>&1
-            sleep 1.5; xcrun simctl io "$udid" screenshot "$out/$f-end.png" >/dev/null 2>&1
+            # The page reports, then scrolls to its end 9 s later: the top is shot
+            # 1.5 s after the report (painted, not yet scrolled), the end 11 s after.
+            for i in $(seq 1 120); do [ -f "$out/$f.json" ] && break; sleep 0.25; done
+            sleep 1.5; xcrun simctl io "$udid" screenshot "$out/$f.png" >/dev/null 2>&1
+            sleep 9.5; xcrun simctl io "$udid" screenshot "$out/$f-end.png" >/dev/null 2>&1
             echo "$f audit: $(head -c 200 "$out/$f.json" 2>/dev/null || echo MISSING)"
           }
           # Before (main) and after (this head): Home and Detail, default and
