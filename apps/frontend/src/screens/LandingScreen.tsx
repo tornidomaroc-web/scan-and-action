@@ -7,7 +7,7 @@ import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { CategoryIcon } from '../components/ui/CategoryIcon';
 import { CountChip } from '../components/ui/CountChip';
 import { IconTile } from '../components/ui/IconTile';
-import { Panel, panelClass } from '../components/ui/Panel';
+import { Panel, eyebrowClass, insetCellClass, panelClass } from '../components/ui/Panel';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { fullDayLabel, monthTitle, Lang } from '../lib/ledgerView';
@@ -47,13 +47,16 @@ import { fullDayLabel, monthTitle, Lang } from '../lib/ledgerView';
 // nothing that reaches Paddle (this page never did).
 // ============================================================================
 
+// Every grid names its one column `minmax(0,1fr)`: an implicit column sizes
+// itself to its content's min-content width, and at a phone width the tools'
+// tab strip (and at the largest text, the cards) pushed the page sideways.
 const container = 'mx-auto w-full max-w-6xl px-5 sm:px-6';
 const h2 = 'text-center text-[1.75rem] font-semibold leading-tight tracking-tight text-ink sm:text-[2.25rem]';
 const primaryCta = 'inline-flex min-h-[52px] items-center justify-center gap-2 rounded-pill bg-accent px-7 text-[0.9375rem] font-semibold text-on-accent shadow-raised transition-colors hover:bg-accent-hover motion-reduce:transition-none';
 
 /** The small pill above a section title, as the kit sets it. */
 const Badge: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-raised px-3 py-1 text-xs font-semibold text-ink-secondary ring-1 ring-line">
+  <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-raised px-3 py-1 text-xs font-semibold text-ink-secondary shadow-card ring-1 ring-line">
     <span aria-hidden="true" className="h-1.5 w-1.5 rounded-pill bg-accent-bright" />
     {children}
   </span>
@@ -69,14 +72,14 @@ const SampleRow: React.FC<{ lang: Lang; s: ReturnType<typeof useStrings>; chip?:
     <CategoryIcon category="Food" size="sm" />
     <div className="min-w-0 flex-1">
       <p className="truncate text-[0.9375rem] font-semibold text-ink" dir="auto">JOE'S PIZZA RESTAURANT</p>
-      <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-start text-xs font-medium text-ink-muted">
+      <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-start text-xs font-medium text-ink-secondary">
         <span>{fullDayLabel('2026-09-07T00:00:00Z', lang)}</span>
         <span aria-hidden="true">·</span>
         <span>{s.catFood}</span>
         {chip}
       </p>
     </div>
-    <span dir="ltr" className="text-[0.9375rem] font-bold tabular-nums text-ink">750.00 <span className="text-[0.6875rem] font-bold text-ink-muted">USD</span></span>
+    <span dir="ltr" className="text-[0.9375rem] font-bold tabular-nums text-ink">750.00 <span className="text-[0.6875rem] font-bold text-ink-secondary">USD</span></span>
   </div>
 );
 
@@ -84,15 +87,15 @@ const SampleRow: React.FC<{ lang: Lang; s: ReturnType<typeof useStrings>; chip?:
 const MockLedger: React.FC<{ lang: Lang; s: ReturnType<typeof useStrings> }> = ({ lang, s }) => (
   <div className="relative" data-landing-mock="ledger">
     <SampleChip label={s.landingSample} />
-    <p className="text-start text-label font-semibold uppercase tracking-wide text-ink-muted">{monthTitle('2026-09', lang)}</p>
-    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+    <p className={`text-start ${eyebrowClass}`}>{monthTitle('2026-09', lang)}</p>
+    <div className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2">
       <div className="rounded-panel bg-accent p-4 text-on-accent shadow-raised">
         <p dir="ltr" className="text-start text-[2rem] font-bold leading-none tracking-tight tabular-nums">2,989.92 <span className="text-base font-semibold opacity-80">USD</span></p>
         <p className="mt-2 text-start text-sm font-medium opacity-80">{s.landingMockUsdCount}</p>
       </div>
-      <div className="rounded-panel bg-surface-muted p-4">
-        <p dir="ltr" className="text-start text-[2rem] font-bold leading-none tracking-tight tabular-nums text-ink">1,263.85 <span className="text-base font-semibold text-ink-muted">MAD</span></p>
-        <p className="mt-2 text-start text-sm font-medium text-ink-muted">{s.landingMockMadCount}</p>
+      <div className="rounded-panel bg-surface-alt p-4 shadow-pressed">
+        <p dir="ltr" className="text-start text-[2rem] font-bold leading-none tracking-tight tabular-nums text-ink">1,263.85 <span className="text-base font-semibold text-ink-secondary">MAD</span></p>
+        <p className="mt-2 text-start text-sm font-medium text-ink-secondary">{s.landingMockMadCount}</p>
       </div>
     </div>
     <div className="mt-3 flex flex-wrap gap-2">
@@ -102,7 +105,7 @@ const MockLedger: React.FC<{ lang: Lang; s: ReturnType<typeof useStrings> }> = (
         </span>
       ))}
     </div>
-    <div className="mt-3 rounded-card bg-surface-muted px-3 py-3"><SampleRow lang={lang} s={s} /></div>
+    <div className={`mt-3 px-3 py-3 ${insetCellClass}`}><SampleRow lang={lang} s={s} /></div>
   </div>
 );
 
@@ -110,8 +113,8 @@ const MockLedger: React.FC<{ lang: Lang; s: ReturnType<typeof useStrings> }> = (
 const MockQueue: React.FC<{ lang: Lang; s: ReturnType<typeof useStrings>; compact?: boolean }> = ({ lang, s, compact }) => (
   <div className="relative" data-landing-mock="queue">
     {!compact && <SampleChip label={s.landingSample} />}
-    {!compact && <p className="mb-3 text-start text-label font-semibold uppercase tracking-wide text-ink-muted">{s.queueTab}</p>}
-    <div className="rounded-card bg-surface-muted p-3">
+    {!compact && <p className={`mb-3 text-start ${eyebrowClass}`}>{s.queueTab}</p>}
+    <div className={`p-3 ${insetCellClass}`}>
       <SampleRow lang={lang} s={s} />
       <div className="mt-3 flex items-center border-t border-divider pt-3">
         <CountChip tone="warning">{s.searchReasonDuplicate}</CountChip>
@@ -128,8 +131,8 @@ const MockQueue: React.FC<{ lang: Lang; s: ReturnType<typeof useStrings>; compac
 const MockSearch: React.FC<{ lang: Lang; s: ReturnType<typeof useStrings> }> = ({ lang, s }) => (
   <div className="relative" data-landing-mock="search">
     <SampleChip label={s.landingSample} />
-    <p className="text-start text-label font-semibold uppercase tracking-wide text-ink-muted">{s.searchTab}</p>
-    <div className="mt-3 flex h-11 items-center gap-2 rounded-pill bg-surface-muted px-4 text-sm text-ink">
+    <p className={`text-start ${eyebrowClass}`}>{s.searchTab}</p>
+    <div className="mt-3 flex h-11 items-center gap-2 rounded-pill bg-surface-alt px-4 text-sm text-ink shadow-pressed">
       <SearchIcon size={16} className="text-ink-muted" aria-hidden="true" />
       <span dir="ltr">{s.landingSearchQuery}</span>
     </div>
@@ -139,7 +142,7 @@ const MockSearch: React.FC<{ lang: Lang; s: ReturnType<typeof useStrings> }> = (
         <span key={c} className="rounded-pill bg-surface-muted px-3 py-1 text-xs font-semibold text-ink-secondary">{s[`cat${c}`]}</span>
       ))}
     </div>
-    <div className="mt-3 rounded-card bg-surface-muted px-3 py-3"><SampleRow lang={lang} s={s} /></div>
+    <div className={`mt-3 px-3 py-3 ${insetCellClass}`}><SampleRow lang={lang} s={s} /></div>
   </div>
 );
 
@@ -165,7 +168,7 @@ export function LandingScreen() {
       {/* ── Hero: centred, badge, two lines, one line, one CTA, a note ── */}
       <section className={`${container} flex flex-col items-center pb-10 pt-14 text-center sm:pt-20`} data-landing-hero>
         <Badge>{s.landingBadge}</Badge>
-        <h1 className="mt-5 max-w-3xl text-balance text-[2.5rem] font-bold leading-[1.05] tracking-tight sm:text-[3.75rem]">
+        <h1 className="mt-5 max-w-3xl text-balance text-[2.5rem] font-bold leading-[1.2] tracking-tight sm:text-[3.75rem]">
           <span className="block">{s.landingHero1}</span>
           <span className="block text-accent-text">{s.landingHero2}</span>
         </h1>
@@ -174,7 +177,7 @@ export function LandingScreen() {
           {s.landingHeroCta}
           <ArrowRight size={18} className="rtl:-scale-x-100" aria-hidden="true" />
         </Link>
-        <p className="mt-3 text-sm font-medium text-ink-muted">{s.landingHeroNote}</p>
+        <p className="mt-3 text-sm font-medium text-ink-secondary">{s.landingHeroNote}</p>
       </section>
 
       {/* ── The product: the ledger home, large, under the hero ── */}
@@ -191,9 +194,9 @@ export function LandingScreen() {
           <h2 className={`${h2} mt-4`}>{s.landingWhyTitle}</h2>
           <p className="mt-3 max-w-xl text-balance text-[0.9375rem] leading-relaxed text-ink-secondary">{s.landingWhySub}</p>
         </div>
-        <div className="mt-10 grid gap-4 sm:grid-cols-3">
+        <div className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-3">
           <Panel className="p-4" data-landing-card="scan">
-            <div className="flex h-36 items-center justify-center gap-3 rounded-card bg-surface-muted" aria-hidden="true">
+            <div className={`flex h-36 items-center justify-center gap-3 ${insetCellClass}`} aria-hidden="true">
               <IconTile icon={Camera} tone="accent" size="lg" />
               <span className="text-sm font-semibold text-ink-secondary">{s.landingScanPreview}</span>
             </div>
@@ -201,16 +204,16 @@ export function LandingScreen() {
             <p className="mt-1.5 text-start text-sm leading-relaxed text-ink-secondary">{s.landingScanBody}</p>
           </Panel>
           <Panel className="p-4" data-landing-card="read">
-            <div className="flex h-36 items-center rounded-card bg-surface-muted px-3" aria-hidden="true">
+            <div className={`flex h-36 items-center px-3 ${insetCellClass}`} aria-hidden="true">
               <div className="w-full"><SampleRow lang={lang} s={s} /></div>
             </div>
             <h3 className="mt-4 text-start text-[1.0625rem] font-semibold text-ink">{s.landingReadTitle}</h3>
             <p className="mt-1.5 text-start text-sm leading-relaxed text-ink-secondary">{s.landingReadBody}</p>
           </Panel>
           <Panel className="p-4" data-landing-card="review">
-            <div className="flex h-36 items-center overflow-hidden rounded-card bg-surface-muted px-3" aria-hidden="true">
+            <div className={`flex h-36 items-center overflow-hidden px-3 ${insetCellClass}`} aria-hidden="true">
               <div className="w-full">
-                <div className="flex items-center gap-2"><CountChip tone="warning">{s.needsReview}</CountChip><span className="text-xs font-medium text-ink-muted">{s.searchReasonDuplicate}</span></div>
+                <div className="flex items-center gap-2"><CountChip tone="warning">{s.needsReview}</CountChip><span className="text-xs font-medium text-ink-secondary">{s.searchReasonDuplicate}</span></div>
                 <div className="mt-3 flex gap-2">
                   <span className="flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-btn bg-success-tint text-xs font-semibold text-success-text ring-1 ring-line"><CheckCircle size={15} />{s.approve}</span>
                   <span className="flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-btn bg-danger-tint text-xs font-semibold text-danger-text ring-1 ring-line"><XCircle size={15} />{s.reject}</span>
@@ -230,7 +233,7 @@ export function LandingScreen() {
           <h2 className={`${h2} mt-4`}>{s.landingToolsTitle}</h2>
           <p className="mt-3 max-w-xl text-balance text-[0.9375rem] leading-relaxed text-ink-secondary">{s.landingToolsSub}</p>
         </div>
-        <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start lg:gap-10">
+        <div className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start lg:gap-10">
           <div role="tablist" aria-label={s.landingToolsTitle} className="flex gap-2 overflow-x-auto lg:flex-col lg:gap-1" style={{ scrollbarWidth: 'none' }}>
             {TOOLS.map((t) => (
               <button
@@ -242,7 +245,7 @@ export function LandingScreen() {
                 id={`landing-tab-${t}`}
                 onClick={() => setTool(t)}
                 data-landing-tab={t}
-                className={`flex-none rounded-pill px-4 py-2.5 text-start text-[0.9375rem] font-semibold transition-colors motion-reduce:transition-none lg:w-full lg:rounded-card lg:border-s-2 lg:px-4 lg:py-3 ${tool === t ? 'bg-surface-raised text-accent-text shadow-card ring-1 ring-line lg:border-accent lg:bg-transparent lg:shadow-none lg:ring-0' : 'text-ink-muted hover:text-ink lg:border-transparent'}`}
+                className={`flex-none rounded-pill px-4 py-2.5 text-start text-[0.9375rem] font-semibold transition-colors motion-reduce:transition-none lg:w-full lg:rounded-card lg:border-s-2 lg:px-4 lg:py-3 ${tool === t ? 'bg-surface-raised text-accent-text shadow-card ring-1 ring-line lg:border-accent lg:bg-transparent lg:shadow-none lg:ring-0' : 'text-ink-secondary hover:text-ink lg:border-transparent'}`}
               >
                 {toolCopy[t][0]}
               </button>
@@ -274,16 +277,16 @@ export function LandingScreen() {
 
       {/* ── One figure per currency ── */}
       <section className={`${container} py-12 sm:py-16`} data-landing-money>
-        <div className={`grid gap-6 p-6 sm:grid-cols-[1fr_auto] sm:items-center sm:p-8 ${panelClass}`}>
+        <div className={`grid grid-cols-[minmax(0,1fr)] gap-6 p-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-8 ${panelClass}`}>
           <div>
             <h2 className="text-start text-[1.75rem] font-semibold leading-tight tracking-tight text-ink sm:text-[2.25rem]">{s.landingMoneyTitle}</h2>
             <p className="mt-3 max-w-xl text-start text-[0.9375rem] leading-relaxed text-ink-secondary">{s.landingMoneyBody}</p>
           </div>
-          <div className="flex gap-3" aria-hidden="true">
+          <div className="flex flex-wrap gap-3" aria-hidden="true">
             {[['2,989.92', 'USD'], ['1,263.85', 'MAD']].map(([n, c]) => (
-              <div key={c} className="rounded-card bg-surface-muted px-4 py-3">
+              <div key={c} className={`px-4 py-3 ${insetCellClass}`}>
                 <p dir="ltr" className="text-[1.375rem] font-bold leading-none tabular-nums text-ink">{n}</p>
-                <p className="mt-1 text-xs font-bold text-ink-muted">{c}</p>
+                <p className="mt-1 text-xs font-bold text-ink-secondary">{c}</p>
               </div>
             ))}
           </div>
@@ -294,7 +297,7 @@ export function LandingScreen() {
       <section id="pricing" className={`${container} scroll-mt-24 py-12 sm:py-16`} data-landing-pricing>
         <h2 className={h2}>{s.landingPricingTitle}</h2>
         <p className="mt-2 text-center text-sm text-ink-secondary">{s.landingPricingSub}</p>
-        <div className="mx-auto mt-8 grid max-w-4xl gap-4 sm:grid-cols-2">
+        <div className="mx-auto mt-8 grid max-w-4xl grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2">
           <Panel className="flex flex-col p-6" data-landing-plan="free">
             <h3 className="text-start text-[0.9375rem] font-semibold text-ink-secondary">{s.landingFreeName}</h3>
             <p dir="ltr" className="mt-2 text-start text-[2.5rem] font-bold leading-none tracking-tight tabular-nums text-ink">{s.landingFreePrice}</p>
@@ -338,11 +341,11 @@ export function LandingScreen() {
             {s.landingHeroCta}
             <ArrowRight size={18} className="rtl:-scale-x-100" aria-hidden="true" />
           </Link>
-          <p className="mt-3 text-sm font-medium text-ink-muted">{s.landingHeroNote}</p>
+          <p className="mt-3 text-sm font-medium text-ink-secondary">{s.landingHeroNote}</p>
         </div>
       </section>
 
-      <footer className={`${container} flex flex-col items-center gap-4 border-t border-line py-8 text-sm text-ink-muted sm:flex-row sm:justify-between`} data-landing-footer>
+      <footer className={`${container} flex flex-col items-center gap-4 border-t border-line py-8 text-sm text-ink-secondary sm:flex-row sm:justify-between`} data-landing-footer>
         <div className="flex items-center gap-2 text-ink-secondary">
           <FileText size={16} aria-hidden="true" />
           <span>{s.header}</span>

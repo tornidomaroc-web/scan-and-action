@@ -298,3 +298,83 @@ describe('PR 5: the classes that carry it', () => {
     expect(F('src/screens/ResetPasswordScreen.tsx')).toContain('data-reset-done className={`p-5 ${panelClass}`}');
   });
 });
+
+// ============================================================================
+// Restyle PR 6 (the landing and the public legal pages, 2026-10-14). Styling
+// only: the legal pages' words are unchanged (the PR's rendered-text diff).
+// An every-node audit on main found, on these pages: the privacy policy's
+// green headings at 3.40:1 on the light page, blue links at 3.68:1 and red
+// headings at 3.94:1 on the dark page, the slate footers at 4.29:1 (light)
+// and 4.00:1 (dark), and the landing's muted notes and mock labels at 4.27:1
+// and 3.97:1. Their raw colours are held below as controls.
+// ============================================================================
+
+describe('PR 6: the pairs on the landing and the legal pages', () => {
+  for (const [name, t] of Object.entries(THEMES)) {
+    it.each([
+      ['legal text (ink) on the legal card', '--sa-ink', '--sa-surface-raised'],
+      ['legal headings and links (accent text) on the legal card', '--sa-accent-text', '--sa-surface-raised'],
+      ['legal footer (secondary) on the legal card', '--sa-ink-secondary', '--sa-surface-raised'],
+      ['legal title (ink) on the page', '--sa-ink', '--sa-surface'],
+      ['legal icon (accent text) on the accent tint', '--sa-accent-text', '--sa-accent-tint'],
+      ['landing notes and footer (secondary) on the page', '--sa-ink-secondary', '--sa-surface'],
+      ['landing headline second line (accent text) on the page', '--sa-accent-text', '--sa-surface'],
+      ['landing mock text (secondary) in an inset cell', '--sa-ink-secondary', '--sa-surface-alt'],
+      ['landing mock figures (ink) in an inset cell', '--sa-ink', '--sa-surface-alt'],
+      ['landing call to action (on-accent) on the accent', '--sa-on-accent', '--sa-accent'],
+      ['landing Pro price (on-accent) on the accent card', '--sa-on-accent', '--sa-accent'],
+    ])(`${name}: %s clears 4.5:1`, (_label, fg, bg) => {
+      expect(ratio(onCard(t, fg), onCard(t, bg))).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+
+  it("controls: main's legal colours fail on the page they sat on", () => {
+    expect(ratio('#059669', THEMES.light['--sa-surface'])).toBeLessThan(4.5); // emerald-600 headings, 3.40
+    expect(ratio('#2563EB', THEMES.dark['--sa-surface'])).toBeLessThan(4.5); // blue-600 links, 3.68
+    expect(ratio('#DC2626', THEMES.dark['--sa-surface'])).toBeLessThan(4.5); // red-600 headings, 3.94
+    expect(ratio('#64748B', THEMES.light['--sa-surface'])).toBeLessThan(4.5); // slate-500 footer, 4.29
+    expect(ratio('#64748B', THEMES.dark['--sa-surface'])).toBeLessThan(4.5); // slate-500 footer, 4.00
+  });
+});
+
+describe('PR 6: the classes that carry it', () => {
+  const RAW = /\b(?:bg|text|border|ring)-(?:slate|gray|blue|emerald|red|rose|amber)-\d{2,3}\b/;
+  const stripped = (rel: string) => F(rel).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const LEGAL = ['PrivacyPolicy', 'TermsOfService', 'RefundPolicy', 'SupportPage', 'DeleteAccountInfo'];
+
+  it.each(LEGAL)('%s carries no raw palette class and draws from the shared legal classes', (n) => {
+    const src = stripped(`src/screens/${n}.tsx`);
+    expect(src).not.toMatch(RAW);
+    expect(src).not.toMatch(/italic|uppercase|font-black/);
+    expect(src).toContain('className={legalBodyClass}');
+  });
+
+  it('the legal text sits on one raised card, its footer is never muted', () => {
+    const legal = F('src/components/legal/legalPage.ts');
+    expect(legal).toContain('export const legalBodyClass = `space-y-8 p-5 leading-relaxed sm:p-8 ${panelClass}`;');
+    expect(legal).toMatch(/legalFooterClass = '[^']*text-ink-secondary'/);
+    expect(legal).not.toContain('ink-muted');
+  });
+
+  it('the header pill is opaque: an opacity modifier on a variable token emits no CSS', () => {
+    const header = stripped('src/components/LandingHeader.tsx');
+    expect(header).toContain('rounded-pill bg-surface-raised ps-3');
+    expect(header).not.toMatch(/\bbg-(?:surface|ink|accent|line)[\w-]*\/\d+/);
+    expect(header).not.toContain('backdrop-blur');
+  });
+
+  it('the landing puts nothing muted on the page or in an inset cell, and its grids cannot push the page sideways', () => {
+    const landing = stripped('src/screens/LandingScreen.tsx');
+    expect(landing).not.toMatch(/bg-surface-(?:raised|alt)\/\d+/);
+    expect(landing.match(/text-ink-muted/g) ?? []).toHaveLength(1); // the search glyph, an icon
+    expect(landing).toContain('<SearchIcon size={16} className="text-ink-muted"');
+    for (const g of landing.match(/className=(?:"|\{`)[^"`]*\bgrid\b[^"`]*/g)!) expect(g).toContain('grid-cols-[minmax(0,1fr)]');
+    expect(landing).toContain('flex flex-wrap gap-3" aria-hidden="true"');
+  });
+
+  it('uppercase labels on the landing drop their letter-spacing in Arabic', () => {
+    const landing = stripped('src/screens/LandingScreen.tsx');
+    expect(landing).not.toMatch(/uppercase tracking-wide/);
+    expect((landing.match(/\$\{eyebrowClass\}/g) ?? []).length).toBe(3);
+  });
+});
