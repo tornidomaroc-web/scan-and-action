@@ -220,6 +220,7 @@ describe('PR 5: the pairs on sign-in, Settings and the sheets', () => {
       ['Settings delete (danger text) on the danger tint', '--sa-danger-text', '--sa-danger-tint'],
       ['Settings subtitle (secondary) on the page', '--sa-ink-secondary', '--sa-surface'],
       ['file meta (secondary) in the capture inset', '--sa-ink-secondary', '--sa-surface-alt'],
+      ['language switcher, unchosen (secondary) on its track', '--sa-ink-secondary', '--sa-surface-muted'],
     ])(`${name}: %s clears 4.5:1`, (_label, fg, bg) => {
       expect(ratio(onCard(t, fg), onCard(t, bg))).toBeGreaterThanOrEqual(4.5);
     });
@@ -234,6 +235,12 @@ describe('PR 5: the pairs on sign-in, Settings and the sheets', () => {
 
   it('control: white on the danger fill fails in light, as Settings shipped it', () => {
     expect(ratio('#FFFFFF', THEMES.light['--sa-danger'])).toBeLessThan(4.5);
+  });
+
+  it("control: muted on the switcher's track fails in light, as main shipped it", () => {
+    expect(ratio(THEMES.light['--sa-ink-muted'], THEMES.light['--sa-surface-muted'])).toBeLessThan(4.5);
+    expect(F('src/components/LanguageSwitcher.tsx')).toContain(": 'text-ink-secondary hover:text-ink'");
+    expect(F('src/components/LanguageSwitcher.tsx')).not.toContain('text-ink-muted');
   });
 });
 

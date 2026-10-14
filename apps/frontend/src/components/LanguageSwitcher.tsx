@@ -2,7 +2,9 @@ import React from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 
 // A segmented control on the tokens: the chosen language is the raised
-// segment, the others sit on the muted track. Both sides flip together.
+// segment, the others sit on the track pressed into the surface. Both sides
+// flip together. The others are ink-secondary: muted on the track measured
+// 3.97:1 in light (softSurfaces.test.ts).
 export const LanguageSwitcher: React.FC = () => {
   const { language, setLanguage } = useLanguage();
 
@@ -13,7 +15,7 @@ export const LanguageSwitcher: React.FC = () => {
   ];
 
   return (
-    <div className="flex w-fit gap-1 rounded-pill bg-surface-muted p-1" role="group">
+    <div className="flex w-fit gap-1 rounded-pill bg-surface-muted p-1 shadow-pressed" role="group">
       {langs.map((lang) => (
         <button
           key={lang.code}
@@ -23,7 +25,7 @@ export const LanguageSwitcher: React.FC = () => {
           className={`min-h-[36px] rounded-pill px-3.5 text-xs font-bold transition-colors ${
             language === lang.code
               ? 'bg-surface-raised text-ink shadow-card ring-1 ring-line'
-              : 'text-ink-muted hover:text-ink'
+              : 'text-ink-secondary hover:text-ink'
           }`}
         >
           {lang.label}
