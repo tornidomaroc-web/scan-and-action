@@ -197,8 +197,50 @@ def verify_maskable_safe_zone(size):
     return worst, safe
 
 
+# Android 12+ splash icon (2026-10-15). From API 31 the system draws the launch
+# itself: windowSplashScreenBackground, and windowSplashScreenAnimatedIcon in a
+# 288dp box masked to a 192dp circle (an icon with no icon background; Android
+# developer docs, "Splash screens", Dimensions). The theme set only
+# android:background, which that splash ignores, so API 31+ showed the system
+# default background and the launcher icon (measured on the API 36 emulator,
+# #323). A square ink box fits the 192dp circle up to 192/sqrt(2) = 135.8dp; 132dp
+# keeps a margin for the stroke caps. That is the platform's ceiling: 32% of a
+# 411dp-wide phone and 37% of a 360dp one, short of the 42% the full-screen
+# splash and iOS show, and not reachable without clipping the corners.
+# FLAT: the shadow-free mark (MONO_ONLY), no baked-in depth. Written to
+# drawable-<density>/splash_icon.png and used ONLY by values-v31/styles.xml, so
+# API 30 and below keep drawable*/splash.png exactly as before.
+ANDROID12_ICON_DP = 288.0
+ANDROID12_INK_DP = 132.0
+ANDROID12_DENSITY = {"mdpi": 1.0, "hdpi": 1.5, "xhdpi": 2.0, "xxhdpi": 3.0, "xxxhdpi": 4.0}
+
+
+def android12_splash_icons():
+    made = []
+    for dens, k in ANDROID12_DENSITY.items():
+        W = int(round(ANDROID12_ICON_DP * k))
+        sc = ANDROID12_INK_DP * k / MASTER_INK_W
+        side = MASTER_SIZE * sc
+        icon = compose(MONO_ONLY, W, W, sc, (W - side) / 2.0, (W - side) / 2.0)
+        # Every inked pixel inside the 192dp mask circle, checked, not assumed.
+        r_mask = 96.0 * k
+        px = icon.load()
+        worst = max((math.hypot(x + 0.5 - W / 2.0, y + 0.5 - W / 2.0)
+                     for y in range(W) for x in range(W) if px[x, y][3] >= 16), default=0.0)
+        if worst > r_mask:
+            raise SystemExit(f"android 12 splash icon {dens}: ink reaches r={worst:.1f}px past the {r_mask:.1f}px mask")
+        made.append(write(icon, f"drawable-{dens}/splash_icon.png"))
+    return made
+
+
 def main():
     made = []
+    if "--only-android12-splash" in sys.argv:
+        made += android12_splash_icons()
+        for p in made:
+            print("  wrote", os.path.relpath(p, os.path.normpath(os.path.join(HERE, "..", "..", ".."))))
+        return
+    made += android12_splash_icons()
 
     # ---- adaptive foreground + background (108dp layers) -------------------
     for dens, (fg, _) in DENSITIES.items():

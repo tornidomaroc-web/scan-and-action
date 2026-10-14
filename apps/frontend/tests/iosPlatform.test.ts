@@ -713,13 +713,15 @@ describe('the binary audit runs on a pull request without secrets, and on the ar
       'apps/frontend/src/native/NativeAuthLinks.tsx',
       'apps/frontend/src/lib/authLinks.ts',
       'apps/frontend/src/screens/AuthConfirmScreen.tsx',
+      '.github/launch-probe/**',
     ]);
     expect(wf.on.workflow_dispatch).toBeDefined();
     expect(text).not.toContain('pull_request_target');
     expect(wf.permissions).toEqual({ contents: 'read' });
   });
-  it('a macOS audit job, a Linux mutation job and a macOS universal link job, no environment, no secret reference, no signing', () => {
-    expect(Object.keys(wf.jobs)).toEqual(['audit', 'assemble-mutations', 'universal-link']);
+  it('a macOS audit job, a Linux mutation job, a macOS launch screen job and a macOS universal link job, no environment, no secret reference, no signing', () => {
+    expect(Object.keys(wf.jobs)).toEqual(['audit', 'assemble-mutations', 'launch-geometry', 'universal-link']);
+    expect(wf.jobs['launch-geometry']['runs-on']).toBe('macos-26');
     expect(wf.jobs['universal-link']['runs-on']).toBe('macos-26');
     const job = wf.jobs.audit;
     expect(job['runs-on']).toBe('macos-26');
