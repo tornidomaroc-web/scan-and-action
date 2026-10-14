@@ -1,0 +1,115 @@
+name: Restyle PR 5 proof (throwaway branch, never merged)
+
+# Lives only on the proof branch. Builds the app for the iOS Simulator, unsigned
+# and with no secret, with a proof web bundle whose network is replaced by
+# fixtures, then shoots sign-in, the confirm screen in each state, Settings and
+# every sheet at the default and largest Dynamic Type size, light and dark,
+# English and Arabic, for this head and for main. Free on a public repository.
+
+on:
+  push:
+    branches: [design/pr5-proof]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 150
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+      - run: npm ci
+
+      - name: Proof bundles (the PR head, and main for the before shots)
+        run: |
+          set -eu
+          pr=$(git rev-parse HEAD~1)
+          echo "proof commit $(git rev-parse HEAD); PR head under it $pr; main $(git rev-parse origin/main)"
+          git worktree add -q "$RUNNER_TEMP/pr" "$pr"
+          (cd "$RUNNER_TEMP/pr/apps/frontend" && npm ci --silent)
+          bash ../../.github/dt-proof/build-proof.sh "$RUNNER_TEMP/pr/apps/frontend" "$RUNNER_TEMP/dist-pr"
+          git worktree add -q "$RUNNER_TEMP/main" origin/main
+          (cd "$RUNNER_TEMP/main/apps/frontend" && npm ci --silent)
+          bash ../../.github/dt-proof/build-proof.sh "$RUNNER_TEMP/main/apps/frontend" "$RUNNER_TEMP/dist-main"
+          rm -rf dist && cp -R "$RUNNER_TEMP/dist-pr" dist
+          grep -c 'sa-report.js' dist/index.html
+
+      - name: Sync and build for the simulator (unsigned)
+        run: |
+          set -eu -o pipefail
+          npx cap sync ios
+          xcodebuild -resolvePackageDependencies -project ios/App/App.xcodeproj -scheme App -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" -onlyUsePackageVersionsFromResolvedFile | tail -n 3
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | grep -E '^\*\*|: error:' || true
+          test -d "$(find "$RUNNER_TEMP/dd/Build/Products" -maxdepth 2 -name App.app -type d | head -n 1)"
+
+      - name: Shoot
+        run: |
+          set -u
+          app=$(find "$RUNNER_TEMP/dd/Build/Products" -maxdepth 2 -name App.app -type d | head -n 1)
+          out="$RUNNER_TEMP/shots"; mkdir -p "$out"
+          cfg="node ../../.github/dt-proof/cfg.mjs"
+          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; c=[(r,x["udid"],x["name"]) for r,v in d.items() if "iOS" in r for x in v if x["name"] in ("iPhone 17","iPhone 16","iPhone 17 Pro","iPhone 16 Pro")]; c.sort(); print(c[-1][1])')
+          echo "simulator: $(xcrun simctl list devices available | grep "$udid")"
+          xcrun simctl boot "$udid"; xcrun simctl bootstatus "$udid" -b | tail -n 1
+          xcrun simctl status_bar "$udid" override --time 9:41 --batteryLevel 100 --cellularBars 4 || true
+          python3 - "$out" <<'PY' &
+          import http.server, sys, os
+          out = sys.argv[1]
+          class H(http.server.BaseHTTPRequestHandler):
+              def do_POST(self):
+                  n = int(self.headers.get('content-length', 0)); body = self.rfile.read(n)
+                  open(os.path.join(out, self.path.strip('/') + '.json'), 'wb').write(body)
+                  self.send_response(200); self.send_header('Access-Control-Allow-Origin', '*'); self.end_headers()
+              def do_OPTIONS(self):
+                  self.send_response(204); self.send_header('Access-Control-Allow-Origin', '*'); self.send_header('Access-Control-Allow-Headers', '*'); self.end_headers()
+              def log_message(self, *a): pass
+          http.server.HTTPServer(('127.0.0.1', 8765), H).serve_forever()
+          PY
+          sleep 1
+          shoot() { # label bundle size theme lang name
+            label=$1; bundle=$2; size=$3; theme=$4; lang=$5; name=$6
+            f="$label-ios-$name-$lang-$theme-$size"
+            rm -rf "$app/public"; cp -R "$bundle" "$app/public"
+            $cfg "$name" "$lang" "$theme" "http://127.0.0.1:8765/$f" > "$app/public/sa-proof-config.js"
+            xcrun simctl terminate "$udid" com.scanaction.app >/dev/null 2>&1 || true
+            xcrun simctl install "$udid" "$app"
+            xcrun simctl ui "$udid" content_size "$size"
+            xcrun simctl ui "$udid" appearance "$theme"
+            xcrun simctl launch "$udid" com.scanaction.app >/dev/null
+            # The page reports, then scrolls to its end (and its sheet's end)
+            # 3 s later: the top is shot 1.2 s after the report, the end 4.5 s.
+            for i in $(seq 1 180); do [ -f "$out/$f.json" ] && break; sleep 0.25; done
+            sleep 1.2; xcrun simctl io "$udid" screenshot "$out/$f.png" >/dev/null 2>&1
+            sleep 3.3; xcrun simctl io "$udid" screenshot "$out/$f-end.png" >/dev/null 2>&1
+            echo "$f audit: $(head -c 160 "$out/$f.json" 2>/dev/null || echo MISSING)"
+          }
+          for label in pr main; do
+            for size in large accessibility-extra-extra-extra-large; do
+              for theme in light dark; do for lang in en ar; do
+                for name in $($cfg list); do shoot $label "$RUNNER_TEMP/dist-$label" $size $theme $lang $name; done
+              done; done
+            done
+          done
+          ls "$out" | wc -l
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: pr5-proof-ios-${{ github.sha }}
+          path: ${{ runner.temp }}/shots
+          retention-days: 14
