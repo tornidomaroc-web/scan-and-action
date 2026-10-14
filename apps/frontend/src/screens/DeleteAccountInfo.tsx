@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { LandingHeader } from '../components/LandingHeader';
+import { legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, legalLinkClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
 import { Trash2 } from 'lucide-react';
 
 /**
@@ -18,29 +19,23 @@ const DeleteAccountInfo: React.FC = () => {
   // and `a[href="/"]` both returned null on /privacy. `LandingHeader`'s home link
   // is that way back.
   //
-  // NOT PINNED, DELIBERATELY, and this is the opposite of the landing route. This
-  // page sets no background of its own: `body` paints it from `var(--background)`
-  // -> `--sa-surface`, which flips #F5F7FA -> #0F172A, and the page carries its own
-  // `dark:` variants. So it is ALREADY correct in dark mode, and the header agrees
-  // with it (measured: #1E293B header on #0F172A body = 1.22, no seam).
-  // `sa-pin-light` would hold the header at #FFFFFF while `body` stayed #0F172A —
-  // a 17.85 seam — and leave `dark:text-slate-200` firing on pinned white surfaces
-  // at 1.23:1. The pin is for a light-only page; this is not one.
+  // NOT PINNED: the page follows the theme through the tokens, like every
+  // screen (components/legal/legalPage.ts); `sa-pin-light` no longer exists.
   //
   // `showAnchors={false}`: `#how-it-works` and `#pricing` are landing-page sections
   // and neither id exists here, so the anchors would scroll nowhere and say nothing.
   return (
     <>
       <LandingHeader showAnchors={false} />
-      <div className="max-w-4xl mx-auto px-6 py-20 font-sans text-slate-800 dark:text-slate-200">
-        <div className="flex items-center gap-4 mb-10">
-          <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-2xl text-red-600">
+      <div className={legalPageClass}>
+        <div className={legalTitleRowClass}>
+          <div className={legalIconClass}>
             <Trash2 size={32} />
           </div>
-          <h1 className="text-4xl font-black tracking-tight italic uppercase">Delete Your Account</h1>
+          <h1 className={legalTitleClass}>Delete Your Account</h1>
         </div>
 
-        <div className="space-y-8 leading-relaxed">
+        <div className={legalBodyClass}>
           <section>
             <p>
               You can permanently delete your Scan &amp; Action account and all associated data at any
@@ -49,7 +44,7 @@ const DeleteAccountInfo: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-red-600">From inside the app</h2>
+            <h2 className={legalHeadingClass}>From inside the app</h2>
             <p>
               Open Scan &amp; Action, go to <strong>Settings → Danger Zone → Delete account</strong>,
               type your email to confirm, and confirm the deletion. Your account is removed immediately.
@@ -57,20 +52,20 @@ const DeleteAccountInfo: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-red-600">If you uninstalled the app</h2>
+            <h2 className={legalHeadingClass}>If you uninstalled the app</h2>
             <p>
               Sign in on the web at{' '}
-              <Link to="/login" className="text-blue-600 font-bold underline">
+              <Link to="/login" className={legalLinkClass}>
                 www.scan-action.com
               </Link>{' '}
               and use the same <strong>Settings → Delete account</strong> option. If you cannot sign in,
-              email us at <a href="mailto:support@scan-action.com" className="text-blue-600 font-bold underline">support@scan-action.com</a>{' '}
+              email us at <a href="mailto:support@scan-action.com" className={legalLinkClass}>support@scan-action.com</a>{' '}
               from your account email address and we will delete your account and data on your behalf.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-red-600">What gets deleted</h2>
+            <h2 className={legalHeadingClass}>What gets deleted</h2>
             <p>
               Deletion permanently removes your account, your workspace, and all documents, scans,
               extracted data, and reports it contains, both from our database and from file storage.
@@ -79,7 +74,7 @@ const DeleteAccountInfo: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-red-600">Subscriptions</h2>
+            <h2 className={legalHeadingClass}>Subscriptions</h2>
             <p>
               Deleting your account does <strong>not</strong> cancel an active subscription. If you
               have one, cancel it first by writing to support@scan-action.com. Otherwise you may
@@ -87,7 +82,7 @@ const DeleteAccountInfo: React.FC = () => {
             </p>
           </section>
 
-          <footer className="pt-10 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-500">
+          <footer className={legalFooterClass}>
             Last updated: October 9, 2026 | Contact: support@scan-action.com
           </footer>
         </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { LandingHeader } from '../components/LandingHeader';
+import { legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, legalLinkClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
 import { LifeBuoy } from 'lucide-react';
 
 /**
@@ -23,20 +24,20 @@ import { LifeBuoy } from 'lucide-react';
 const SupportPage: React.FC = () => (
   <>
     <LandingHeader showAnchors={false} />
-    <div className="max-w-4xl mx-auto px-6 py-20 font-sans text-slate-800 dark:text-slate-200">
-      <div className="flex items-center gap-4 mb-10">
-        <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-2xl text-blue-600">
+    <div className={legalPageClass}>
+      <div className={legalTitleRowClass}>
+        <div className={legalIconClass}>
           <LifeBuoy size={32} />
         </div>
-        <h1 className="text-4xl font-black tracking-tight italic uppercase">Support</h1>
+        <h1 className={legalTitleClass}>Support</h1>
       </div>
 
-      <div className="space-y-8 leading-relaxed" data-support-page>
+      <div className={legalBodyClass} data-support-page>
         <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-blue-600">Contact us</h2>
+          <h2 className={legalHeadingClass}>Contact us</h2>
           <p>
             Email{' '}
-            <a href="mailto:support@scan-action.com" className="text-blue-600 font-bold underline" data-support-email>
+            <a href="mailto:support@scan-action.com" className={legalLinkClass} data-support-email>
               support@scan-action.com
             </a>
             . Write from the address you sign in with, and tell us what you tapped, what you expected and
@@ -45,7 +46,7 @@ const SupportPage: React.FC = () => (
         </section>
 
         <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-blue-600">A receipt shows no amount</h2>
+          <h2 className={legalHeadingClass}>A receipt shows no amount</h2>
           <p>
             Open the receipt from the Queue. When no amount could be read, the receipt asks you to type it
             in, and the month then counts your figure, marked as edited. A receipt that could not be read at
@@ -54,7 +55,7 @@ const SupportPage: React.FC = () => (
         </section>
 
         <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-blue-600">Why the month shows more than one total</h2>
+          <h2 className={legalHeadingClass}>Why the month shows more than one total</h2>
           <p>
             Each currency is totalled on its own. Amounts in different currencies are never converted or
             added together, so a month with receipts in two currencies shows two figures.
@@ -62,16 +63,16 @@ const SupportPage: React.FC = () => (
         </section>
 
         <section>
-          <h2 className="text-xl font-bold mb-3 uppercase tracking-wider text-blue-600">Your data</h2>
+          <h2 className={legalHeadingClass}>Your data</h2>
           <p>
             Read how your data is handled in the{' '}
-            <Link to="/privacy" className="text-blue-600 font-bold underline">Privacy Policy</Link>. You can
+            <Link to="/privacy" className={legalLinkClass}>Privacy Policy</Link>. You can
             delete your account and everything in it from Settings inside the app, or follow the steps on{' '}
-            <Link to="/delete-account" className="text-blue-600 font-bold underline">Delete your account</Link>.
+            <Link to="/delete-account" className={legalLinkClass}>Delete your account</Link>.
           </p>
         </section>
 
-        <footer className="pt-10 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-500">
+        <footer className={legalFooterClass}>
           Contact: support@scan-action.com
         </footer>
       </div>
