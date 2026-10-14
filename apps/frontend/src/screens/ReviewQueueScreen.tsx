@@ -186,7 +186,7 @@ export const ReviewQueueScreen = () => {
         {/* Quiet note: the backend caps the queue at 50 with no pagination. Only
             shown when we are actually at the cap, so it never misleads. */}
         {docs.length >= 50 && (
-          <p className="mb-4 text-xs text-ink-muted">{s.queueFirstFifty}</p>
+          <p className="mb-4 text-xs font-medium text-ink-secondary">{s.queueFirstFifty}</p>
         )}
 
         {/* Phone: one card per receipt, tappable, with its own always-visible
@@ -258,7 +258,7 @@ export const ReviewQueueScreen = () => {
                     onClick={(e) => { e.stopPropagation(); handleAction(doc.id, 'approve'); }}
                     disabled={actioningId === doc.id}
                     aria-label={`${s.approve} ${row.name}`}
-                    className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-success-tint text-sm font-semibold text-success-text ring-1 ring-line transition-colors hover:ring-success active:scale-[0.99] motion-reduce:transition-none disabled:opacity-50"
+                    className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-success-tint text-sm font-semibold text-success-text shadow-card ring-1 ring-line transition-colors hover:ring-success active:scale-[0.99] motion-reduce:transition-none disabled:opacity-50"
                   >
                     <CheckCircle size={18} />
                     {s.approve}
@@ -267,7 +267,7 @@ export const ReviewQueueScreen = () => {
                     onClick={(e) => { e.stopPropagation(); handleAction(doc.id, 'reject'); }}
                     disabled={actioningId === doc.id}
                     aria-label={`${s.reject} ${row.name}`}
-                    className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-danger-tint text-sm font-semibold text-danger-text ring-1 ring-line transition-colors hover:ring-danger active:scale-[0.99] motion-reduce:transition-none disabled:opacity-50"
+                    className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-btn bg-danger-tint text-sm font-semibold text-danger-text shadow-card ring-1 ring-line transition-colors hover:ring-danger active:scale-[0.99] motion-reduce:transition-none disabled:opacity-50"
                   >
                     <XCircle size={18} />
                     {s.reject}

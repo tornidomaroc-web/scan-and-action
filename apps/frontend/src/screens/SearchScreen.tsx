@@ -8,7 +8,7 @@ import { CATEGORY_FILL, CategoryIcon } from '../components/ui/CategoryIcon';
 import { CountChip } from '../components/ui/CountChip';
 import { IconTile } from '../components/ui/IconTile';
 import { Money } from '../components/ui/Money';
-import { Panel, panelClass } from '../components/ui/Panel';
+import { Panel, panelClass, raisedPanelClass, eyebrowClass } from '../components/ui/Panel';
 import { ReceiptRow } from '../components/ui/ReceiptRow';
 import { wornCategory } from '../lib/documentCategory';
 import { isIdentityConflict } from '../lib/identityConflict';
@@ -277,7 +277,7 @@ const Rows: React.FC<{ data: SearchResult; s: Strings; lang: Lang }> = ({ data, 
 
 const Recent: React.FC<{ data: SearchResult; s: Strings; lang: Lang }> = ({ data, s, lang }) => (
   <section className="mt-6" aria-labelledby="search-recent" data-search-recent>
-    <h2 id="search-recent" className="text-[0.9375rem] font-bold text-ink">{s.searchRecent}</h2>
+    <h2 id="search-recent" className={eyebrowClass}>{s.searchRecent}</h2>
     {data.receipts.length > 0 ? (
       <Rows data={data} s={s} lang={lang} />
     ) : (
@@ -330,8 +330,8 @@ const Filtered: React.FC<{
     <>
       {data.receipts.length > 0 && (
         <section className="mt-6" aria-labelledby="search-total">
-          <Panel className="p-4" data-search-total>
-            <p id="search-total" className="text-sm font-semibold text-ink-secondary">{s.searchTotalHeading}</p>
+          <div className={`p-4 ${raisedPanelClass}`} data-search-total>
+            <p id="search-total" className={eyebrowClass}>{s.searchTotalHeading}</p>
             <p className="mt-0.5 break-words text-xs font-medium text-ink-muted" data-search-scope>{scope}</p>
             <ul className="mt-2 flex flex-col gap-2">
               {data.currencies.map(c => (
@@ -351,15 +351,15 @@ const Filtered: React.FC<{
             {data.currencies.length > 1 && (
               <p className="mt-2 text-xs font-medium text-ink-muted" data-search-separate>{s.ledgerSeparateCurrencies}</p>
             )}
-          </Panel>
+          </div>
           <Rows data={data} s={s} lang={lang} />
         </section>
       )}
 
       {data.notCounted.length > 0 && (
         <section className="mt-6" aria-labelledby="search-not-counted" data-search-not-counted>
-          <h2 id="search-not-counted" className="text-[0.9375rem] font-bold text-ink">{s.searchNotCounted}</h2>
-          <p className="mt-0.5 text-xs font-medium text-ink-muted">{s.searchNotCountedBody}</p>
+          <h2 id="search-not-counted" className={eyebrowClass}>{s.searchNotCounted}</h2>
+          <p className="mt-1 text-xs font-medium text-ink-secondary">{s.searchNotCountedBody}</p>
           <ul className={`mt-3 divide-y divide-divider overflow-hidden ${panelClass}`}>
             {data.notCounted.map(h => <li key={h.documentId}><NotCountedRow h={h} s={s} lang={lang} /></li>)}
           </ul>

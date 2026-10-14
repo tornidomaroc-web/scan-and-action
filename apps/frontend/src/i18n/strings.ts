@@ -243,7 +243,7 @@ export const strings = {
     powerTipText: 'Did you know? You can query your data in natural language. Try: "Show all invoices from last month" in the search bar.',
     intelligencePulseDesc: 'Scan your first document to see insights here.',
     finishBatchDesc: 'You\'ve done the heavy lifting. Spend a minute reviewing the final items to unlock fully usable data.',
-    auditDesc: 'Comprehensive audit of your document extractions (v1: Top 100).',
+    auditDesc: 'Your 100 most recent documents, newest first.',
     // ── Search, redrawn from zero 2026-09-25: screens/SearchScreen.tsx ──
     searchTitle: "Search receipts",
     searchPlaceholder: "Merchant or file name",
@@ -843,7 +843,7 @@ export const strings = {
     powerTipText: 'Le saviez-vous ? Vous pouvez interroger vos données en langage naturel. Essayez : "Afficher toutes les factures du mois dernier" dans la barre de recherche.',
     intelligencePulseDesc: 'Scannez votre premier document pour voir vos analyses ici.',
     finishBatchDesc: 'Vous avez fait le plus dur. Révisez les derniers éléments pour débloquer vos données.',
-    auditDesc: 'Audit complet de vos extractions (v1: Top 100).',
+    auditDesc: 'Vos 100 documents les plus récents, du plus récent au plus ancien.',
     // ── Search, redrawn from zero 2026-09-25: screens/SearchScreen.tsx ──
     searchTitle: "Rechercher des reçus",
     searchPlaceholder: "Commerçant ou nom de fichier",
@@ -1401,7 +1401,7 @@ export const strings = {
     powerTipText: 'هل تعلم؟ يمكنك الاستعلام عن بياناتك بلغة طبيعية. جرب: "أظهر جميع الفواتير من الشهر الماضي" في شريط البحث.',
     intelligencePulseDesc: 'امسح أول مستند لعرض الرؤى هنا.',
     finishBatchDesc: 'لقد أنجزت المهمة الكبرى. راجع العناصر الأخيرة لإتاحة البيانات بالكامل.',
-    auditDesc: 'مراجعة شاملة لاستخراجات مستنداتك (v1: أفضل 100).',
+    auditDesc: 'أحدث 100 مستند لديك، الأحدث أولًا.',
     // ── Search, redrawn from zero 2026-09-25: screens/SearchScreen.tsx ──
     searchTitle: "البحث في الإيصالات",
     searchPlaceholder: "التاجر أو اسم الملف",

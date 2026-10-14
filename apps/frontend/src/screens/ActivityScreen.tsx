@@ -105,7 +105,7 @@ export const ActivityScreen = () => {
           <h1 className="text-title-lg font-semibold tracking-tight text-ink">{s.activityHistory}</h1>
           <CountChip>{formatCount(activity.length, language)} {s.records}</CountChip>
         </div>
-        <p className="mt-1 text-sm text-ink-muted">{s.auditDesc}</p>
+        <p className="mt-1 text-sm text-ink-secondary">{s.auditDesc}</p>
       </header>
 
       {activity.length === 0 ? (
@@ -131,38 +131,43 @@ export const ActivityScreen = () => {
                   className="flex min-h-[64px] w-full items-center gap-3 px-4 py-3 text-start transition-colors hover:bg-surface-alt active:bg-surface-alt"
                 >
                   <DocumentIcon doc={item} size="sm" />
-                  <span className="min-w-0 flex-1">
-                    {/* No <bdi> here: it is a bidi isolate, so dir="auto" on the
-                        truncating element would scan past it, find no strong
-                        character, and fall back to LTR. The box would then clip the
-                        leading (identifying) end of an Arabic filename instead of the
-                        trailing end. The value is the sole content of the block, so
-                        the block already isolates it and dir="auto" applies. */}
-                    <p className="truncate text-[0.9375rem] font-semibold text-ink" dir="auto">
-                      {item.originalFileName || s.unnamedDocument}
-                    </p>
-                    <p className="mt-0.5 break-words text-xs font-medium text-ink-muted" dir="auto">
-                      {dateStr}{categoryLabel ? ` · ${categoryLabel}` : ''}
-                    </p>
-                    {/* The LIST is where a user reconciling against an old
-                        total FINDS the documents whose amounts changed;
-                        detail is where they read why. Detail alone would make
-                        them open rows one at a time to stumble on it. */}
-                    {item.reprocessed && (
-                      <span className="mt-1.5 block">
-                        <CountChip>
-                          <RefreshCw className="me-1 h-3 w-3 flex-shrink-0" aria-hidden="true" />
-                          {s.reprocessedBadge}
-                        </CountChip>
+                  {/* The status sits beside the name while the name keeps 9rem;
+                      at a large text size it drops under it, instead of cutting
+                      the file name down to its first few characters. */}
+                  <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="min-w-[9rem] flex-1">
+                      {/* No <bdi> here: it is a bidi isolate, so dir="auto" on the
+                          truncating element would scan past it, find no strong
+                          character, and fall back to LTR. The box would then clip the
+                          leading (identifying) end of an Arabic filename instead of the
+                          trailing end. The value is the sole content of the block, so
+                          the block already isolates it and dir="auto" applies. */}
+                      <p className="truncate text-[0.9375rem] font-semibold text-ink" dir="auto">
+                        {item.originalFileName || s.unnamedDocument}
+                      </p>
+                      <p className="mt-0.5 break-words text-xs font-medium text-ink-muted" dir="auto">
+                        {dateStr}{categoryLabel ? ` · ${categoryLabel}` : ''}
+                      </p>
+                      {/* The LIST is where a user reconciling against an old
+                          total FINDS the documents whose amounts changed;
+                          detail is where they read why. Detail alone would make
+                          them open rows one at a time to stumble on it. */}
+                      {item.reprocessed && (
+                        <span className="mt-1.5 block">
+                          <CountChip>
+                            <RefreshCw className="me-1 h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                            {s.reprocessedBadge}
+                          </CountChip>
+                        </span>
+                      )}
+                    </span>
+                    {status && (
+                      <span className="inline-flex min-w-0 flex-shrink-0 items-center gap-2">
+                        <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-pill ${status.dot}`} />
+                        <span className={`text-xs font-medium ${status.text}`}>{status.label}</span>
                       </span>
                     )}
                   </span>
-                  {status && (
-                    <span className="inline-flex min-w-0 flex-shrink-0 items-center gap-2">
-                      <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-pill ${status.dot}`} />
-                      <span className={`text-xs font-medium ${status.text}`}>{status.label}</span>
-                    </span>
-                  )}
                 </button>
               </li>
             );
