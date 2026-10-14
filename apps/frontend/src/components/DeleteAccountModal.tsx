@@ -94,7 +94,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
       onClick={isDeleting ? undefined : onClose}
     >
       <div
-        className="w-full max-w-[480px] bg-surface-raised rounded-t-card sm:rounded-card shadow-lg overflow-y-auto max-h-[92vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 border border-line"
+        className="w-full max-w-[480px] bg-surface-raised rounded-t-panel sm:rounded-panel shadow-lg ring-1 ring-line overflow-y-auto max-h-[92vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-300"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -175,7 +175,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder={email}
               disabled={isDeleting}
-              className="w-full min-h-[44px] px-4 py-3 rounded-btn border border-line bg-surface text-ink font-medium focus:outline-none focus:border-danger disabled:opacity-60"
+              className="w-full min-h-[44px] px-4 py-3 rounded-btn bg-surface-alt shadow-pressed ring-1 ring-line text-ink font-medium focus:outline-none focus:ring-2 focus:ring-danger disabled:opacity-60"
             />
           </div>
 

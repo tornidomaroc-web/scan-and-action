@@ -196,7 +196,7 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
         createPortal(
           <div className="fixed inset-0 z-modal bg-overlay backdrop-blur-sm flex items-end" onClick={() => setChooserOpen(false)}>
             <div
-              className="w-full bg-surface-raised rounded-t-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-300 border-t border-line"
+              className="w-full bg-surface-raised rounded-t-panel shadow-lg ring-1 ring-line p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-300"
               onClick={(e) => e.stopPropagation()}
               data-testid="source-chooser"
             >
@@ -225,7 +225,7 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
                     setChooserOpen(false);
                     fileInputRef.current?.click();
                   }}
-                  className="w-full min-h-[56px] flex items-center gap-4 p-4 rounded-btn border-2 border-line text-ink-secondary font-semibold text-section hover:border-accent transition-colors active:scale-[0.98]"
+                  className="w-full min-h-[56px] flex items-center gap-4 p-4 rounded-btn bg-surface-raised shadow-card ring-1 ring-line text-ink font-semibold text-section hover:ring-accent transition-all active:scale-[0.98] active:shadow-pressed"
                 >
                   <FolderOpen size={22} strokeWidth={2.5} />
                   {s.chooseFile}
@@ -240,7 +240,7 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
         createPortal(
           <div className="fixed inset-0 z-modal bg-overlay backdrop-blur-sm flex items-end" onClick={uploading ? undefined : close}>
             <div
-              className="w-full bg-surface-raised rounded-t-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-300 border-t border-line"
+              className="w-full bg-surface-raised rounded-t-panel shadow-lg ring-1 ring-line p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-300"
               onClick={(e) => e.stopPropagation()}
               data-testid="capture-sheet"
             >
@@ -266,13 +266,13 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
                   className="w-full max-h-[50vh] object-contain rounded-card bg-surface-muted mb-5"
                 />
               ) : (
-                <div className="flex items-center gap-4 p-5 rounded-card bg-surface-alt border border-line mb-5">
+                <div className="flex items-center gap-4 p-5 rounded-card bg-surface-alt shadow-pressed mb-5">
                   <div className="w-12 h-12 flex-shrink-0 rounded-btn bg-surface-raised border border-line flex items-center justify-center">
                     <FileText size={22} className="text-accent" />
                   </div>
                   <div className="min-w-0">
                     <p dir="auto" className="text-sm font-semibold text-ink truncate">{file.name}</p>
-                    <p dir="auto" className="text-label font-semibold text-ink-muted mt-0.5">
+                    <p dir="auto" className="text-label font-semibold text-ink-secondary mt-0.5">
                       {formatFileMeta(file, s, language)}
                     </p>
                   </div>
@@ -289,7 +289,7 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
                 <button
                   onClick={handleRetake}
                   disabled={uploading}
-                  className="flex-1 min-h-[48px] rounded-btn border-2 border-line text-ink-secondary font-semibold text-section transition-colors hover:border-line-strong disabled:opacity-40"
+                  className="flex-1 min-h-[48px] rounded-btn bg-surface-raised shadow-card ring-1 ring-line text-ink font-semibold text-section transition-all hover:ring-line-strong active:shadow-pressed disabled:opacity-40"
                 >
                   {s.retake}
                 </button>

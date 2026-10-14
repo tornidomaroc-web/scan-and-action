@@ -18,6 +18,11 @@ export const panelClass = 'rounded-panel bg-surface-raised shadow-card ring-1 ri
 // the receipt's header on Detail. The same surface and ring; a deeper shadow.
 export const raisedPanelClass = 'rounded-panel bg-surface-raised shadow-raised ring-1 ring-line';
 
+// A sheet or dialog over the scrim: the card surface at the highest shadow,
+// ring kept, so in dark mode it reads as a lifted card with a hairline edge.
+// The caller adds its corners (rounded-t-panel for a bottom sheet).
+export const sheetClass = 'bg-surface-raised shadow-lg ring-1 ring-line';
+
 // A cell pressed into a card: the inset surface and the pressed shadow, as a
 // field is. Labels in it take ink-secondary, never ink-muted: muted on the
 // inset measures 4.49:1 in light, under 4.5 (softSurfaces.test.ts).

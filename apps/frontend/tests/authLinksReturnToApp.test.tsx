@@ -5,6 +5,7 @@ import { createRoot, Root } from 'react-dom/client';
 import { MemoryRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { REQUEST_TIMEOUT_MS } from '../src/lib/fetchWithTimeout';
 
 // ============================================================================
 // Design step 5: the confirmation and password-reset emails bring the person
@@ -154,10 +155,12 @@ describe('2. /auth/confirm spends the token once and lands in the right place', 
     expect(where).toBe(`/auth/confirm?token_hash=${HASH}&type=recovery`);
   });
 
-  it('missing or unknown params: no call, the failed state, a way back to sign in', async () => {
+  it('missing or unknown params: no call, the invalid state, a way back to sign in', async () => {
     mount('/auth/confirm?type=email');
     expect(h.verifyOtp).not.toHaveBeenCalled();
-    expect(q('[data-auth-confirm="failed"]')).not.toBeNull();
+    expect(q('[data-auth-confirm="invalid"]')).not.toBeNull();
+    expect(container.textContent).toContain(strings.en.authConfirmInvalidTitle);
+    expect(container.textContent).not.toContain(strings.en.authConfirmFailedTitle);
     flushSync(() => q('[data-auth-confirm] button')!.click());
     await vi.waitFor(() => expect(where).toBe('/login'));
   });
@@ -187,8 +190,47 @@ describe('2. /auth/confirm spends the token once and lands in the right place', 
       mount(`/auth/confirm?token_hash=${HASH}&type=email`, lang);
       await vi.waitFor(() => expect(q('[data-auth-confirm="network"]')).not.toBeNull());
       expect(container.textContent).toContain(s.authNetworkError);
+      // A connection failure says so in the title; it never calls the link dead.
+      expect(container.textContent).toContain(s.authConfirmNetworkTitle);
+      expect(container.textContent).not.toContain(s.authConfirmFailedTitle);
     });
   }
+
+  it('a 5xx answer reads network, titled as a check that did not happen, not as a dead link', async () => {
+    h.verifyOtp.mockResolvedValue({ data: {}, error: { status: 503, message: 'Service Unavailable' } });
+    mount(`/auth/confirm?token_hash=${HASH}&type=email`);
+    await vi.waitFor(() => expect(q('[data-auth-confirm="network"]')).not.toBeNull());
+    expect(container.textContent).toContain(strings.en.authConfirmNetworkTitle);
+    expect(container.textContent).not.toContain(strings.en.authConfirmFailedTitle);
+    expect(h.verifyOtp).toHaveBeenCalledTimes(1);
+  });
+
+  it('no answer within the limit reads timeout, titled as such', async () => {
+    vi.useFakeTimers();
+    try {
+      h.verifyOtp.mockReturnValue(new Promise(() => {}));
+      mount(`/auth/confirm?token_hash=${HASH}&type=email`);
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS + 1);
+      expect(q('[data-auth-confirm="timeout"]')).not.toBeNull();
+      expect(container.textContent).toContain(strings.en.authConfirmTimeoutTitle);
+      expect(container.textContent).toContain(strings.en.requestTimedOut);
+      expect(container.textContent).not.toContain(strings.en.authConfirmFailedTitle);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('every failure state has a title of its own, in all three catalogs', () => {
+    const keys = ['authConfirmInvalidTitle', 'authConfirmFailedTitle', 'authConfirmNetworkTitle', 'authConfirmTimeoutTitle'] as const;
+    for (const lang of LANGS) {
+      expect(new Set(keys.map((k) => strings[lang][k])).size).toBe(keys.length);
+    }
+    for (const key of [...keys, 'authConfirmInvalidBody'] as const) {
+      expect(strings.ar[key]).toMatch(/[؀-ۿ]/);
+      expect(strings.ar[key]).not.toMatch(/[A-Za-z]/);
+      expect(strings.fr[key]).not.toBe(strings.en[key]);
+    }
+  });
 
   it('the four new strings exist in all three catalogs, and the Arabic ones are Arabic', () => {
     for (const key of ['authConfirmWorkingTitle', 'authConfirmWorkingBody', 'authConfirmFailedTitle', 'authConfirmFailedBody'] as const) {

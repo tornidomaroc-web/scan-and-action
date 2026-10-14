@@ -7,6 +7,7 @@ import { readAuthLinkParams } from '../lib/authLinks';
 import { isRequestTimeout, REQUEST_TIMEOUT_MS, withTimeout } from '../lib/fetchWithTimeout';
 import { AuthFrame } from '../components/auth/AuthFrame';
 import { IconTile } from '../components/ui/IconTile';
+import { panelClass } from '../components/ui/Panel';
 
 // ============================================================================
 // Where an email's confirmation or password-reset link lands, on the web and,
@@ -24,17 +25,20 @@ import { IconTile } from '../components/ui/IconTile';
 // would replace a success with "this link no longer works".
 //
 // Errors: a 4xx from Supabase means the link is spent or expired; no status
-// means the request never got an answer, which is said as such.
+// means the request never got an answer, which is said as such. A link with a
+// part missing (or an unknown type) never reaches Supabase and is `invalid`.
+// Each failure has its own title: "This link no longer works" is true only of
+// the 4xx; over a connection failure it told the person a good link was dead.
 // ============================================================================
 
-type State = 'working' | 'failed' | 'network' | 'timeout' | 'confirmed';
+type State = 'working' | 'invalid' | 'failed' | 'network' | 'timeout' | 'confirmed';
 
 export const AuthConfirmScreen: React.FC = () => {
   const s = useStrings();
   const navigate = useNavigate();
   const [search] = useSearchParams();
   const params = readAuthLinkParams(search);
-  const [state, setState] = useState<State>(params ? 'working' : 'failed');
+  const [state, setState] = useState<State>(params ? 'working' : 'invalid');
   const started = useRef(false);
 
   useEffect(() => {
@@ -67,7 +71,7 @@ export const AuthConfirmScreen: React.FC = () => {
   if (state === 'working') {
     return (
       <AuthFrame title={s.authConfirmWorkingTitle}>
-        <div data-auth-confirm="working" role="status" className="rounded-panel bg-surface-raised p-5 ring-1 ring-line">
+        <div data-auth-confirm="working" role="status" className={`p-5 ${panelClass}`}>
           <IconTile icon={MailCheck} tone="success" size="lg" />
           <p className="mt-4 text-start text-sm leading-relaxed text-ink-secondary">{s.authConfirmWorkingBody}</p>
         </div>
@@ -75,10 +79,15 @@ export const AuthConfirmScreen: React.FC = () => {
     );
   }
 
-  const body = state === 'timeout' ? s.requestTimedOut : state === 'network' ? s.authNetworkError : s.authConfirmFailedBody;
+  const { title, body } = {
+    invalid: { title: s.authConfirmInvalidTitle, body: s.authConfirmInvalidBody },
+    failed: { title: s.authConfirmFailedTitle, body: s.authConfirmFailedBody },
+    network: { title: s.authConfirmNetworkTitle, body: s.authNetworkError },
+    timeout: { title: s.authConfirmTimeoutTitle, body: s.requestTimedOut },
+  }[state];
   return (
-    <AuthFrame title={s.authConfirmFailedTitle}>
-      <div data-auth-confirm={state} role="alert" className="rounded-panel bg-surface-raised p-5 ring-1 ring-line">
+    <AuthFrame title={title}>
+      <div data-auth-confirm={state} role="alert" className={`p-5 ${panelClass}`}>
         <IconTile icon={MailX} tone="danger" size="lg" />
         <p className="mt-4 text-start text-sm leading-relaxed text-ink-secondary">{body}</p>
         <button

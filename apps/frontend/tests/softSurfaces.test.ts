@@ -184,3 +184,117 @@ describe('PR 4: Queue, Search and Activity use the soft classes', () => {
     expect(lines[0]).toBe('Your 100 most recent documents, newest first.');
   });
 });
+
+// ============================================================================
+// Restyle PR 5 (sign-in, Settings and the sheets, 2026-10-14). The paywall,
+// the processing tray and the Pro welcome carried raw slate / blue / emerald
+// classes that no token reached; they are on tokens now. Primary buttons and
+// the paywall's prices take the strong-contrast rule the review states have.
+// Settings' Delete account button put white on the danger fill at 4.08:1 in
+// light, held below as the control.
+// ============================================================================
+
+const composite = (rgba: string, under: string) => {
+  const [r, g, b, a] = rgba.match(/[\d.]+/g)!.map(Number);
+  const h = under.replace('#', '');
+  const base = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+  return '#' + [r, g, b].map((v, i) => Math.round(v * a + base[i] * (1 - a)).toString(16).padStart(2, '0')).join('');
+};
+// A token as a colour on the raised card: translucent tints (dark mode) are
+// composited over the card they sit on.
+const onCard = (t: Record<string, string>, v: string) => (t[v].startsWith('rgba') ? composite(t[v], t['--sa-surface-raised']) : t[v]);
+
+describe('PR 5: the pairs on sign-in, Settings and the sheets', () => {
+  for (const [name, t] of Object.entries(THEMES)) {
+    it.each([
+      ['primary button label on the accent', '--sa-on-accent', '--sa-accent'],
+      ['paywall price (ink) on the chosen plan tint', '--sa-ink', '--sa-accent-tint'],
+      ['paywall price (ink) on an idle plan card', '--sa-ink', '--sa-surface-raised'],
+      ['paywall period and plan label (secondary) on the chosen tint', '--sa-ink-secondary', '--sa-accent-tint'],
+      ['paywall yearly label (success text) on the chosen tint', '--sa-success-text', '--sa-accent-tint'],
+      ['paywall save badge (card colour) on the success text fill', '--sa-surface-raised', '--sa-success-text'],
+      ['paywall feature (ink) in an inset row', '--sa-ink', '--sa-surface-alt'],
+      ['paywall feature tick (accent text) on the accent tint', '--sa-accent-text', '--sa-accent-tint'],
+      ['sheet body and tray hint (secondary) on the sheet', '--sa-ink-secondary', '--sa-surface-raised'],
+      ['tray chip and clear button (ink) on the muted pill', '--sa-ink', '--sa-surface-muted'],
+      ['Settings delete (danger text) on the danger tint', '--sa-danger-text', '--sa-danger-tint'],
+      ['Settings subtitle (secondary) on the page', '--sa-ink-secondary', '--sa-surface'],
+      ['file meta (secondary) in the capture inset', '--sa-ink-secondary', '--sa-surface-alt'],
+      ['language switcher, unchosen (secondary) on its track', '--sa-ink-secondary', '--sa-surface-muted'],
+    ])(`${name}: %s clears 4.5:1`, (_label, fg, bg) => {
+      expect(ratio(onCard(t, fg), onCard(t, bg))).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+
+  it('the sign-in screens are dark in both themes; their own pairs, on the dark page', () => {
+    const t = THEMES.dark;
+    expect(ratio(t['--sa-surface'], t['--sa-ink'])).toBeGreaterThanOrEqual(4.5); // the active segment
+    expect(ratio(t['--sa-ink-secondary'], t['--sa-surface-alt'])).toBeGreaterThanOrEqual(4.5); // the idle segment in the track
+    expect(ratio(t['--sa-ink-muted'], t['--sa-surface'])).toBeGreaterThanOrEqual(4.5); // the legal line
+  });
+
+  it('control: white on the danger fill fails in light, as Settings shipped it', () => {
+    expect(ratio('#FFFFFF', THEMES.light['--sa-danger'])).toBeLessThan(4.5);
+  });
+
+  it("control: muted on the switcher's track fails in light, as main shipped it", () => {
+    expect(ratio(THEMES.light['--sa-ink-muted'], THEMES.light['--sa-surface-muted'])).toBeLessThan(4.5);
+    expect(F('src/components/LanguageSwitcher.tsx')).toContain(": 'text-ink-secondary hover:text-ink'");
+    expect(F('src/components/LanguageSwitcher.tsx')).not.toContain('text-ink-muted');
+  });
+});
+
+describe('PR 5: the classes that carry it', () => {
+  const RAW = /\b(?:bg|text|border|ring|shadow|fill|from|to)-(?:slate|gray|blue|indigo|emerald|red|rose|amber|white)(?:-\d{2,3})?\b/;
+  const code = (rel: string) => F(rel).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  it.each(['src/components/PaywallModal.tsx', 'src/components/ProcessingTray.tsx', 'src/components/ProWelcome.tsx'])(
+    '%s carries no raw palette class and no magic z-index',
+    (rel) => {
+      expect(code(rel)).not.toMatch(RAW);
+      expect(code(rel)).not.toMatch(/z-\[\d+\]/);
+      expect(code(rel)).not.toMatch(/font-black|italic/);
+    },
+  );
+
+  it('the control: the scan catches the classes these files carried on main', () => {
+    expect('bg-slate-900 dark:bg-slate-800 text-white').toMatch(RAW);
+    expect('bg-emerald-500').toMatch(RAW);
+  });
+
+  it('every sheet and dialog is the lifted card: highest shadow, hairline ring', () => {
+    const panel = F('src/components/ui/Panel.tsx');
+    expect(panel).toContain("export const sheetClass = 'bg-surface-raised shadow-lg ring-1 ring-line';");
+    for (const rel of ['src/components/PaywallModal.tsx', 'src/components/ProcessingTray.tsx', 'src/components/ProWelcome.tsx']) {
+      expect(F(rel)).toContain('${sheetClass}');
+    }
+    for (const rel of ['src/components/CaptureSheet.tsx', 'src/components/DeleteAccountModal.tsx', 'src/components/UploadModal.tsx']) {
+      expect(F(rel)).toMatch(/bg-surface-raised rounded-(?:t-)?panel[^"]*shadow-lg ring-1 ring-line/);
+    }
+  });
+
+  it("the paywall's prices are ink, never faded, and its action is the primary button", () => {
+    const pw = F('src/components/PaywallModal.tsx');
+    expect(pw).toContain("const planPrice = 'text-2xl font-bold tracking-tight text-ink';");
+    expect(pw).not.toContain('opacity-50');
+    expect(pw.match(/primaryButtonClass/g)!.length).toBeGreaterThanOrEqual(3); // import, native, web
+  });
+
+  it('uppercase labels drop their letter-spacing in Arabic', () => {
+    const pw = F('src/components/PaywallModal.tsx');
+    for (const m of pw.match(/'[^']*uppercase[^']*'|"[^"]*uppercase[^"]*"/g)!) expect(m).toContain('rtl:tracking-normal');
+  });
+
+  it("Settings' delete button is the quiet danger idiom; its subtitle is not muted", () => {
+    const st = F('src/screens/SettingsScreen.tsx');
+    expect(st).toContain('bg-danger-tint text-sm font-bold text-danger-text shadow-card');
+    expect(st).not.toMatch(/bg-danger\b(?!-)/);
+    expect(st).toContain('text-ink-secondary">{s.manageAccount}');
+  });
+
+  it('the sign-in cards are the ordinary card, shadow included', () => {
+    expect(F('src/screens/AuthScreen.tsx')).toContain('data-auth-check-inbox className={`p-5 ${panelClass}`}');
+    expect(F('src/screens/AuthConfirmScreen.tsx').match(/\$\{panelClass\}/g)).toHaveLength(2);
+    expect(F('src/screens/ResetPasswordScreen.tsx')).toContain('data-reset-done className={`p-5 ${panelClass}`}');
+  });
+});

@@ -243,7 +243,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[560px] bg-surface-raised rounded-card shadow-lg overflow-hidden animate-in zoom-in-95 duration-200 border border-line"
+        className="w-full max-w-[560px] bg-surface-raised rounded-panel shadow-lg ring-1 ring-line overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-8 py-6 border-b border-line flex items-center justify-between">

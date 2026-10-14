@@ -10,6 +10,7 @@ import { TextField } from '../components/ui/TextField';
 import { PrimaryButton } from '../components/ui/PrimaryButton';
 import { Notice } from '../components/ui/Notice';
 import { IconTile } from '../components/ui/IconTile';
+import { panelClass } from '../components/ui/Panel';
 
 /**
  * The password-recovery screen.
@@ -76,7 +77,7 @@ export const ResetPasswordScreen: React.FC = () => {
   if (done) {
     return (
       <AuthFrame title={s.resetPasswordSuccessTitle}>
-        <div data-reset-done className="rounded-panel bg-surface-raised p-5 ring-1 ring-line">
+        <div data-reset-done className={`p-5 ${panelClass}`}>
           <IconTile icon={CheckCircle2} tone="success" size="lg" />
           {/* text-balance evens the two lines out. TYPOGRAPHY ONLY: the catalog
               string is byte-identical in all three locales and must stay so
