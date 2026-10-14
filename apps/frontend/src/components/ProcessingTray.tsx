@@ -7,17 +7,18 @@ import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { formatCount } from '../lib/formatNumber';
 import { useBackDismiss } from '../native/useBackDismiss';
+import { sheetClass } from './ui/Panel';
 
 const statusIcon = (job: ProcessingJob) => {
   switch (job.status) {
     case 'PROCESSING':
-      return <Loader2 size={18} className="animate-spin text-blue-500" />;
+      return <Loader2 size={18} className="animate-spin text-accent" />;
     case 'COMPLETED':
-      return <CheckCircle size={18} className="text-emerald-500" />;
+      return <CheckCircle size={18} className="text-success" />;
     case 'NEEDS_REVIEW':
-      return <AlertCircle size={18} className="text-amber-500" />;
+      return <AlertCircle size={18} className="text-warning" />;
     default:
-      return <AlertCircle size={18} className="text-red-500" />;
+      return <AlertCircle size={18} className="text-danger" />;
   }
 };
 
@@ -61,34 +62,34 @@ export const ProcessingTray: React.FC = () => {
         onClick={() => setOpen(true)}
         data-testid="processing-chip"
         data-processing-outcome={processingCount > 0 ? 'processing' : outcome}
-        className="fixed bottom-24 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:bottom-8 md:translate-x-0 z-[70] min-h-[44px] flex items-center gap-2 px-5 py-2.5 rounded-full bg-slate-900 dark:bg-slate-800 text-white text-xs font-black uppercase tracking-wider shadow-2xl shadow-slate-900/30 border border-slate-700 transition-all active:scale-95"
+        className="fixed bottom-24 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:bottom-8 md:translate-x-0 z-tray min-h-[44px] flex items-center gap-2 px-5 py-2.5 rounded-pill bg-surface-raised text-ink text-sm font-semibold shadow-raised ring-1 ring-line transition-all active:scale-95 active:shadow-pressed motion-reduce:transition-none"
       >
         {processingCount > 0 ? (
-          <Loader2 size={16} className="animate-spin text-blue-400" />
+          <Loader2 size={16} className="animate-spin text-accent" aria-hidden="true" />
         ) : outcome === 'failed' ? (
-          <AlertCircle size={16} className="text-red-400" />
+          <AlertCircle size={16} className="text-danger" aria-hidden="true" />
         ) : outcome === 'review' ? (
-          <AlertCircle size={16} className="text-amber-400" />
+          <AlertCircle size={16} className="text-warning" aria-hidden="true" />
         ) : (
-          <CheckCircle size={16} className="text-emerald-400" />
+          <CheckCircle size={16} className="text-success" aria-hidden="true" />
         )}
         {chipLabel}
       </button>
 
       {open &&
         createPortal(
-          <div className="fixed inset-0 z-[9000] bg-slate-900/60 backdrop-blur-sm flex items-end md:items-center md:justify-center" onClick={() => setOpen(false)}>
+          <div className="fixed inset-0 z-tray-panel bg-overlay backdrop-blur-sm flex items-end md:items-center md:justify-center" onClick={() => setOpen(false)}>
             <div
-              className="w-full md:max-w-md bg-white dark:bg-slate-900 rounded-t-3xl md:rounded-3xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t md:border border-slate-200 dark:border-slate-700 animate-in slide-in-from-bottom duration-300"
+              className={`w-full md:max-w-md ${sheetClass} rounded-t-panel md:rounded-panel p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-300`}
               onClick={(e) => e.stopPropagation()}
               data-testid="processing-tray"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">{s.processingTitle}</h3>
+                <h3 className="text-section font-semibold text-ink">{s.processingTitle}</h3>
                 <button
                   onClick={() => setOpen(false)}
                   aria-label="Close"
-                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-xl transition-colors"
+                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-ink-muted hover:text-ink rounded-pill transition-colors"
                 >
                   <X size={20} />
                 </button>
@@ -109,30 +110,30 @@ export const ProcessingTray: React.FC = () => {
                             }
                           : undefined
                       }
-                      className={`p-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 ${
-                        openable ? 'cursor-pointer hover:border-blue-400' : ''
+                      className={`p-3 rounded-card bg-surface-raised shadow-card ring-1 ring-line ${
+                        openable ? 'cursor-pointer hover:ring-accent' : ''
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 flex-shrink-0 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center">
-                          <FileText size={16} className="text-slate-400" />
+                        <div className="w-9 h-9 flex-shrink-0 rounded-tile bg-surface-muted flex items-center justify-center">
+                          <FileText size={16} className="text-ink-secondary" aria-hidden="true" />
                         </div>
                         {/* dir="auto" ON the truncating box (no isolate child): without
                             it the box inherits the document direction, so in Arabic a
                             Latin filename truncates from its LEADING (identifying) end
                             and the user cannot tell which document is processing. */}
-                        <p dir="auto" className="flex-1 min-w-0 text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{job.fileName}</p>
+                        <p dir="auto" className="flex-1 min-w-0 text-sm font-semibold text-ink truncate">{job.fileName}</p>
                         {statusIcon(job)}
                         {/* Reading-direction icon: `rtl:-scale-x-100`, the same idiom
                             every other chevron in the app carries. It sits in the
                             SAME row as the dir="auto" filename above and was missed
                             when that attribute landed (#142). */}
-                        {openable && <ChevronRight size={16} className="text-slate-300 flex-shrink-0 rtl:-scale-x-100" />}
+                        {openable && <ChevronRight size={16} className="text-ink-muted flex-shrink-0 rtl:-scale-x-100" aria-hidden="true" />}
                       </div>
                       {job.status === 'PROCESSING' && (
                         <div
                           data-testid="job-progress"
-                          className="progress-indeterminate h-1 mt-2.5 rounded-full bg-slate-200 dark:bg-slate-700"
+                          className="progress-indeterminate h-1 mt-2.5 rounded-pill bg-surface-muted"
                         />
                       )}
                     </div>
@@ -141,7 +142,7 @@ export const ProcessingTray: React.FC = () => {
               </div>
 
               {processingCount > 0 && (
-                <p className="mt-4 text-xs font-bold text-slate-400 dark:text-slate-500 text-center leading-relaxed">
+                <p className="mt-4 text-xs font-medium text-ink-secondary text-center leading-relaxed">
                   {s.processingHint}
                 </p>
               )}
@@ -152,7 +153,7 @@ export const ProcessingTray: React.FC = () => {
                     clearSettled();
                     if (processingCount === 0) setOpen(false);
                   }}
-                  className="w-full mt-4 min-h-[44px] rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-black uppercase tracking-wider hover:border-slate-400 transition-colors"
+                  className="w-full mt-4 min-h-[44px] rounded-pill bg-surface-muted text-ink text-sm font-semibold transition-colors hover:bg-surface-alt active:scale-[0.99]"
                 >
                   {s.clearDone}
                 </button>

@@ -63,7 +63,7 @@ export const SettingsScreen = () => {
     <div className="mx-auto w-full max-w-xl pb-6 animate-in fade-in duration-500">
       <header className="mb-6">
         <h1 className="text-title-lg font-semibold tracking-tight text-ink">{s.workspaceSettings}</h1>
-        <p className="mt-1 text-sm text-ink-muted">{s.manageAccount}</p>
+        <p className="mt-1 text-sm text-ink-secondary">{s.manageAccount}</p>
       </header>
 
       <div className="space-y-4">
@@ -219,10 +219,13 @@ export const SettingsScreen = () => {
             {s.dangerZone}
           </h3>
           <p className="mt-3 text-sm leading-relaxed text-ink-secondary">{s.deleteAccountDesc}</p>
+          {/* The quiet danger idiom Detail's Reject wears: the tint, its text
+              and the card shadow. The solid fill this replaced put white on
+              #E4404E at 4.08:1 in light (softSurfaces.test.ts). */}
           <button
             type="button"
             onClick={() => setIsDeleteOpen(true)}
-            className="mt-4 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-pill bg-danger text-sm font-bold text-surface-raised transition-colors active:scale-[0.99]"
+            className="mt-4 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-pill bg-danger-tint text-sm font-bold text-danger-text shadow-card ring-1 ring-danger transition-colors active:scale-[0.99] active:shadow-pressed"
           >
             <Trash2 size={18} aria-hidden="true" />
             {s.deleteAccount}
