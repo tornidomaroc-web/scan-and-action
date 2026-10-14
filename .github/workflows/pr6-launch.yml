@@ -56,8 +56,13 @@ jobs:
             xcrun simctl ui "$udid" appearance "$theme"
             xcrun simctl uninstall "$udid" com.scanaction.app >/dev/null 2>&1 || true
             xcrun simctl install "$udid" "$app"
+            # Record from before the launch: a screenshot call is too slow to catch
+            # the launch storyboard, a video is not.
+            xcrun simctl io "$udid" recordVideo --codec h264 --force "$out/launch-$theme.mp4" & rec=$!
+            sleep 2
             xcrun simctl launch "$udid" com.scanaction.app >/dev/null
-            for t in 1 2 3 4 5 6 7 8 9 10; do xcrun simctl io "$udid" screenshot "$out/launch-$theme-$t.png" >/dev/null 2>&1; done
+            sleep 4; kill -INT $rec; wait $rec || true
+            ffmpeg -loglevel error -i "$out/launch-$theme.mp4" -vf "fps=10" "$out/launch-$theme-%02d.png" || echo "ffmpeg failed"
           done
           ls -la "$out"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
