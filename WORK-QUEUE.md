@@ -1396,7 +1396,13 @@ restyled.** Do not start at login, although a reviewer sees it first:
        private page. The owner judges the design from that page; he looks on
        his iPhone only when he chooses (rule 5), never as a step a report
        asks of him.
-    4. **Queue, Search, Activity: OPEN as #319, not merged** (2026-10-13).
+    4. **Queue, Search, Activity: MERGED 2026-10-14 as #319 (`9e1c48ac`),
+       TestFlight build 31** (run 38578719203: "ARCHIVE SUCCEEDED",
+       "Uploaded build 31 … for commit 9e1c48ac…"; `gh run view 38578719203
+       --log`). Squash-merged pinned to head `6590893…`. Served at merge:
+       the bundle at www.scan-action.com embeds `9e1c48ac` (Vercel production
+       deployment `dpl_CH3XSqqPeQcbgxSroos47UV6SJfk`, READY), and the
+       backend's `/api/version` reported `9e1c48ac`.
        Search's headings become eyebrows and its month totals sit on the
        raised totals card; Queue's Approve and Reject take the card shadow;
        Activity's status drops under the file name at a large text size.
@@ -1413,8 +1419,19 @@ restyled.** Do not start at login, although a reviewer sees it first:
          on its own line (changes the default layout) or step the figures
          down at the largest size (smaller amounts). It belongs to the Home
          redraw, which waits on the owner's reasons ("Home last" above).
-    5. Sign-in, Settings, the sheets (the paywall and processing tray carry
-       raw `slate-*` classes no token reaches; by hand).
+    5. **Sign-in, Settings, the sheets: OPEN as #321, not merged**
+       (2026-10-14). The paywall, the processing tray and the Pro welcome
+       move from raw `slate-*` / `blue-*` / `emerald-*` classes onto tokens,
+       as lifted sheets (`sheetClass`); the capture, upload and
+       delete-account sheets take the same surface. The paywall's words,
+       links and Paddle wiring are unchanged (Apple 3.1.3(f) as today). The
+       confirm screen's title now names the cause (invalid link, refused
+       link, no answer, timeout) in en, fr and ar; before, every failure
+       read "This link no longer works", a connection failure included. Two
+       contrast failures found on main by the every-node audit, fixed:
+       Settings' Delete account button (white on the danger fill, 4.08:1)
+       and the language switcher's unchosen languages (muted on its track,
+       3.97:1). Merging starts a TestFlight run (`apps/frontend/**`).
     6. Landing and the legal pages (51 raw palette classes; last).
     - **What the proposal got wrong, corrected 2026-10-12 from git:** it said
       the "inferred-total flag" did not exist. It does: #279 (`b1f78c16`,
