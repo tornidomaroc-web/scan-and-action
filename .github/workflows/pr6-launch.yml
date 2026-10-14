@@ -1,0 +1,68 @@
+name: Restyle PR 6 launch screen witness (throwaway branch, never merged)
+
+# Lives only on the proof branch. The app's own launch storyboard and splash
+# assets, built for the simulator unsigned, with a blank web page that never
+# calls SplashScreen.hide(): the launch storyboard, then the Capacitor splash
+# (the same "Splash" image, held for launchShowDuration, 1.5 s) stay on
+# screen long enough to be shot. Fresh install each time, light and dark.
+
+on:
+  push:
+    branches: [design/pr6-proof]
+    paths: ['.github/workflows/pr6-launch.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  launch:
+    runs-on: macos-26
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+      - run: npm ci
+      - name: A blank page that never hides the splash
+        run: |
+          mkdir -p dist
+          printf '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><body style="margin:0;background:#0F1014"></body>' > dist/index.html
+      - name: Sync and build for the simulator (unsigned)
+        run: |
+          set -eu -o pipefail
+          npx cap sync ios
+          xcodebuild -resolvePackageDependencies -project ios/App/App.xcodeproj -scheme App -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" -onlyUsePackageVersionsFromResolvedFile | tail -n 3
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | grep -E '^\*\*|: error:' || true
+      - name: Shoot the launch
+        run: |
+          set -u
+          app=$(find "$RUNNER_TEMP/dd/Build/Products" -maxdepth 2 -name App.app -type d | head -n 1)
+          out="$RUNNER_TEMP/shots"; mkdir -p "$out"
+          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; c=[(r,x["udid"],x["name"]) for r,v in d.items() if "iOS" in r for x in v if x["name"] in ("iPhone 17","iPhone 16","iPhone 17 Pro","iPhone 16 Pro")]; c.sort(); print(c[-1][1])')
+          echo "simulator: $(xcrun simctl list devices available | grep "$udid")"
+          xcrun simctl boot "$udid"; xcrun simctl bootstatus "$udid" -b | tail -n 1
+          xcrun simctl status_bar "$udid" override --time 9:41 --batteryLevel 100 --cellularBars 4 || true
+          for theme in light dark; do
+            xcrun simctl ui "$udid" appearance "$theme"
+            xcrun simctl uninstall "$udid" com.scanaction.app >/dev/null 2>&1 || true
+            xcrun simctl install "$udid" "$app"
+            xcrun simctl launch "$udid" com.scanaction.app >/dev/null
+            for t in 1 2 3 4 5 6; do xcrun simctl io "$udid" screenshot "$out/launch-$theme-$t.png" >/dev/null 2>&1; done
+          done
+          ls -la "$out"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: pr6-launch-${{ github.sha }}
+          path: ${{ runner.temp }}/shots
+          retention-days: 14
