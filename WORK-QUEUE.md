@@ -1419,8 +1419,14 @@ restyled.** Do not start at login, although a reviewer sees it first:
          on its own line (changes the default layout) or step the figures
          down at the largest size (smaller amounts). It belongs to the Home
          redraw, which waits on the owner's reasons ("Home last" above).
-    5. **Sign-in, Settings, the sheets: OPEN as #321, not merged**
-       (2026-10-14). The paywall, the processing tray and the Pro welcome
+    5. **Sign-in, Settings, the sheets: MERGED 2026-10-14 as #321
+       (`039328ac`), TestFlight build 32** (run 38612554505: "ARCHIVE
+       SUCCEEDED", "Uploaded build 32 … for commit 039328ac…"; `gh run view
+       38612554505 --log`). Squash-merged pinned to head `f026afae…`. Served
+       at merge: Vercel production deployment
+       `dpl_7qqLVMamADChPeinzKZfpnGoyt72` READY with www.scan-action.com,
+       its bundle embedding `039328ac`; the backend's `/api/version`
+       reported `039328ac`. As opened (2026-10-14): The paywall, the processing tray and the Pro welcome
        move from raw `slate-*` / `blue-*` / `emerald-*` classes onto tokens,
        as lifted sheets (`sheetClass`); the capture, upload and
        delete-account sheets take the same surface. The paywall's words,
@@ -1432,7 +1438,29 @@ restyled.** Do not start at login, although a reviewer sees it first:
        Settings' Delete account button (white on the danger fill, 4.08:1)
        and the language switcher's unchosen languages (muted on its track,
        3.97:1). Merging starts a TestFlight run (`apps/frontend/**`).
-    6. Landing and the legal pages (51 raw palette classes; last).
+    6. **Landing and the legal pages: OPEN as #323, not merged**
+       (2026-10-14). Styling only: the legal pages' rendered text is
+       byte-identical to main in 80 of 80 frames, and as served by the
+       preview against production. Fixed on main: 8 failing contrast pairs,
+       the landing scrolling sideways at phone width, the hero's lines
+       overlapping, and a header pill with no background
+       (`bg-surface-raised/95` emits no CSS). Merging starts a TestFlight run.
+       - **Decided in #323: two separate PRs follow.** (1) The launch screen
+         and splash, native: on Android 12+ the system splash shows the
+         launcher icon on the system's default background, never `#0F1014`
+         nor `splash.png` (`styles.xml` sets only `android:background`;
+         API 36 emulator); the iOS launch screen was not witnessed (run
+         38646101154 hung recording, cancelled), and `scaleAspectFill` on
+         the 2732 square image predicts the mark at about 96% of a phone's
+         width. (2) Increase Contrast and Reduce Transparency, web only:
+         the WKWebView reports `prefers-contrast: more` when Increase
+         Contrast is on (run 38636861009); the only rule today swaps
+         shadows for a ring.
+       - **Flagged, not changed:** the landing's "the price on this page is
+         the price at checkout" (a static $9 / $59 against a localized,
+         tax-aware Paddle total; ask Paddle whether those price ids are
+         tax-inclusive in USD), and no `robots.txt` or `sitemap.xml` (both
+         answer 200 with the app's HTML).
     - **What the proposal got wrong, corrected 2026-10-12 from git:** it said
       the "inferred-total flag" did not exist. It does: #279 (`b1f78c16`,
       2026-10-04) added `totalProvenance.ts` (confidence 0.6, sourceSpan
