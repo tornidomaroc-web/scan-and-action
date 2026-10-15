@@ -54,6 +54,8 @@ on:
       - 'apps/frontend/src/native/NativeAuthLinks.tsx'
       - 'apps/frontend/src/lib/authLinks.ts'
       - 'apps/frontend/src/screens/AuthConfirmScreen.tsx'
+      # The launch screen geometry job: its probe.
+      - '.github/launch-probe/**'
   workflow_dispatch:
 
 permissions:
@@ -388,6 +390,32 @@ jobs:
   # The committed entitlement is held twice: statically (the last step), and
   # dynamically, because the test entitlements are DERIVED from
   # App.entitlements, so an entry removed there is removed from the test.
+  # THE LAUNCH SCREEN GEOMETRY (2026-10-15). The launch screen is the first
+  # thing every user sees, and a simulator screenshot cannot catch it: it is
+  # gone before the first frame arrives (#323, runs 38636861009 and
+  # 38646101154). .github/launch-probe builds a small app around THIS commit's
+  # LaunchScreen.storyboard and asset catalog (ibtool, actool), shows it at the
+  # simulator's real screen size on the narrowest and the widest iPhone the
+  # runner has, light and dark, and reads it back: the mark must span 38% to
+  # 46% of the screen width (the approved 42%) on the #0F1014 background. On
+  # main before #325 the storyboard drew the square splash with
+  # scaleAspectFill, which scales it to the screen's HEIGHT: the mark spanned
+  # about 96% of the width. No signing, no secrets, no network.
+  launch-geometry:
+    name: iOS — launch screen geometry (no signing, no secrets)
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Render and measure the launch screen
+        run: bash .github/launch-probe/probe.sh apps/frontend "$RUNNER_TEMP/launch"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: launch-geometry-${{ github.sha }}
+          path: ${{ runner.temp }}/launch
+          retention-days: 14
+
   universal-link:
     name: iOS — a confirm link opens the app, offline (no Apple CDN, no production, no Supabase)
     runs-on: macos-26
