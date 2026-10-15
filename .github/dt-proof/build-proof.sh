@@ -27,7 +27,7 @@ grep -c 'sa-proof.js' "$out/index.html"
   printf '; r.media = (function () { var q = function (m) { var x = matchMedia(m); return { supported: x.media !== "not all", matches: x.matches }; }; return { contrastMore: q("(prefers-contrast: more)"), contrastAny: q("(prefers-contrast)"), reducedTransparency: q("(prefers-reduced-transparency: reduce)"), reducedTransparencyAny: q("(prefers-reduced-transparency)"), reducedMotion: q("(prefers-reduced-motion: reduce)") }; })()'
   printf '; r.contrast = '
   cat "$here/contrast.js"
-  printf '; fetch(c.report, { method: "POST", body: JSON.stringify(r) }).then(function () { setTimeout(window.saProofEnd, 3000); }); }, (window.SA_PROOF && window.SA_PROOF.reportDelay) || 6000); });\n'; } > "$out/sa-report.js"
+  printf '; fetch(c.report, { method: "POST", body: JSON.stringify(r) }); }, (window.SA_PROOF && window.SA_PROOF.reportDelay) || 6000); });\n'; } > "$out/sa-report.js"
 # The end of the page, and the end of any open sheet that scrolls inside itself.
 cat >> "$out/sa-report.js" <<'JS'
 window.saProofEnd = function () { window.scrollTo(0, document.documentElement.scrollHeight); [].slice.call(document.querySelectorAll('body *')).forEach(function (e) { var o = getComputedStyle(e).overflowY; if ((o === 'auto' || o === 'scroll') && e.scrollHeight > e.clientHeight + 4) e.scrollTop = e.scrollHeight; }); return 1; };
