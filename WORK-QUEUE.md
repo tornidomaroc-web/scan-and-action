@@ -1470,8 +1470,15 @@ restyled.** Do not start at login, although a reviewer sees it first:
          tax-aware Paddle total; ask Paddle whether those price ids are
          tax-inclusive in USD), and no `robots.txt` or `sitemap.xml` (both
          answer 200 with the app's HTML).
-       - **(1) The launch screen and splash: OPEN as #325, not merged**
-         (2026-10-15). iOS: the storyboard drew the square splash
+       - **(1) The launch screen and splash: MERGED 2026-10-15 as #325
+         (`0fedd179`), TestFlight build 34** (run 38659076709: "ARCHIVE
+         SUCCEEDED", "Uploaded build 34 … for commit 0fedd179…"; `gh run
+         view 38659076709 --log`). Squash-merged pinned to head
+         `a15b2518…`. Served at merge: Vercel production deployment
+         `dpl_3WG62mFArrDv92rAUDdzp4Gh7Ye9` READY with www.scan-action.com;
+         the backend's `/api/version` reported `0fedd179`. **DESIGN WORK
+         BEFORE SUBMISSION IS COMPLETE.** The Android half reaches users only
+         in the next Play release. As opened (2026-10-15): iOS: the storyboard drew the square splash
          aspect-fill, so the mark spanned 74.7% (iPhone SE) to 91.4%
          (iPhone 16 Pro Max) of the width; aspect-fit gives 42.1% on both.
          Measured by the new `ios-audit.yml` job "iOS — launch screen
@@ -2093,7 +2100,18 @@ restyled.** Do not start at login, although a reviewer sees it first:
       was closed by #248.
     - **What it becomes:** a search field, category chips and a month filter,
       with results as the same rows as Home.
-- [ ] **7. Store screenshots**, taken from the finished UI.
+- [ ] **7. Store screenshots**, taken from the finished UI. **IN PROGRESS
+  (2026-10-15).** What applies, read that day: App Store Connect's version
+  1.0 page asks for "iPhone with Dynamic Island (medium display)", 0 of 10
+  (1206 x 2622 or 1179 x 2556; Apple's screenshot specifications page lists
+  that class under "Required device sizes"). No iPad set: the project
+  builds for iPhone only (`TARGETED_DEVICE_FAMILY = 1` in
+  `project.pbxproj`, pinned by `iosPlatform.test.ts`). One listing
+  localization: English (U.S.), primary. iPhone Duo screenshots become
+  required from April 2027 for apps built with the iOS 27.1 SDK or later;
+  build 34 was built with Xcode 26.6 (17F113), so not now. The set is shot
+  from main's app on the simulator with fictional data; the review and the
+  upload are the owner's.
 
 ### Inputs, filed under the step that redraws them — not a checklist
 
