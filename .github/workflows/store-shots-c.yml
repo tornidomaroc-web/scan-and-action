@@ -1,0 +1,104 @@
+name: Store screenshots C (throwaway branch, never merged)
+
+# Lives only on the proof branch. Builds main's app for the iOS Simulator,
+# unsigned, with a web bundle whose network is replaced by FICTIONAL fixtures
+# (.github/dt-proof/sa-proof.js: invented merchants and amounts, no real user's
+# data), then shoots the App Store set at native pixel sizes: iPhone 17
+# (1206 x 2622, "iPhone with Dynamic Island (medium display)", the required
+# class) and the largest Pro Max the runner has (1320 x 2868). Light, English,
+# default text size, Apple's status bar. Arabic and dark on the iPhone 17 too,
+# for the owner to judge. Free on a public repository.
+
+on:
+  push:
+    branches: [proof/store-shots-c]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shots:
+    runs-on: macos-26
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+      - run: npm ci
+      - name: The store bundle (main's app code, fictional fixtures)
+        run: |
+          set -eu
+          echo "app code from $(git rev-parse HEAD~1) (the commit under the proof commit)"
+          git diff --stat HEAD~1 HEAD -- apps/frontend | tail -n 1
+          bash ../../.github/dt-proof/build-proof.sh "$PWD" "$RUNNER_TEMP/dist"
+          rm -rf dist && cp -R "$RUNNER_TEMP/dist" dist
+      - name: Sync and build for the simulator (unsigned)
+        run: |
+          set -eu -o pipefail
+          npx cap sync ios
+          xcodebuild -resolvePackageDependencies -project ios/App/App.xcodeproj -scheme App -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" -onlyUsePackageVersionsFromResolvedFile | tail -n 3
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | grep -E '^\*\*|: error:' || true
+          test -d "$(find "$RUNNER_TEMP/dd/Build/Products" -maxdepth 2 -name App.app -type d | head -n 1)"
+      - name: Shoot
+        run: |
+          set -u
+          app=$(find "$RUNNER_TEMP/dd/Build/Products" -maxdepth 2 -name App.app -type d | head -n 1)
+          out="$RUNNER_TEMP/shots"; mkdir -p "$out"
+          cfg="node ../../.github/dt-proof/cfg.mjs"
+          runtime=$(xcrun simctl list runtimes -j | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["runtimes"] if x["isAvailable"] and x["platform"]=="iOS"]; print(r[-1]["identifier"])')
+          pick() { xcrun simctl list devicetypes -j | python3 -c "import json,sys; n=[d['identifier'] for d in json.load(sys.stdin)['devicetypes'] if d['name'] in sys.argv[1:]]; print(n[0] if n else '')" "$@"; }
+          medium=$(pick "iPhone 17" "iPhone 16 Pro" "iPhone 17 Pro")
+          large=$(pick "iPhone 17 Pro Max" "iPhone 16 Pro Max")
+          echo "runtime $runtime medium $medium large $large"
+          python3 - "$out" <<'PY' &
+          import http.server, sys, os
+          out = sys.argv[1]
+          class H(http.server.BaseHTTPRequestHandler):
+              def do_POST(self):
+                  n = int(self.headers.get('content-length', 0)); body = self.rfile.read(n)
+                  open(os.path.join(out, self.path.strip('/') + '.json'), 'wb').write(body)
+                  self.send_response(200); self.send_header('Access-Control-Allow-Origin', '*'); self.end_headers()
+              def do_OPTIONS(self):
+                  self.send_response(204); self.send_header('Access-Control-Allow-Origin', '*'); self.send_header('Access-Control-Allow-Headers', '*'); self.end_headers()
+              def log_message(self, *a): pass
+          http.server.HTTPServer(('127.0.0.1', 8765), H).serve_forever()
+          PY
+          sleep 1
+          shoot() { # udid set theme lang name
+            udid=$1; set=$2; theme=$3; lang=$4; name=$5; f="$set-$name-$lang-$theme"
+            rm -rf "$app/public"; cp -R "$RUNNER_TEMP/dist" "$app/public"
+            $cfg "$name" "$lang" "$theme" "http://127.0.0.1:8765/$f" > "$app/public/sa-proof-config.js"
+            xcrun simctl terminate "$udid" com.scanaction.app >/dev/null 2>&1 || true
+            xcrun simctl install "$udid" "$app"
+            xcrun simctl ui "$udid" appearance "$theme"
+            xcrun simctl launch "$udid" com.scanaction.app >/dev/null
+            for i in $(seq 1 120); do [ -f "$out/$f.json" ] && break; sleep 0.25; done
+            sleep 1.2; xcrun simctl io "$udid" screenshot --type=png "$out/$f.png" >/dev/null 2>&1
+            echo "$f: $(head -c 180 "$out/$f.json" 2>/dev/null || echo MISSING)"
+          }
+          for set in medium large; do
+            type=${!set}; [ -n "$type" ] || { echo "no $set device type"; continue; }
+            udid=$(xcrun simctl create "store-$set" "$type" "$runtime")
+            xcrun simctl boot "$udid"; xcrun simctl bootstatus "$udid" -b >/dev/null
+            xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --operatorName "" --batteryState charged --batteryLevel 100
+            xcrun simctl ui "$udid" content_size large
+            for name in $($cfg list); do shoot "$udid" "$set" light en "$name"; done
+            echo "$set: $(xcrun simctl list devices | grep "$udid")"
+          done
+          ls "$out" | wc -l
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: store-shots-${{ github.sha }}
+          path: ${{ runner.temp }}/shots
+          retention-days: 30
