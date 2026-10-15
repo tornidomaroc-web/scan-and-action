@@ -1438,8 +1438,17 @@ restyled.** Do not start at login, although a reviewer sees it first:
        Settings' Delete account button (white on the danger fill, 4.08:1)
        and the language switcher's unchosen languages (muted on its track,
        3.97:1). Merging starts a TestFlight run (`apps/frontend/**`).
-    6. **Landing and the legal pages: OPEN as #323, not merged**
-       (2026-10-14). Styling only: the legal pages' rendered text is
+    6. **Landing and the legal pages: MERGED 2026-10-14 as #323
+       (`330b651f`), TestFlight build 33** (run 38651665618: "ARCHIVE
+       SUCCEEDED", "Uploaded build 33 … for commit 330b651f…"; `gh run view
+       38651665618 --log`). Squash-merged pinned to head `98f69ef9…`. Served
+       at merge: Vercel production deployment
+       `dpl_zi9BnHPbiCssKj2jeMAt1goZ5pUJ` READY with www.scan-action.com;
+       the backend's `/api/version` reported `330b651f`; the five legal
+       pages rendered from www had the same text, title and meta tags as the
+       previous production deployment (`039328ac`), and both `/.well-known/`
+       files were byte-identical. **THE RESTYLE IS COMPLETE: PRs 1 to 6 are
+       merged** (#309, #311, #315, #319, #321, #323). As opened: Styling only: the legal pages' rendered text is
        byte-identical to main in 80 of 80 frames, and as served by the
        preview against production. Fixed on main: 8 failing contrast pairs,
        the landing scrolling sideways at phone width, the hero's lines
@@ -1461,6 +1470,39 @@ restyled.** Do not start at login, although a reviewer sees it first:
          tax-aware Paddle total; ask Paddle whether those price ids are
          tax-inclusive in USD), and no `robots.txt` or `sitemap.xml` (both
          answer 200 with the app's HTML).
+       - **(1) The launch screen and splash: OPEN as #325, not merged**
+         (2026-10-15). iOS: the storyboard drew the square splash
+         aspect-fill, so the mark spanned 74.7% (iPhone SE) to 91.4%
+         (iPhone 16 Pro Max) of the width; aspect-fit gives 42.1% on both.
+         Measured by the new `ios-audit.yml` job "iOS — launch screen
+         geometry", which renders the storyboard on the simulator: red on
+         main's storyboard (run 38654879433, throwaway `proof/launch-red`),
+         green on #325 (run 38654825013). Android 12+: `values-v31` sets
+         #0F1014 and a flat mark, 32.4% of the width on the API 36 emulator
+         (the system masks the icon to a 192dp circle, so 42% is not
+         reachable there); Android 11 and earlier are pixel-identical before
+         and after (API 30 emulator). Merging starts a TestFlight run.
+       - **(2) Increase Contrast and Reduce Transparency: DEFERRED by the
+         owner on 2026-10-15 to after the App Store submission.** Every text
+         pair already passes the every-node contrast check at default
+         settings; this is an accessibility improvement, not a visible
+         defect. The evidence for the later PR stands: the WKWebView reports
+         `prefers-contrast: more` when Increase Contrast is on (run
+         38636861009), and the only rule today swaps shadows for a ring.
+       - **Open flags, each the owner's to decide:**
+         - The landing's "the price on this page is the price at checkout"
+           depends on Paddle's settings, which only the owner can see:
+           whether the $9 and $59 price ids are tax-inclusive and charged in
+           USD. Question for Paddle: are these price ids tax-inclusive, and
+           is local-currency pricing on for them?
+         - No `robots.txt` or `sitemap.xml`: both answer 200 with the app's
+           HTML page.
+         - **New (2026-10-15): the privacy policy in the Arabic interface is
+           in English except section 4,** which follows the reader's language
+           (`PrivacyPolicy.tsx`, `data-privacy-sign-in`). A mixed-language
+           page. It is legal text, so whether to translate it (and who
+           approves the translation) is decided separately, never in a
+           restyle.
     - **What the proposal got wrong, corrected 2026-10-12 from git:** it said
       the "inferred-total flag" did not exist. It does: #279 (`b1f78c16`,
       2026-10-04) added `totalProvenance.ts` (confidence 0.6, sourceSpan
