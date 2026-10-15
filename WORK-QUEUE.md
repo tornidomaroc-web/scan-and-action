@@ -744,6 +744,81 @@ revocation row removed 2026-09-30), the index; details under each item:**
 |---|---|---|
 | Trader status for the EU (VERIFIED 2026-10-12 12:39, the owner's reading) | the owner, App Store Connect | MET: at submission, ask App Store Connect again whether the trader status reads verified |
 
+**Submission preparation, read and set on 2026-10-15 (the PR recording this
+line is the push-delivery probe; see "The push event that was never
+processed" below).**
+
+- **Merges that day.** #327 (`4dd2bdcd`, the board) at 14:18:27Z: CI and
+  Password policy drift ran on push, Vercel production deployment
+  `dpl_a4pZG3TYxTytZxDZZfgiqUEdoxEz` READY for that commit, Railway status
+  `amiable-dream - scan-and-action` success, `/api/version` reported
+  `4dd2bdcd` (all read that day). #328 (`1449e6f8`, the plain screenshots,
+  `store/` only) at 16:37:18Z: see the next item.
+- **The push event that was never processed (#328, `1449e6f8`).** `main`
+  moved (`git ls-remote origin refs/heads/main`), but GitHub never processed
+  the push: `gh api repos/{owner}/{repo} --jq .pushed_at` stayed at
+  2026-10-15T16:31:47Z (the branch push before the merge), `commits/1449e6f8/
+  check-suites` reads `total_count` 0, `check-runs` 0, `status` 0 statuses,
+  no Vercel deployment for the commit (`GET /v6/deployments?projectId=
+  prj_EoI5sC5liuxOWe3nBMAKYviAnVUV`), `/api/version` still `4dd2bdcd`, 35
+  minutes on. No repository webhook exists (`hooks` reads 0), Actions is
+  enabled (`actions/permissions`), no incident on githubstatus.com for the
+  day. The merged tree was still verified: `1449e6f8`'s tree
+  `54e712991f85e0752f450f5daaf59e06b7ebee44` equals the tree of `acc9457f`,
+  the merge commit PR run 38769773748 checked out and passed. Production is
+  unaffected: the commit changed nothing under `apps/`. Diagnosis: a one-off,
+  not broken delivery, about 80%. **The probe:** the merge of the PR
+  recording this line (store files and this board, nothing under `apps/` or
+  `.github/`). Five readings on its merge commit: a `push` run of CI and of
+  Password policy drift; `pushed_at` equal to the merge time; a Vercel
+  production deployment READY for the commit, read from the Vercel API
+  filtered to the project; the Railway status success; `/api/version` on the
+  commit. **If any reading is missing, the submission-build PR does not
+  merge** and the case goes to GitHub support with both commits.
+- **App Store Connect, version 1.0 (Prepare for Submission), as set that
+  day by a session in the owner's signed-in browser.** App Accessibility:
+  Dark Interface declared for iPhone, saved as a draft (the console: "You can
+  publish your accessibility support for devices that have an app version
+  released on the App Store"); nothing else declared, by the owner's
+  decision (Larger Text: the text cap is about 1.35, Apple asks about 200%;
+  Sufficient Contrast: the audit measures text only; VoiceOver and Voice
+  Control untested). Proof for Dark Interface: run 38784782735
+  (`proof/dark-interface`), nine common tasks with no stored theme under the
+  system in Dark and in Light, plus the in-app Switch to dark mode, every
+  dark frame's contrast audit clean. App Review Information › Notes: the
+  owner's approved text (1,492 characters, exact), arguing 3.1.3(f) and
+  naming where to scan and where Approve and Reject are; Sign-In
+  Information: "Sign-in required" checked, User name and Password empty,
+  the owner's to type. App Privacy: unchanged (published 17 days earlier, 6
+  data types, no Diagnostics). Two checks behind that: no `SENTRY_DSN`
+  anywhere in the production service's resolved variables (`railway
+  variables --service scan-and-action --environment production --json`,
+  names only, 18 keys besides `RAILWAY_*`; the owner's own reading agrees),
+  and the Discord alerts (`DISCORD_ALERT_WEBHOOK_URL`) are sent only from
+  `webhookController.ts`, the Paddle web-billing path, carrying Paddle and
+  our own UUIDs and an error message, never an email or a name
+  (`discordAlert.ts` contract lines 15 to 18); web purchases are not data
+  collected from the app. Age rating: complete, 4+, every question answered
+  (`/iris/v1/apps/6816574766/appInfos?include=ageRatingDeclaration` from
+  the signed-in page; the three empty fields are the Kids band, the Korean
+  GRAC number and the optional age-suitability URL). Build: none attached;
+  every TestFlight build 5 to 34 reads `buildAudienceType INTERNAL_ONLY`
+  (same API, `/iris/v1/builds?filter[app]=6816574766`), by design of
+  `testFlightInternalTestingOnly` in `ExportOptions.plist`; the
+  submission-build PR removes it.
+- **Token revocation on account deletion: confirmed closed by #272**
+  (2026-09-30; the item "Submission is BLOCKED until Apple token revocation
+  on account deletion ships" below holds the evidence). The comment in
+  `ExportOptions.plist` tying the key to it is stale, as marked; the
+  submission-build PR corrects it.
+- **OPEN DECISION, the owner's:** "App Store Version Release" reads
+  "Automatically release this version" (read 2026-10-15), so approval would
+  publish at once; "Manually release this version" is under his
+  consideration. Nothing was changed.
+- **Found, not fixed: the sign-in screen with the keyboard up.** Recorded
+  under "Login rejected by the owner on 2026-09-25" in the DESIGN TRACK; the
+  fix is proposed there and waits for his word.
+
 **Conditions blocking republishing on Play (opened 2026-10-08).** The Android
 row moved here from the App Store list: the owner's sign-in condition for the
 App Store was met on iOS on 2026-09-28 (the first TestFlight build signed in
@@ -2077,6 +2152,23 @@ restyled.** Do not start at login, although a reviewer sees it first:
     - **What must hold:** the password policy (`passwordPolicy.ts` and its
       drift test), the recovery routing, the error localisation tests.
     - **EXPIRY:** the owner approves a redrawn Login on his iPhone.
+    - **Found 2026-10-15 on the simulator, not fixed (rule 6, STANDING
+      RULES):** the email field takes focus on load (`autoFocus` in
+      `AuthScreen.tsx`), so the keyboard is up on the reviewer's first
+      screen. Run 38793495512 (`proof/signin-keyboard`): iPhone 16e, 17 Pro
+      and 17 Pro Max, light and dark. The email field, the password field
+      and the Sign in button stay inside the visible area and are the
+      topmost element at their centre on every device (a tap reaches them;
+      on the 16e the button's bottom is at 401 of 509 visible px). The flaw:
+      on the 16e and the 17 Pro iOS scrolls the page by 68 to 82 px, so the
+      clock, the battery and the Dynamic Island draw over the "Scan &
+      Action" bar and the language pills, and the "Sign in" heading slips
+      under the status bar; the keyboard's form bar also covers Continue
+      with Apple and Google, which email sign-in does not need. Review risk:
+      low for function. **Proposed fix, one small `AuthScreen.tsx` change:**
+      no autofocus on native, so the first screen opens with the keyboard
+      down, and an opaque band under the status bar as the main `Layout`
+      has; proven with the same run before and after.
 - [ ] **6. The rest.** Documents and search, the review queue, settings with
   account deletion reachable, and the web-only paywall.
   - **Search is redrawn from zero in its own PR. DONE: approved by the owner
@@ -2100,18 +2192,49 @@ restyled.** Do not start at login, although a reviewer sees it first:
       was closed by #248.
     - **What it becomes:** a search field, category chips and a month filter,
       with results as the same rows as Home.
-- [ ] **7. Store screenshots**, taken from the finished UI. **IN PROGRESS
-  (2026-10-15).** What applies, read that day: App Store Connect's version
-  1.0 page asks for "iPhone with Dynamic Island (medium display)", 0 of 10
-  (1206 x 2622 or 1179 x 2556; Apple's screenshot specifications page lists
-  that class under "Required device sizes"). No iPad set: the project
-  builds for iPhone only (`TARGETED_DEVICE_FAMILY = 1` in
-  `project.pbxproj`, pinned by `iosPlatform.test.ts`). One listing
-  localization: English (U.S.), primary. iPhone Duo screenshots become
-  required from April 2027 for apps built with the iOS 27.1 SDK or later;
-  build 34 was built with Xcode 26.6 (17F113), so not now. The set is shot
-  from main's app on the simulator with fictional data; the review and the
-  upload are the owner's.
+- [ ] **7. Store screenshots: BUILT and APPROVED 2026-10-15, in the PR that
+  records this line; the upload to App Store Connect follows its merge.**
+  - **What applies, read 2026-10-15:** App Store Connect's version 1.0 page
+    asks for "iPhone with Dynamic Island (medium display)" (1206 x 2622 or
+    1179 x 2556; Apple's screenshot specifications page lists that class
+    under "Required device sizes"); "iPhone with Dynamic Island (large
+    display)" (1320 x 2868) is optional and otherwise borrows the medium set.
+    No iPad set: the project builds for iPhone only (`TARGETED_DEVICE_FAMILY
+    = 1` in `project.pbxproj`, pinned by `iosPlatform.test.ts`). One listing
+    localization: English (U.S.), primary. iPhone Duo screenshots become
+    required from April 2027 for apps built with the iOS 27.1 SDK or later;
+    build 34 was built with Xcode 26.6 (17F113), so not now. Guideline 2.3.3,
+    read the same day: screenshots "should show the app in use" and "may also
+    include text and image overlays".
+  - **The plain set (#328, `1449e6f8`): REJECTED by the owner 2026-10-15** as
+    a store presentation; it was uploaded that day into both Dynamic Island
+    slots (5 of 10 each) and still sits there until the replacement below.
+    His reference: the captioned dark set of 2026-09-29 from the web harness
+    (`D:\RAGHAD JAD\store-screenshots\2026-09-29\`, outside the repository),
+    whose six frames he removed from "iPhone with Face ID (large display)"
+    the same day (Media Manager › Remove All; the slot now reads 0 of 10 and
+    falls back to the Dynamic Island large set, the console's own wording).
+  - **Direction C, "Teal field": CHOSEN by the owner from three directions
+    and APPROVED as built, frame 1 included.** Each frame is a real simulator
+    capture of the restyled app (fictional October data) inside a generic
+    phone drawn in CSS, complete to the tab bar, on the brand teal, under a
+    caption he approved word for word. Captures: run 38803643978
+    (`proof/store-shots-c`, app at `1449e6f8`) for frames 1, 2, 4 and 5; run
+    38763571358 for frame 3, because the newer run shot Detail before the
+    receipt photo loaded (the app code and the fixtures are byte-identical
+    between the runs). Composition: `store/app-store/1.0/source/frame-c.html`
+    rendered by `source/render-c.sh` (headless Chrome, device scale factor
+    3), the screen at 0.744 of the canvas width, one scale and one caption
+    position for all ten files. Checks on all ten: exact pixels, RGB, no
+    alpha, caption text exact with no dash, title on two lines, the whole
+    phone inside the canvas, the capture's own layout and contrast audits
+    clean. `store/app-store/1.0/README.md` has the detail.
+  - **Next, after the merge of the PR recording this line:** in App Store
+    Connect › Media Manager › iPhone, Remove All on each Dynamic Island slot,
+    upload the five files of each size in order 01 to 05, read back "5 of
+    10" and the order in both, and confirm "iPhone with Face ID (large
+    display)" still falls back to the new large set. The owner is told before
+    each Remove All.
 
 ### Inputs, filed under the step that redraws them — not a checklist
 
@@ -2961,6 +3084,16 @@ This is also Apple 3.1.3(f)'s condition, word for word (APPLE TRACK), and
 
 ### Other kept items
 
+- [ ] **Post-launch: show the review reason on the queue cards.** Today a
+  queue card renders one status chip from the document's status alone
+  (`ReviewQueueScreen.tsx`, `getStatus` in `lib/searchResultCard.ts`); the
+  rule engine's reason (`decision_reason`, a fixed English phrase per rule,
+  translated by `translateDecisionReasons`) shows only on the receipt's
+  Detail. The store frame of the queue was captioned accordingly ("Approve or
+  reject what needs a second look"), so nothing on the product page claims
+  the reason is on the card. Raised 2026-10-15 during the screenshot review;
+  the owner placed it after the App Store submission. Small frontend change;
+  reshoot frame 4 afterwards.
 - [x] **Android: cap the WebView's text zoom natively: MERGED 2026-10-13 as
   #317 (`9757a2a1`), TestFlight build 30** (run 38453792409: "ARCHIVE
   SUCCEEDED", "Uploaded build 30 … for commit 9757a2a1…"; `gh run view
