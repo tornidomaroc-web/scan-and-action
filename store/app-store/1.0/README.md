@@ -26,6 +26,11 @@ What applies, read on 2026-10-15:
 2. `02-capture`: adding a document (the system scanner or a file).
 3. `03-detail`: one receipt, its photo, and what was read from it.
 4. `04-queue`: the receipts that need a person, with Approve and Reject.
+   Both show their amount: Station Nour 400.00 MAD and Régie Al Amal 612.80
+   MAD. The queue card shows no review reason (the card renders the status
+   only, `ReviewQueueScreen.tsx`); the reason shows on the receipt's Detail.
+   The fixtures still carry each reason the rule engine would give: "Total
+   not printed" (Rule E) and "Amount exceeds threshold" (Rule A, over 500).
 5. `05-search`: a month's receipts, with each currency's total.
 
 ## How they were made
@@ -38,9 +43,23 @@ invented, no real user's data and no review account's data, and no real brand
 name (App Store Review Guideline 5.2). The receipt photo is drawn by
 `source/receipt.mjs` and its lines add up to the total Detail shows.
 
-Run 38664852917 on the throwaway branch `proof/store-shots` shot them, with
-`source/store-shots.yml` as its workflow; the files here are those frames
-converted to RGB (pixels unchanged, alpha channel removed). Every frame passed
+Run 38664852917 on the throwaway branch `proof/store-shots` shot the first
+set. Frames 1, 2, 4 and 5 were reshot on 2026-10-15 by run 38763571358 on
+`proof/store-shots-2` (app code at `main` `4dd2bdcd`, whose `apps/` tree is
+`0fedd179`'s), after the queue's receipt with no amount was replaced: frame 4
+changed, and frames 1, 2 and 5 changed with it because Home and Search read
+the same month (Home now says 2 receipts need review, Search marks Régie Al
+Amal "Needs review"). Frame 3 is the first run's file: the second run gave it
+byte-identical on the large set and a shadow-only difference on the medium.
+The files here are the frames converted to RGB (pixels unchanged, the alpha
+channel, opaque everywhere, removed), with `source/store-shots.yml` as the
+workflow.
+
+`02-reading` in `source/screens.mjs` is a candidate that was shot and not
+chosen: Detail while a scan is read. It is a loading state (a skeleton for the
+amount, a grey "Processing" chip, the lower third empty) and it shows neither
+way of adding a document, so frame 2 stays the Add a document sheet. The
+system scanner itself cannot be shot: the simulator has no camera. Every frame passed
 the in-page layout audit (no text cut, nothing overlapping, no sideways
 scroll) and the contrast audit (no text pair under 4.5:1).
 

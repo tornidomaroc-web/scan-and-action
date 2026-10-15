@@ -31,7 +31,7 @@
     R('d1', '2026-10-13', 342.5, 'Food', 'Épicerie Al Waha'),
     R('d2', '2026-10-12', 400, 'Transport', 'Station Nour', 'NEEDS_REVIEW'),
     R('d3', '2026-10-11', 129.4, 'Health', 'Pharmacie Al Majd'),
-    R('d4', '2026-10-09', 612.8, 'Bills', 'Régie Al Amal'),
+    R('d4', '2026-10-09', 612.8, 'Bills', 'Régie Al Amal', 'NEEDS_REVIEW'),
     R('d5', '2026-10-08', 215, 'Shopping', 'Librairie Kalam'),
     R('d6', '2026-10-06', 48, 'Food', 'Café Nouara'),
     R('d7', '2026-10-04', 26.5, 'Food', 'Boulangerie Yasmine')];
@@ -54,12 +54,19 @@
     entities: [{ role: 'VENDOR', displayName: 'Station Nour' }], documentEntities: [{ role: 'VENDOR', entity: { displayName: 'Station Nour' } }],
     facts: [{ key: 'TOTAL_AMOUNT', factType: 'AMOUNT', valueNumber: 400, currency: 'MAD', confidence: 0.6 }, { key: 'TRANSACTION_DATE', factType: 'DATE', valueDate: '2026-10-12T00:00:00.000Z', confidence: 0.98 },
       { key: 'category', valueString: 'Transport' }, { key: 'decision', valueString: 'NEEDS_REVIEW' }, { key: 'decision_reason', valueString: 'Total not printed' }] };
-  var noAmount = { id: 'd11', originalFileName: 'IMG_2231.jpg', documentType: 'RECEIPT', overallConfidence: 0.7, uploadedAt: '2026-10-14T12:40:00Z',
+  // The queue's two receipts, each held for a reason the rule engine really
+  // gives (ruleEngineService): Rule A, an amount over 500, and Rule E, a page
+  // with no total line, so the items were added up. Both show their amount.
+  var bill = { id: 'd4', originalFileName: 'scan-20261009-191520.jpg', documentType: 'RECEIPT', overallConfidence: 0.95, uploadedAt: '2026-10-09T19:15:20Z',
     status: 'NEEDS_REVIEW', signedFileUrl: '/sa-receipt.jpg', reextractable: false, reprocessed: null,
-    entities: [{ role: 'VENDOR', displayName: 'Café Nouara' }], documentEntities: [{ role: 'VENDOR', entity: { displayName: 'Café Nouara' } }],
-    facts: [{ key: 'TRANSACTION_DATE', factType: 'DATE', valueDate: '2026-10-14T00:00:00.000Z', confidence: 0.95 }, { key: 'category', valueString: 'Food' },
-      { key: 'decision', valueString: 'NEEDS_REVIEW' }, { key: 'decision_reason', valueString: 'Missing amount' }] };
-  var queue = [noAmount, fuel];
+    entities: [{ role: 'VENDOR', displayName: 'Régie Al Amal' }], documentEntities: [{ role: 'VENDOR', entity: { displayName: 'Régie Al Amal' } }],
+    facts: [{ key: 'TOTAL_AMOUNT', factType: 'AMOUNT', valueNumber: 612.8, currency: 'MAD', confidence: 0.96 }, { key: 'TRANSACTION_DATE', factType: 'DATE', valueDate: '2026-10-09T00:00:00.000Z', confidence: 0.98 },
+      { key: 'category', valueString: 'Bills' }, { key: 'decision', valueString: 'NEEDS_REVIEW' }, { key: 'decision_reason', valueString: 'Amount exceeds threshold' }] };
+  // A receipt the app is still reading: the screen a scan lands on
+  // (CaptureSheet navigates to Detail), before anything has been read.
+  var reading = { id: 'r1', originalFileName: 'scan-20261015-094102.jpg', documentType: 'UNKNOWN', overallConfidence: null, uploadedAt: '2026-10-15T09:41:02Z',
+    status: 'PROCESSING', signedFileUrl: '/sa-receipt.jpg', reextractable: false, reprocessed: null, entities: [], documentEntities: [], facts: [] };
+  var queue = [fuel, bill];
   var stats = { pendingCount: 2, statusBreakdown: { COMPLETED: 9, NEEDS_REVIEW: 2, REJECTED: 0 } };
   var hits = mad.map(function (r) { return Object.assign({ currency: 'MAD' }, r); }).concat(eur.map(function (r) { return Object.assign({ currency: 'EUR' }, r); }), usd.map(function (r) { return Object.assign({ currency: 'USD' }, r); }));
   var search = { mode: 'recent', q: '', category: null, month: null, timeZone: 'Africa/Casablanca', receipts: hits, currencies: [], notCounted: [] };
@@ -67,10 +74,10 @@
     currencies: [{ currency: 'MAD', total: sum(mad), receiptCount: mad.length }, { currency: 'EUR', total: sum(eur), receiptCount: eur.length }, { currency: 'USD', total: sum(usd), receiptCount: usd.length }],
     notCounted: [{ documentId: 'd12', date: '2026-10-02', merchant: 'Brasserie du Port', fileName: 'scan-20261002-213010.jpg', status: 'COMPLETED', reason: 'duplicate', category: 'Food' }] };
   var activity = [
-    { id: 'd11', originalFileName: 'IMG_2231.jpg', uploadedAt: '2026-10-14T12:40:00Z', status: 'NEEDS_REVIEW', facts: [{ key: 'category', valueString: 'Food' }] },
     { id: 'd1', originalFileName: 'scan-20261013-181204.jpg', uploadedAt: '2026-10-13T18:12:04Z', status: 'COMPLETED', facts: [{ key: 'category', valueString: 'Food' }] },
     { id: 'd2', originalFileName: 'scan-20261012-090131.jpg', uploadedAt: '2026-10-12T09:01:31Z', status: 'NEEDS_REVIEW', facts: [{ key: 'category', valueString: 'Transport' }] },
-    { id: 'd3', originalFileName: 'scan-20261011-174455.jpg', uploadedAt: '2026-10-11T17:44:55Z', status: 'COMPLETED', facts: [{ key: 'category', valueString: 'Health' }] }];
+    { id: 'd3', originalFileName: 'scan-20261011-174455.jpg', uploadedAt: '2026-10-11T17:44:55Z', status: 'COMPLETED', facts: [{ key: 'category', valueString: 'Health' }] },
+    { id: 'd4', originalFileName: 'scan-20261009-191520.jpg', uploadedAt: '2026-10-09T19:15:20Z', status: 'NEEDS_REVIEW', facts: [{ key: 'category', valueString: 'Bills' }] }];
 
   function body(path, q) {
     if (path.indexOf('/ledger') >= 0) return ledger;
@@ -81,7 +88,7 @@
     var job = path.match(/\/documents\/(p\d)$/);
     if (job) return Object.assign({}, detail, { id: job[1], status: JOBS[job[1]][1] });
     var doc = path.match(/\/documents\/([^/]+)$/);
-    if (doc) return { d1: detail, d2: fuel, d11: noAmount }[doc[1]] || detail;
+    if (doc) return { d1: detail, d2: fuel, d4: bill, r1: reading }[doc[1]] || detail;
     if (/\/auth\/v1\/signup$/.test(path)) return { id: 'u-2', aud: 'authenticated', role: '', email: 'new.person@example.com', confirmation_sent_at: new Date().toISOString(), app_metadata: { provider: 'email', providers: ['email'] }, user_metadata: {}, identities: [{ id: 'i-2', user_id: 'u-2', provider: 'email' }], created_at: new Date().toISOString() };
     if (/\/version$/.test(path)) return { commit: 'proof' };
     if (/\/(me|usage|billing|subscription|account)/.test(path)) return { plan: 'PRO', usage: { scansThisMonth: 6, limit: 1000 } };
