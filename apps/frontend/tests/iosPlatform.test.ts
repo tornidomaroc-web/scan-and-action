@@ -135,13 +135,28 @@ describe('the TestFlight workflow never opens the key to a pull request', () => 
     expect(wf).toContain('umask 077');
     expect(wf).toMatch(/if: always\(\)\s*\n\s*run: rm -rf "\$APP_STORE_CONNECT_KEY_DIR"/);
   });
-  it('export options: App Store Connect upload, internal TestFlight only', () => {
+  it('export options: App Store Connect upload, eligible for the App Store (2026-10-17)', () => {
     const plist = F('ios/ExportOptions.plist');
     expect(plist).toMatch(/<key>method<\/key>\s*<string>app-store-connect<\/string>/);
     expect(plist).toMatch(/<key>destination<\/key>\s*<string>upload<\/string>/);
-    expect(plist).toMatch(/<key>testFlightInternalTestingOnly<\/key>\s*<true\/>/);
+    // The key that made builds 5 to 34 INTERNAL_ONLY is gone from the dict;
+    // the comment may still name it, so match the element, not the word.
+    expect(plist).not.toMatch(/<key>testFlightInternalTestingOnly<\/key>/);
     expect(plist).toMatch(/<key>teamID<\/key>\s*<string>NQ23SMHXJV<\/string>/);
     expect(wf).toContain('ios/ExportOptions.plist');
+  });
+  it('export options: well-formed XML with a key for every value (the lint a Linux runner can do)', () => {
+    const plist = F('ios/ExportOptions.plist');
+    const doc = new DOMParser().parseFromString(plist, 'application/xml');
+    expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+    const dict = doc.querySelector('plist > dict');
+    expect(dict).not.toBeNull();
+    const children = Array.from(dict!.children);
+    expect(children.length % 2).toBe(0);
+    children.forEach((el, i) => expect(el.tagName === 'key').toBe(i % 2 === 0));
+    // the tamper case in ios/ci/assemble-mutations.sh flips every <true/>;
+    // it needs at least one to flip, or that case fails for the wrong reason
+    expect(children.filter((el) => el.tagName === 'true').length).toBeGreaterThan(0);
   });
 });
 
