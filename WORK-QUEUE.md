@@ -522,21 +522,16 @@ a store screenshot.**
   - **Build numbers:** `CFBundleVersion` = the workflow run number (6 is
     next); `CFBundleShortVersionString` = `MARKETING_VERSION` 1.0.0 in the
     Xcode project, changed only by PR. `manageAppVersionAndBuildNumber` on.
-  - **Nothing can be submitted from it:** `ExportOptions.plist` sets
-    `testFlightInternalTestingOnly`, so every build it uploads "cannot be
-    distributed via external TestFlight or the App Store". The submission
-    build is a later PR that removes that key, after the blockers below.
-    **STALE comment, marked 2026-10-07:** the comment in
-    `apps/frontend/ios/ExportOptions.plist` (lines 10-13) ties the key to the
-    token-revocation item, which closed 2026-09-30 (#272). The reason that
-    holds is this line's: the remaining blockers. The submission-build PR
-    corrects the comment when it removes the key.
-    **THE SUBMISSION BUILD IS OPEN AS #330 (2026-10-17, head `8e4d1f8f`),
-    NOT MERGED.** It removes the key and rewrites the comment;
-    `iosPlatform.test.ts` pins the key absent and lints the plist on the
-    Linux runner; `ios/ci/assemble-mutations.sh` is unchanged (two `<true/>`
-    remain for its flip). Its merge starts a TestFlight run; what to read
-    after it is under "App Store Connect, version 1.0" below.
+  - **Builds are App Store eligible since 2026-10-17 (#330, `19f1ac2d`).**
+    Until then `ExportOptions.plist` set `testFlightInternalTestingOnly`, so
+    builds 5 to 34 "cannot be distributed via external TestFlight or the App
+    Store" (`buildAudienceType INTERNAL_ONLY`). #330 removed the key and the
+    stale comment tying it to the token-revocation item (closed 2026-09-30,
+    #272); `iosPlatform.test.ts` pins the key absent and lints the plist on
+    the Linux runner; `ios/ci/assemble-mutations.sh` is unchanged (two
+    `<true/>` remain for its flip; its `export-options` case refused the
+    tampered plist on the PR, run 39059804615). The first eligible build is
+    35; its record is under "App Store Connect, version 1.0" below.
   - **Automatic distribution works:** build 5 joined the internal group
     "Internal" on processing with nobody clicking (the owner, 2026-09-28).
   - **HARDENED 2026-10-07 (#287, `f67d46c2`): the signing job archives the
@@ -807,36 +802,97 @@ processed" below).**
   collected from the app. Age rating: complete, 4+, every question answered
   (`/iris/v1/apps/6816574766/appInfos?include=ageRatingDeclaration` from
   the signed-in page; the three empty fields are the Kids band, the Korean
-  GRAC number and the optional age-suitability URL). Build: none attached;
-  every TestFlight build 5 to 34 reads `buildAudienceType INTERNAL_ONLY`
-  (same API, `/iris/v1/builds?filter[app]=6816574766`), by design of
-  `testFlightInternalTestingOnly` in `ExportOptions.plist`; **#330 removes
-  it (opened 2026-10-17, head `8e4d1f8f`, not merged; re-read 2026-10-17:
-  builds 34, 33, 32 still `INTERNAL_ONLY`, `VALID`).** Its merge is taken on
-  the owner's word, after this board PR, and is followed by, in order:
-  1. the full post-merge record on its merge commit: `CI` and `Password
-     policy drift` push runs, both commit statuses, the Vercel production
-     deployment READY for the commit read from the Vercel API filtered to
-     project `scan-and-action` (the list is account-wide), `/api/version`
-     equal to the commit, the `iOS — TestFlight` run ID and build number;
-  2. the new build read from the signed-in page,
-     `/iris/v1/builds?filter[app]=6816574766&filter[version]=<N>&fields[builds]=version,processingState,buildAudienceType`:
-     it must read `APP_STORE_ELIGIBLE` and `VALID`, and must be in the group
-     "Internal", **before anyone opens Add Build** on version 1.0.
-  The push-delivery probe #329 (`1033bffa`) passed all five readings,
-  re-read 2026-10-17: CI push run 38811097538 and drift push run
-  38811097611 success, `pushed_at` 2026-10-15T21:35:55Z equal to
+  GRAC number and the optional age-suitability URL). Builds 5 to 34 read
+  `buildAudienceType INTERNAL_ONLY` (`/iris/v1/builds?filter[app]=6816574766`),
+  by design of `testFlightInternalTestingOnly` in `ExportOptions.plist`,
+  removed by #330 (below). The push-delivery probe #329 (`1033bffa`) passed
+  all five readings, re-read 2026-10-17: CI push run 38811097538 and drift
+  push run 38811097611 success, `pushed_at` 2026-10-15T21:35:55Z equal to
   `merged_at`, Vercel status success (`CT4jCyabFX6nHXEgNVYN2mSUJv3R`) and
   Railway status success on the commit, `/api/version` serving `1033bffa`.
+- **SUBMITTED TO APP REVIEW 2026-10-17T21:03:08Z: version 1.0, build 35,
+  `WAITING_FOR_REVIEW`, reviewSubmission `168c9ede-0343-49f9-9769-75465a15e70d`,
+  release MANUAL.** The day's record, each line with the call that read it:
+  - **#331 (board only) merged as `150ba1b299b2071341cc9d88992e8968bb5ea96a`**
+    at 20:26:42Z, squash pinned to head `7812e8a2`, parent `1033bffa`, one
+    file. Check-runs Backend, Frontend, Password policy drift success; push
+    runs CI 39066735642 and drift 39066735664 success; no TestFlight run
+    (`actions/runs?head_sha=` lists two); statuses Vercel and Railway success.
+  - **#330 (submission build) merged as `19f1ac2d0fd9d2851737d5e2f5930c9252b80d1b`**
+    at 20:29:17Z, squash pinned to head `8e4d1f8f`, parent `150ba1b2`, two
+    files. Check-runs Backend, Frontend, Password policy drift, iOS — web
+    bundle and Capacitor sync, iOS — archive, sign, upload to TestFlight, all
+    success; push runs CI 39066913763, drift 39066913767, iOS — TestFlight
+    39066913751 success; statuses Vercel success and Railway success.
+    Railway `/api/version` polled every 10 s: `150ba1b2` through 20:31:41Z,
+    `19f1ac2d` from 20:31:51Z (154 s after the merge). Vercel: the GitHub
+    status's deployment `CHynA83xFH7H5UjgHJNhE38mHHXL` success, and the served
+    `assets/index-BBvxYM3B.js` (804955 bytes) embeds `19f1ac2d` once and
+    neither older SHA. **Not read from the Vercel API:** the CLI token in
+    the Vercel auth file is expired (403 `invalidToken`) and the dashboard was
+    signed out in the controlled browser; `vercel login` reopens that reading.
+  - **TestFlight run 39066913751: "Uploaded build 35 … for commit
+    19f1ac2d…"** at 20:34:32Z. iris at 20:36:25Z: build 35, id
+    `75d2d095-994f-4b15-9c25-56c1cb541368`, `VALID`, `APP_STORE_ELIGIBLE`,
+    `usesNonExemptEncryption false`; build 34 beside it still `INTERNAL_ONLY`
+    (the control). Internal testers hold it: `buildBetaDetail`
+    `internalBuildState IN_BETA_TESTING`, the group "Internal"
+    `hasAccessToAllBuilds true` (`builds/<id>/betaGroups` answers 403
+    `GET_RELATED`, not an empty list).
+  - **Build 35 attached** (Add Build listed it as the only enabled row, radio
+    value equal to the iris id; no export compliance question appeared) and
+    **"App Store Version Release" set to "Manually release this version"**,
+    one Save; read back `releaseType MANUAL`, `build 75d2d095…`.
+  - **Demo sign-in typed by the owner** (User name and Password under
+    App Review Information, "Sign-in required" checked); the API reads both
+    set and never shows the values.
+  - **Price Free:** the first Add for Review said "Unable to Add for Review.
+    The items below are required to start the review process: You must
+    choose a price tier in Pricing." Pricing and Availability › Add Pricing:
+    base United States (USD), $0.00, 174 comparable prices all 0.00,
+    confirmation 175 rows, Save. `appPriceSchedules/6816574766`: base USA,
+    manual price point `customerPrice 0.0, proceeds 0.0`, 174 automatic
+    prices all 0. Pricing "will go into effect when your app status is Ready
+    for Sale" (the console).
+  - **Availability, all 175 countries or regions (the owner's decision,
+    2026-10-17), set after the submission:** the dialog offered "Make your app
+    available in all 175 countries or regions", asked for no declaration or
+    agreement, and warned only about pre-order and "all future countries or
+    regions"; Confirm saved it. Page: "175 Available"; API
+    `appAvailabilityV2`: `availableInNewTerritories true`, 175 territory
+    rows `available true`, each with content statuses `CANNOT_SELL` and
+    `AVAILABLE_FOR_SALE_UNRELEASED_APP` (the unreleased state, uniform, not
+    an exclusion). The version stayed `WAITING_FOR_REVIEW` with the same
+    reviewSubmission id after the change. Changes "appear on the App Store
+    within 24 hours".
+  - **Add for Review, second time:** no missing item; "1.0 Ready for Review";
+    Draft Submission "iOS App 1.0, 1.0.0 (35), Item Ready to Submit". **Submit
+    for Review:** "1 Item Submitted. It can take up to 48 hours to be
+    reviewed. You'll get an email when the review is complete." API:
+    `appStoreState WAITING_FOR_REVIEW`, `submittedDate
+    2026-10-17T21:03:08.479Z`, item `READY_FOR_REVIEW`.
+  - **OPEN after this line:** (1) the App Review outcome: Resolution Center
+    messages on the version page and email; a rejection needing code means a
+    new build and a new Add for Review, a question is answered in the thread;
+    (2) release by the owner after approval ("Pending Developer Release",
+    then Release This Version; the price takes effect at Ready for Sale);
+    (3) the Vercel CLI login is expired, so the Vercel API reading is off
+    until `vercel login`; (4) the untracked `scratchpad/` folder in the
+    repository root (ten PNG copies from the screenshot upload) is still to
+    be deleted; (5) the sign-in keyboard fix, post-launch (DESIGN TRACK,
+    "Login rejected by the owner on 2026-09-25"); (6) the review reason on
+    the queue cards, post-launch (KEPT OUTSIDE BOTH TRACKS); (7) the Google
+    Play track is next ("Conditions blocking republishing on Play" below).
 - **Token revocation on account deletion: confirmed closed by #272**
   (2026-09-30; the item "Submission is BLOCKED until Apple token revocation
   on account deletion ships" below holds the evidence). The comment in
   `ExportOptions.plist` tying the key to it is stale, as marked; #330
   corrects it.
-- **OPEN DECISION, the owner's:** "App Store Version Release" reads
-  "Automatically release this version" (read 2026-10-15), so approval would
-  publish at once; "Manually release this version" is under his
-  consideration. Nothing was changed. Still open on 2026-10-17.
+- **DECIDED 2026-10-17, the owner's: "App Store Version Release" is
+  "Manually release this version"** (`releaseType MANUAL`), set with the
+  build attach and read back from the API. It read "Automatically release
+  this version" from 2026-10-15 until then. Approval now ends in "Pending
+  Developer Release", and the owner releases.
 - **POST-LAUNCH, the owner's decision 2026-10-17: the sign-in screen with
   the keyboard up.** The flaw is cosmetic, the reviewer can sign in, and the
   submission build stays minimal, so the fix is not part of #330 and is not
