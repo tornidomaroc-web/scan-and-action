@@ -531,6 +531,12 @@ a store screenshot.**
     token-revocation item, which closed 2026-09-30 (#272). The reason that
     holds is this line's: the remaining blockers. The submission-build PR
     corrects the comment when it removes the key.
+    **THE SUBMISSION BUILD IS OPEN AS #330 (2026-10-17, head `8e4d1f8f`),
+    NOT MERGED.** It removes the key and rewrites the comment;
+    `iosPlatform.test.ts` pins the key absent and lints the plist on the
+    Linux runner; `ios/ci/assemble-mutations.sh` is unchanged (two `<true/>`
+    remain for its flip). Its merge starts a TestFlight run; what to read
+    after it is under "App Store Connect, version 1.0" below.
   - **Automatic distribution works:** build 5 joined the internal group
     "Internal" on processing with nobody clicking (the owner, 2026-09-28).
   - **HARDENED 2026-10-07 (#287, `f67d46c2`): the signing job archives the
@@ -804,20 +810,38 @@ processed" below).**
   GRAC number and the optional age-suitability URL). Build: none attached;
   every TestFlight build 5 to 34 reads `buildAudienceType INTERNAL_ONLY`
   (same API, `/iris/v1/builds?filter[app]=6816574766`), by design of
-  `testFlightInternalTestingOnly` in `ExportOptions.plist`; the
-  submission-build PR removes it.
+  `testFlightInternalTestingOnly` in `ExportOptions.plist`; **#330 removes
+  it (opened 2026-10-17, head `8e4d1f8f`, not merged; re-read 2026-10-17:
+  builds 34, 33, 32 still `INTERNAL_ONLY`, `VALID`).** Its merge is taken on
+  the owner's word, after this board PR, and is followed by, in order:
+  1. the full post-merge record on its merge commit: `CI` and `Password
+     policy drift` push runs, both commit statuses, the Vercel production
+     deployment READY for the commit read from the Vercel API filtered to
+     project `scan-and-action` (the list is account-wide), `/api/version`
+     equal to the commit, the `iOS — TestFlight` run ID and build number;
+  2. the new build read from the signed-in page,
+     `/iris/v1/builds?filter[app]=6816574766&filter[version]=<N>&fields[builds]=version,processingState,buildAudienceType`:
+     it must read `APP_STORE_ELIGIBLE` and `VALID`, and must be in the group
+     "Internal", **before anyone opens Add Build** on version 1.0.
+  The push-delivery probe #329 (`1033bffa`) passed all five readings,
+  re-read 2026-10-17: CI push run 38811097538 and drift push run
+  38811097611 success, `pushed_at` 2026-10-15T21:35:55Z equal to
+  `merged_at`, Vercel status success (`CT4jCyabFX6nHXEgNVYN2mSUJv3R`) and
+  Railway status success on the commit, `/api/version` serving `1033bffa`.
 - **Token revocation on account deletion: confirmed closed by #272**
   (2026-09-30; the item "Submission is BLOCKED until Apple token revocation
   on account deletion ships" below holds the evidence). The comment in
-  `ExportOptions.plist` tying the key to it is stale, as marked; the
-  submission-build PR corrects it.
+  `ExportOptions.plist` tying the key to it is stale, as marked; #330
+  corrects it.
 - **OPEN DECISION, the owner's:** "App Store Version Release" reads
   "Automatically release this version" (read 2026-10-15), so approval would
   publish at once; "Manually release this version" is under his
-  consideration. Nothing was changed.
-- **Found, not fixed: the sign-in screen with the keyboard up.** Recorded
-  under "Login rejected by the owner on 2026-09-25" in the DESIGN TRACK; the
-  fix is proposed there and waits for his word.
+  consideration. Nothing was changed. Still open on 2026-10-17.
+- **POST-LAUNCH, the owner's decision 2026-10-17: the sign-in screen with
+  the keyboard up.** The flaw is cosmetic, the reviewer can sign in, and the
+  submission build stays minimal, so the fix is not part of #330 and is not
+  a blocker. Recorded with the proposed `AuthScreen.tsx` change under
+  "Login rejected by the owner on 2026-09-25" in the DESIGN TRACK.
 
 **Conditions blocking republishing on Play (opened 2026-10-08).** The Android
 row moved here from the App Store list: the owner's sign-in condition for the
@@ -2169,6 +2193,17 @@ restyled.** Do not start at login, although a reviewer sees it first:
       no autofocus on native, so the first screen opens with the keyboard
       down, and an opaque band under the status bar as the main `Layout`
       has; proven with the same run before and after.
+      **POST-LAUNCH by the owner's decision, 2026-10-17:** not part of the
+      submission build (#330). The change, when its turn comes: in
+      `AuthScreen.tsx` replace the bare `autoFocus` on the email `TextField`
+      (the only `autoFocus` in the file) with
+      `autoFocus={!isNativePlatform()}`, importing `isNativePlatform` from
+      `../native/shell` (exported at `native/shell.ts:14`; `TextField`
+      forwards `InputHTMLAttributes`, `components/ui/TextField.tsx:21`), so
+      the web keeps today's behaviour and native opens with the keyboard
+      down; then the opaque band under the status bar. Proof: run
+      `proof/signin-keyboard` again on the same three devices, before and
+      after, and the page scroll on the 16e and the 17 Pro must read 0.
 - [ ] **6. The rest.** Documents and search, the review queue, settings with
   account deletion reachable, and the web-only paywall.
   - **Search is redrawn from zero in its own PR. DONE: approved by the owner
@@ -2208,7 +2243,8 @@ restyled.** Do not start at login, although a reviewer sees it first:
     include text and image overlays".
   - **The plain set (#328, `1449e6f8`): REJECTED by the owner 2026-10-15** as
     a store presentation; it was uploaded that day into both Dynamic Island
-    slots (5 of 10 each) and still sits there until the replacement below.
+    slots (5 of 10 each) and sat there until 2026-10-17, when it was replaced
+    (the DONE bullet below).
     His reference: the captioned dark set of 2026-09-29 from the web harness
     (`D:\RAGHAD JAD\store-screenshots\2026-09-29\`, outside the repository),
     whose six frames he removed from "iPhone with Face ID (large display)"
@@ -2229,12 +2265,40 @@ restyled.** Do not start at login, although a reviewer sees it first:
     alpha, caption text exact with no dash, title on two lines, the whole
     phone inside the canvas, the capture's own layout and contrast audits
     clean. `store/app-store/1.0/README.md` has the detail.
-  - **Next, after the merge of the PR recording this line:** in App Store
-    Connect › Media Manager › iPhone, Remove All on each Dynamic Island slot,
-    upload the five files of each size in order 01 to 05, read back "5 of
-    10" and the order in both, and confirm "iPhone with Face ID (large
-    display)" still falls back to the new large set. The owner is told before
-    each Remove All.
+  - **DONE 2026-10-17, in App Store Connect › version 1.0 › Media Manager ›
+    iPhone, from the owner's signed-in browser, with his approval of "Remove
+    All" on exactly the two Dynamic Island slots.** Read before and after
+    through the console's own API from the signed-in page
+    (`/iris/v1/appStoreVersionLocalizations/<en-US id>/appScreenshotSets?include=appScreenshots`;
+    its `sourceFileChecksum` is an MD5, compared with `md5sum` of main's
+    blobs at `1033bffa`).
+    - **Before:** "iPhone with Dynamic Island (medium display)"
+      (`APP_IPHONE_61`) and "iPhone with Dynamic Island (large display)"
+      (`APP_IPHONE_67`) each "5 of 10 App Screenshots", all ten files equal
+      by MD5 and size to the plain set of #328 (`1449e6f8`); "iPhone with
+      Face ID (large display)" (`APP_IPHONE_65`) 0 of 10.
+    - **After:** medium, in order 01-home, 02-capture, 03-detail, 04-queue,
+      05-search: `3d8bd32dfd36f42b20c209027252304a`,
+      `e4041d1ee84e6124c5bbabf8049d7f52`, `4632422bdc0a525dfd490016d0361191`,
+      `72b0dce8eca2a84003f226e6e9e4eb45`, `16132f6ae79c129d886fd895c34fec17`,
+      all 1206 x 2622; large, same order:
+      `283618315ae3681b2a57f046eb11b144`, `1196464236a0e61c96741facfd4aa5fb`,
+      `383018c87c33b7511213ddde1694e530`, `3fb0e2b3c4f471c0066f155807ec090f`,
+      `d3ffe25172b915edeabb953c5dac020f`, all 1320 x 2868. Every one equals
+      main's file under `store/app-store/1.0/`, every one
+      `assetDeliveryState COMPLETE` with no error, both slots "5 of 10 App
+      Screenshots", no error text on the page.
+    - **Face ID large** unchanged, "0 of 10 App Screenshots", "Using Existing
+      Assets"; its help popover reads "Until assets are selected for this
+      device, these existing assets will be used: App Screenshot, iPhone with
+      Dynamic Island (large display)".
+    - **Asset Library untouched:** the Remove All dialog states the removed
+      files "will remain in your Asset Library unless they're deleted from
+      there". No other slot or field, nothing submitted.
+    - `store/app-store/1.0/README.md` still says the replacement "was still
+      to be done" as of 2026-10-15; that sentence is dated and the README
+      itself says it does not track the console. This bullet is the record;
+      the README is corrected the next time a PR touches `store/`.
 
 ### Inputs, filed under the step that redraws them — not a checklist
 
