@@ -7,12 +7,13 @@ import { createRequire } from 'node:module';
 // DESIGN-TOKEN FOUNDATION contract (PR-A)
 // ============================================================================
 // Locks the agreed foundation so a regression fails CI:
-//   - the accent is the blue of the design the owner chose on 2026-09-26,
-//     one step darker than its chart blue so a label on it clears 4.5:1
-//     (#3563F0; the chart blue #3B6CFF is --sa-accent-bright, charts and
-//     icons only). Until 2026-09-26 this pinned indigo #635BFF, the locked
-//     decision of the earlier design; the owner's choice of a new language
-//     replaced it, and kitLanguage.test.ts holds the contrast that chose the
+//   - the accent is the ICON FAMILY, ruled by the owner on 2026-10-12: the
+//     mark's middle colour #006784 under a label (6.42:1 under white; the
+//     teal end #00BB9F is --sa-accent-bright, charts and icons only, at
+//     2.44:1 under white). This REVERSES the lock of 2026-09-26, which pinned
+//     the HorizonX blue #3563F0 here; before that, 2026-09-24 to 2026-09-26,
+//     it pinned indigo #635BFF. Each change was the owner's and is recorded
+//     on the board; kitLanguage.test.ts holds the contrast that chose the
 //     value,
 //   - Tailwind utility color names map to the --sa-* tokens (single source),
 //   - fonts are SELF-HOSTED via @fontsource (NO Google Fonts CDN) so the app
@@ -28,20 +29,51 @@ const indexCss = read('../src/index.css');
 const mainTsx = read('../src/main.tsx');
 const tailwind = createRequire(import.meta.url)('../tailwind.config.cjs');
 
-describe('design tokens: the blue accent (locked 2026-09-26)', () => {
+const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+const lum = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => lin(parseInt(hex.slice(i, i + 2), 16) / 255));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const ratio = (a: string, b: string) => {
+  const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+};
+
+describe('design tokens: the icon-family accent (ruled 2026-10-12, reversing the blue lock of 2026-09-26)', () => {
   it('tokens.css defines the exact accent ramp of the chosen language', () => {
-    expect(tokensCss).toMatch(/--sa-accent:\s*#3563F0/i);
-    expect(tokensCss).toMatch(/--sa-accent-hover:\s*#2F5BE6/i);
-    expect(tokensCss).toMatch(/--sa-accent-text:\s*#2F5BE6/i);
-    expect(tokensCss).toMatch(/--sa-accent-tint:\s*#E8EEFF/i);
-    expect(tokensCss).toMatch(/--sa-accent-tint-2:\s*#EEF2FF/i);
-    expect(tokensCss).toMatch(/--sa-accent-border:\s*#C9D6FF/i);
-    expect(tokensCss).toMatch(/--sa-accent-bright:\s*#3B6CFF/i);
+    expect(tokensCss).toMatch(/--sa-accent:\s*#006784/i);
+    expect(tokensCss).toMatch(/--sa-accent-hover:\s*#005A74/i);
+    expect(tokensCss).toMatch(/--sa-accent-text:\s*#005A74/i);
+    expect(tokensCss).toMatch(/--sa-accent-tint:\s*#DFF4F2/i);
+    expect(tokensCss).toMatch(/--sa-accent-tint-2:\s*#E8F6F4/i);
+    expect(tokensCss).toMatch(/--sa-accent-border:\s*#9ED9D1/i);
+    expect(tokensCss).toMatch(/--sa-accent-bright:\s*#00BB9F/i);
     expect(tokensCss).toMatch(/--sa-on-accent:\s*#FFFFFF/i);
+  });
+
+  it('the blue of 2026-09-26 is gone from the tokens, on purpose', () => {
+    // The reversal is explicit: a token file that still carried the old
+    // accent anywhere would be two languages, not one.
+    expect(tokensCss).not.toMatch(/#3563F0|#2F5BE6|#3B6CFF|#E8EEFF/i);
+  });
+
+  it('the muted label clears 4.5:1 on the light card (it measured 3.45 before 2026-10-12)', () => {
+    const start = tokensCss.indexOf(':root {');
+    const root = tokensCss.slice(start, tokensCss.indexOf('\n}', start));
+    const get = (name: string) => root.match(new RegExp(name + ':\\s*(#[0-9a-f]{6})', 'i'))![1];
+    expect(ratio(get('--sa-ink-muted'), get('--sa-surface-raised'))).toBeGreaterThanOrEqual(4.5);
+    // the control: the old value fails the same arithmetic
+    expect(ratio('#858A99', '#FFFFFF')).toBeLessThan(4.5);
   });
 
   it('tokens.css ships a .dark block so light/dark is one system', () => {
     expect(tokensCss).toMatch(/\.dark\s*\{/);
+  });
+
+  it('the soft depth yields to Increase Contrast and Reduce Transparency', () => {
+    expect(tokensCss).toMatch(/@media \(prefers-contrast: more\), \(prefers-reduced-transparency: reduce\)/);
+    expect(tokensCss).toMatch(/--sa-shadow-pressed:/);
+    expect(tokensCss).toMatch(/--sa-shadow-accent:/);
   });
 });
 
@@ -71,6 +103,12 @@ describe('design tokens — Tailwind maps utilities to the --sa-* tokens', () =>
     expect(r.btn).toBe('var(--sa-radius-btn)');
     expect(r.card).toBe('var(--sa-radius-card)');
     expect(r.pill).toBe('var(--sa-radius-pill)');
+  });
+
+  it('the two soft-depth shadows are utilities (shadow-pressed, shadow-accent)', () => {
+    const s = tailwind.theme.extend.boxShadow;
+    expect(s.pressed).toBe('var(--sa-shadow-pressed)');
+    expect(s.accent).toBe('var(--sa-shadow-accent)');
   });
 });
 
@@ -105,10 +143,10 @@ describe('reconciliation — one system, legacy vars now bridge onto the tokens'
     expect(importIdx).toBeLessThan(tailwindIdx);
   });
 
-  it('legacy vars alias the --sa-* tokens (PR-D1 bridge — indigo everywhere)', () => {
+  it('legacy vars alias the --sa-* tokens (PR-D1 bridge)', () => {
     // As of PR-D1 the legacy vars that drive .saas-card/.btn-primary/.nav-item
-    // no longer carry their own hex; they alias the token layer so the indigo
-    // system is one source of truth. (Detailed per-var coverage lives in
+    // no longer carry their own hex; they alias the token layer so there is
+    // one source of truth. (Detailed per-var coverage lives in
     // tokenBridge.test.ts.)
     expect(indexCss).toMatch(/--accent:\s*var\(--sa-accent\)/i);
     expect(indexCss).toMatch(/--background:\s*var\(--sa-surface\)/i);

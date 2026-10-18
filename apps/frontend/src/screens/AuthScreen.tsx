@@ -13,6 +13,7 @@ import { TextField } from '../components/ui/TextField';
 import { PrimaryButton } from '../components/ui/PrimaryButton';
 import { Notice } from '../components/ui/Notice';
 import { IconTile } from '../components/ui/IconTile';
+import { panelClass } from '../components/ui/Panel';
 
 // ============================================================================
 // Sign in and sign up, in the visual language of 2026-09-26.
@@ -153,7 +154,7 @@ export const AuthScreen: React.FC = () => {
   if (signedUpEmail !== null) {
     return (
       <AuthFrame title={s.authCheckInboxTitle}>
-        <div data-auth-check-inbox className="rounded-panel bg-surface-raised p-5 ring-1 ring-line">
+        <div data-auth-check-inbox className={`p-5 ${panelClass}`}>
           <IconTile icon={Mail} tone="success" size="lg" />
           <p dir="ltr" className="mt-4 break-all text-start font-semibold text-ink">
             <bdi>{signedUpEmail}</bdi>
@@ -172,10 +173,11 @@ export const AuthScreen: React.FC = () => {
 
   return (
     <AuthFrame title={isLogin ? s.authSignInTitle : s.authSignUpTitle} subtitle={isLogin ? s.authSignInSubtitle : s.authSignUpSubtitle}>
-      {/* The pill switch: two segments, the active one raised. The segments
+      {/* The pill switch: a track pressed into the page, two segments, the
+          active one raised out of it in ink (its label 17.6:1). The segments
           carry the two CTA strings, so the tests that flip the mode by its
           catalog label find them here. */}
-      <div role="radiogroup" aria-label={s.authSignInTitle} className="flex gap-1 rounded-pill bg-surface-raised p-1 ring-1 ring-line" data-auth-mode-switch>
+      <div role="radiogroup" aria-label={s.authSignInTitle} className="flex gap-1 rounded-pill bg-surface-alt p-1 shadow-pressed ring-1 ring-line" data-auth-mode-switch>
         <button type="button" role="radio" aria-checked={isLogin} onClick={() => switchMode('login')} className={segment(isLogin)}>
           {s.authSignInCta}
         </button>

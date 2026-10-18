@@ -8,6 +8,9 @@ import { formatPercent } from '../lib/formatNumber';
 import { getPaddle, PaddleNotConfiguredError } from '../lib/paddle';
 import { useBackDismiss } from '../native/useBackDismiss';
 import { isNativePlatform } from '../native/shell';
+import { eyebrowClass, sheetClass } from './ui/Panel';
+import { primaryButtonClass } from './ui/PrimaryButton';
+import { Notice } from './ui/Notice';
 import {
   PLAN_CATALOG,
   PLAN_ORDER,
@@ -39,6 +42,16 @@ const CHECKOUT_SUCCESS_URL = 'https://www.scan-action.com/dashboard?checkout=suc
 export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) => {
   const s = useStrings();
   const { language } = useLanguage();
+  // The plan tiles are raised cards; the chosen one sits on the accent tint
+  // inside the accent ring. The price is ink on either surface (16.6:1 light,
+  // 12.0:1 dark on the tint) and never faded: people check amounts
+  // (softSurfaces.test.ts holds these pairs).
+  const planTile = 'relative flex min-h-[88px] flex-col rounded-card p-4 text-start transition-shadow motion-reduce:transition-none';
+  const planIdle = 'bg-surface-raised shadow-card ring-1 ring-line hover:ring-line-strong';
+  const planSelected = 'bg-accent-tint shadow-card ring-2 ring-accent';
+  const planLabel = 'mb-1 text-xs font-semibold uppercase tracking-[0.06em] rtl:tracking-normal';
+  const planPrice = 'text-2xl font-bold tracking-tight text-ink';
+  const planPeriod = 'text-sm font-semibold text-ink-secondary';
   const { user } = useAuth();
   // Defaults to MONTHLY, matching the price the landing page advertises ($9/mo).
   // It used to default to 'yearly': a visitor who clicked through the landing's
@@ -125,38 +138,38 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
   if (isNativePlatform()) {
     return createPortal(
       <div
-        className="fixed inset-0 z-[11000] flex justify-center items-end sm:items-center bg-slate-900/60 backdrop-blur-md p-0 sm:p-4 animate-in fade-in duration-300"
+        className="fixed inset-0 z-modal-top flex justify-center items-end sm:items-center bg-overlay backdrop-blur-md p-0 sm:p-4 animate-in fade-in duration-300"
         onClick={onClose}
       >
         <div
-          className="w-full max-w-[480px] bg-white dark:bg-slate-900 rounded-t-[32px] sm:rounded-[32px] shadow-2xl overflow-y-auto max-h-[92vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 border border-slate-200 dark:border-slate-800"
+          className={`w-full max-w-[480px] ${sheetClass} rounded-t-panel sm:rounded-panel overflow-y-auto max-h-[92vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-300`}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="bg-blue-600 p-6 sm:p-8 text-center relative overflow-hidden">
+          <div className="bg-accent text-on-accent p-6 sm:p-8 text-center relative overflow-hidden">
             <div className="relative z-10">
-              <div className="w-16 h-16 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner border border-white/30">
-                <Crown size={32} className="text-white" fill="white" />
+              <div className="w-16 h-16 bg-accent-hover rounded-tile flex items-center justify-center mx-auto mb-4 shadow-pressed">
+                <Crown size={32} fill="currentColor" aria-hidden="true" />
               </div>
-              <h2 className="text-2xl font-black text-white tracking-tight uppercase italic">
+              <h2 className="text-[1.375rem] font-semibold leading-tight tracking-tight">
                 {s.nativePlanTitle}
               </h2>
             </div>
             <button
               onClick={onClose}
               aria-label="Close"
-              className="absolute top-2 end-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/60 hover:text-white rounded-full hover:bg-white/10 transition-all"
+              className="absolute top-2 end-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-pill hover:bg-accent-hover transition-colors"
             >
               <X size={20} />
             </button>
           </div>
 
           <div className="p-5 sm:p-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-8">
-            <p className="text-slate-600 dark:text-slate-400 font-bold text-center mb-8 leading-relaxed">
+            <p className="text-ink-secondary text-[0.9375rem] font-medium text-center mb-8 leading-relaxed">
               {s.nativePlanBody}
             </p>
             <button
               onClick={onClose}
-              className="w-full min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-all"
+              className={primaryButtonClass}
             >
               {s.nativePlanDismiss}
             </button>
@@ -240,31 +253,27 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[11000] flex justify-center items-end sm:items-center bg-slate-900/60 backdrop-blur-md p-0 sm:p-4 animate-in fade-in duration-300"
+      className="fixed inset-0 z-modal-top flex justify-center items-end sm:items-center bg-overlay backdrop-blur-md p-0 sm:p-4 animate-in fade-in duration-300"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[480px] bg-white dark:bg-slate-900 rounded-t-[32px] sm:rounded-[32px] shadow-2xl overflow-y-auto max-h-[92vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 border border-slate-200 dark:border-slate-800"
+        className={`w-full max-w-[480px] ${sheetClass} rounded-t-panel sm:rounded-panel overflow-y-auto max-h-[92vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-300`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with Icon */}
-        <div className="bg-blue-600 p-6 sm:p-8 text-center relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-full opacity-10">
-            <div className="absolute top-[-20px] left-[-20px] w-40 h-40 rounded-full bg-white blur-3xl animate-pulse" />
-            <div className="absolute bottom-[-20px] right-[-20px] w-40 h-40 rounded-full bg-white blur-3xl animate-pulse" />
-          </div>
+        <div className="bg-accent text-on-accent p-6 sm:p-8 text-center relative overflow-hidden">
           <div className="relative z-10">
-            <div className="w-16 h-16 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner border border-white/30">
-              <Zap size={32} className="text-white fill-white" />
+            <div className="w-16 h-16 bg-accent-hover rounded-tile flex items-center justify-center mx-auto mb-4 shadow-pressed">
+              <Zap size={32} fill="currentColor" aria-hidden="true" />
             </div>
-            <h2 className="text-2xl font-black text-white tracking-tight uppercase italic">
+            <h2 className="text-[1.375rem] font-semibold leading-tight tracking-tight">
               {s.paywallTitle}
             </h2>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="absolute top-2 end-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/60 hover:text-white rounded-full hover:bg-white/10 transition-all"
+            className="absolute top-2 end-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-pill hover:bg-accent-hover transition-colors"
           >
             <X size={20} />
           </button>
@@ -272,14 +281,14 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
 
         {/* Content */}
         <div className="p-5 sm:p-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-8">
-          <p className="text-slate-600 dark:text-slate-400 font-bold text-center mb-6 sm:mb-8 leading-relaxed">
+          <p className="text-ink-secondary text-[0.9375rem] font-medium text-center mb-6 sm:mb-8 leading-relaxed">
             {s.paywallBody}
           </p>
 
           {/* Plan Selection */}
           <div className="mb-8">
-            <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-              <Star size={14} className="fill-slate-400 dark:fill-slate-500" />
+            <h3 className={`${eyebrowClass} mb-4 flex items-center gap-2`}>
+              <Star size={14} fill="currentColor" aria-hidden="true" />
               {s.paywallChoosePlan}
             </h3>
 
@@ -287,39 +296,33 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
               {/* Monthly Plan */}
               <button
                 onClick={() => setSelectedPlan('monthly')}
-                className={`flex flex-col p-4 min-h-[88px] rounded-2xl border-2 text-start transition-all relative ${selectedPlan === 'monthly'
-                  ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-900/10 shadow-lg shadow-blue-500/5'
-                  : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700'
-                  }`}
+                className={`${planTile} ${selectedPlan === 'monthly' ? planSelected : planIdle}`}
               >
-                <span className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-tight mb-1">{s.paywallMonthly}</span>
-                <span className="text-2xl font-black text-slate-900 dark:text-white italic">
+                <span className={`${planLabel} text-ink-secondary`}>{s.paywallMonthly}</span>
+                <span className={planPrice}>
                   <bdi>{priceLabel('monthly')}</bdi>
-                  <span className="text-sm font-bold opacity-50">{s.paywallPerMonth}</span>
+                  <span className={planPeriod}>{s.paywallPerMonth}</span>
                 </span>
               </button>
 
               {/* Yearly Plan */}
               <button
                 onClick={() => setSelectedPlan('yearly')}
-                className={`flex flex-col p-4 min-h-[88px] rounded-2xl border-2 text-start transition-all relative ${selectedPlan === 'yearly'
-                  ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-900/10 shadow-lg shadow-blue-500/5 ring-4 ring-blue-500/10'
-                  : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700'
-                  }`}
+                className={`${planTile} ${selectedPlan === 'yearly' ? planSelected : planIdle}`}
               >
                 {savingsPercent !== null && (
-                  <div className="absolute top-[-10px] end-2 bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-lg">
+                  <div className="absolute top-[-10px] end-2 bg-success-text text-surface-raised text-[0.6875rem] font-bold px-2 py-0.5 rounded-pill uppercase tracking-[0.06em] rtl:tracking-normal shadow-card">
                     {s.paywallSave.replace('{p}', formatPercent(savingsPercent / 100, language))}
                   </div>
                 )}
-                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-tight mb-1 flex items-center gap-1">
-                  {s.paywallYearly} <Star size={10} className="fill-emerald-500" />
+                <span className={`${planLabel} text-success-text flex items-center gap-1`}>
+                  {s.paywallYearly} <Star size={10} fill="currentColor" aria-hidden="true" />
                 </span>
-                <span className="text-2xl font-black text-slate-900 dark:text-white italic">
+                <span className={planPrice}>
                   <bdi>{priceLabel('yearly')}</bdi>
-                  <span className="text-sm font-bold opacity-50">{s.paywallPerYear}</span>
+                  <span className={planPeriod}>{s.paywallPerYear}</span>
                 </span>
-                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase">{s.paywallBestValue}</span>
+                <span className="text-xs font-semibold text-ink-secondary mt-1">{s.paywallBestValue}</span>
               </button>
             </div>
           </div>
@@ -332,11 +335,11 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
               s.paywallFeatureFaster,
               s.paywallFeatureExport,
             ].map((feature, i) => (
-              <div key={i} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
-                <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
-                  <CheckCircle2 size={12} strokeWidth={3} />
+              <div key={i} className="flex items-center gap-3 rounded-card bg-surface-alt p-3 shadow-pressed">
+                <div className="w-6 h-6 rounded-tile bg-accent-tint flex items-center justify-center text-accent-text flex-shrink-0">
+                  <CheckCircle2 size={12} strokeWidth={3} aria-hidden="true" />
                 </div>
-                <span className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight italic">
+                <span className="text-sm font-semibold text-ink">
                   {feature}
                 </span>
               </div>
@@ -345,16 +348,16 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
 
           <div className="flex flex-col gap-3">
             {checkoutError && (
-              <div role="alert" className="text-sm font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 text-center">
+              <Notice tone="danger" role="alert">
                 {checkoutError}
-              </div>
+              </Notice>
             )}
             <button
               onClick={handleUpgrade}
               disabled={openingCheckout}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-wait text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
+              className={`${primaryButtonClass} group disabled:cursor-wait`}
             >
-              <Crown size={20} fill="white" className="group-hover:rotate-12 transition-transform" />
+              <Crown size={20} fill="currentColor" aria-hidden="true" className="flex-none group-hover:rotate-12 transition-transform motion-reduce:transition-none" />
               {openingCheckout ? (
                 s.paywallOpening
               ) : (
@@ -370,7 +373,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
             </button>
             <button
               onClick={onClose}
-              className="w-full min-h-[44px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 py-2 rounded-xl font-bold text-sm transition-all"
+              className="w-full min-h-[44px] text-ink-secondary hover:text-ink py-2 rounded-pill font-semibold text-sm transition-colors"
             >
               {s.paywallMaybeLater}
             </button>

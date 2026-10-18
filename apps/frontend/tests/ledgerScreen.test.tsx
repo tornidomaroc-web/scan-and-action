@@ -107,7 +107,7 @@ describe('ledger home: one figure per currency', () => {
     expect(figures).toEqual(['7,282.31', '2,904.90', '16.50']);
     // Every figure is the same size class for amounts of similar length:
     // no currency is promoted over another by comparing amounts across them.
-    expect(q('[data-ledger-figure]')!.className).toMatch(/text-\[44px\]/);
+    expect(q('[data-ledger-figure]')!.className).toMatch(/text-\[2\.75rem\]/);
     expect(text()).toContain(strings.en.ledgerSeparateCurrencies);
   });
 
@@ -163,7 +163,7 @@ describe('ledger home: one figure per currency', () => {
     await settle();
     const fig = q('[data-ledger-figure]')!;
     expect(fig.textContent).toBe('1,234,567,890.12');
-    expect(fig.className).toMatch(/text-\[24px\]/);
+    expect(fig.className).toMatch(/text-\[1\.5rem\]/);
     expect(text()).not.toMatch(/\b1\.2\s?[BbMm]\b|\bK\b/);
   });
 

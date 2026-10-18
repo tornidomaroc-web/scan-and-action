@@ -6,7 +6,7 @@
 // 2026-09-26). The two values are the page surfaces in tokens.css.
 // ============================================================================
 
-export const THEME_COLOR = { light: '#F5F6FA', dark: '#0F1014' } as const;
+export const THEME_COLOR = { light: '#F2F3F8', dark: '#0F1014' } as const;
 
 export function syncThemeColor(theme: 'light' | 'dark'): void {
   if (typeof document === 'undefined') return;

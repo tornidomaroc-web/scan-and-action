@@ -8,53 +8,35 @@ import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 
-import {
-  BrandMark,
-  CUT_THRESHOLD_PX,
-  SMALL_CUT_STROKE,
-  SMALL_CUT_DOC,
-  SMALL_CUT_CHECK,
-  INK_WHITE,
-  INK_CYAN,
-} from '../src/components/BrandMark';
+import { BrandMark, CORNER_STROKE, CHECK_STROKE, INK_WHITE, INK_CYAN } from '../src/components/BrandMark';
 import { LandingScreen } from '../src/screens/LandingScreen';
 
 // ============================================================================
-// ONE MARK, TWO WEIGHTS.
+// ONE MARK, ONE DRAWING.
 // ============================================================================
-// There were four hand-drawn marks in this repository across three blues, plus
-// three lucide-glyph tiles standing in for a logo. This file exists to stop that
-// happening again, and the thing it actually guards is COLOUR IDENTITY and
-// WHICH CUT RENDERS AT WHICH SIZE — the two properties that cannot be checked by
-// looking at a diff.
+// There were four hand-drawn marks in this repository across three blues, then
+// one mark in two drawings (a full cut and a small cut). Concept A, chosen on
+// 2026-10-12, is one drawing at every size. This file guards the two things a
+// diff cannot show: COLOUR IDENTITY with the master that every app icon is
+// generated from, and that the app, the favicon and the master are the SAME
+// drawing.
 //
 // WHAT CI CANNOT DO HERE, stated rather than faked: there is no rasterizer in
-// this suite, so nothing below renders pixels. The 16px/32px acceptance was
-// measured with resvg outside CI and is recorded in the PR body:
-//
-//     16px : 38 fully-opaque white px, 14 fully-opaque cyan px, edge #FFFFFF
-//     32px : 214 fully-opaque white px, 74 fully-opaque cyan px, edge #FFFFFF
-//     (the full master at 30px, for contrast: 0 fully-opaque px, edge #47749C)
-//
-// What CI pins instead is the GEOMETRY that produces those pixels — chiefly
-// SMALL_CUT_STROKE, which is 2.0 device px at a 16px render and is the reason
-// the white is white. A proxy, named as one.
+// this suite, so nothing below renders pixels. The size ladder (60, 40, 29, 20,
+// 16px at 1x) was rendered outside CI for the icon round and the PR. What CI
+// pins is the geometry and colour that produce those pixels.
 // ============================================================================
 
 const CWD = process.cwd(); // vitest runs with cwd = apps/frontend
-const MASTER_PATH = join(CWD, 'assets', 'scan-action-mark.svg');
-// STRIP THE COMMENTS FIRST. The master opens with a 40-line block that NAMES
-// colours it does not draw — the splash navy #0f172a among them — and a naive
-// scan reads those as part of the artwork. Caught by this file's own colour
-// assertion on the first run, which is the only reason it is written down.
-const master = readFileSync(MASTER_PATH, 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+// STRIP THE COMMENTS FIRST: the master's header names colours and numbers in
+// prose, and a naive scan would read them as artwork.
+const master = readFileSync(join(CWD, 'assets', 'scan-action-mark.svg'), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
 const indexHtml = readFileSync(join(CWD, 'index.html'), 'utf8');
 
 const markup = (size: number) => renderToStaticMarkup(<BrandMark size={size} />);
 
 /** Every `stop-color`, in document order. */
-const stopsOf = (svg: string) =>
-  [...svg.matchAll(/stop-color=["']([^"']+)["']/g)].map((m) => m[1]);
+const stopsOf = (svg: string) => [...svg.matchAll(/stop-color=["']([^"']+)["']/g)].map((m) => m[1]);
 
 /** Every `d=` path payload, whitespace-normalised. */
 const pathsOf = (svg: string) =>
@@ -64,126 +46,74 @@ const pathsOf = (svg: string) =>
 const colorsOf = (svg: string) =>
   [...new Set([...svg.matchAll(/#[0-9a-fA-F]{6}/g)].map((m) => m[0].toUpperCase()))].sort();
 
-describe('the full cut is the master, verbatim', () => {
-  const full = markup(512);
+/** One attribute's value off the first element that carries it. */
+const attrOf = (svg: string, name: string) => svg.match(new RegExp(`\\s${name}="([^"]+)"`))?.[1];
 
-  it('carries the master gradient — all 17 stops, in order, read back off disk', () => {
+describe('the component is the master, verbatim', () => {
+  const svg = markup(512);
+
+  it('carries both master gradients: every stop, in order, read back off disk', () => {
     const fromMaster = stopsOf(master);
-    expect(fromMaster).toHaveLength(17);
-    expect(stopsOf(full)).toEqual(fromMaster);
+    // the plate's three stops (navy, middle, teal) and the lift's two
+    expect(fromMaster).toEqual(['#00286D', '#006784', '#00BB9F', '#FFFFFF', '#FFFFFF']);
+    expect(stopsOf(svg)).toEqual(fromMaster);
   });
 
-  it('carries every path the master draws', () => {
-    const masterPaths = pathsOf(master);
-    // doc-outline, doc-fold, sparkle-lg, sparkle-sm, check
-    expect(masterPaths).toHaveLength(5);
-    for (const d of masterPaths) {
-      expect(pathsOf(full), `the master path "${d.slice(0, 28)}..." is missing`).toContain(d);
+  it('draws exactly the master paths: four corners and a check', () => {
+    expect(pathsOf(master)).toHaveLength(5);
+    expect(pathsOf(svg)).toEqual(pathsOf(master));
+  });
+
+  it('strokes at the master widths, in the master inks', () => {
+    expect(master).toContain(`stroke-width="${CORNER_STROKE}"`);
+    expect(master).toContain(`stroke-width="${CHECK_STROKE}"`);
+    expect(svg).toContain(`stroke-width="${CORNER_STROKE}"`);
+    expect(svg).toContain(`stroke-width="${CHECK_STROKE}"`);
+    expect(svg).toContain(`stroke="${INK_WHITE}"`);
+    expect(svg).toContain(`stroke="${INK_CYAN}"`);
+  });
+
+  it('carries the soft shadow exactly as the master does, and the plate', () => {
+    expect(svg).toContain('feDropShadow');
+    for (const a of ['dy', 'stdDeviation', 'flood-opacity']) {
+      const v = attrOf(master, a);
+      expect(v, `master has no ${a}`).toBeDefined();
+      expect(attrOf(svg, a)).toBe(v);
     }
-  });
-
-  it('carries the beam, its bloom filter, and the plate', () => {
-    // Read the beam's geometry OUT OF THE MASTER rather than restating it here.
-    // A literal typed into this file would be a second source of truth for the
-    // one number the file exists to protect.
-    const beam = master.match(/id="beam-core"[\s\S]*?\/>/)![0];
-    const attrs = [...beam.matchAll(/\s(x|y|width|height)="([\d.]+)"/g)].map(
-      (m) => `${m[1]}="${m[2]}"`,
-    );
-    expect(attrs).toHaveLength(4);
-    for (const a of attrs) expect(full, `beam ${a} missing`).toContain(a);
-    // both rects: the bloomed one and the core, sharing the same y
-    const y = attrs.find((a) => a.startsWith('y='))!;
-    expect([...full.matchAll(new RegExp(y.replace('.', '\\.'), 'g'))]).toHaveLength(2);
-
-    const stdDev = master.match(/stdDeviation="([^"]+)"/)![1];
-    expect(full).toContain('feGaussianBlur');
-    expect(full).toContain(`stdDeviation="${stdDev}"`);
-    expect(full).toContain('width="512" height="512"');
+    expect(svg).toContain('width="512" height="512"');
   });
 
   it('introduces no colour the master does not have', () => {
-    expect(colorsOf(full)).toEqual(colorsOf(master));
+    expect(colorsOf(svg)).toEqual(colorsOf(master));
+  });
+
+  it('the previous mark is gone from the master and the component', () => {
+    // its document outline, its scan beam and its small-cut chamfer
+    for (const old of ['M 378.855,227.6', 'x="73.5"', 'H 240 L 304,144']) {
+      expect(master).not.toContain(old);
+      expect(svg).not.toContain(old);
+    }
   });
 });
 
-describe('the cut boundary is the measured one', () => {
-  // The master stops drawing below 48px: at 30px it renders zero fully-opaque
-  // pixels and its white comes out #47749C. CUT_THRESHOLD_PX is that boundary.
-  it('is 48', () => {
-    expect(CUT_THRESHOLD_PX).toBe(48);
+describe('one drawing at every size', () => {
+  it('a 16px mark and a 512px mark differ only in their width and height', () => {
+    const at = (n: number) => markup(n).replace(/ (width|height)="\d+"/, '').replace(/ (width|height)="\d+"/, '');
+    expect(at(16)).toEqual(at(512));
+    expect(at(30)).toEqual(at(512));
   });
 
-  it('one px below the threshold renders the SMALL cut', () => {
-    const svg = markup(CUT_THRESHOLD_PX - 1);
-    expect(svg).toContain(SMALL_CUT_DOC);
-    expect(svg).not.toContain('feGaussianBlur');
-  });
-
-  it('at the threshold it renders the FULL master', () => {
-    const svg = markup(CUT_THRESHOLD_PX);
-    expect(svg).toContain('feGaussianBlur');
-    expect(svg).not.toContain(SMALL_CUT_DOC);
-  });
-
-  it('the two cuts are genuinely different drawings, not the same one scaled', () => {
-    // Without this, every other assertion in this file would still pass if the
-    // component quietly returned the full master at every size.
-    const small = markup(30);
-    const full = markup(512);
-    expect(small).not.toEqual(full.replace(/(width|height)="512"/g, '$1="30"'));
-    expect(pathsOf(small)).not.toEqual(pathsOf(full));
-    expect(pathsOf(small)).toHaveLength(2);
-    expect(pathsOf(full)).toHaveLength(5);
-  });
-});
-
-describe('the small cut drops exactly what cannot draw, and keeps the colour', () => {
-  const small = markup(30);
-
-  it.each([
-    ['the beam', 'x="73.5"'],
-    ['the beam bloom', 'feGaussianBlur'],
-    ['the large sparkle', 'M 341.39,206.073'],
-    ['the small sparkle', 'M 321.112,242.48'],
-    ['the fold FLAP', 'M 311.62,100.38'],
-    ["the master's hairline stroke", '16.5'],
-  ])('drops %s', (_label, needle) => {
-    expect(small).not.toContain(needle);
-  });
-
-  it('keeps the fold as a chamfer on the outline', () => {
-    // the 45deg cut: H 240 then a diagonal L 304,144
-    expect(SMALL_CUT_DOC).toContain('H 240 L 304,144');
-  });
-
-  it('is exactly two inked paths — the document and the check', () => {
-    expect(pathsOf(small)).toEqual([SMALL_CUT_DOC, SMALL_CUT_CHECK]);
-  });
-
-  it('uses the MASTER gradient, unmodified — no new blue enters', () => {
-    expect(stopsOf(small)).toEqual(stopsOf(master));
-  });
-
-  it('inks in the two master colours and nothing else', () => {
-    expect(colorsOf(small)).toEqual(colorsOf(master));
-    expect(small).toContain(INK_WHITE);
-    expect(small).toContain(INK_CYAN);
-  });
-
-  it('strokes at or above the 2.0-device-px floor', () => {
+  it('states the 16px stroke honestly: 1.31 device px at 1x, over 2.0 at 2x', () => {
     // 2.0 device px is the width at which a band fully covers at least one
-    // pixel at ANY subpixel offset. At a 16px render, 2.0px = 2.0*512/16 = 64
-    // master units. Below this the mark greys out exactly as the master does.
-    expect(SMALL_CUT_STROKE).toBeGreaterThanOrEqual((2.0 * 512) / 16);
-    expect(small).toContain(`stroke-width="${SMALL_CUT_STROKE}"`);
+    // pixel at any subpixel offset. The corners miss it at a 1x 16px render
+    // (they anti-alias lighter) and clear it at 2x. BrandMark.tsx says so.
+    expect((CORNER_STROKE * 16) / 512).toBeCloseTo(1.3125, 4);
+    expect((CORNER_STROKE * 32) / 512).toBeGreaterThanOrEqual(2.0);
   });
 
-  it('keeps the 512 user space, which is what makes the gradient copyable', () => {
-    // The gradient is gradientUnits="userSpaceOnUse" with coordinates in the
-    // 512 space. A different viewBox would force re-derived numbers.
-    expect(small).toContain('viewBox="0 0 512 512"');
-    expect(small).toContain('x1="-254.19"');
+  it('keeps the 512 user space, which is what makes the gradients copyable', () => {
+    expect(markup(16)).toContain('viewBox="0 0 512 512"');
+    expect(markup(16)).toContain('gradientUnits="userSpaceOnUse"');
   });
 });
 
@@ -204,10 +134,10 @@ describe("index.html's favicon IS this component, byte for byte", () => {
     expect(hrefInHtml()).toEqual(toDataUri(markup(32)));
   });
 
-  it('and does NOT match the full cut — the comparison can fail', () => {
+  it('and does NOT match a 33px one: the comparison can fail', () => {
     // The positive control. Without it the assertion above would pass just as
     // happily against a toDataUri that returned a constant.
-    expect(hrefInHtml()).not.toEqual(toDataUri(markup(512)));
+    expect(hrefInHtml()).not.toEqual(toDataUri(markup(33)));
   });
 
   it('is inline, not a URL that could 404 into the SPA fallback', () => {
@@ -215,7 +145,7 @@ describe("index.html's favicon IS this component, byte for byte", () => {
   });
 });
 
-describe('the header renders the small cut, and AppLogo is gone', () => {
+describe('the header renders the mark, and AppLogo is gone', () => {
   const srcFiles = (): string[] => {
     const out: string[] = [];
     const walk = (d: string) => {
@@ -238,7 +168,7 @@ describe('the header renders the small cut, and AppLogo is gone', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('the landing header renders the SMALL cut, not the full master', () => {
+  it('the landing header renders the mark at 30px, the same drawing as the master', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -247,9 +177,7 @@ describe('the header renders the small cut, and AppLogo is gone', () => {
     const svg = container.querySelector('header')!.querySelector('svg')!;
     expect(svg).not.toBeNull();
     expect(svg.getAttribute('width')).toBe('30');
-    expect(Number(svg.getAttribute('width'))).toBeLessThan(CUT_THRESHOLD_PX);
-    expect(svg.outerHTML).toContain(`stroke-width="${SMALL_CUT_STROKE}"`);
-    expect(svg.outerHTML).not.toContain('feGaussianBlur');
+    expect(pathsOf(svg.outerHTML)).toEqual(pathsOf(master));
     root.unmount();
     container.remove();
   });

@@ -54,7 +54,7 @@ export const SettingsScreen = () => {
   const userName = user?.email?.split('@')[0] || 'User';
   const ThemeIcon = theme === 'light' ? Moon : Sun;
 
-  const sectionTitle = 'text-[15px] font-bold text-ink';
+  const sectionTitle = 'text-[0.9375rem] font-bold text-ink';
   const row = 'flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-3';
   const rowLabel = 'flex items-center gap-3 text-sm font-semibold text-ink-secondary';
   const pillButton = 'inline-flex min-h-[40px] items-center gap-2 rounded-pill bg-surface-muted px-4 text-sm font-semibold text-ink transition-colors hover:bg-surface-alt active:scale-[0.99]';
@@ -63,7 +63,7 @@ export const SettingsScreen = () => {
     <div className="mx-auto w-full max-w-xl pb-6 animate-in fade-in duration-500">
       <header className="mb-6">
         <h1 className="text-title-lg font-semibold tracking-tight text-ink">{s.workspaceSettings}</h1>
-        <p className="mt-1 text-sm text-ink-muted">{s.manageAccount}</p>
+        <p className="mt-1 text-sm text-ink-secondary">{s.manageAccount}</p>
       </header>
 
       <div className="space-y-4">
@@ -77,7 +77,7 @@ export const SettingsScreen = () => {
               {/* A person's name is natural language of unknown direction — the
                   exact case dir="auto" exists for. On the truncating element
                   itself, with no isolate child to swallow it. */}
-              <h3 dir="auto" className="truncate text-[15px] font-semibold text-ink">{userName}</h3>
+              <h3 dir="auto" className="truncate text-[0.9375rem] font-semibold text-ink">{userName}</h3>
               {/* dir="ltr", deliberately NOT dir="auto": an email is an identifier
                   with LTR structure. Under "auto" an Arabic local part makes the
                   box RTL and "@gmail.com" lands on the wrong side, a correct bidi
@@ -167,7 +167,7 @@ export const SettingsScreen = () => {
             <div className="mt-4 flex items-start gap-3 rounded-tile bg-success-tint p-4">
               <IconTile icon={ShieldCheck} tone="success" size="sm" />
               <div className="min-w-0">
-                <h4 className="text-[15px] font-semibold text-success-text">{s.proActive}</h4>
+                <h4 className="text-[0.9375rem] font-semibold text-success-text">{s.proActive}</h4>
                 <p className="mt-1 text-sm leading-relaxed text-ink-secondary">{s.proActiveDesc}</p>
               </div>
             </div>
@@ -178,7 +178,7 @@ export const SettingsScreen = () => {
             <div className="mt-4">
               <div className="flex items-center gap-3">
                 <IconTile icon={Zap} size="sm" />
-                <h4 className="text-[15px] font-semibold text-ink">{s.freeTier}</h4>
+                <h4 className="text-[0.9375rem] font-semibold text-ink">{s.freeTier}</h4>
               </div>
               <p className="mt-3 rounded-tile bg-warning-tint p-3 text-sm font-medium leading-relaxed text-warning-text">{s.freeLimit}</p>
               <p className="mt-3 text-sm leading-relaxed text-ink-secondary">{s.proAutoUnlock}</p>
@@ -187,7 +187,7 @@ export const SettingsScreen = () => {
             <div className="mt-4">
               <div className="flex items-center gap-3">
                 <IconTile icon={Zap} size="sm" />
-                <h4 className="text-[15px] font-semibold text-ink">{s.freeTier}</h4>
+                <h4 className="text-[0.9375rem] font-semibold text-ink">{s.freeTier}</h4>
               </div>
               <p className="mt-3 text-sm leading-relaxed text-ink-secondary">{s.upgradeDesc}</p>
               <p className="mt-3 rounded-tile bg-warning-tint p-3 text-sm font-medium leading-relaxed text-warning-text">{s.freeLimit}</p>
@@ -219,10 +219,13 @@ export const SettingsScreen = () => {
             {s.dangerZone}
           </h3>
           <p className="mt-3 text-sm leading-relaxed text-ink-secondary">{s.deleteAccountDesc}</p>
+          {/* The quiet danger idiom Detail's Reject wears: the tint, its text
+              and the card shadow. The solid fill this replaced put white on
+              #E4404E at 4.08:1 in light (softSurfaces.test.ts). */}
           <button
             type="button"
             onClick={() => setIsDeleteOpen(true)}
-            className="mt-4 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-pill bg-danger text-sm font-bold text-surface-raised transition-colors active:scale-[0.99]"
+            className="mt-4 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-pill bg-danger-tint text-sm font-bold text-danger-text shadow-card ring-1 ring-danger transition-colors active:scale-[0.99] active:shadow-pressed"
           >
             <Trash2 size={18} aria-hidden="true" />
             {s.deleteAccount}

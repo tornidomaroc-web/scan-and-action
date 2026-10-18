@@ -128,10 +128,16 @@ describe.each(ROUTES)('%s', (path, name, Screen) => {
     expect(code(name)).not.toContain('sa-pin-light');
   });
 
-  it('keeps its own dark: variants, which is WHY it needs no pin', () => {
-    const v = code(name).match(/dark:[^\s"']+/g) ?? [];
-    expect(v.length, 'this page lost its dark: variants; it can no longer be dark-correct').toBeGreaterThan(0);
-    expect(v).toContain('dark:text-slate-200');
+  it('is dark-correct through the tokens (restyle PR 6), which is WHY it needs no pin', () => {
+    // Until PR 6 these pages kept their own dark: variants on raw slate / blue /
+    // emerald / red classes; they now draw from the shared legal classes, which
+    // are tokens that flip with the theme. A raw palette class coming back would
+    // be one theme only again.
+    const src = code(name);
+    expect(src).toContain("from '../components/legal/legalPage'");
+    for (const c of ['legalPageClass', 'legalTitleClass', 'legalBodyClass', 'legalHeadingClass', 'legalFooterClass']) expect(src).toContain(`{${c}}`);
+    expect(src).not.toMatch(/\b(?:bg|text|border)-(?:slate|blue|emerald|red|gray)-\d{2,3}\b/);
+    expect(src).not.toMatch(/dark:[^\s"']+/);
   });
 });
 

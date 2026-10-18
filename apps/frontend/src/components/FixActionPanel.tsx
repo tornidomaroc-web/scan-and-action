@@ -108,7 +108,7 @@ export const FixActionPanel: React.FC<Props> = ({ documentId, decision, reason, 
                 onChange={(e) => setAmount(e.target.value)}
                 className="min-w-0 flex-1 bg-transparent py-3 ps-4 pe-2 text-ink outline-none placeholder:text-ink-faint"
               />
-              {currency && <span className="flex-shrink-0 text-xs font-bold tracking-wide text-ink-muted">{currency}</span>}
+              {currency && <span className="flex-shrink-0 text-xs font-bold tracking-wide text-ink-secondary">{currency}</span>}
             </div>
             <button onClick={() => handleAction('amount_corrected')} disabled={loading} className={primary}>
               {loading ? s.fixProcessing : s.saveCorrection}

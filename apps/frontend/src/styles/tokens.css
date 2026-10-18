@@ -6,31 +6,48 @@
    `rounded-panel` and the rest resolve here, and a value changed here changes
    every screen at once.
 
-   THE LANGUAGE (2026-09-26). Dark first: the values in `.dark` are read from
-   the design the owner chose, a dark dashboard with an electric-blue accent,
-   quiet near-black surfaces, hairline rings, round icons and pill controls.
-   Every number was read out of the design file itself (colours, radii, stroke
-   opacities, shadows, type) rather than judged by eye; none of that file is in
-   this repository. Three adjustments were ruled before anything was built:
+   THE LANGUAGE (2026-10-12): a modified soft-neumorphic style, ruled by the
+   owner on 2026-10-12 after the icon round (concept A, "Viewfinder check",
+   shipped in #307). Raised cards and lists on soft shadows; text, primary
+   buttons and the review states keep strong contrast, because people check
+   amounts and decisions on these screens. Measured in the proposal (artifact
+   YJEQctuE9fCuaE69po2qbs): every text, button and review-state pair at or
+   above 4.5:1 in both themes, by the arithmetic kitLanguage.test.ts runs.
 
-     1. Buttons take the accent one step darker (#3563F0) than the design's
-        chart blue (#3B6CFF): white text on the chart blue measures 4.40:1,
-        under the 4.5 that normal text needs; on #3563F0 it measures 5.01:1.
-        The chart blue survives as `--sa-accent-bright`, for charts and icons,
-        never as the fill under a label. `kitLanguage.test.ts` holds the
-        button ratio.
-     2. A category icon never sits on a surface where its fill drops under
-        3:1. Every surface token below is checked against every category fill,
-        in both themes, by the same test.
-     3. Light mode is our inversion of the design, which is dark only: the
-        design's own light ink (#F5F6FA) becomes the page, its page (#0F1014)
-        becomes the ink, and the same accent, radii and shadows carry over.
+   THE ACCENT IS THE ICON FAMILY. This REVERSES the decision of 2026-09-26,
+   which locked the HorizonX blue accent (hex 3563F0, named without its hash so the reversal test can hold this file free of it). Ruled by the
+   owner on 2026-10-12: the screens move to the icon's colours (navy #00286D
+   to teal #00BB9F, cyan #8CFCF9), so the app and its icon are one brand, and
+   Android's colorAccent takes the same value (values/colors.xml). Three
+   adjustments were made before anything was drawn:
 
-   `:root` is light, `.dark` is the design, `.theme-dark` is the same palette
-   for one subtree (the sign-in screens, which are dark in both themes; the
-   test holds the two blocks byte-identical). Both layers are toggled by the
-   `dark` class on <html>, set by index.html from the stored theme or the
-   system setting.
+     1. The button fill is the mark's MIDDLE colour #006784, not the teal end:
+        white on #00BB9F measures 2.44:1, white on #006784 measures 6.42:1.
+        Teal survives as `--sa-accent-bright` for icons and charts, never as
+        the fill under a label. kitLanguage.test.ts holds the button ratio.
+     2. Dark mode lifts the card two steps above the page (#0F1014 -> #1C1D25):
+        a shadow on near-black shows nothing, and the card needs a page to
+        fall on. The hairline ring stays; it is what keeps a card an object
+        when the shadow cannot.
+     3. The muted label was #858A99 on light, 3.45:1 on a white card, under
+        the 4.5 that dates, categories and captions need. It is #6E7383 now
+        (4.73:1). Dark mode's muted label already passed.
+
+   Depth is light on purpose. Apple's HIG (App icons; Materials) asks apps not
+   to bake highlights and shadows the system would add; in the content layer
+   it adds none, so ours are small: a lit edge above, a soft shade below,
+   and never under text. `prefers-contrast: more` removes the lift and
+   strengthens the ring; `prefers-reduced-transparency` does the same.
+
+   `:root` is light, `.dark` is the dark palette, `.theme-dark` is the same
+   palette for one subtree (the sign-in screens, which are dark in both
+   themes; the test holds the two blocks byte-identical). Both layers are
+   toggled by the `dark` class on <html>, set by index.html from the stored
+   theme or the system setting.
+
+   Category colours (`--sa-cat-*`) carry MEANING, not brand, and did not move:
+   categoryPalette.test.ts holds every fill to 3:1 on every surface, in both
+   themes, and that still holds on the lifted dark card.
 
    The legacy vars in index.css (--background, --card, --accent, ...) bridge
    onto these tokens (tokenBridge.test.ts), so the few old component classes
@@ -38,48 +55,48 @@
    ============================================================================= */
 
 :root {
-  /* ── Accent (the design's blue, one step darker for text on it) ──────── */
-  --sa-accent: #3563F0;          /* primary actions, active nav               */
-  --sa-accent-hover: #2F5BE6;    /* hover / pressed                            */
-  --sa-accent-text: #2F5BE6;     /* accent text and links on light            */
-  --sa-accent-tint: #E8EEFF;     /* tinted chip / tile background             */
-  --sa-accent-tint-2: #EEF2FF;   /* active nav background                     */
-  --sa-accent-border: #C9D6FF;   /* border on tinted accent surfaces          */
-  --sa-accent-bright: #3B6CFF;   /* the design's chart blue: charts and icons ONLY, never under a label */
-  --sa-on-accent: #FFFFFF;       /* text on the accent, in both themes (5.01:1 on #3563F0) */
+  /* ── Accent (the icon family: the mark's middle colour under a label) ──── */
+  --sa-accent: #006784;          /* primary actions, active nav (6.42:1 under white) */
+  --sa-accent-hover: #005A74;    /* hover / pressed                            */
+  --sa-accent-text: #005A74;     /* accent text and links on light (7.74:1 on a card) */
+  --sa-accent-tint: #DFF4F2;     /* tinted chip / tile background             */
+  --sa-accent-tint-2: #E8F6F4;   /* active nav background                     */
+  --sa-accent-border: #9ED9D1;   /* border on tinted accent surfaces          */
+  --sa-accent-bright: #00BB9F;   /* the mark's teal: charts and icons ONLY, never under a label (2.44:1) */
+  --sa-on-accent: #FFFFFF;       /* text on the accent, in both themes        */
 
-  /* ── Surfaces & lines (the design inverted: its ink is our page) ───────── */
-  --sa-surface: #F5F6FA;         /* app background                            */
+  /* ── Surfaces & lines ──────────────────────────────────────────────────── */
+  --sa-surface: #F2F3F8;         /* app background (one step cooler than the card, so the card can lift) */
   --sa-surface-raised: #FFFFFF;  /* cards, the rail                           */
-  --sa-surface-alt: #FAFBFD;     /* subtle hover on a card                    */
-  --sa-surface-muted: #EEF0F5;   /* neutral icon circle / inset               */
-  --sa-line: #E4E6EE;            /* card ring                                 */
-  --sa-line-strong: #D9DCE6;     /* button border / stronger divider          */
-  --sa-line-sidebar: #E8EAF1;    /* rail edge                                 */
+  --sa-surface-alt: #F8F9FC;     /* subtle hover on a card; the inset cell     */
+  --sa-surface-muted: #E9EBF2;   /* neutral icon circle / inset               */
+  --sa-line: #E3E5EC;            /* card ring                                 */
+  --sa-line-strong: #D6D9E3;     /* button border / stronger divider          */
+  --sa-line-sidebar: #E6E8F0;    /* rail edge                                 */
   --sa-divider: #EEF0F5;         /* in-card row dividers                      */
 
   /* ── Overlay / scrim ───────────────────────────────────────────────────── */
   /* One value for light and dark, as every modal scrim in the app ships. */
   --sa-overlay: rgba(15, 16, 20, 0.6);
 
-  /* ── Text ramp (the design's ramp, inverted) ───────────────────────────── */
+  /* ── Text ramp ─────────────────────────────────────────────────────────── */
   --sa-ink: #0F1014;             /* primary text, headings                    */
-  --sa-ink-secondary: #5F6373;   /* body                                      */
-  --sa-ink-tertiary: #6B7085;    /* labels                                    */
-  --sa-ink-muted: #858A99;       /* captions / meta                           */
-  --sa-ink-faint: #A0A5B3;       /* icons, placeholders                       */
+  --sa-ink-secondary: #555A6A;   /* body (6.87:1 on a card)                   */
+  --sa-ink-tertiary: #646979;    /* labels                                    */
+  --sa-ink-muted: #6E7383;       /* captions / meta (4.73:1 on a card; was #858A99 at 3.45) */
+  --sa-ink-faint: #9CA1AF;       /* icons, placeholders                       */
   --sa-ink-fainter: #B5B9C6;     /* axis labels                               */
 
   /* ── Semantic ──────────────────────────────────────────────────────────── */
   --sa-success: #1FA873;
   --sa-success-strong: #2FC48E;
-  --sa-success-text: #157347;
-  --sa-success-tint: #E3F7EE;
+  --sa-success-text: #136B43;    /* 5.79:1 on its tint                        */
+  --sa-success-tint: #E1F6EC;
   --sa-warning: #E0A33E;
-  --sa-warning-text: #B26A0A;
+  --sa-warning-text: #8A5200;    /* 5.44:1 on its tint, 6.39:1 on a card      */
   --sa-warning-tint: #FBEBD0;
   --sa-danger: #E4404E;
-  --sa-danger-text: #B8303C;
+  --sa-danger-text: #B02B37;     /* 5.67:1 on its tint                        */
   --sa-danger-tint: #FDECEE;
 
   /* ── Category colours (unchanged by the language, 2026-09-26) ──────────── */
@@ -108,22 +125,31 @@
   --sa-cat-office: #8B5CF6;
   --sa-cat-other: #C026D3;
 
-  /* ── Radius scale (read from the design: cards 26, inner tiles 13, everything that is a control is a pill, every icon is a circle) ── */
+  /* ── Radius scale (cards 22, inner tiles 14, every control a pill, every icon a circle) ── */
   --sa-radius-sm: 6px;
   --sa-radius-nav: 999px;        /* rail and tab buttons: circles              */
   --sa-radius-btn: 999px;        /* buttons: pills                             */
-  --sa-radius-card: 13px;        /* inner tiles, fields, notices               */
+  --sa-radius-card: 14px;        /* inner tiles, fields, notices               */
   --sa-radius-tile: 999px;       /* category and icon circles                  */
-  --sa-radius-panel: 26px;       /* the cards                                  */
+  --sa-radius-panel: 22px;       /* the cards (one step tighter than the 26 of 2026-09-26, which read as a blob under a shadow) */
   --sa-radius-pill: 999px;
 
-  /* ── Elevation (read from the design: a hairline lift, and a soft drop under floating things) ── */
-  --sa-shadow-card: 0 1px 2px rgba(20, 20, 30, 0.04);
-  --sa-shadow-raised: 0 12px 32px -12px rgba(20, 20, 30, 0.12);
-  --sa-shadow-lg: 0 26px 60px -24px rgba(20, 20, 30, 0.30),
-                  0 10px 24px -16px rgba(20, 20, 30, 0.14);
+  /* ── Elevation (soft: a lit edge above, a shade below, never under text) ── */
+  --sa-shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.9),
+                    0 6px 16px -8px rgba(20, 22, 38, 0.18),
+                    0 1px 2px rgba(20, 22, 38, 0.06);
+  --sa-shadow-raised: inset 0 1px 0 rgba(255, 255, 255, 0.9),
+                      0 14px 32px -14px rgba(20, 22, 38, 0.26),
+                      0 2px 4px rgba(20, 22, 38, 0.06);
+  --sa-shadow-pressed: inset 0 2px 4px rgba(20, 22, 38, 0.12);
+  --sa-shadow-lg: 0 26px 60px -24px rgba(20, 22, 38, 0.30),
+                  0 10px 24px -16px rgba(20, 22, 38, 0.14);
+  /* The primary button's glow: the accent itself, at 67%, so the button lifts
+     in its own colour rather than a grey one. */
+  --sa-shadow-accent: 0 8px 18px -8px rgba(0, 103, 132, 0.67),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.18);
 
-  /* ── Typography (the design is set in Inter, which the app already uses) ── */
+  /* ── Typography (Inter, with IBM Plex Sans Arabic for Arabic) ──────────── */
   --sa-font-sans: 'Inter', 'IBM Plex Sans Arabic', system-ui, -apple-system,
                   BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
@@ -138,86 +164,117 @@
   --sa-tracking-wide: 0.06em;   /* small uppercase eyebrows */
 }
 
-/* The design, as read from its file. Page #0F1014, card #191A21, inner tile
-   #21222B, hairline white at 8%, ink #F5F6FA, muted #858A99, faint #606474,
-   green #35D49A, red #FF5F6D. */
+/* Dark: page #0F1014, the card lifted two steps to #1C1D25 so the soft shadow
+   has a page to fall on, a 6% lit edge, and the mark's cyan for links. */
 .dark {
-  --sa-accent: #3563F0;
-  --sa-accent-hover: #2F5BE6;
-  --sa-accent-text: #7F9FFF;
-  --sa-accent-tint: rgba(59, 108, 255, 0.18);
-  --sa-accent-tint-2: rgba(59, 108, 255, 0.12);
-  --sa-accent-border: rgba(59, 108, 255, 0.35);
-  --sa-accent-bright: #3B6CFF;
+  --sa-accent: #007A8B;
+  --sa-accent-hover: #006784;
+  --sa-accent-text: #8CFCF9;
+  --sa-accent-tint: rgba(0, 187, 159, 0.16);
+  --sa-accent-tint-2: rgba(0, 187, 159, 0.12);
+  --sa-accent-border: rgba(0, 187, 159, 0.35);
+  --sa-accent-bright: #00BB9F;
   --sa-on-accent: #FFFFFF;
 
   --sa-surface: #0F1014;
-  --sa-surface-raised: #191A21;
-  --sa-surface-alt: #21222B;
-  --sa-surface-muted: #21222B;
-  --sa-line: #24252E;
-  --sa-line-strong: #2E2F3A;
-  --sa-line-sidebar: #1E1F27;
-  --sa-divider: #21222B;
+  --sa-surface-raised: #1C1D25;
+  --sa-surface-alt: #23242E;
+  --sa-surface-muted: #262733;
+  --sa-line: #2A2B36;
+  --sa-line-strong: #343542;
+  --sa-line-sidebar: #22232C;
+  --sa-divider: #23242E;
 
   --sa-ink: #F5F6FA;
-  --sa-ink-secondary: #C5C8D2;
-  --sa-ink-tertiary: #A7ABB8;
-  --sa-ink-muted: #858A99;
-  --sa-ink-faint: #606474;
-  --sa-ink-fainter: #4B4F5C;
+  --sa-ink-secondary: #C9CCD6;
+  --sa-ink-tertiary: #AEB2BF;
+  --sa-ink-muted: #8C91A0;
+  --sa-ink-faint: #646979;
+  --sa-ink-fainter: #4E5260;
 
   --sa-success: #35D49A;
   --sa-success-strong: #2FC48E;
-  --sa-success-text: #35D49A;
-  --sa-success-tint: rgba(53, 212, 154, 0.14);
+  --sa-success-text: #5EE0B0;
+  --sa-success-tint: rgba(53, 212, 154, 0.16);
   --sa-warning: #F5C368;
-  --sa-warning-text: #F5C368;
-  --sa-warning-tint: rgba(234, 179, 8, 0.14);
+  --sa-warning-text: #F7CB7A;
+  --sa-warning-tint: rgba(234, 179, 8, 0.16);
   --sa-danger: #FF5F6D;
-  --sa-danger-text: #FF7A85;
-  --sa-danger-tint: rgba(255, 95, 109, 0.14);
+  --sa-danger-text: #FF8A94;
+  --sa-danger-tint: rgba(255, 95, 109, 0.16);
+
+  --sa-shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.06),
+                    0 8px 20px -10px rgba(0, 0, 0, 0.6);
+  --sa-shadow-raised: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+                      0 16px 36px -14px rgba(0, 0, 0, 0.7);
+  --sa-shadow-pressed: inset 0 2px 6px rgba(0, 0, 0, 0.5);
+  --sa-shadow-lg: 0 26px 60px -24px rgba(0, 0, 0, 0.7),
+                  0 10px 24px -16px rgba(0, 0, 0, 0.5);
+  --sa-shadow-accent: 0 8px 18px -8px rgba(0, 122, 139, 0.67),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 /* The same palette for one subtree, whatever the page theme: the sign-in
    screens are dark in both themes (components/auth/AuthFrame.tsx). Byte for
    byte the `.dark` block above; kitLanguage.test.ts fails if they drift. */
 .theme-dark {
-  --sa-accent: #3563F0;
-  --sa-accent-hover: #2F5BE6;
-  --sa-accent-text: #7F9FFF;
-  --sa-accent-tint: rgba(59, 108, 255, 0.18);
-  --sa-accent-tint-2: rgba(59, 108, 255, 0.12);
-  --sa-accent-border: rgba(59, 108, 255, 0.35);
-  --sa-accent-bright: #3B6CFF;
+  --sa-accent: #007A8B;
+  --sa-accent-hover: #006784;
+  --sa-accent-text: #8CFCF9;
+  --sa-accent-tint: rgba(0, 187, 159, 0.16);
+  --sa-accent-tint-2: rgba(0, 187, 159, 0.12);
+  --sa-accent-border: rgba(0, 187, 159, 0.35);
+  --sa-accent-bright: #00BB9F;
   --sa-on-accent: #FFFFFF;
 
   --sa-surface: #0F1014;
-  --sa-surface-raised: #191A21;
-  --sa-surface-alt: #21222B;
-  --sa-surface-muted: #21222B;
-  --sa-line: #24252E;
-  --sa-line-strong: #2E2F3A;
-  --sa-line-sidebar: #1E1F27;
-  --sa-divider: #21222B;
+  --sa-surface-raised: #1C1D25;
+  --sa-surface-alt: #23242E;
+  --sa-surface-muted: #262733;
+  --sa-line: #2A2B36;
+  --sa-line-strong: #343542;
+  --sa-line-sidebar: #22232C;
+  --sa-divider: #23242E;
 
   --sa-ink: #F5F6FA;
-  --sa-ink-secondary: #C5C8D2;
-  --sa-ink-tertiary: #A7ABB8;
-  --sa-ink-muted: #858A99;
-  --sa-ink-faint: #606474;
-  --sa-ink-fainter: #4B4F5C;
+  --sa-ink-secondary: #C9CCD6;
+  --sa-ink-tertiary: #AEB2BF;
+  --sa-ink-muted: #8C91A0;
+  --sa-ink-faint: #646979;
+  --sa-ink-fainter: #4E5260;
 
   --sa-success: #35D49A;
   --sa-success-strong: #2FC48E;
-  --sa-success-text: #35D49A;
-  --sa-success-tint: rgba(53, 212, 154, 0.14);
+  --sa-success-text: #5EE0B0;
+  --sa-success-tint: rgba(53, 212, 154, 0.16);
   --sa-warning: #F5C368;
-  --sa-warning-text: #F5C368;
-  --sa-warning-tint: rgba(234, 179, 8, 0.14);
+  --sa-warning-text: #F7CB7A;
+  --sa-warning-tint: rgba(234, 179, 8, 0.16);
   --sa-danger: #FF5F6D;
-  --sa-danger-text: #FF7A85;
-  --sa-danger-tint: rgba(255, 95, 109, 0.14);
+  --sa-danger-text: #FF8A94;
+  --sa-danger-tint: rgba(255, 95, 109, 0.16);
+
+  --sa-shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.06),
+                    0 8px 20px -10px rgba(0, 0, 0, 0.6);
+  --sa-shadow-raised: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+                      0 16px 36px -14px rgba(0, 0, 0, 0.7);
+  --sa-shadow-pressed: inset 0 2px 6px rgba(0, 0, 0, 0.5);
+  --sa-shadow-lg: 0 26px 60px -24px rgba(0, 0, 0, 0.7),
+                  0 10px 24px -16px rgba(0, 0, 0, 0.5);
+  --sa-shadow-accent: 0 8px 18px -8px rgba(0, 122, 139, 0.67),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Apple's HIG asks that an app stay legible with Increase Contrast and Reduce
+   Transparency on (Dark Mode; Accessibility). The soft lift is the first
+   thing to give: the ring takes its place. */
+@media (prefers-contrast: more), (prefers-reduced-transparency: reduce) {
+  :root, .dark, .theme-dark {
+    --sa-shadow-card: 0 0 0 1px var(--sa-line-strong);
+    --sa-shadow-raised: 0 0 0 1px var(--sa-line-strong);
+    --sa-shadow-pressed: inset 0 0 0 1px var(--sa-line-strong);
+    --sa-shadow-accent: none;
+  }
 }
 
 /* The single-theme pin the landing route carried (`.sa-pin-light`) is gone

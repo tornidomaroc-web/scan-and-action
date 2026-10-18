@@ -243,7 +243,7 @@ export const strings = {
     powerTipText: 'Did you know? You can query your data in natural language. Try: "Show all invoices from last month" in the search bar.',
     intelligencePulseDesc: 'Scan your first document to see insights here.',
     finishBatchDesc: 'You\'ve done the heavy lifting. Spend a minute reviewing the final items to unlock fully usable data.',
-    auditDesc: 'Comprehensive audit of your document extractions (v1: Top 100).',
+    auditDesc: 'Your 100 most recent documents, newest first.',
     // ── Search, redrawn from zero 2026-09-25: screens/SearchScreen.tsx ──
     searchTitle: "Search receipts",
     searchPlaceholder: "Merchant or file name",
@@ -350,6 +350,18 @@ export const strings = {
     authCheckInboxTitle: "Check your inbox",
     authCheckInboxBody: "We sent a confirmation link to this address. Open it to finish creating your account.",
     authBackToSignIn: "Back to sign in",
+    // The page an email link lands on (AuthConfirmScreen, design step 5).
+    authConfirmWorkingTitle: "Confirming your link",
+    authConfirmWorkingBody: "One moment while we check this link.",
+    authConfirmFailedTitle: "This link no longer works",
+    authConfirmFailedBody: "It has expired or was already used. If your email is confirmed, sign in. To reset a password, ask for a new link with Forgot password.",
+    // The title names the cause: "no longer works" is true only when Supabase
+    // refused the token. A link missing a part, a request that never got an
+    // answer and one that ran out of time each say their own.
+    authConfirmInvalidTitle: "This link is not valid",
+    authConfirmInvalidBody: "Part of it is missing or was changed. Open the link from the email again, or sign in if your email is already confirmed.",
+    authConfirmNetworkTitle: "We could not check this link",
+    authConfirmTimeoutTitle: "Checking this link took too long",
     authLegalNotice: "By continuing, you agree to our terms and privacy policy.",
     authTermsLink: "Terms of Service",
     authPrivacyLink: "Privacy Policy",
@@ -617,6 +629,7 @@ export const strings = {
     detailReadingSlow: "This is taking longer than usual. You can leave this screen; the result shows in the Queue when it is ready.",
     detailExtractionFailed: "This receipt could not be read.",
     fileNameLabel: "File",
+    detailWhatWasRead: "What was read",
   },
   fr: {
     header: 'Scan & Action',
@@ -837,7 +850,7 @@ export const strings = {
     powerTipText: 'Le saviez-vous ? Vous pouvez interroger vos données en langage naturel. Essayez : "Afficher toutes les factures du mois dernier" dans la barre de recherche.',
     intelligencePulseDesc: 'Scannez votre premier document pour voir vos analyses ici.',
     finishBatchDesc: 'Vous avez fait le plus dur. Révisez les derniers éléments pour débloquer vos données.',
-    auditDesc: 'Audit complet de vos extractions (v1: Top 100).',
+    auditDesc: 'Vos 100 documents les plus récents, du plus récent au plus ancien.',
     // ── Search, redrawn from zero 2026-09-25: screens/SearchScreen.tsx ──
     searchTitle: "Rechercher des reçus",
     searchPlaceholder: "Commerçant ou nom de fichier",
@@ -941,6 +954,14 @@ export const strings = {
     authCheckInboxTitle: "Vérifiez votre boîte de réception",
     authCheckInboxBody: "Nous avons envoyé un lien de confirmation à cette adresse. Ouvrez-le pour terminer la création de votre compte.",
     authBackToSignIn: "Retour à la connexion",
+    authConfirmWorkingTitle: "Confirmation de votre lien",
+    authConfirmWorkingBody: "Un instant, nous vérifions ce lien.",
+    authConfirmFailedTitle: "Ce lien ne fonctionne plus",
+    authConfirmFailedBody: "Il a expiré ou a déjà été utilisé. Si votre adresse e-mail est confirmée, connectez-vous. Pour réinitialiser un mot de passe, demandez un nouveau lien avec Mot de passe oublié.",
+    authConfirmInvalidTitle: "Ce lien n’est pas valide",
+    authConfirmInvalidBody: "Une partie du lien manque ou a été modifiée. Ouvrez à nouveau le lien depuis l’e-mail, ou connectez-vous si votre adresse e-mail est déjà confirmée.",
+    authConfirmNetworkTitle: "Impossible de vérifier ce lien",
+    authConfirmTimeoutTitle: "La vérification de ce lien a pris trop de temps",
     authLegalNotice: "En continuant, vous acceptez nos conditions et notre politique de confidentialité.",
     authTermsLink: "Conditions d’utilisation",
     authPrivacyLink: "Politique de confidentialité",
@@ -1161,6 +1182,7 @@ export const strings = {
     detailReadingSlow: "C’est plus long que d’habitude. Vous pouvez quitter cet écran ; le résultat s’affiche dans la File dès qu’il est prêt.",
     detailExtractionFailed: "Ce reçu n’a pas pu être lu.",
     fileNameLabel: "Fichier",
+    detailWhatWasRead: "Ce qui a été lu",
   },
   ar: {
     header: 'Scan & Action',
@@ -1390,7 +1412,7 @@ export const strings = {
     powerTipText: 'هل تعلم؟ يمكنك الاستعلام عن بياناتك بلغة طبيعية. جرب: "أظهر جميع الفواتير من الشهر الماضي" في شريط البحث.',
     intelligencePulseDesc: 'امسح أول مستند لعرض الرؤى هنا.',
     finishBatchDesc: 'لقد أنجزت المهمة الكبرى. راجع العناصر الأخيرة لإتاحة البيانات بالكامل.',
-    auditDesc: 'مراجعة شاملة لاستخراجات مستنداتك (v1: أفضل 100).',
+    auditDesc: 'أحدث 100 مستند لديك، الأحدث أولًا.',
     // ── Search, redrawn from zero 2026-09-25: screens/SearchScreen.tsx ──
     searchTitle: "البحث في الإيصالات",
     searchPlaceholder: "التاجر أو اسم الملف",
@@ -1494,6 +1516,14 @@ export const strings = {
     authCheckInboxTitle: "تحقق من بريدك",
     authCheckInboxBody: "أرسلنا رابط تأكيد إلى هذا العنوان. افتحه لإكمال إنشاء حسابك.",
     authBackToSignIn: "العودة إلى تسجيل الدخول",
+    authConfirmWorkingTitle: "جارٍ تأكيد الرابط",
+    authConfirmWorkingBody: "لحظة من فضلك، نتحقق من هذا الرابط.",
+    authConfirmFailedTitle: "هذا الرابط لم يعد صالحًا",
+    authConfirmFailedBody: "انتهت صلاحيته أو سبق استخدامه. إذا كان بريدك الإلكتروني مؤكَّدًا، فسجّل الدخول. ولإعادة تعيين كلمة المرور، اطلب رابطًا جديدًا عبر نسيت كلمة المرور.",
+    authConfirmInvalidTitle: "هذا الرابط غير صالح",
+    authConfirmInvalidBody: "جزء منه مفقود أو تم تغييره. افتح الرابط مرة أخرى من البريد الإلكتروني، أو سجّل الدخول إذا كان بريدك الإلكتروني مؤكَّدًا.",
+    authConfirmNetworkTitle: "تعذّر التحقق من هذا الرابط",
+    authConfirmTimeoutTitle: "استغرق التحقق من هذا الرابط وقتًا طويلًا",
     authLegalNotice: "بالمتابعة، فأنت توافق على شروطنا وسياسة الخصوصية.",
     authTermsLink: "شروط الخدمة",
     authPrivacyLink: "سياسة الخصوصية",
@@ -1725,5 +1755,6 @@ export const strings = {
     detailReadingSlow: "يستغرق هذا وقتًا أطول من المعتاد. يمكنك مغادرة هذه الشاشة؛ تظهر النتيجة في المراجعة عند اكتمالها.",
     detailExtractionFailed: "تعذّرت قراءة هذا الإيصال.",
     fileNameLabel: "اسم الملف",
+    detailWhatWasRead: "ما قُرئ",
   },
 };

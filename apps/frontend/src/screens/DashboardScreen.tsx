@@ -286,7 +286,7 @@ export const DashboardScreen = () => {
         {/* Real period control — only shown when the payload carries period data,
             so it is never an inert filter. Switches the Processed KPI scope. */}
         {showPeriodFilter && (
-          <div role="group" aria-label={s.documentsProcessed} className="inline-flex rounded-btn border border-line bg-surface-raised p-0.5 text-[13px] font-medium shadow-card">
+          <div role="group" aria-label={s.documentsProcessed} className="inline-flex rounded-btn border border-line bg-surface-raised p-0.5 text-[0.8125rem] font-medium shadow-card">
             <button
               onClick={() => setPeriod('all')}
               aria-pressed={period === 'all'}
@@ -327,7 +327,7 @@ export const DashboardScreen = () => {
         {kpis.map((k, i) => (
           <div key={i} className="flex flex-col rounded-card border border-line bg-surface-raised p-5 shadow-card">
             <div className="flex items-start justify-between gap-3">
-              <span className="text-[13px] font-medium text-ink-tertiary">{k.label}</span>
+              <span className="text-[0.8125rem] font-medium text-ink-tertiary">{k.label}</span>
               <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-btn ${k.tile}`}>
                 {k.icon}
               </div>
@@ -471,7 +471,7 @@ export const DashboardScreen = () => {
               <button
                 onClick={handleViewAll}
                 disabled={expanding}
-                className="inline-flex items-center gap-1 text-[13px] font-semibold text-accent-text hover:opacity-80 disabled:opacity-50"
+                className="inline-flex items-center gap-1 text-[0.8125rem] font-semibold text-accent-text hover:opacity-80 disabled:opacity-50"
               >
                 {s.viewAll}
                 <ChevronRight size={14} className="rtl:-scale-x-100" />
@@ -530,7 +530,7 @@ export const DashboardScreen = () => {
                     </div>
                   </div>
                   {conf && (
-                    <span className="hidden w-11 flex-shrink-0 text-end text-[13px] font-medium text-ink-tertiary sm:block">
+                    <span className="hidden w-11 flex-shrink-0 text-end text-[0.8125rem] font-medium text-ink-tertiary sm:block">
                       {conf}
                     </span>
                   )}
@@ -550,9 +550,9 @@ export const DashboardScreen = () => {
           <div className="rounded-card border border-line bg-surface-raised p-5 shadow-card">
             <div className="flex items-center gap-2">
               <Sparkles size={16} className="text-accent" />
-              <span className="text-[13px] font-semibold text-ink">{s.insight}</span>
+              <span className="text-[0.8125rem] font-semibold text-ink">{s.insight}</span>
             </div>
-            <p className="mt-3 text-[13px] leading-relaxed text-ink-secondary">
+            <p className="mt-3 text-[0.8125rem] leading-relaxed text-ink-secondary">
               {stats.pendingCount > 0
                 ? s.intelligencePulsePending.replace('{n}', formatCount(stats.pendingCount, language))
                 : stats.totalCount > 0
@@ -563,9 +563,9 @@ export const DashboardScreen = () => {
           <div className="rounded-card border border-line bg-surface-raised p-5 shadow-card">
             <div className="flex items-center gap-2">
               <Lightbulb size={16} className="text-warning" />
-              <span className="text-[13px] font-semibold text-ink">{s.tip}</span>
+              <span className="text-[0.8125rem] font-semibold text-ink">{s.tip}</span>
             </div>
-            <p className="mt-3 text-[13px] leading-relaxed text-ink-secondary">{s.powerTipText}</p>
+            <p className="mt-3 text-[0.8125rem] leading-relaxed text-ink-secondary">{s.powerTipText}</p>
           </div>
         </div>
       </div>

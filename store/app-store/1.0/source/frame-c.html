@@ -1,0 +1,62 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800&display=swap">
+<style>
+/* Direction C, complete phone. One composition in "u" units (1u = canvas width / 440),
+   so 1320 x 2868 (440 x 956 CSS at 3x) and 1206 x 2622 (402 x 874 CSS at 3x) are the
+   same picture at two sizes. Caption box and phone box are fixed: same scale, same
+   caption position, same margins on every frame. */
+html, body { margin: 0; background: #00506A; }
+#c { position: relative; overflow: hidden; width: var(--W); height: var(--H);
+  font-family: Inter, system-ui, sans-serif; color: #FFFFFF; background: linear-gradient(180deg, #006784 0%, #00506A 100%); }
+#c::before { content: ''; position: absolute; inset: 0; background: radial-gradient(90% 40% at 50% 0%, rgba(255,255,255,.14), rgba(255,255,255,0) 70%); }
+#cap { position: absolute; left: calc(18 * var(--u)); right: calc(18 * var(--u)); top: calc(44 * var(--u)); height: calc(160 * var(--u)); text-align: center; overflow: hidden; }
+#eye { display: inline-flex; align-items: center; gap: calc(7 * var(--u)); font-size: calc(12.5 * var(--u)); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #DFF4F2; margin-bottom: calc(10 * var(--u)); }
+#eye i { width: calc(6 * var(--u)); height: calc(6 * var(--u)); border-radius: 99px; background: #8CFCF9; display: inline-block; }
+#t { margin: 0; font-weight: 800; font-size: calc(27 * var(--u)); line-height: 1.08; letter-spacing: -.025em; text-wrap: balance; }
+#s { margin: calc(10 * var(--u)) auto 0; font-weight: 500; font-size: calc(14.5 * var(--u)); line-height: 1.35; color: rgba(255,255,255,.86); text-wrap: balance; }
+/* The phone: a generic body drawn in CSS around the full simulator capture. */
+#dev { position: absolute; left: 50%; transform: translateX(-50%); top: calc(192 * var(--u)); height: calc(730 * var(--u));
+  aspect-ratio: auto; padding: calc(9 * var(--u)); box-sizing: border-box; border-radius: calc(52 * var(--u)); background: #121318;
+  box-shadow: inset 0 0 0 calc(1.5 * var(--u)) #34363F, 0 calc(34 * var(--u)) calc(70 * var(--u)) calc(-26 * var(--u)) rgba(0,20,28,.65); }
+#dev img { display: block; height: 100%; width: auto; border-radius: calc(43 * var(--u)); }
+#check { display: none; }
+</style></head>
+<body><div id="c"><div id="cap"><div id="eye"><i></i><span id="e"></span></div><h1 id="t"></h1><p id="s"></p></div><div id="dev"><img id="img" alt=""></div></div>
+<pre id="check"></pre>
+<script>
+// The approved captions, exactly (owner, 2026-10-15).
+const FRAMES = {
+  1: ['Home', 'See what this month cost, in each currency', 'Each currency is totalled on its own, never converted.'],
+  2: ['Scan', 'Scan a receipt, or add a photo or PDF', 'Reading runs while you keep using the app.'],
+  3: ['Receipt', 'Merchant, total and date, read for you', 'The receipt photo stays one tap away.'],
+  4: ['Review', 'Approve or reject what needs a second look', 'Receipts that need a person wait in one place.'],
+  5: ['Search', 'Find any receipt by merchant, category or month', 'Totals for what you found, one per currency.'],
+};
+const p = new URLSearchParams(location.search);
+const W = Number(p.get('w') || 440), H = Number(p.get('h') || 956), n = p.get('n') || '1';
+const c = document.getElementById('c'); c.style.setProperty('--u', (W / 440) + 'px'); c.style.setProperty('--W', W + 'px'); c.style.setProperty('--H', H + 'px');
+const [e, t, s] = FRAMES[n];
+document.getElementById('e').textContent = e; document.getElementById('t').textContent = t; document.getElementById('s').textContent = s;
+const img = document.getElementById('img');
+img.onload = () => document.fonts.ready.then(() => {
+  const r = (el) => el.getBoundingClientRect();
+  const C = r(c), cap = r(document.getElementById('cap')), dev = r(document.getElementById('dev')), I = r(img);
+  const inner = ['eye', 't', 's'].map((id) => r(document.getElementById(id)));
+  const out = {
+    n, w: C.width, h: C.height,
+    capText: [e, t, s].join(' | '),
+    noDash: !/[\u2014\u2013]/.test([e, t, s].join('')),
+    captionFits: inner.every((b) => b.top >= cap.top - 0.5 && b.bottom <= cap.bottom + 0.5 && b.left >= cap.left - 0.5 && b.right <= cap.right + 0.5),
+    titleLines: Math.round(r(document.getElementById('t')).height / (parseFloat(getComputedStyle(document.getElementById('t')).lineHeight))),
+    subLines: Math.round(r(document.getElementById('s')).height / (parseFloat(getComputedStyle(document.getElementById('s')).lineHeight))),
+    gapCaptionToPhone: +(dev.top - inner[2].bottom).toFixed(1),
+    phoneInside: dev.left >= C.left && dev.right <= C.right && dev.top >= C.top && dev.bottom <= C.bottom,
+    marginBottom: +(C.bottom - dev.bottom).toFixed(1), marginSide: +(dev.left - C.left).toFixed(1),
+    screenWholeInPhone: I.top >= dev.top && I.bottom <= dev.bottom && I.left >= dev.left && I.right <= dev.right,
+    imgNatural: [img.naturalWidth, img.naturalHeight], screenScale: +(I.width / C.width).toFixed(4),
+  };
+  document.getElementById('check').textContent = JSON.stringify(out);
+});
+img.src = p.get('img');
+</script></body></html>

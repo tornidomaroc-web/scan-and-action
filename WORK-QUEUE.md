@@ -19,6 +19,13 @@
 > is not a substitute. Where no programmatic call exists, name the system and the
 > exact question, never a cached answer. Claims about this repository need no
 > instrument: the reader can open the file.
+>
+> **BEFORE YOU END A REPORT: STANDING RULE 6.** The owner runs no manual tests
+> on his phone. Never close with "install build N" or "check this setting on
+> your iPhone". Read rule 6 under STANDING RULES at the bottom of this file
+> first: it sits 2,800 lines down, and on 2026-10-13 a session that had just
+> proved a change on the simulator, the emulator and the browser still ended
+> its report by asking him to install the TestFlight build and check it.
 
 ## THE STAGE — design, then the Apple App Store
 
@@ -62,6 +69,108 @@
      categorizer is rebuilt" under Step 1). Design steps 2, 3 and 5 to 7 follow.
   6. Submission, once design steps 1 to 5 are done and every APPLE TRACK blocker
      is closed.
+
+## NOW 2026-10-18 — the Play release: 1.1, versionCode 6
+
+**Apple is untouched by this track.** Version 1.0 is WAITING_FOR_REVIEW with
+build 35 (recorded under "Submission" in APPLE TRACK). Nothing below changes
+an iOS file. One thing still reaches iOS: see the merge gate in step 2.
+
+**The Play Console reading, 2026-10-18, by the owner** (Play has no call this
+repository can make; the question to re-ask before any upload is in step 6):
+account "UnicornApps Studio", app `com.scanaction.app`; Production release
+5 ("1.0") is live, with the old UI; version codes 1 to 5 are consumed. An
+upload consumes its code permanently, drafts and discarded releases
+included, so the next bundle is versionCode 6.
+
+**The owner's decisions, 2026-10-18:**
+1. versionName "1.1", versionCode 6. In PR #333.
+2. The Play App Signing SHA-1 is compared IN FULL (all 20 bytes) with the
+   Android OAuth client "Scan & Action Android Play" (begins `FD:F1:41:78`).
+   The owner pastes the Play value (Play Console › Test and release › App
+   integrity › App signing key certificate) and the client's value (Google
+   Cloud console, project `scan-and-action` › Credentials). A prefix match is
+   not a match.
+3. A Google sign-in run in Firebase Test Lab before release, at zero cost.
+4. The owner runs the signed `bundleRelease` himself. The session never
+   touches `key.properties` or the keystore.
+
+**The ordered Play plan.** One native change in flight at a time; nothing is
+merged without the owner.
+1. **This board PR merges first.** Board-only: `ios-testflight.yml` does not
+   run (its paths are `apps/frontend/**` and itself).
+2. **#333 (versionCode 6, versionName "1.1") merges second, and not before
+   Apple's verdict on 1.0.** Any merge under `apps/frontend/**`, an
+   Android-only one included, starts `ios-testflight.yml` on `main`, which
+   archives and uploads a new TestFlight build of marketing version 1.0
+   while that version is in review. That is the iOS side moving. Instrument
+   for the verdict: App Store Connect › the app › version 1.0 status, or the
+   API `appStoreVersions?filter[platform]=IOS` `appStoreState`.
+   **EXPIRY:** the state reads anything other than WAITING_FOR_REVIEW or
+   IN_REVIEW.
+3. **#300 (the Android App Link) merges third,** deferred by the owner on
+   2026-10-12 "until before the Play release", which is now. Its head
+   `fcf324ee` predates #307 to #332: rebase it, and wait for "Android debug
+   build (no signing, no secrets)" to go green on the new head before it
+   merges. If it slips, 1.1 ships without it, and auth links keep opening
+   the browser as in 1.0.
+4. **The SHA-1 comparison (decision 2),** any time before step 7. Also
+   compare the upload key's SHA-1 (same App integrity page, "Upload key
+   certificate") with the second Android client.
+5. **Firebase Test Lab (decision 3): ZERO COST ONLY.** Stop and name the
+   amount if any screen asks for a billing account or a plan upgrade. Unknowns
+   to settle before the run, none verified: whether Test Lab runs on the
+   Spark plan with no billing account at today's quotas; whether Robo
+   completes the Credential Manager sheet in this WebView app (documented
+   only for standard widgets). **What it can prove:** Test Lab installs an
+   APK it is given, never the Play-signed build, so a sign-in there proves the
+   client of whatever key signed that APK (the upload key), not the Play
+   client. The Play client is proven by step 4's byte comparison. A
+   zero-cost run on the Play-signed build itself is Play's own pre-launch
+   report, which runs on real devices when a bundle reaches a testing track
+   (whether internal testing triggers it is unverified: read Play Console ›
+   Release overview after the upload).
+6. **The owner's `bundleRelease` (decision 4), with three readings before
+   upload:**
+   - **Build from the main checkout only.** The web bundle takes its
+     Supabase URL from the untracked `.env` in that checkout; the tracked
+     `.env.production` does not supply it. A bundle built in a clean clone
+     carries no Supabase host and opens on a BLANK page ("supabaseUrl is
+     required" in the WebView console), with every check green, including
+     `android-build.yml`, whose APK is built exactly that way. Witnessed
+     2026-10-18 on the API 36 emulator. Reading: `unzip -p
+     app-release.aab 'base/assets/public/assets/*.js' | grep -o
+     '[a-z0-9]\{20\}\.supabase\.co' | sort -u | wc -l` prints 1, not 0.
+   - **The version:** `bundletool dump manifest --bundle app-release.aab`
+     reads `android:versionCode="6"` and `android:versionName="1.1"`.
+   - **Play, re-read on the day:** App bundle explorer, every track and
+     draft, shows no code 6 already used.
+7. **Upload to internal testing, then promote the same bundle to
+   production.** The same code 6 travels; nothing is consumed twice.
+8. **In the same release, upload the listing icon**
+   `apps/frontend/assets/store/play-store-icon-512.png` (the RELEASE-TIME
+   STEP under "The icon and the splash"). Its parity with the launcher icons
+   and with the iOS icon of build 35 is measured in #333: every pixel
+   difference above 8/255 lies on the glyph's anti-aliased edge.
+9. **The Play listing screenshots still show the old UI** (the owner's
+   reading). The new set comes from the store screenshot pipeline (memory:
+   `render.mjs`), as a separate step. Data safety: re-read against what 1.1
+   collects ("App Privacy details (Apple) and Data Safety (Play)").
+
+**Risks found 2026-10-18, none caused by #333, each the owner's to rank:**
+- **The new UI needs Android System WebView 88 or later.** On the API 30
+  emulator image (WebView 83.0.4103.106), Login draws a light lower half,
+  grey pill fills, and "Show" cut at the right edge; the WebView reports
+  `CSS.supports('selector(:where(a))')` false, `inset-inline-start` false,
+  and flex `gap` ignored. The same APK is clean on API 36. A device that
+  installs from Play normally updates its WebView through Play. A guard
+  (read the WebView version natively and say "update Android System
+  WebView") would be its own native PR, after this release.
+- **A light flash between the splash and the app on API 30:** about 27
+  screencaps (around 4 s on the emulator) of `#F2F3F8` before the dark
+  Login draws. Cosmetic.
+- **The status bar is a light band over the dark app** on both emulators,
+  with white icons nearly invisible in places. Cosmetic.
 
 ## NOW 2026-09-25 — the ~2 s wait is fixed; next, Detail then Search, from zero
 
@@ -515,15 +624,16 @@ a store screenshot.**
   - **Build numbers:** `CFBundleVersion` = the workflow run number (6 is
     next); `CFBundleShortVersionString` = `MARKETING_VERSION` 1.0.0 in the
     Xcode project, changed only by PR. `manageAppVersionAndBuildNumber` on.
-  - **Nothing can be submitted from it:** `ExportOptions.plist` sets
-    `testFlightInternalTestingOnly`, so every build it uploads "cannot be
-    distributed via external TestFlight or the App Store". The submission
-    build is a later PR that removes that key, after the blockers below.
-    **STALE comment, marked 2026-10-07:** the comment in
-    `apps/frontend/ios/ExportOptions.plist` (lines 10-13) ties the key to the
-    token-revocation item, which closed 2026-09-30 (#272). The reason that
-    holds is this line's: the remaining blockers. The submission-build PR
-    corrects the comment when it removes the key.
+  - **Builds are App Store eligible since 2026-10-17 (#330, `19f1ac2d`).**
+    Until then `ExportOptions.plist` set `testFlightInternalTestingOnly`, so
+    builds 5 to 34 "cannot be distributed via external TestFlight or the App
+    Store" (`buildAudienceType INTERNAL_ONLY`). #330 removed the key and the
+    stale comment tying it to the token-revocation item (closed 2026-09-30,
+    #272); `iosPlatform.test.ts` pins the key absent and lints the plist on
+    the Linux runner; `ios/ci/assemble-mutations.sh` is unchanged (two
+    `<true/>` remain for its flip; its `export-options` case refused the
+    tampered plist on the PR, run 39059804615). The first eligible build is
+    35; its record is under "App Store Connect, version 1.0" below.
   - **Automatic distribution works:** build 5 joined the internal group
     "Internal" on processing with nobody clicking (the owner, 2026-09-28).
   - **HARDENED 2026-10-07 (#287, `f67d46c2`): the signing job archives the
@@ -735,7 +845,161 @@ revocation row removed 2026-09-30), the index; details under each item:**
 
 | Condition | Owner | EXPIRY |
 |---|---|---|
-| Trader status for the EU (SUBMITTED 2026-10-07, In Review at Apple) | the owner, App Store Connect | the app's trader status reads provided and verified before submission |
+| Trader status for the EU (VERIFIED 2026-10-12 12:39, the owner's reading) | the owner, App Store Connect | MET: at submission, ask App Store Connect again whether the trader status reads verified |
+
+**Submission preparation, read and set on 2026-10-15 (the PR recording this
+line is the push-delivery probe; see "The push event that was never
+processed" below).**
+
+- **Merges that day.** #327 (`4dd2bdcd`, the board) at 14:18:27Z: CI and
+  Password policy drift ran on push, Vercel production deployment
+  `dpl_a4pZG3TYxTytZxDZZfgiqUEdoxEz` READY for that commit, Railway status
+  `amiable-dream - scan-and-action` success, `/api/version` reported
+  `4dd2bdcd` (all read that day). #328 (`1449e6f8`, the plain screenshots,
+  `store/` only) at 16:37:18Z: see the next item.
+- **The push event that was never processed (#328, `1449e6f8`).** `main`
+  moved (`git ls-remote origin refs/heads/main`), but GitHub never processed
+  the push: `gh api repos/{owner}/{repo} --jq .pushed_at` stayed at
+  2026-10-15T16:31:47Z (the branch push before the merge), `commits/1449e6f8/
+  check-suites` reads `total_count` 0, `check-runs` 0, `status` 0 statuses,
+  no Vercel deployment for the commit (`GET /v6/deployments?projectId=
+  prj_EoI5sC5liuxOWe3nBMAKYviAnVUV`), `/api/version` still `4dd2bdcd`, 35
+  minutes on. No repository webhook exists (`hooks` reads 0), Actions is
+  enabled (`actions/permissions`), no incident on githubstatus.com for the
+  day. The merged tree was still verified: `1449e6f8`'s tree
+  `54e712991f85e0752f450f5daaf59e06b7ebee44` equals the tree of `acc9457f`,
+  the merge commit PR run 38769773748 checked out and passed. Production is
+  unaffected: the commit changed nothing under `apps/`. Diagnosis: a one-off,
+  not broken delivery, about 80%. **The probe:** the merge of the PR
+  recording this line (store files and this board, nothing under `apps/` or
+  `.github/`). Five readings on its merge commit: a `push` run of CI and of
+  Password policy drift; `pushed_at` equal to the merge time; a Vercel
+  production deployment READY for the commit, read from the Vercel API
+  filtered to the project; the Railway status success; `/api/version` on the
+  commit. **If any reading is missing, the submission-build PR does not
+  merge** and the case goes to GitHub support with both commits.
+- **App Store Connect, version 1.0 (Prepare for Submission), as set that
+  day by a session in the owner's signed-in browser.** App Accessibility:
+  Dark Interface declared for iPhone, saved as a draft (the console: "You can
+  publish your accessibility support for devices that have an app version
+  released on the App Store"); nothing else declared, by the owner's
+  decision (Larger Text: the text cap is about 1.35, Apple asks about 200%;
+  Sufficient Contrast: the audit measures text only; VoiceOver and Voice
+  Control untested). Proof for Dark Interface: run 38784782735
+  (`proof/dark-interface`), nine common tasks with no stored theme under the
+  system in Dark and in Light, plus the in-app Switch to dark mode, every
+  dark frame's contrast audit clean. App Review Information › Notes: the
+  owner's approved text (1,492 characters, exact), arguing 3.1.3(f) and
+  naming where to scan and where Approve and Reject are; Sign-In
+  Information: "Sign-in required" checked, User name and Password empty,
+  the owner's to type. App Privacy: unchanged (published 17 days earlier, 6
+  data types, no Diagnostics). Two checks behind that: no `SENTRY_DSN`
+  anywhere in the production service's resolved variables (`railway
+  variables --service scan-and-action --environment production --json`,
+  names only, 18 keys besides `RAILWAY_*`; the owner's own reading agrees),
+  and the Discord alerts (`DISCORD_ALERT_WEBHOOK_URL`) are sent only from
+  `webhookController.ts`, the Paddle web-billing path, carrying Paddle and
+  our own UUIDs and an error message, never an email or a name
+  (`discordAlert.ts` contract lines 15 to 18); web purchases are not data
+  collected from the app. Age rating: complete, 4+, every question answered
+  (`/iris/v1/apps/6816574766/appInfos?include=ageRatingDeclaration` from
+  the signed-in page; the three empty fields are the Kids band, the Korean
+  GRAC number and the optional age-suitability URL). Builds 5 to 34 read
+  `buildAudienceType INTERNAL_ONLY` (`/iris/v1/builds?filter[app]=6816574766`),
+  by design of `testFlightInternalTestingOnly` in `ExportOptions.plist`,
+  removed by #330 (below). The push-delivery probe #329 (`1033bffa`) passed
+  all five readings, re-read 2026-10-17: CI push run 38811097538 and drift
+  push run 38811097611 success, `pushed_at` 2026-10-15T21:35:55Z equal to
+  `merged_at`, Vercel status success (`CT4jCyabFX6nHXEgNVYN2mSUJv3R`) and
+  Railway status success on the commit, `/api/version` serving `1033bffa`.
+- **SUBMITTED TO APP REVIEW 2026-10-17T21:03:08Z: version 1.0, build 35,
+  `WAITING_FOR_REVIEW`, reviewSubmission `168c9ede-0343-49f9-9769-75465a15e70d`,
+  release MANUAL.** The day's record, each line with the call that read it:
+  - **#331 (board only) merged as `150ba1b299b2071341cc9d88992e8968bb5ea96a`**
+    at 20:26:42Z, squash pinned to head `7812e8a2`, parent `1033bffa`, one
+    file. Check-runs Backend, Frontend, Password policy drift success; push
+    runs CI 39066735642 and drift 39066735664 success; no TestFlight run
+    (`actions/runs?head_sha=` lists two); statuses Vercel and Railway success.
+  - **#330 (submission build) merged as `19f1ac2d0fd9d2851737d5e2f5930c9252b80d1b`**
+    at 20:29:17Z, squash pinned to head `8e4d1f8f`, parent `150ba1b2`, two
+    files. Check-runs Backend, Frontend, Password policy drift, iOS — web
+    bundle and Capacitor sync, iOS — archive, sign, upload to TestFlight, all
+    success; push runs CI 39066913763, drift 39066913767, iOS — TestFlight
+    39066913751 success; statuses Vercel success and Railway success.
+    Railway `/api/version` polled every 10 s: `150ba1b2` through 20:31:41Z,
+    `19f1ac2d` from 20:31:51Z (154 s after the merge). Vercel: the GitHub
+    status's deployment `CHynA83xFH7H5UjgHJNhE38mHHXL` success, and the served
+    `assets/index-BBvxYM3B.js` (804955 bytes) embeds `19f1ac2d` once and
+    neither older SHA. **Not read from the Vercel API:** the CLI token in
+    the Vercel auth file is expired (403 `invalidToken`) and the dashboard was
+    signed out in the controlled browser; `vercel login` reopens that reading.
+  - **TestFlight run 39066913751: "Uploaded build 35 … for commit
+    19f1ac2d…"** at 20:34:32Z. iris at 20:36:25Z: build 35, id
+    `75d2d095-994f-4b15-9c25-56c1cb541368`, `VALID`, `APP_STORE_ELIGIBLE`,
+    `usesNonExemptEncryption false`; build 34 beside it still `INTERNAL_ONLY`
+    (the control). Internal testers hold it: `buildBetaDetail`
+    `internalBuildState IN_BETA_TESTING`, the group "Internal"
+    `hasAccessToAllBuilds true` (`builds/<id>/betaGroups` answers 403
+    `GET_RELATED`, not an empty list).
+  - **Build 35 attached** (Add Build listed it as the only enabled row, radio
+    value equal to the iris id; no export compliance question appeared) and
+    **"App Store Version Release" set to "Manually release this version"**,
+    one Save; read back `releaseType MANUAL`, `build 75d2d095…`.
+  - **Demo sign-in typed by the owner** (User name and Password under
+    App Review Information, "Sign-in required" checked); the API reads both
+    set and never shows the values.
+  - **Price Free:** the first Add for Review said "Unable to Add for Review.
+    The items below are required to start the review process: You must
+    choose a price tier in Pricing." Pricing and Availability › Add Pricing:
+    base United States (USD), $0.00, 174 comparable prices all 0.00,
+    confirmation 175 rows, Save. `appPriceSchedules/6816574766`: base USA,
+    manual price point `customerPrice 0.0, proceeds 0.0`, 174 automatic
+    prices all 0. Pricing "will go into effect when your app status is Ready
+    for Sale" (the console).
+  - **Availability, all 175 countries or regions (the owner's decision,
+    2026-10-17), set after the submission:** the dialog offered "Make your app
+    available in all 175 countries or regions", asked for no declaration or
+    agreement, and warned only about pre-order and "all future countries or
+    regions"; Confirm saved it. Page: "175 Available"; API
+    `appAvailabilityV2`: `availableInNewTerritories true`, 175 territory
+    rows `available true`, each with content statuses `CANNOT_SELL` and
+    `AVAILABLE_FOR_SALE_UNRELEASED_APP` (the unreleased state, uniform, not
+    an exclusion). The version stayed `WAITING_FOR_REVIEW` with the same
+    reviewSubmission id after the change. Changes "appear on the App Store
+    within 24 hours".
+  - **Add for Review, second time:** no missing item; "1.0 Ready for Review";
+    Draft Submission "iOS App 1.0, 1.0.0 (35), Item Ready to Submit". **Submit
+    for Review:** "1 Item Submitted. It can take up to 48 hours to be
+    reviewed. You'll get an email when the review is complete." API:
+    `appStoreState WAITING_FOR_REVIEW`, `submittedDate
+    2026-10-17T21:03:08.479Z`, item `READY_FOR_REVIEW`.
+  - **OPEN after this line:** (1) the App Review outcome: Resolution Center
+    messages on the version page and email; a rejection needing code means a
+    new build and a new Add for Review, a question is answered in the thread;
+    (2) release by the owner after approval ("Pending Developer Release",
+    then Release This Version; the price takes effect at Ready for Sale);
+    (3) the Vercel CLI login is expired, so the Vercel API reading is off
+    until `vercel login`; (4) the untracked `scratchpad/` folder in the
+    repository root (ten PNG copies from the screenshot upload) is still to
+    be deleted; (5) the sign-in keyboard fix, post-launch (DESIGN TRACK,
+    "Login rejected by the owner on 2026-09-25"); (6) the review reason on
+    the queue cards, post-launch (KEPT OUTSIDE BOTH TRACKS); (7) the Google
+    Play track is next ("Conditions blocking republishing on Play" below).
+- **Token revocation on account deletion: confirmed closed by #272**
+  (2026-09-30; the item "Submission is BLOCKED until Apple token revocation
+  on account deletion ships" below holds the evidence). The comment in
+  `ExportOptions.plist` tying the key to it is stale, as marked; #330
+  corrects it.
+- **DECIDED 2026-10-17, the owner's: "App Store Version Release" is
+  "Manually release this version"** (`releaseType MANUAL`), set with the
+  build attach and read back from the API. It read "Automatically release
+  this version" from 2026-10-15 until then. Approval now ends in "Pending
+  Developer Release", and the owner releases.
+- **POST-LAUNCH, the owner's decision 2026-10-17: the sign-in screen with
+  the keyboard up.** The flaw is cosmetic, the reviewer can sign in, and the
+  submission build stays minimal, so the fix is not part of #330 and is not
+  a blocker. Recorded with the proposed `AuthScreen.tsx` change under
+  "Login rejected by the owner on 2026-09-25" in the DESIGN TRACK.
 
 **Conditions blocking republishing on Play (opened 2026-10-08).** The Android
 row moved here from the App Store list: the owner's sign-in condition for the
@@ -787,7 +1051,10 @@ with Apple and with Google), and an Android sign-in gates Play only.
     (patch-package) first. The purpose-string test derives keys from plugin
     SOURCE text, so it must learn the guard in the same PR.
   - Owner: engineering. **EXPIRY:** in the table above.
-- [ ] **Trader status for the EU. SUBMITTED 2026-10-07, IN REVIEW at Apple.**
+- [x] **Trader status for the EU. VERIFIED by Apple 2026-10-12 at 12:39**
+  (the owner's reading in App Store Connect; no call from a session can read
+  it). This was the last external App Store blocker. Re-read it at submission
+  rather than trusting this line.
   The Digital Services Act requires a trader
   status declaration in App Store Connect for apps distributed in the EU;
   Apple removes apps without one from the EU storefront. Read Apple's current
@@ -939,6 +1206,9 @@ with Apple and with Google), and an Android sign-in gates Play only.
   `#0f172a` and the eleven `splash.png` files were regenerated in
   `feat/ios-testflight`; no device has shown them. Judged with the Google item
   below on a borrowed device.
+  - **Shown on the emulator 2026-10-18 (#333's APK):** API 36, the system
+    splash at `#0F1014` with the mark; API 30, `splash.png` at `#0F1014` on
+    88.3% of the screen. No physical device yet.
 - [ ] **Android Google sign-in is UNVERIFIED and stays so until a device
   exists.** The owner's phone is an iPhone and there is no Android device
   (the owner; the 2026-09-04 pass used a borrowed Samsung). The path is the same plugin call as
@@ -1250,6 +1520,14 @@ well-measured admin panel rather than an app.**
 **The ruling: start at the scan → read → result loop, redrawn from zero, not
 restyled.** Do not start at login, although a reviewer sees it first:
 
+> **DEFERRED 2026-10-12 by the owner to a post-launch update, not cancelled.**
+> He chose to RESTYLE now, before the App Store submission (the soft
+> neumorphic language below, in six PRs), then take the store screenshots,
+> then submit: the first impression in the store matters more to him than a
+> few days. The redraw-from-zero of the loop stays the first design item
+> after launch. The arguments under this ruling still hold; only its timing
+> moved.
+
 - Both judges decide on the first scan: the reviewer's 4.2 ruling, and a
   first-time visitor's keep-or-delete.
 - It is the furthest point from the market's best. System document scanners give
@@ -1271,8 +1549,9 @@ restyled.** Do not start at login, although a reviewer sees it first:
   the icon is the App Store's first pixel and a required asset). **Ruled
   2026-09-24: it comes AFTER the ledger home**, as the owner's locked order
   has it (item 4), not with it. The ledger home ships on the current tokens:
-  its accent is already the prototypes' own (`--sa-accent: #635BFF` in
-  `tokens.css`), a palette change repaints the finished landing through the
+  its accent was the prototypes' own (`--sa-accent: #635BFF` in
+  `tokens.css` then; **corrected 2026-10-12: the code has said `#3563F0`
+  since #255**, read in `apps/frontend/src/styles/tokens.css`), a palette change repaints the finished landing through the
   pin (`landingLightPin.test.tsx`), and judging structure and colour in one
   sitting makes neither judgement readable.
   **Category colours are NOT part of that round (ruled 2026-09-24, on the
@@ -1280,6 +1559,231 @@ restyled.** Do not start at login, although a reviewer sees it first:
   like the status colours, not brand identity, so they shipped with the home
   (`--sa-cat-*` in `tokens.css`, held to 3:1 in both themes by
   `categoryPalette.test.ts`). The round still owns the app icon and the accent.
+  - **The icon round: DONE 2026-10-12, concept A "Viewfinder check" chosen**
+    by the owner from three concepts (private page, artifact
+    `KWMnD7L81GdwrmX3V4AkcX`), in the icon colour family: navy `#00286D` to
+    teal `#00BB9F`, cyan `#8CFCF9`, white. Applied to every app-icon surface
+    in #307, **MERGED 2026-10-12 as `aa750c7e`, TestFlight build 26** (run
+    38280231382: "ARCHIVE SUCCEEDED", "Uploaded build 26 … for commit
+    aa750c7e", no icon-transparency error; `gh run view 38280231382 --log`).
+    The live site serves `aa750c7e` with the new favicon and icons
+    (byte-compared to the repo), the backend reports it at `/api/version`.
+    No screen colour changed there.
+  - **DECIDED 2026-10-12 by the owner: the screens move to the icon
+    family.** Primary button `#006784` (the mark's middle colour; white on
+    it 6.42:1, white on the teal end 2.44:1), the same value settling
+    Android's `colorAccent` (which fell back to Capacitor's `#FF4081`).
+    **This explicitly REVERSES the blue accent `#3563F0` locked on
+    2026-09-26** (the lock lived in `designTokens.test.ts`, "the blue accent
+    (locked 2026-09-26)", and in `tokens.css`'s header; #255 shipped it). The five
+    assertions in `designTokens.test.ts` that pinned the blue were replaced
+    openly: the `describe` is named for the reversal, pins the new ramp, and
+    holds the old hexes OUT of `tokens.css`. Landed in PR 1, #309.
+  - **The redesign: a modified soft-neumorphic language, DECIDED 2026-10-12
+    by the owner, restyle now before submission, six PRs in this order**
+    (proposal, measured: artifact `YJEQctuE9fCuaE69po2qbs`; every text,
+    button and review-state pair at or above 4.5:1 in both themes by the
+    arithmetic `kitLanguage.test.ts` runs). Raised cards and lists on soft
+    shadows; text, primary buttons and the review states keep strong
+    contrast, because people check amounts and decisions.
+    1. **Tokens and primitives: MERGED 2026-10-12 as #309 (`12a24834`),
+       TestFlight build 27** (run 38301230198: "ARCHIVE SUCCEEDED",
+       "Uploaded build 27 … for commit 12a24834…"; `gh run view 38301230198
+       --log`). `tokens.css`, Tailwind,
+       `PrimaryButton`, `TextField`, the scan buttons, `.skeleton`, Android
+       `colorAccent`. Also the one live contrast defect: `--sa-ink-muted`
+       `#858A99` read 3.45:1 on a white card (dates, categories, captions on
+       every row); now `#6E7383`, 4.73:1, pinned with the old value as the
+       failing control. No screen file. Merging it starts a TestFlight run
+       (`apps/frontend/**`).
+    2. **Dynamic Type: MERGED 2026-10-13 as #311 (`b561eba3`), TestFlight
+       build 28** (run 38408142269: "ARCHIVE SUCCEEDED", "Uploaded build 28
+       … for commit b561eba3…"; `gh run view 38408142269 --log`). Served:
+       the web bundle at www.scan-action.com embeds `b561eba3` and its CSS
+       carries `font-size:min(100%,21.647px)`; the backend's
+       `curl -sS https://<host>/api/version` reported
+       `{"commit":"b561eba3…"}` (host read from the served bundle). **The
+       Dynamic Type evidence is the PR 2 proof, and it stands** (rule 6):
+       143 screens audited, 0 overlaps, 0 sideways scroll, nothing cut but
+       long merchant names; iOS Simulator run 38397474462 (root 16 /
+       19.765 / 21.647px at Large / xxLarge / AX xxxLarge), the Android
+       emulator (16 / 20.8 / 21.648px at 1.0 / 1.3 / 2.0) and headless
+       Chrome; screenshots on the private page linked from #311's body.
+       The harness is on the branch `design/pr2-dynamic-type-proof`,
+       **pending deletion, not yet deleted**. Every font
+       size in rem; `src/native/textScale.ts` sets one root font size per
+       platform, with no native code: the browser's default on the web,
+       `-apple-system-body` / 17 on iOS, and on Android a cap over the
+       WebView's own scaling. **Measured on main before it** (API 36
+       emulator, WebView 133): Android already followed the system font
+       scale with NO cap, root 32px at 2.0; iOS followed nothing. **Cap
+       23/17 = 1.353** (iOS xxxLarge, the largest non-accessibility size);
+       accessibility sizes and Android 1.5 to 2.0 get the cap. Amounts,
+       dates and review states wrap instead of truncating; on main the
+       Queue card cut its date line at the default size.
+       - **The Android build defect from #309: FIXED by #311.** From #309
+         (`12a24834`) to #311, `colors.xml` carried `--sa-accent` inside an
+         XML comment and `gradlew assembleDebug` failed with "The string
+         "--" is not permitted within comments". #311 rewords the comment;
+         `textScale.test.ts` ("Android resource XML") reads every XML under
+         `android/app/src/main` and fails on a double hyphen in a comment,
+         with a planted comment as its control. That test guards this one
+         spelling; a CI job that BUILDS Android is "Android build in CI"
+         under KEPT OUTSIDE BOTH TRACKS.
+       - **Store submission: do NOT tick "Larger Text"** in the App Store
+         Connect accessibility labels while the cap stays at 23/17 (about
+         135%). Apple's criterion: text can be enlarged "to at least 200% or
+         the maximum font size for the system"
+         (developer.apple.com/help/app-store-connect/manage-app-accessibility/larger-text-evaluation-criteria,
+         read 2026-10-13). Revisit only if PRs 3 to 6 make room to raise
+         the cap (`TEXT_SCALE_CAP` in `src/native/textScale.ts`, and the
+         `min()` in `index.css` that a test holds equal to it).
+       - **The app icon in #309's Detail screenshots was mock data, not a
+         defect:** that session's harness set `signedFileUrl` to
+         `/icons/icon-512.png` (its own script, in its transcript), and
+         Detail renders only `doc.signedFileUrl` there.
+    3. **Home and Detail: MERGED 2026-10-13 as #315 (`9922e79b`), TestFlight
+       build 29** (run 38434756360: "ARCHIVE SUCCEEDED", "Uploaded build 29
+       … for commit 9922e79b…"; `gh run view 38434756360 --log`), served on
+       the web and by the backend's `/api/version` at merge. Home's
+       totals on a raised card under an eyebrow; Detail's facts as "What was
+       read", one column of inset cells. Eyebrows and cell labels use
+       ink-secondary, because ink-muted measures 4.27:1 on the light page
+       and 4.49:1 on the inset (`softSurfaces.test.ts`). Carries the
+       `gradlew` mode and the Gradle checksum line. "Android build in CI"
+       went first (#313, done). Proven like PR 2 (rule 6): the proof
+       harness, the simulator, the emulator, the browser, screenshots on a
+       private page. The owner judges the design from that page; he looks on
+       his iPhone only when he chooses (rule 5), never as a step a report
+       asks of him.
+    4. **Queue, Search, Activity: MERGED 2026-10-14 as #319 (`9e1c48ac`),
+       TestFlight build 31** (run 38578719203: "ARCHIVE SUCCEEDED",
+       "Uploaded build 31 … for commit 9e1c48ac…"; `gh run view 38578719203
+       --log`). Squash-merged pinned to head `6590893…`. Served at merge:
+       the bundle at www.scan-action.com embeds `9e1c48ac` (Vercel production
+       deployment `dpl_CH3XSqqPeQcbgxSroos47UV6SJfk`, READY), and the
+       backend's `/api/version` reported `9e1c48ac`.
+       Search's headings become eyebrows and its month totals sit on the
+       raised totals card; Queue's Approve and Reject take the card shadow;
+       Activity's status drops under the file name at a large text size.
+       A contrast audit over every text node of six screens found, on main,
+       muted text on the light page (Search, Activity; 4.27:1) and Detail's
+       amount-field currency (3.97:1); fixed. Activity's subtitle no longer
+       says "(v1: Top 100)".
+       - **Filed, not fixed: Home's currency codes wrap unevenly at the
+         largest text size** (the owner's review of #315). In Arabic at
+         accessibility xxxLarge, "USD" drops under 12,989.92 while "MAD"
+         stays beside 1,250.00: each row wraps on its own width, and the
+         longer figure runs out of room first. Not a defect (nothing is cut
+         or overlapped). Both fixes change the approved Home: put every code
+         on its own line (changes the default layout) or step the figures
+         down at the largest size (smaller amounts). It belongs to the Home
+         redraw, which waits on the owner's reasons ("Home last" above).
+    5. **Sign-in, Settings, the sheets: MERGED 2026-10-14 as #321
+       (`039328ac`), TestFlight build 32** (run 38612554505: "ARCHIVE
+       SUCCEEDED", "Uploaded build 32 … for commit 039328ac…"; `gh run view
+       38612554505 --log`). Squash-merged pinned to head `f026afae…`. Served
+       at merge: Vercel production deployment
+       `dpl_7qqLVMamADChPeinzKZfpnGoyt72` READY with www.scan-action.com,
+       its bundle embedding `039328ac`; the backend's `/api/version`
+       reported `039328ac`. As opened (2026-10-14): The paywall, the processing tray and the Pro welcome
+       move from raw `slate-*` / `blue-*` / `emerald-*` classes onto tokens,
+       as lifted sheets (`sheetClass`); the capture, upload and
+       delete-account sheets take the same surface. The paywall's words,
+       links and Paddle wiring are unchanged (Apple 3.1.3(f) as today). The
+       confirm screen's title now names the cause (invalid link, refused
+       link, no answer, timeout) in en, fr and ar; before, every failure
+       read "This link no longer works", a connection failure included. Two
+       contrast failures found on main by the every-node audit, fixed:
+       Settings' Delete account button (white on the danger fill, 4.08:1)
+       and the language switcher's unchosen languages (muted on its track,
+       3.97:1). Merging starts a TestFlight run (`apps/frontend/**`).
+    6. **Landing and the legal pages: MERGED 2026-10-14 as #323
+       (`330b651f`), TestFlight build 33** (run 38651665618: "ARCHIVE
+       SUCCEEDED", "Uploaded build 33 … for commit 330b651f…"; `gh run view
+       38651665618 --log`). Squash-merged pinned to head `98f69ef9…`. Served
+       at merge: Vercel production deployment
+       `dpl_zi9BnHPbiCssKj2jeMAt1goZ5pUJ` READY with www.scan-action.com;
+       the backend's `/api/version` reported `330b651f`; the five legal
+       pages rendered from www had the same text, title and meta tags as the
+       previous production deployment (`039328ac`), and both `/.well-known/`
+       files were byte-identical. **THE RESTYLE IS COMPLETE: PRs 1 to 6 are
+       merged** (#309, #311, #315, #319, #321, #323). As opened: Styling only: the legal pages' rendered text is
+       byte-identical to main in 80 of 80 frames, and as served by the
+       preview against production. Fixed on main: 8 failing contrast pairs,
+       the landing scrolling sideways at phone width, the hero's lines
+       overlapping, and a header pill with no background
+       (`bg-surface-raised/95` emits no CSS). Merging starts a TestFlight run.
+       - **Decided in #323: two separate PRs follow.** (1) The launch screen
+         and splash, native: on Android 12+ the system splash shows the
+         launcher icon on the system's default background, never `#0F1014`
+         nor `splash.png` (`styles.xml` sets only `android:background`;
+         API 36 emulator); the iOS launch screen was not witnessed (run
+         38646101154 hung recording, cancelled), and `scaleAspectFill` on
+         the 2732 square image predicts the mark at about 96% of a phone's
+         width. (2) Increase Contrast and Reduce Transparency, web only:
+         the WKWebView reports `prefers-contrast: more` when Increase
+         Contrast is on (run 38636861009); the only rule today swaps
+         shadows for a ring.
+       - **Flagged, not changed:** the landing's "the price on this page is
+         the price at checkout" (a static $9 / $59 against a localized,
+         tax-aware Paddle total; ask Paddle whether those price ids are
+         tax-inclusive in USD), and no `robots.txt` or `sitemap.xml` (both
+         answer 200 with the app's HTML).
+       - **(1) The launch screen and splash: MERGED 2026-10-15 as #325
+         (`0fedd179`), TestFlight build 34** (run 38659076709: "ARCHIVE
+         SUCCEEDED", "Uploaded build 34 … for commit 0fedd179…"; `gh run
+         view 38659076709 --log`). Squash-merged pinned to head
+         `a15b2518…`. Served at merge: Vercel production deployment
+         `dpl_3WG62mFArrDv92rAUDdzp4Gh7Ye9` READY with www.scan-action.com;
+         the backend's `/api/version` reported `0fedd179`. **DESIGN WORK
+         BEFORE SUBMISSION IS COMPLETE.** The Android half reaches users only
+         in the next Play release. As opened (2026-10-15): iOS: the storyboard drew the square splash
+         aspect-fill, so the mark spanned 74.7% (iPhone SE) to 91.4%
+         (iPhone 16 Pro Max) of the width; aspect-fit gives 42.1% on both.
+         Measured by the new `ios-audit.yml` job "iOS — launch screen
+         geometry", which renders the storyboard on the simulator: red on
+         main's storyboard (run 38654879433, throwaway `proof/launch-red`),
+         green on #325 (run 38654825013). Android 12+: `values-v31` sets
+         #0F1014 and a flat mark, 32.4% of the width on the API 36 emulator
+         (the system masks the icon to a 192dp circle, so 42% is not
+         reachable there); Android 11 and earlier are pixel-identical before
+         and after (API 30 emulator). Merging starts a TestFlight run.
+       - **(2) Increase Contrast and Reduce Transparency: DEFERRED by the
+         owner on 2026-10-15 to after the App Store submission.** Every text
+         pair already passes the every-node contrast check at default
+         settings; this is an accessibility improvement, not a visible
+         defect. The evidence for the later PR stands: the WKWebView reports
+         `prefers-contrast: more` when Increase Contrast is on (run
+         38636861009), and the only rule today swaps shadows for a ring.
+       - **Open flags, each the owner's to decide:**
+         - The landing's "the price on this page is the price at checkout"
+           depends on Paddle's settings, which only the owner can see:
+           whether the $9 and $59 price ids are tax-inclusive and charged in
+           USD. Question for Paddle: are these price ids tax-inclusive, and
+           is local-currency pricing on for them?
+         - No `robots.txt` or `sitemap.xml`: both answer 200 with the app's
+           HTML page.
+         - **New (2026-10-15): the privacy policy in the Arabic interface is
+           in English except section 4,** which follows the reader's language
+           (`PrivacyPolicy.tsx`, `data-privacy-sign-in`). A mixed-language
+           page. It is legal text, so whether to translate it (and who
+           approves the translation) is decided separately, never in a
+           restyle.
+    - **What the proposal got wrong, corrected 2026-10-12 from git:** it said
+      the "inferred-total flag" did not exist. It does: #279 (`b1f78c16`,
+      2026-10-04) added `totalProvenance.ts` (confidence 0.6, sourceSpan
+      `Inferred Total`, reason `Total not printed`), and Detail shows it as
+      the reason sentence `reasonTotalNotPrinted` under "Needs your
+      attention" with the amount field, not as a chip; #280 (`2371c9bd`)
+      touched the PDF preview and the processing chip, not the total. Never
+      removed; `inferredTotalDetail.test.tsx` passes on `main`. The grep had
+      looked for the word "inferred" in the frontend, which names it by the
+      reason string. It is a fourth review state for PR 3 to style, not add.
+    - **The proposals page drew the header mark as a plain teal square.**
+      That was the mockup's own CSS (a placeholder), not a defect of #307:
+      `BrandMark` at the header's 28px on `main` keeps its corners and
+      check in both themes (rendered from the component, 1x and 3x).
 - [ ] **2. The design system, in code.**
   - **Started in the ledger-home PR (2026-09-24):** `components/ui/`
     (`CategoryIcon`, `Panel`, `CountChip`) and the figure / code / label / meta /
@@ -1566,20 +2070,262 @@ restyled.** Do not start at login, although a reviewer sees it first:
     The English privacy and terms bodies are pinned LTR under the Arabic
     UI. `firstRunPlaceholders.test.tsx` holds it.
   - **Still open in this step:**
-    - **The confirmation link back into the app.** Route chosen: universal
-      links / App Links on `https://www.scan-action.com/auth/...`, with the
-      web page as the fallback; one change covers the password-reset mail
-      too. It touches the Associated Domains entitlement (#287's signing
-      path) and needs the Supabase Redirect URLs entry and the Play App
-      Signing SHA-256. **Unread:** the Site URL and the redirect allowlist.
-      The owner's Chrome is not signed in to Supabase, and the OAuth `state`
-      probe now returns an opaque UUID. **Read:** the last Scan & Action
-      confirmation mail (2026-08-24) came From `noreply@scan-action.com`
-      (Gmail sender metadata). The public `/auth/v1/settings` shows
-      `mailer_autoconfirm: false` and apple/google/email on.
-    - **The icon and the splash** (the round below owns the icon and the
-      accent; the Android `#0F1014` splash is still UNVERIFIED, and the local
-      emulator can now show it).
+    - **The confirmation and reset links back into the app.** Route: universal
+      links / App Links on `https://www.scan-action.com/auth/confirm`, with
+      that page as the web fallback. **PR A MERGED 2026-10-09 as #298
+      (`5f037880`), TestFlight build 23** (run 37955763659; CI 37955763685
+      and password-policy drift 37955763673 green). `assemble.sh` passed
+      with a 37-file web bundle carrying `app-links/*.json` (`cap copy ios`
+      reproduces 37). Production serves `5f037880`. `/.well-known/
+      apple-app-site-association` and `/.well-known/assetlinks.json` answer
+      200 with no redirect, as `application/json`, byte-identical to the
+      repo. `/auth/confirm` with a fake token got Supabase's real 403 and
+      the failed page in en and ar. The first cut, `public/.well-known/`,
+      failed ios-audit 37943266429 (`assemble.sh` refuses hidden files and
+      extensionless names); the files are served by a Vercel rewrite now.
+      - **Read live 2026-10-09 (Supabase, owner's Chrome profile):** Site URL
+        `https://www.scan-action.com`; Redirect URLs
+        `https://www.scan-action.com/**` and
+        `https://scan-and-action-git-*-tornidomaroc-webs-projects.vercel.app/**`
+        (no change needed). Custom SMTP on, sender `noreply@scan-action.com`
+        ("Scan & Action"), `smtp.resend.com:465`, 60 s per-user interval.
+        Both templates linked `{{ .ConfirmationURL }}`, a `supabase.co`
+        address, so the tapped link could never be a universal link.
+      - **ROLLBACK: the two templates as they stood before the 2026-10-09
+        change**, read from the console's editor model and proven identical
+        by an in-page equality check (Reset: 832 characters). To roll back,
+        paste each body back into Authentication › Emails › Templates and
+        Save. The subjects did not change.
+        - Confirm sign up, subject `Confirm Your Signup`, body:
+
+          ```html
+          <h2>Confirm your signup</h2>
+
+          <p>Follow this link to confirm your user:</p>
+          <p><a href="{{ .ConfirmationURL }}">Confirm your mail</a></p>
+          ```
+
+        - Reset password, subject `Reset your Scan & Action password`, body:
+
+          ```html
+          <h2>Reset your Scan &amp; Action password</h2>
+
+          <p>Hello,</p>
+
+          <p>We received a request to reset the password for your Scan &amp; Action account ({{ .Email }}). Click the button below to choose a new password.</p>
+
+          <p><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;">Set a new password</a></p>
+
+          <p>If the button does not work, copy and paste this address into your browser:</p>
+
+          <p style="word-break:break-all;font-size:13px;color:#444444;">{{ .ConfirmationURL }}</p>
+
+          <p>This link can only be used once. If you did not request a password reset, you can safely ignore this email and your password will stay the same.</p>
+
+          <p>Scan &amp; Action<br><a href="https://www.scan-action.com">www.scan-action.com</a></p>
+          ```
+
+      - **CHANGED 2026-10-09, after #298 was live and verified** (the owner's
+        approval, his turn of 2026-10-09). In each body, every
+        `{{ .ConfirmationURL }}` became
+        `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`
+        (Confirm sign up, 1 place) or `…&type=recovery` (Reset password, 2
+        places: the button, line 7, and the copy-paste address, line 11).
+        Nothing else changed; the subjects are unchanged. Before each edit,
+        the live text was checked to equal the rollback above. After saving,
+        a fresh tab read back 181 characters (Confirm) and 926 (Reset), equal
+        to the approved text, with no `ConfirmationURL` left. Supabase offers
+        no preview with data, and the owner ruled out a test mail that would
+        expose a live token, so the stored text is the verification.
+      - **WITNESSED 2026-10-10 (web signup), see below: a real confirmation
+        mail end to end.** Before that, the
+        session does not create accounts on production (its safety rules,
+        whether through the browser or the API), and reading a reset link
+        for a real account would put a live token in a transcript. **The
+        smallest step needs the owner once:** sign up in the app with a
+        plus-alias of his Gmail (for example
+        `tornido.maroc2024+confirm1009@gmail.com`) and any password his
+        password manager generates (never needed again). The session then
+        reads the mail's link (Gmail; if the classifier refuses the body
+        again, as on 2026-10-08, it says so), checks that it points at
+        `https://www.scan-action.com/auth/confirm` with a `token_hash`,
+        opens it headless, and reads `email_confirmed_at` (read-only). The
+        owner then deletes that account in Supabase › Authentication › Users.
+        - **Read 2026-10-10: no signup has been made yet. Nothing failed.**
+          #302 recorded "the signup never landed" on a wrong premise: the
+          owner had not signed up. What it measured still stands as a
+          baseline: `auth.users` held 0 rows for `tornido.maroc2024+%` and
+          no account newer than 2026-09-28 (control: 32 rows; the served
+          bundle's Supabase ref is the backend's `DATABASE_URL` project), and
+          Gmail held no mail to the alias. Neither is a failure signal.
+          - **The session will not create the account**, even with the
+            owner's written authorization: its safety rules forbid creating
+            accounts on any host that is not local development, and an
+            authorization does not lift them. This is that rule, not the
+            auto-mode classifier.
+          - **WITNESSED END TO END 2026-10-10, web signup.** The owner ran
+            `! node D:/pw-run/signup-confirm1009.mjs` (forward slashes: `!`
+            runs Git Bash, which eats backslashes). It drove the live form at
+            `https://www.scan-action.com/login` headless, with a password
+            generated in memory and never printed or stored, and the Railway
+            backend blocked.
+            - Signup: GoTrue `POST /auth/v1/signup` 200, no session,
+              `confirmation_sent_at` 14:11:06Z. The app showed, verbatim: "We
+              sent a confirmation link to this address. Open it to finish
+              creating your account." and "Back to sign in".
+            - Mail: 14:11:07Z, from `noreply@scan-action.com`, subject
+              `Confirm Your Signup`, Inbox. Gmail showed the body this time.
+              Link: `https://www.scan-action.com/auth/confirm` with
+              `token_hash` (56 characters) and `type=email`, nothing else.
+            - Opened by `D:/pw-run/open-sa-confirm.mjs` (backend blocked):
+              `POST /auth/v1/verify` 200, landed on `/dashboard`.
+            - `auth.users` (read-only): `email_confirmed_at` null before,
+              14:11:56Z after.
+            - App records: none. `User` 0 for the address, so 0 Membership,
+              0 Organization, no welcome mail; `User` total 32 before and
+              after. The block was needed and held: the dashboard's
+              `GET /api/ledger` and `GET /api/documents/stats` were aborted.
+            - What this does not show: the link opening inside the native
+              app (#299, #300). The template is project-wide and the form is
+              the `AuthScreen` the app bundles, so the mail is the same.
+          - **Cleanup DONE 2026-10-10.** The owner deleted account
+            `f6d245cf-…-c9028e770e02` in the console (the session's click had
+            been denied by the classifier). Read-only after: 0 rows by that
+            id, 0 by the address, `auth.users` total 32 (as before the test),
+            `User` total 32. Control: the same id lookup had returned 1 row
+            earlier in the session.
+      - **PR B, #299, the iOS entitlement: merge only when ALL hold.**
+        1. Build 23 (#298) is green: it is, run 37955763659.
+        2. The owner has turned on **Associated Domains** for App ID
+           `com.scanaction.app` in Certificates, Identifiers & Profiles (it
+           read OFF on 2026-10-09; Sign In with Apple, known on, was the
+           control) and saved.
+           - **DONE 2026-10-10: Associated Domains reads ON.** The portal
+             was first signed out; the owner signed in with "Sign in with
+             iPhone" (no typed password), header "… - NQ23SMHXJV". On the
+             edit page of `com.scanaction.app (explicit)`, 2 of 130 boxes were
+             ticked before (In-App Purchase, Sign In with Apple, the known-on
+             control). The session ticked Associated Domains only ("MDM
+             Managed Associated Domains" left off) and stopped; the owner
+             clicked Save and Confirm. A fresh tab read exactly 3 ticked
+             (Associated Domains, In-App Purchase, Sign In with Apple), by the
+             DOM and by eye, with Save disabled (nothing unsaved).
+           - **What the save does, from Apple's docs (read 2026-10-10):**
+             Account Help, Enable app capabilities: "Provisioning profiles
+             that contain a modified App ID become invalid", and "Click Save.
+             If a warning dialog appears, click Confirm". QA1878 (2014,
+             archived): "does not affect any currently deployed apps that
+             were signed with that profile", and Xcode's team profiles "are
+             updated automatically". So build 23 keeps working, and the
+             TestFlight job (automatic signing, `-allowProvisioningUpdates`
+             with the Admin key) regenerates its profile on the next run.
+             No fee is named for any capability; the program is already
+             paid. Apple documents no disable steps; the rollback is the
+             same page with the box cleared, Save and Confirm, which
+             invalidates the profiles once more. A board-only merge does
+             not start TestFlight (`paths: apps/frontend/**`); #299 does.
+        3. #299 is still at head `1125b645`, rebased or not, with CI and
+           ios-audit green on that head.
+           - **2026-10-10: rebased onto `main` (`677c452f`), no code
+             added.** `1125b645` branched from `526dd088`, before #298, so
+             its green checks never built #298's native listener with the
+             entitlement. After `gh pr update-branch 299 --rebase` it is one
+             commit on `main`, the same two files, and its added and removed
+             lines are byte-identical to `1125b645`'s. CI and ios-audit re-run
+             on the new head before any merge.
+        - Merging starts a TestFlight run. It is the first archive whose
+          automatic signing meets the new entitlement. Watch: no "doesn't
+          include the com.apple.developer.associated-domains entitlement"
+          in Archive; "Uploaded build N"; Associated Domains listed on the
+          build in App Store Connect; and
+          `https://app-site-association.cdn-apple.com/a/v1/www.scan-action.com`
+          returns our file. If the archive fails, nothing reaches App Store
+          Connect, the run number becomes a gap, and reverting #299 restores
+          build 23's inputs.
+        - **MERGED 2026-10-10 as `6b4d0a7a` (head `d15cdeb1`), TestFlight
+          build 24.** `gh pr view 299 --json mergeCommit,headRefOid`. Run
+          38066341877 on `6b4d0a7a`: "ARCHIVE SUCCEEDED", "Uploaded build 24",
+          and no "doesn't include the com.apple.developer.associated-domains"
+          line (`gh run view 38066341877 --log`).
+          - **App Store Connect, the owner's reading (no call from a
+            session):** build 24 lists `com.apple.developer.associated-domains`
+            with `applinks:www.scan-action.com`, and build 23 does not. To
+            re-read: App Store Connect › the app › TestFlight › the build ›
+            Build Metadata › Entitlements.
+          - **Apple's CDN serves our file, read 2026-10-12:**
+            `curl https://app-site-association.cdn-apple.com/a/v1/www.scan-action.com`
+            answered 200 `application/json`, byte-identical (`cmp`) to
+            `apps/frontend/public/app-links/apple-app-site-association.json`;
+            `https://www.scan-action.com/.well-known/apple-app-site-association`
+            likewise (200, `application/json; charset=utf-8`).
+          - **Not yet seen: a tap on the owner's iPhone.** Build 24 is the first
+            build that can show it. Everything below is a simulator.
+      - **The native handoff, WITNESSED IN A SIMULATOR 2026-10-10 and held by
+        a check from #305.**
+        - **The probe** (throwaway branch `probe/ul-sim`, never merged; run
+          38074908976, a free `macos-26` runner): the committed entitlements
+          in the binary's `__entitlements` section under an ad-hoc signature;
+          swcd fetched the association through Apple's CDN (`route: cdn`);
+          `/auth/confirm` with a fake token opened the app cold and warm and
+          reached its "This link no longer works" screen (Supabase's real
+          403); the control `/login` opened Safari. Read from its screenshots
+          and `launchctl list`. Its link step ran under `set +e` with no
+          assertions, so its green proved nothing by itself. It also used the
+          production Supabase project and production's association, not the
+          branch's. Branch deleted 2026-10-12 (`git ls-remote` returns
+          nothing). Its workflow (id 380680903) is `disabled_manually`; the
+          run is kept as evidence.
+        - **The check, #305 (open, not merged):** a third job in
+          `ios-audit.yml`, "iOS — a confirm link opens the app, offline (no
+          Apple CDN, no production, no Supabase)". The test entitlements add
+          `?mode=developer` to each committed `applinks` entry; the runner's
+          hosts file sends `www.scan-action.com` to a local server that answers
+          only what `vercel.json` rewrites, from `dist/`. The bundle is built
+          against `https://supabase.invalid`, and the confirm screen must read
+          `network`. Cold, warm, and two controls (`/login`, and a tokenless
+          `/auth/confirm`) that must stay in Safari, plus a static step tying
+          the entitlement to `AUTH_LINK_HOST` and the association.
+          - Green: run 38249600821 on `4e761f1e`. Red on purpose: run
+            38253651531 on a throwaway branch (`b0a13cce`, deleted) that
+            removed only the entitlement. Both halves failed and named it.
+          - Not required, and should not be: its path filter would leave a
+            required context pending on every PR that skips it.
+          - Merging #305 starts a TestFlight run, because its simulator-only
+            change to `MainViewController.swift` is under `apps/frontend/**`.
+      - **PR C, #300, the Android App Link: merge when** #299's TestFlight
+        run is green (so only one native change is in flight at a time), and
+        #300 is at head `fcf324ee` with CI green. Merging starts a TestFlight
+        run carrying no Android change. Android users get the filter only
+        with the next manual Play release; then `adb shell pm get-app-links
+        com.scanaction.app` on a Play-installed build must read
+        `verified`. The emulator debug build reads `1024` (unverified),
+        because it is signed `85:E3:…`, not with the Play key.
+        - **2026-10-12: the first condition holds** (run 38066341877, #299's
+          TestFlight run, `success`). `gh pr view 300 --json headRefOid`
+          reads `fcf324ee`. #305 also starts a TestFlight run, so merge the
+          two one at a time.
+        - **DEFERRED 2026-10-12 by the owner until before the Play release.**
+          Apple submission is the priority. Merge it in the run-up to the
+          next Play release, not before.
+    - **The icon and the splash.** Order ruled 2026-10-12 by the owner:
+      app icon and accent, then the iOS launch screen and the Android splash,
+      then the store screenshots (step 7).
+      - **The icon: concept A, #307 MERGED 2026-10-12 as `aa750c7e`,
+        TestFlight build 26** (see DESIGN TRACK, step 1). One master,
+        `apps/frontend/assets/scan-action-mark.svg`, generates every icon
+        (iOS 1024, Android adaptive with a new monochrome layer, web, Play
+        512). #307 also regenerates both splashes with the new mark at the
+        approved 42% width; the splash redesign itself is the next item.
+      - **RELEASE-TIME STEP for Play, never before:** upload
+        `apps/frontend/assets/store/play-store-icon-512.png` as the Play
+        listing icon **in the same Play release** that first ships #307's
+        launcher icons. Play rejected the app on 2026-07-17 because the
+        launcher icon did not match the listing icon
+        (`docs/ANDROID_LAUNCHER_ICON_MISMATCH_MAP.md`). Uploading it earlier
+        creates that same mismatch in the other direction. Check it in Play
+        Console › Store presence › Main store listing › App icon.
+      - The Android `#0F1014` splash is still UNVERIFIED on a device; the
+        local emulator can show it.
   - **Login rejected by the owner on 2026-09-25.** It is redrawn in its own
     PR.
     - **What it shows today** (`AuthScreen.tsx`): a dark panel reading "Turn
@@ -1591,6 +2337,34 @@ restyled.** Do not start at login, although a reviewer sees it first:
     - **What must hold:** the password policy (`passwordPolicy.ts` and its
       drift test), the recovery routing, the error localisation tests.
     - **EXPIRY:** the owner approves a redrawn Login on his iPhone.
+    - **Found 2026-10-15 on the simulator, not fixed (rule 6, STANDING
+      RULES):** the email field takes focus on load (`autoFocus` in
+      `AuthScreen.tsx`), so the keyboard is up on the reviewer's first
+      screen. Run 38793495512 (`proof/signin-keyboard`): iPhone 16e, 17 Pro
+      and 17 Pro Max, light and dark. The email field, the password field
+      and the Sign in button stay inside the visible area and are the
+      topmost element at their centre on every device (a tap reaches them;
+      on the 16e the button's bottom is at 401 of 509 visible px). The flaw:
+      on the 16e and the 17 Pro iOS scrolls the page by 68 to 82 px, so the
+      clock, the battery and the Dynamic Island draw over the "Scan &
+      Action" bar and the language pills, and the "Sign in" heading slips
+      under the status bar; the keyboard's form bar also covers Continue
+      with Apple and Google, which email sign-in does not need. Review risk:
+      low for function. **Proposed fix, one small `AuthScreen.tsx` change:**
+      no autofocus on native, so the first screen opens with the keyboard
+      down, and an opaque band under the status bar as the main `Layout`
+      has; proven with the same run before and after.
+      **POST-LAUNCH by the owner's decision, 2026-10-17:** not part of the
+      submission build (#330). The change, when its turn comes: in
+      `AuthScreen.tsx` replace the bare `autoFocus` on the email `TextField`
+      (the only `autoFocus` in the file) with
+      `autoFocus={!isNativePlatform()}`, importing `isNativePlatform` from
+      `../native/shell` (exported at `native/shell.ts:14`; `TextField`
+      forwards `InputHTMLAttributes`, `components/ui/TextField.tsx:21`), so
+      the web keeps today's behaviour and native opens with the keyboard
+      down; then the opaque band under the status bar. Proof: run
+      `proof/signin-keyboard` again on the same three devices, before and
+      after, and the page scroll on the 16e and the 17 Pro must read 0.
 - [ ] **6. The rest.** Documents and search, the review queue, settings with
   account deletion reachable, and the web-only paywall.
   - **Search is redrawn from zero in its own PR. DONE: approved by the owner
@@ -1614,7 +2388,78 @@ restyled.** Do not start at login, although a reviewer sees it first:
       was closed by #248.
     - **What it becomes:** a search field, category chips and a month filter,
       with results as the same rows as Home.
-- [ ] **7. Store screenshots**, taken from the finished UI.
+- [ ] **7. Store screenshots: BUILT and APPROVED 2026-10-15, in the PR that
+  records this line; the upload to App Store Connect follows its merge.**
+  - **What applies, read 2026-10-15:** App Store Connect's version 1.0 page
+    asks for "iPhone with Dynamic Island (medium display)" (1206 x 2622 or
+    1179 x 2556; Apple's screenshot specifications page lists that class
+    under "Required device sizes"); "iPhone with Dynamic Island (large
+    display)" (1320 x 2868) is optional and otherwise borrows the medium set.
+    No iPad set: the project builds for iPhone only (`TARGETED_DEVICE_FAMILY
+    = 1` in `project.pbxproj`, pinned by `iosPlatform.test.ts`). One listing
+    localization: English (U.S.), primary. iPhone Duo screenshots become
+    required from April 2027 for apps built with the iOS 27.1 SDK or later;
+    build 34 was built with Xcode 26.6 (17F113), so not now. Guideline 2.3.3,
+    read the same day: screenshots "should show the app in use" and "may also
+    include text and image overlays".
+  - **The plain set (#328, `1449e6f8`): REJECTED by the owner 2026-10-15** as
+    a store presentation; it was uploaded that day into both Dynamic Island
+    slots (5 of 10 each) and sat there until 2026-10-17, when it was replaced
+    (the DONE bullet below).
+    His reference: the captioned dark set of 2026-09-29 from the web harness
+    (`D:\RAGHAD JAD\store-screenshots\2026-09-29\`, outside the repository),
+    whose six frames he removed from "iPhone with Face ID (large display)"
+    the same day (Media Manager › Remove All; the slot now reads 0 of 10 and
+    falls back to the Dynamic Island large set, the console's own wording).
+  - **Direction C, "Teal field": CHOSEN by the owner from three directions
+    and APPROVED as built, frame 1 included.** Each frame is a real simulator
+    capture of the restyled app (fictional October data) inside a generic
+    phone drawn in CSS, complete to the tab bar, on the brand teal, under a
+    caption he approved word for word. Captures: run 38803643978
+    (`proof/store-shots-c`, app at `1449e6f8`) for frames 1, 2, 4 and 5; run
+    38763571358 for frame 3, because the newer run shot Detail before the
+    receipt photo loaded (the app code and the fixtures are byte-identical
+    between the runs). Composition: `store/app-store/1.0/source/frame-c.html`
+    rendered by `source/render-c.sh` (headless Chrome, device scale factor
+    3), the screen at 0.744 of the canvas width, one scale and one caption
+    position for all ten files. Checks on all ten: exact pixels, RGB, no
+    alpha, caption text exact with no dash, title on two lines, the whole
+    phone inside the canvas, the capture's own layout and contrast audits
+    clean. `store/app-store/1.0/README.md` has the detail.
+  - **DONE 2026-10-17, in App Store Connect › version 1.0 › Media Manager ›
+    iPhone, from the owner's signed-in browser, with his approval of "Remove
+    All" on exactly the two Dynamic Island slots.** Read before and after
+    through the console's own API from the signed-in page
+    (`/iris/v1/appStoreVersionLocalizations/<en-US id>/appScreenshotSets?include=appScreenshots`;
+    its `sourceFileChecksum` is an MD5, compared with `md5sum` of main's
+    blobs at `1033bffa`).
+    - **Before:** "iPhone with Dynamic Island (medium display)"
+      (`APP_IPHONE_61`) and "iPhone with Dynamic Island (large display)"
+      (`APP_IPHONE_67`) each "5 of 10 App Screenshots", all ten files equal
+      by MD5 and size to the plain set of #328 (`1449e6f8`); "iPhone with
+      Face ID (large display)" (`APP_IPHONE_65`) 0 of 10.
+    - **After:** medium, in order 01-home, 02-capture, 03-detail, 04-queue,
+      05-search: `3d8bd32dfd36f42b20c209027252304a`,
+      `e4041d1ee84e6124c5bbabf8049d7f52`, `4632422bdc0a525dfd490016d0361191`,
+      `72b0dce8eca2a84003f226e6e9e4eb45`, `16132f6ae79c129d886fd895c34fec17`,
+      all 1206 x 2622; large, same order:
+      `283618315ae3681b2a57f046eb11b144`, `1196464236a0e61c96741facfd4aa5fb`,
+      `383018c87c33b7511213ddde1694e530`, `3fb0e2b3c4f471c0066f155807ec090f`,
+      `d3ffe25172b915edeabb953c5dac020f`, all 1320 x 2868. Every one equals
+      main's file under `store/app-store/1.0/`, every one
+      `assetDeliveryState COMPLETE` with no error, both slots "5 of 10 App
+      Screenshots", no error text on the page.
+    - **Face ID large** unchanged, "0 of 10 App Screenshots", "Using Existing
+      Assets"; its help popover reads "Until assets are selected for this
+      device, these existing assets will be used: App Screenshot, iPhone with
+      Dynamic Island (large display)".
+    - **Asset Library untouched:** the Remove All dialog states the removed
+      files "will remain in your Asset Library unless they're deleted from
+      there". No other slot or field, nothing submitted.
+    - `store/app-store/1.0/README.md` still says the replacement "was still
+      to be done" as of 2026-10-15; that sentence is dated and the README
+      itself says it does not track the console. This bullet is the record;
+      the README is corrected the next time a PR touches `store/`.
 
 ### Inputs, filed under the step that redraws them — not a checklist
 
@@ -2464,6 +3309,104 @@ This is also Apple 3.1.3(f)'s condition, word for word (APPLE TRACK), and
 
 ### Other kept items
 
+- [ ] **Post-launch: show the review reason on the queue cards.** Today a
+  queue card renders one status chip from the document's status alone
+  (`ReviewQueueScreen.tsx`, `getStatus` in `lib/searchResultCard.ts`); the
+  rule engine's reason (`decision_reason`, a fixed English phrase per rule,
+  translated by `translateDecisionReasons`) shows only on the receipt's
+  Detail. The store frame of the queue was captioned accordingly ("Approve or
+  reject what needs a second look"), so nothing on the product page claims
+  the reason is on the card. Raised 2026-10-15 during the screenshot review;
+  the owner placed it after the App Store submission. Small frontend change;
+  reshoot frame 4 afterwards.
+- [x] **Android: cap the WebView's text zoom natively: MERGED 2026-10-13 as
+  #317 (`9757a2a1`), TestFlight build 30** (run 38453792409: "ARCHIVE
+  SUCCEEDED", "Uploaded build 30 … for commit 9757a2a1…"; `gh run view
+  38453792409 --log`), served on the web and by `/api/version` at merge.
+  Build 30 is iOS and iOS is unchanged by it; the fix reaches users only in
+  an Android build, which no CI job uploads to Play. Was: before any Play
+  release. `MainActivity` sets the
+  WebView's text zoom to `min(fontScale x 100, 135)` in a try/catch; the web
+  cap in `textScale.ts` is KEPT, unchanged, as the fallback: it measures the
+  zoom actually applied and acts only above 23/17, so it is idle under the
+  native cap and holds the text at the cap if the native call fails (the
+  owner's objection to removing it, 2026-10-13, accepted). Measured on the
+  API 36 emulator at font scale 2.0: back button 44x44, title 32.4px, `1rem`
+  16px; with a build whose native call throws, the #311 behaviour (30x30,
+  text at the cap). The plan below, written before #317, said to delete the
+  Android branch of `rootFontSizeFor`: superseded.
+  - **What is wrong:** in the Android WebView, the system font scale zooms the
+    glyphs only. rem and em lengths keep resolving against the root the page
+    SETS. #311 pulls the root down above the cap (10.824px at font scale 2.0),
+    so text lands on the cap but every rem box shrinks to 0.68x. Measured over
+    CDP on the API 36 emulator with #315's proof APK: `1rem` laid out as
+    10.82px at 2.0 while the root computed as 21.648px; Detail's back button
+    went from 44x44 to 30x30px, under the 48dp target; Approve stayed 44px
+    high (a px minimum). The overlap audit cannot see a small target.
+  - **Before #311**, Android at 2.0 drew text at 2x with spacing at 1x.
+    Whether any user sees the regression depends on whether a build made after
+    #311 has reached Play: ask the Play Console, every track, drafts included.
+  - **The fix:** in `MainActivity`, set the WebView's text zoom to
+    `min(round(fontScale x 100), 135)` inside a try/catch that leaves the
+    default alone on failure, and delete the Android branch of
+    `rootFontSizeFor` in `src/native/textScale.ts` (the root stays 16px, as
+    the stylesheet has it). A test holds both. Proof: the CDP measurement
+    above, 44px back button and a 135% text size at font scale 2.0.
+  - **EXPIRY:** at Android font scale 2.0, every control keeps its size at
+    1.0 and text renders at 135%.
+
+- [ ] **Muted text printed straight on the page fails 4.5:1 in light** (found
+  2026-10-13). `--sa-ink-muted` `#6E7383` measures 4.73:1 on a card but
+  4.27:1 on the light page `#F2F3F8`. #315 fixes it on Home and Detail; PRs 4
+  to 6 must check each screen's text that sits on the page, not on a card.
+  **EXPIRY:** no `text-ink-muted` element whose background is the page.
+
+- [x] **Android build in CI: DONE, merged 2026-10-13 as #313 (`b1172366`).**
+  `.github/workflows/android-build.yml`, check "Android debug build (no
+  signing, no secrets)". Proven red on a planted `--` in a `colors.xml`
+  comment (run 38419556442, "colors.xml:22:53: Error: The string "--" is not
+  permitted within comments", throwaway draft #314 closed unmerged and its
+  branch deleted) and green on #313's head (run 38419551385, "BUILD SUCCESSFUL
+  in 2m 28s", 3m06s for the job). It differs from the plan below in two ways:
+  it runs on `pull_request` only, on the Android paths (`android/**`,
+  `capacitor.config.ts`, the npm manifests, `patches/**`, the file itself),
+  not on `push` to `main`; and it pins the committed wrapper jar and the
+  Gradle download by SHA-256 (restyle PR 3 commits the
+  `distributionSha256Sum` line and makes `gradlew` executable).
+  - **NOT a required check, and it cannot become one as it stands.** A
+    path-filtered workflow does not run on a PR outside its paths, so it never
+    reports there, and GitHub leaves a required check pending, which blocks
+    that merge. Before it is required: one always-on job that decides
+    internally whether to build (or no path filter), then the context name
+    copied from the check-runs API, never typed (CLAUDE.md, the em-dash trap).
+    Ask `gh api repos/{owner}/{repo}/rules/branches/main` for what is
+    required today.
+  - The plan as written on 2026-10-13, kept for the record:
+  - **Why:** from #309 to #311, `main` could not build for Android ("The
+    string "--" is not permitted within comments" in `colors.xml`) and no
+    check said so; it was found only because a session happened to build an
+    APK. Every check in `ci.yml` is web or backend.
+  - **What:** a new workflow file, NOT an edit of `ci.yml` (that file
+    produces both required contexts; a YAML mistake there stops every merge,
+    see CLAUDE.md). `ubuntu-latest`, Java 21, the runner's preinstalled
+    Android SDK: `npm ci`, `npm run build`, `npx cap sync android`,
+    `./gradlew assembleDebug`. No secret and no signing: a debug APK is the
+    question "does it build". On `pull_request` and on `push` to `main`,
+    paths `apps/frontend/**` and the workflow file.
+  - **Cost:** free; the repository is public (`gh repo view --json
+    visibility`), and Linux minutes on a public repository are not billed.
+  - **Why before PR 3:** it lives under `.github/` only, so merging it starts
+    no TestFlight run and leaves "one native change in flight" free for
+    PR 3; and every restyle PR after it is then built for Android before
+    merge. Not before this board PR: the board records state, this adds a
+    guard, and neither waits on the other.
+  - **Proof before merge:** the job goes red on a planted `--` in a res XML
+    comment (a throwaway commit, reverted) and green on the PR's head.
+  - **Required check later, not at once:** add it to the ruleset only after
+    it has run green on `main` a few times, with the context name copied
+    from the check-runs API (CLAUDE.md, the em-dash trap).
+  - **EXPIRY:** a PR that breaks the Android build shows a red check.
+
 - [ ] **Welcome email (dormant).** It is built, and held by two switches:
   - `MAIL_POSTAL_ADDRESS` must be set, because `mailer.ts` fails closed without
     a physical address (CAN-SPAM requires one).
@@ -2568,6 +3511,15 @@ This is also Apple 3.1.3(f)'s condition, word for word (APPLE TRACK), and
    iPhone is his, named, justified with evidence, and kept to the smallest
    possible step. Rule 5 stands for judgement: he looks at what ships when he
    chooses to; he is not a test script.
+   **Restated by the owner, 2026-10-13:** proof comes from the simulator, the
+   emulator, the headless browser, the real backend, automated tests and
+   screenshots. **Do not propose installing a build or checking a setting on
+   his iPhone** unless you have proved it cannot be witnessed any other way,
+   and then name the smallest action and why. Native screens signed in, with
+   no backend: the PR 2 harness (branch `design/pr2-dynamic-type-proof`,
+   `.github/dt-proof/` and `dt-proof.yml`: a fixture network, an in-page
+   layout audit, the simulator at any `content_size` and the Android
+   WebView over CDP). Copy it before that branch is deleted.
 
 The incidents behind each rule are in git, in the RECURRING FAILURE and recovery
 sections of the file at `9751e813`.

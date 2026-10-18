@@ -95,6 +95,10 @@ module.exports = {
         card: 'var(--sa-shadow-card)',
         raised: 'var(--sa-shadow-raised)',
         lg: 'var(--sa-shadow-lg)',
+        // The soft language (2026-10-12): the inset for fields and inner
+        // cells, and the primary button's glow in its own accent.
+        pressed: 'var(--sa-shadow-pressed)',
+        accent: 'var(--sa-shadow-accent)',
       },
       // ── The overlay ladder (documented in D8b PR-2) ───────────────────
       // Until now these were hand-picked magic numbers spread across 8
@@ -135,10 +139,12 @@ module.exports = {
       fontSize: {
         // Additive named steps from the type scale (do NOT collide with
         // Tailwind's xs/sm/base/lg/... so existing text-* utilities are intact).
-        kpi: ['32px', { lineHeight: '1', letterSpacing: '-0.025em' }],
-        'title-lg': ['24px', { lineHeight: '1.2', letterSpacing: '-0.02em' }],
-        section: ['15px', { lineHeight: '1.4' }],
-        label: ['12px', { lineHeight: '1.3' }],
+        // In rem, like every font size in the app, so the phone's text size
+        // setting reaches them through the root (src/native/textScale.ts).
+        kpi: ['2rem', { lineHeight: '1', letterSpacing: '-0.025em' }],
+        'title-lg': ['1.5rem', { lineHeight: '1.2', letterSpacing: '-0.02em' }],
+        section: ['0.9375rem', { lineHeight: '1.4' }],
+        label: ['0.75rem', { lineHeight: '1.3' }],
       },
     },
   },

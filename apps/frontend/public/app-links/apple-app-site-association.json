@@ -1,0 +1,20 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "NQ23SMHXJV.com.scanaction.app"
+        ],
+        "components": [
+          {
+            "/": "/auth/confirm",
+            "?": {
+              "token_hash": "?*"
+            },
+            "comment": "Email confirmation and password-reset links (Supabase templates)"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -7,7 +7,7 @@ import { ErrorState } from '../components/ErrorState';
 import { CategoryIcon, CATEGORY_RING } from '../components/ui/CategoryIcon';
 import { CountChip } from '../components/ui/CountChip';
 import { Money } from '../components/ui/Money';
-import { Panel, panelClass } from '../components/ui/Panel';
+import { Panel, panelClass, raisedPanelClass, eyebrowClass } from '../components/ui/Panel';
 import { ReceiptRow } from '../components/ui/ReceiptRow';
 import { isIdentityConflict } from '../lib/identityConflict';
 import { isRequestTimeout } from '../lib/fetchWithTimeout';
@@ -112,7 +112,7 @@ export const LedgerScreen: React.FC = () => {
         >
           <ChevronLeft size={20} className="rtl:-scale-x-100" aria-hidden="true" />
         </button>
-        <h1 id="ledger-month" className="text-[17px] font-bold tracking-tight text-ink" aria-live="polite">{title}</h1>
+        <h1 id="ledger-month" className="text-[1.0625rem] font-bold tracking-tight text-ink" aria-live="polite">{title}</h1>
         <button
           type="button"
           onClick={() => goTo(shiftMonth(month, 1))}
@@ -213,7 +213,7 @@ const NeedsReview: React.FC<{ s: Strings; lang: Lang; month: string; monthCount:
         <ClipboardCheck size={20} strokeWidth={2.25} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-semibold leading-snug text-ink">{titleText}</span>
+        <span className="block text-[0.9375rem] font-semibold leading-snug text-ink">{titleText}</span>
         {allMonths && <span className="mt-0.5 block text-xs font-medium text-ink-muted" data-ledger-queue-all>{allMonths}</span>}
       </span>
       <ChevronRight size={18} className="flex-none text-ink-faint rtl:-scale-x-100" aria-hidden="true" />
@@ -228,7 +228,7 @@ const EmptyMonth: React.FC<{
     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-tile bg-accent text-on-accent">
       <Receipt size={26} aria-hidden="true" />
     </div>
-    <h2 className="mt-4 text-[17px] font-bold text-ink">{s.ledgerEmptyTitle.replace('{month}', monthName(month, lang))}</h2>
+    <h2 className="mt-4 text-[1.0625rem] font-bold text-ink">{s.ledgerEmptyTitle.replace('{month}', monthName(month, lang))}</h2>
     <p className="mx-auto mt-1 max-w-xs text-sm text-ink-secondary">{s.ledgerEmptyBody}</p>
     <div className="mt-6 flex flex-col items-center gap-2">
       {onScan && (
@@ -261,8 +261,8 @@ const LedgerBody: React.FC<{
   return (
     <>
       {/* ── The figures: one per currency, same size, never added together ── */}
-      <section className="mt-6" aria-labelledby="ledger-spent">
-        <p id="ledger-spent" className="text-sm font-semibold text-ink-secondary">
+      <section className={`mt-6 p-4 ${raisedPanelClass}`} aria-labelledby="ledger-spent" data-ledger-total>
+        <p id="ledger-spent" className={eyebrowClass}>
           {s.ledgerSpentIn.replace('{month}', monthName(month, lang))}
         </p>
         <ul className="mt-2 divide-y divide-divider">
@@ -270,7 +270,7 @@ const LedgerBody: React.FC<{
             const p = moneyParts(c.total, c.currency, lang);
             return (
               <li key={c.currency ?? 'none'} data-ledger-currency={c.currency ?? 'none'} className="py-3 first:pt-1">
-                <div className="flex flex-wrap items-baseline gap-x-2" aria-label={`${p.number} ${p.name ?? p.code ?? s.ledgerNoCurrency}`}>
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1" aria-label={`${p.number} ${p.name ?? p.code ?? s.ledgerNoCurrency}`}>
                   <bdi
                     dir="ltr"
                     data-ledger-figure
@@ -300,7 +300,7 @@ const LedgerBody: React.FC<{
 
       {/* ── Categories ── */}
       <section className="mt-8" aria-labelledby="ledger-cats">
-        <h2 id="ledger-cats" className="text-[15px] font-bold text-ink">{s.ledgerByCategory}</h2>
+        <h2 id="ledger-cats" className={eyebrowClass}>{s.ledgerByCategory}</h2>
         <div className="mt-3 grid grid-cols-2 gap-3">
           {cards.active.map(card => {
             const on = filter === card.category;
@@ -330,7 +330,7 @@ const LedgerBody: React.FC<{
                       lang={lang}
                       noCurrency={s.ledgerNoCurrency}
                       numberClass="text-xl font-extrabold leading-tight tracking-tight text-ink"
-                      codeClass={`text-[11px] font-bold tracking-wide ${line.currency ? 'text-ink-muted' : 'text-warning-text'}`}
+                      codeClass={`text-[0.6875rem] font-bold tracking-wide ${line.currency ? 'text-ink-muted' : 'text-warning-text'}`}
                     />
                   ))}
                   {card.notYetSorted > 0 && (
@@ -344,7 +344,7 @@ const LedgerBody: React.FC<{
           })}
         </div>
         {cards.empty.length > 0 && (
-          <p className="mt-3 text-xs font-medium text-ink-muted" data-ledger-empty-categories>
+          <p className="mt-3 text-xs font-medium text-ink-secondary" data-ledger-empty-categories>
             {s.ledgerNothingIn.replace('{list}', cards.empty.map(c => categoryLabel(s, c)).join(lang === 'ar' ? '، ' : ', '))}
           </p>
         )}
@@ -353,7 +353,7 @@ const LedgerBody: React.FC<{
       {/* ── Receipts: one grouped list, not a stack of boxes ── */}
       <section className="mt-8" aria-labelledby="ledger-receipts">
         <div className="flex min-h-[36px] items-center justify-between gap-2">
-          <h2 id="ledger-receipts" className="text-[15px] font-bold text-ink">{s.ledgerReceipts}</h2>
+          <h2 id="ledger-receipts" className={eyebrowClass}>{s.ledgerReceipts}</h2>
           {filter && (
             <button
               type="button"

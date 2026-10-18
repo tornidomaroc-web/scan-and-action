@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The app's own theme colours. Until 2026-10-12 styles.xml named
+      @color/colorPrimary, @color/colorPrimaryDark and @color/colorAccent and
+      the app defined none, so Capacitor's defaults applied (#3F51B5 indigo,
+      #303F9F, and #FF4081 pink for the accent).
+
+      colorPrimary / colorPrimaryDark (2026-10-12, #307): the icon family's
+      navy #00286D, the mark's own darkest colour. It is the one icon colour
+      that holds white system text and icons (13.78:1; the teal end, #00BB9F,
+      gives 2.44:1), and it is the colour the launcher icon starts from, so
+      the system's tint for the app and the icon agree.
+
+      colorAccent (2026-10-12, design PR 1): #006784, the same value as the
+      web app accent token (sa-accent in src/styles/tokens.css). It tints the controls
+      Android draws itself inside the WebView (selection handles, the text
+      cursor, native pickers), so the one accent reaches the parts of the
+      screen the stylesheet cannot. Ruled by the owner with the move of the
+      screens to the icon family.
+    -->
+    <color name="colorPrimary">#00286D</color>
+    <color name="colorPrimaryDark">#00286D</color>
+    <color name="colorAccent">#006784</color>
+</resources>

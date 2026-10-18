@@ -32,29 +32,35 @@ Geometry decisions (see docs/ICON_MASTER_REBUILD.md for the measurements):
       The scaffold's drop shadow is deliberately NOT reproduced: the store icon
       has no shadow, and matching the store icon is the whole point.
 
+  adaptive monochrome (Android 13+ themed icons, added 2026-10-12):
+      the mark's silhouette without its shadow, same geometry as the foreground.
+
   splash:
-      mark only (no gradient plate) on #0f172a -- the backgroundColor already
+      mark only (no gradient plate) on SPLASH_NAVY (#0F1014) -- the backgroundColor
       declared in capacitor.config.ts. The master square is scaled to a fraction of
       the canvas's SHORTER edge and centred, so the logo is the same physical size
       in portrait and landscape at every density.
       See SPLASH_MASTER_SCALE for the sizing and how it maps to "% of screen width".
 
-  web / PWA icons (public/icons, added with the "one mark, two weights" PR):
+  web / PWA icons (public/icons):
       the whole 512 master mapped 1:1, same as the legacy launcher art before the
       silhouette mask -- these surfaces are masked by the PLATFORM, not by us.
-      Every one is >= 180px, which is above the 48px floor below which the master
-      stops drawing (see BrandMark.tsx for the pixel counts); the favicon, which
-      is 16-32px, is NOT generated here -- it is the small cut, inline in
-      index.html and pinned to the component by brandMark.test.tsx.
+      The favicon is NOT generated here: it is the same drawing, inline in
+      index.html as SVG, and pinned to BrandMark.tsx by brandMark.test.tsx.
+
+  Play listing icon (assets/store/play-store-icon-512.png, added 2026-10-12):
+      the whole master at 512, RGBA and fully opaque. Kept in the repo, uploaded
+      by hand in the same Play release as the launcher icons, never before.
 
       All four are written WITHOUT an alpha channel. The master's plate covers
       the canvas so there is nothing to keep, and iOS composites a transparent
       apple-touch-icon onto BLACK, which is a silent, device-only defect.
 
       icon-maskable-512 is checked against the maskable safe circle (the central
-      80%) on every run rather than assumed: the margin is 4.7px at 512, which is
-      1%, so it is exactly the kind of number that a later geometry tweak would
-      cross without anyone noticing. verify_maskable_safe_zone() raises.
+      80%) on every run rather than assumed: concept A's margin is 3.0px at 512
+      (ink, shadow included, reaches r 201.8 of 204.8), which is 0.6%, so it is
+      exactly the kind of number that a later geometry tweak would cross without
+      anyone noticing. verify_maskable_safe_zone() raises.
 """
 import io, math, os, re, sys
 from PIL import Image, ImageDraw
@@ -84,14 +90,23 @@ MASTER_SIZE = 512.0
 
 # Splash sizing. This is the master SQUARE's side as a fraction of the canvas's
 # shorter edge -- it is NOT the mark's apparent size, because the mark's ink only
-# spans 366 of the master's 512px. To convert:
-#     ink width as % of portrait screen width = SPLASH_MASTER_SCALE * 366/512
-# 0.5875 -> 42.0% (the approved size). The previous 0.45 gave 32.2%.
-# Purely aesthetic: no density clips at this value (the tightest, port-mdpi
-# 320x480, still leaves ~93px of horizontal margin), and generate-android-icons
-# re-verifies margins on every run.
-SPLASH_MASTER_SCALE = 0.5875
-MASTER_INK_W = 366.0             # measured ink bbox of the master (x 73..438)
+# spans MASTER_INK_W of the master's 512px. To convert:
+#     ink width as % of portrait screen width = SPLASH_MASTER_SCALE * MASTER_INK_W/512
+# The approved size is 42.0% (2026-09-27). Concept A (2026-10-12) inks 292 of
+# 512, so 0.7364 keeps that 42.0%; the previous mark inked 366 and used 0.5875.
+# Purely aesthetic: no density clips at this value, and the clip check below
+# runs on every density on every run.
+SPLASH_MASTER_SCALE = 0.7364
+MASTER_INK_W = 292.0             # measured solid ink (alpha >= 128) of concept A: x 110..401
+
+# Concept A (2026-10-12): the Android 13+ themed-icon layer, and the Play listing
+# icon. The monochrome layer is the mark's silhouette with the shadow removed:
+# Android tints it from the wallpaper and reads only its alpha, and a shadow
+# there would print as a grey halo. The Play icon is generated here so it can
+# never drift from the launcher (the 2026-07-17 rejection); it is NOT uploaded
+# by anything in this repository.
+MONO_ONLY = re.sub(r'\s*filter="url\(#markShadow\)"', "", MARK_ONLY)
+PLAY_ICON = (os.path.join(HERE, "store", "play-store-icon-512.png"), 512)
 
 # density -> adaptive layer px (108dp), legacy launcher px (48dp)
 DENSITIES = {"mdpi": (108, 48), "hdpi": (162, 72), "xhdpi": (216, 96),
@@ -159,7 +174,7 @@ def verify_maskable_safe_zone(size):
     rendered raster, not derived from the master's own comments: render the mark
     on transparency and find the furthest non-transparent pixel from centre.
 
-    At 512 this leaves 4.7px of margin (200.1 vs 204.8), i.e. 1%. That is small
+    At 512 concept A leaves 3.0px of margin (201.8 vs 204.8), i.e. 0.6%. That is small
     enough that a future geometry change could cross it silently, and a clipped
     maskable icon is invisible until it is on somebody's home screen."""
     im = render(MARK_ONLY, size, size)
@@ -182,8 +197,50 @@ def verify_maskable_safe_zone(size):
     return worst, safe
 
 
+# Android 12+ splash icon (2026-10-15). From API 31 the system draws the launch
+# itself: windowSplashScreenBackground, and windowSplashScreenAnimatedIcon in a
+# 288dp box masked to a 192dp circle (an icon with no icon background; Android
+# developer docs, "Splash screens", Dimensions). The theme set only
+# android:background, which that splash ignores, so API 31+ showed the system
+# default background and the launcher icon (measured on the API 36 emulator,
+# #323). A square ink box fits the 192dp circle up to 192/sqrt(2) = 135.8dp; 132dp
+# keeps a margin for the stroke caps. That is the platform's ceiling: 32% of a
+# 411dp-wide phone and 37% of a 360dp one, short of the 42% the full-screen
+# splash and iOS show, and not reachable without clipping the corners.
+# FLAT: the shadow-free mark (MONO_ONLY), no baked-in depth. Written to
+# drawable-<density>/splash_icon.png and used ONLY by values-v31/styles.xml, so
+# API 30 and below keep drawable*/splash.png exactly as before.
+ANDROID12_ICON_DP = 288.0
+ANDROID12_INK_DP = 132.0
+ANDROID12_DENSITY = {"mdpi": 1.0, "hdpi": 1.5, "xhdpi": 2.0, "xxhdpi": 3.0, "xxxhdpi": 4.0}
+
+
+def android12_splash_icons():
+    made = []
+    for dens, k in ANDROID12_DENSITY.items():
+        W = int(round(ANDROID12_ICON_DP * k))
+        sc = ANDROID12_INK_DP * k / MASTER_INK_W
+        side = MASTER_SIZE * sc
+        icon = compose(MONO_ONLY, W, W, sc, (W - side) / 2.0, (W - side) / 2.0)
+        # Every inked pixel inside the 192dp mask circle, checked, not assumed.
+        r_mask = 96.0 * k
+        px = icon.load()
+        worst = max((math.hypot(x + 0.5 - W / 2.0, y + 0.5 - W / 2.0)
+                     for y in range(W) for x in range(W) if px[x, y][3] >= 16), default=0.0)
+        if worst > r_mask:
+            raise SystemExit(f"android 12 splash icon {dens}: ink reaches r={worst:.1f}px past the {r_mask:.1f}px mask")
+        made.append(write(icon, f"drawable-{dens}/splash_icon.png"))
+    return made
+
+
 def main():
     made = []
+    if "--only-android12-splash" in sys.argv:
+        made += android12_splash_icons()
+        for p in made:
+            print("  wrote", os.path.relpath(p, os.path.normpath(os.path.join(HERE, "..", "..", ".."))))
+        return
+    made += android12_splash_icons()
 
     # ---- adaptive foreground + background (108dp layers) -------------------
     for dens, (fg, _) in DENSITIES.items():
@@ -194,6 +251,8 @@ def main():
                           f"mipmap-{dens}/ic_launcher_foreground.png"))
         made.append(write(compose(BG_ONLY, fg, fg, sc, off, off, bleed=True),
                           f"mipmap-{dens}/ic_launcher_background.png"))
+        made.append(write(compose(MONO_ONLY, fg, fg, sc, off, off),
+                          f"mipmap-{dens}/ic_launcher_monochrome.png"))
 
     # ---- legacy launcher icons (API 23-25) --------------------------------
     for dens, (_, lg) in DENSITIES.items():
@@ -259,6 +318,20 @@ def main():
           f"({safe - worst:.1f}px margin)")
     for name, size in WEB_ICONS.items():
         made.append(write_to(PUBLIC_ICONS, full_icon(size), name, rgb=True))
+
+    # ---- Play listing icon (2026-10-12) -----------------------------------
+    # Google Play icon design specifications: 512 x 512, 32-bit PNG, sRGB, at
+    # most 1024 KB, full square (Play rounds the corners), no transparency.
+    # "32-bit" is RGBA, so it keeps an alpha channel that is opaque everywhere.
+    path, size = PLAY_ICON
+    play = full_icon(size)
+    if play.getextrema()[3] != (255, 255):
+        raise SystemExit(f"{path}: the Play icon has transparent pixels")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    play.save(path, "PNG", optimize=True)
+    if os.path.getsize(path) > 1024 * 1024:
+        raise SystemExit(f"{path}: {os.path.getsize(path)} bytes, over Play's 1024 KB")
+    made.append(path)
 
     for p in made:
         print("  wrote", os.path.relpath(p, os.path.normpath(os.path.join(HERE, "..", "..", ".."))))

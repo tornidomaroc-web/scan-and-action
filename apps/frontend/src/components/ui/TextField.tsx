@@ -1,8 +1,9 @@
 import React from 'react';
 
 // ============================================================================
-// The field of the visual language: a label above, a 52px raised input with
-// the hairline ring, the accent ring on focus and the danger ring when the
+// The field of the visual language: a label above, a 52px INSET input (the
+// soft language of 2026-10-12: a field is pressed into the card, a button
+// lifts off it) with the hairline ring, the accent ring on focus and the danger ring when the
 // value was refused. 16px text, so iOS does not zoom the page on focus.
 //
 // First used by the sign-in, sign-up and reset screens (2026-09-26). Every
@@ -10,12 +11,12 @@ import React from 'react';
 // ============================================================================
 
 export const fieldClass =
-  'w-full bg-surface-raised text-[16px] font-medium text-ink shadow-card ring-1 outline-none transition-shadow motion-reduce:transition-none placeholder:text-ink-faint focus:ring-2';
+  'w-full bg-surface-alt text-[1rem] font-medium text-ink shadow-pressed ring-1 outline-none transition-shadow motion-reduce:transition-none placeholder:text-ink-faint focus:ring-2';
 
 /** The two shapes a field takes: the 52px card-cornered field, or the 48px
  *  pill the sign-in screens use, where every control is a pill and the form
  *  has to stay above a phone keyboard (the language of 2026-09-26). */
-const SHAPE = { card: 'h-[52px] rounded-card px-4', pill: 'h-12 rounded-pill px-5' } as const;
+const SHAPE = { card: 'h-[3.25rem] rounded-card px-4', pill: 'h-12 rounded-pill px-5' } as const;
 
 export interface TextFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'id' | 'className'> {
   id: string;

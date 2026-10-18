@@ -43,6 +43,24 @@ describe('entitlements and project settings', () => {
     expect(ent).toMatch(/<key>com\.apple\.developer\.applesignin<\/key>\s*<array>\s*<string>Default<\/string>\s*<\/array>/);
     expect(pbx.match(/CODE_SIGN_ENTITLEMENTS = App\/App\.entitlements;/g)).toHaveLength(2);
   });
+  // Universal links for the confirmation and reset emails (design step 5).
+  // ONE domain, applinks only: the AASA file on www.scan-action.com claims
+  // only /auth/confirm, so nothing else on the site opens the app. The apex
+  // redirects to www with a 307, and Apple does not follow redirects for the
+  // association file, so the apex is deliberately absent. Requires the
+  // Associated Domains capability on the App ID (owner, developer portal).
+  it('Associated Domains carries exactly applinks:www.scan-action.com', () => {
+    const ent = F('ios/App/App/App.entitlements');
+    const m = ent.match(/<key>com\.apple\.developer\.associated-domains<\/key>\s*<array>([\s\S]*?)<\/array>/);
+    expect(m).not.toBeNull();
+    const domains = [...m![1].matchAll(/<string>([^<]*)<\/string>/g)].map((x) => x[1]);
+    expect(domains).toEqual(['applinks:www.scan-action.com']);
+    // The plist holds exactly the two capabilities, nothing picked up by accident.
+    expect([...ent.matchAll(/<key>([^<]*)<\/key>/g)].map((x) => x[1])).toEqual([
+      'com.apple.developer.applesignin',
+      'com.apple.developer.associated-domains',
+    ]);
+  });
   it('automatic signing under the owner team, bundle com.scanaction.app, in both configurations', () => {
     expect(pbx.match(/CODE_SIGN_STYLE = Automatic;/g)).toHaveLength(2);
     expect(pbx.match(/DEVELOPMENT_TEAM = NQ23SMHXJV;/g)).toHaveLength(2);
@@ -117,13 +135,28 @@ describe('the TestFlight workflow never opens the key to a pull request', () => 
     expect(wf).toContain('umask 077');
     expect(wf).toMatch(/if: always\(\)\s*\n\s*run: rm -rf "\$APP_STORE_CONNECT_KEY_DIR"/);
   });
-  it('export options: App Store Connect upload, internal TestFlight only', () => {
+  it('export options: App Store Connect upload, eligible for the App Store (2026-10-17)', () => {
     const plist = F('ios/ExportOptions.plist');
     expect(plist).toMatch(/<key>method<\/key>\s*<string>app-store-connect<\/string>/);
     expect(plist).toMatch(/<key>destination<\/key>\s*<string>upload<\/string>/);
-    expect(plist).toMatch(/<key>testFlightInternalTestingOnly<\/key>\s*<true\/>/);
+    // The key that made builds 5 to 34 INTERNAL_ONLY is gone from the dict;
+    // the comment may still name it, so match the element, not the word.
+    expect(plist).not.toMatch(/<key>testFlightInternalTestingOnly<\/key>/);
     expect(plist).toMatch(/<key>teamID<\/key>\s*<string>NQ23SMHXJV<\/string>/);
     expect(wf).toContain('ios/ExportOptions.plist');
+  });
+  it('export options: well-formed XML with a key for every value (the lint a Linux runner can do)', () => {
+    const plist = F('ios/ExportOptions.plist');
+    const doc = new DOMParser().parseFromString(plist, 'application/xml');
+    expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+    const dict = doc.querySelector('plist > dict');
+    expect(dict).not.toBeNull();
+    const children = Array.from(dict!.children);
+    expect(children.length % 2).toBe(0);
+    children.forEach((el, i) => expect(el.tagName === 'key').toBe(i % 2 === 0));
+    // the tamper case in ios/ci/assemble-mutations.sh flips every <true/>;
+    // it needs at least one to flip, or that case fails for the wrong reason
+    expect(children.filter((el) => el.tagName === 'true').length).toBeGreaterThan(0);
   });
 });
 
@@ -679,7 +712,7 @@ describe('the binary audit runs on a pull request without secrets, and on the ar
     const { load } = createRequire(import.meta.url)('js-yaml') as { load: (s: string) => unknown };
     return load(text) as Workflow & { on: Record<string, unknown>; permissions: Record<string, string> };
   })();
-  it('triggers on pull_request restricted to the paths that change what Xcode links, plus manual dispatch', () => {
+  it('triggers on pull_request restricted to the paths that change what Xcode links or where a confirm link lands, plus manual dispatch', () => {
     const pr = wf.on.pull_request as { branches: string[]; paths: string[] };
     expect(pr.branches).toEqual(['main']);
     expect(pr.paths).toEqual([
@@ -689,13 +722,22 @@ describe('the binary audit runs on a pull request without secrets, and on the ar
       'apps/frontend/package.json',
       'apps/frontend/package-lock.json',
       '.github/workflows/ios-audit.yml',
+      'apps/frontend/public/app-links/**',
+      'apps/frontend/vercel.json',
+      'apps/frontend/src/App.tsx',
+      'apps/frontend/src/native/NativeAuthLinks.tsx',
+      'apps/frontend/src/lib/authLinks.ts',
+      'apps/frontend/src/screens/AuthConfirmScreen.tsx',
+      '.github/launch-probe/**',
     ]);
     expect(wf.on.workflow_dispatch).toBeDefined();
     expect(text).not.toContain('pull_request_target');
     expect(wf.permissions).toEqual({ contents: 'read' });
   });
-  it('one macOS audit job and one Linux mutation job, no environment, no secret reference, no signing', () => {
-    expect(Object.keys(wf.jobs)).toEqual(['audit', 'assemble-mutations']);
+  it('a macOS audit job, a Linux mutation job, a macOS launch screen job and a macOS universal link job, no environment, no secret reference, no signing', () => {
+    expect(Object.keys(wf.jobs)).toEqual(['audit', 'assemble-mutations', 'launch-geometry', 'universal-link']);
+    expect(wf.jobs['launch-geometry']['runs-on']).toBe('macos-26');
+    expect(wf.jobs['universal-link']['runs-on']).toBe('macos-26');
     const job = wf.jobs.audit;
     expect(job['runs-on']).toBe('macos-26');
     expect(wf.jobs['assemble-mutations']['runs-on']).toBe('ubuntu-latest');
@@ -713,6 +755,29 @@ describe('the binary audit runs on a pull request without secrets, and on the ar
     expect(audit?.run).toMatch(/if grep -iqE 'AppTrackingTransparency\|FBSDK\|Facebook' [^\n]*; then\n[^\n]*exit 1\n\s*fi/);
     // never the negated form, which set -e ignores
     expect(audit?.run).not.toMatch(/^\s*! /m);
+  });
+  it('the universal link job reaches no Apple CDN, no production and no Supabase, and derives its entitlements from the committed file', () => {
+    const steps = wf.jobs['universal-link'].steps;
+    const run = (name: string) => steps.find((s) => s.name === name)?.run ?? '';
+    const bundle = steps.find((s) => s.name === 'Build the web bundle against addresses that never resolve, and sync iOS') as { env?: Record<string, string> } | undefined;
+    expect(bundle?.env).toEqual({
+      VITE_SUPABASE_URL: 'https://supabase.invalid',
+      VITE_SUPABASE_ANON_KEY: 'sb_publishable_ci_never_sent',
+      VITE_API_URL: 'https://backend.invalid/api',
+    });
+    const build = run('Build for the Simulator with the committed entitlements in developer mode');
+    expect(build).toContain('ios/App/App/App.entitlements');
+    expect(build).toContain("d + '?mode=developer' if d.startswith('applinks:')");
+    const serve = run("Serve this commit's association on www.scan-action.com, on this runner");
+    expect(serve).toContain('"$PWD/dist" "$PWD/vercel.json"');
+    expect(serve).toContain('127.0.0.1 www.scan-action.com');
+    const links = run('Open the confirm link through the system, cold and warm, and two links the app must not claim');
+    expect(links).toMatch(/^set \+e -u$/m);
+    expect(links).toContain('"confirm":"network"');
+    expect(links).toContain('https://www.scan-action.com/login');
+    expect(links).toContain("'https://www.scan-action.com/auth/confirm?type=email'");
+    // Nothing in the job may name a real Supabase project or read the live site's bundle.
+    expect(JSON.stringify(steps)).not.toMatch(/https:\/\/[a-z0-9]{20}\.supabase\.co|assets\/index-/);
   });
   it('the archive step in ios-testflight.yml takes the same reading before the export', () => {
     const tf = loadWorkflow();

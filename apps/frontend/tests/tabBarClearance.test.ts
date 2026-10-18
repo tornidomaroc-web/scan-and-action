@@ -100,11 +100,11 @@ describe('the phone tab bar and the shell agree', () => {
 describe("Safari's toolbars take the page surface", () => {
   it('index.html declares a theme-color per scheme in the token surfaces, and the app keeps them on the chosen theme', () => {
     const html = readFileSync(join(CWD, 'index.html'), 'utf8');
-    expect(html).toMatch(/<meta name="theme-color" media="\(prefers-color-scheme: light\)" content="#F5F6FA" \/>/);
+    expect(html).toMatch(/<meta name="theme-color" media="\(prefers-color-scheme: light\)" content="#F2F3F8" \/>/);
     expect(html).toMatch(/<meta name="theme-color" media="\(prefers-color-scheme: dark\)" content="#0F1014" \/>/);
     expect(html).not.toContain('#0f172a');
     const tokens = readFileSync(join(CWD, 'src', 'styles', 'tokens.css'), 'utf8');
-    expect(tokens).toMatch(/:root \{[\s\S]*?--sa-surface: #F5F6FA;/);
+    expect(tokens).toMatch(/:root \{[\s\S]*?--sa-surface: #F2F3F8;/);
     expect(tokens).toMatch(/\.dark \{[\s\S]*?--sa-surface: #0F1014;/);
     for (const rel of ['hooks/useTheme.ts', 'components/Sidebar.tsx']) expect(src(rel)).toContain('syncThemeColor(');
   });

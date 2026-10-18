@@ -10,7 +10,10 @@ import { isNativePlatform } from '../native/shell';
 // pages): a floating pill, the structure of the Vantro landing (HorizonX,
 // read 2026-09-26) in the app's own language. The sticky wrapper keeps the
 // pill in the flow, so the legal pages' content starts under it and nothing
-// is covered; the pill itself is the raised surface with the mark, the two
+// is covered; the pill itself is the OPAQUE raised surface (it was
+// `bg-surface-raised/95 backdrop-blur` until PR 6: an opacity modifier on a
+// variable token emits no CSS, so the pill had no background and the page
+// scrolled visibly through it, softSurfaces.test.ts) with the mark, the two
 // anchors, Log in and the dark Start pill. On the catalog in three languages.
 //
 // The mark's link is the only way back to the landing page from a legal
@@ -32,10 +35,10 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({ showAnchors = true
   const s = useStrings();
   return (
     <header className="sticky top-0 z-chrome px-3 pt-3 sm:px-5" data-landing-header>
-      <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-2 rounded-pill bg-surface-raised/95 ps-3 pe-2 shadow-raised ring-1 ring-line backdrop-blur">
+      <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-2 rounded-pill bg-surface-raised ps-3 pe-2 shadow-raised ring-1 ring-line">
         <Link to="/" className="flex items-center gap-2" aria-label="Scan & Action home">
           <BrandMark size={30} className="rounded-[8px]" />
-          <span className="text-[15px] font-semibold tracking-tight text-ink">{s.header}</span>
+          <span className="text-[0.9375rem] font-semibold tracking-tight text-ink">{s.header}</span>
         </Link>
         {showAnchors && (
           <nav className="hidden items-center gap-1 sm:flex">

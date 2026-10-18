@@ -54,6 +54,14 @@
 }
 
 @layer base {
+  /* The phone's or the browser's text size reaches every font size through
+     this root: all of them are rem. On the web 100% is the browser's own
+     default; the cap is TEXT_SCALE_CAP in native/textScale.ts (23/17, iOS
+     xxxLarge), which also sets this root on iOS and caps Android's. */
+  html {
+    font-size: min(100%, 21.647px);
+  }
+
   body {
     margin: 0;
     /* Real, now-loaded stack: Inter (latin) + IBM Plex Sans Arabic (arabic),
@@ -180,6 +188,9 @@
 
   /* Skeleton loading state */
   .skeleton {
+    /* The reading state on a raised card: an inset cell, not a flat grey
+       block (the soft language, 2026-10-12). */
+    box-shadow: var(--sa-shadow-pressed);
     background: linear-gradient(90deg, var(--border) 25%, var(--nav-hover) 50%, var(--border) 75%);
     background-size: 200% 100%;
     animation: skeleton-loading 1.5s infinite linear;

@@ -42,7 +42,7 @@ export const AreaChart: React.FC<AreaChartProps> = ({ series, placeholder, ariaL
       <div
         role="img"
         aria-label={placeholder}
-        className="flex h-[180px] w-full flex-col items-center justify-center gap-3 rounded-nav border border-dashed border-line bg-surface/40"
+        className="flex min-h-[180px] w-full flex-col items-center justify-center gap-3 rounded-nav border border-dashed border-line bg-surface/40"
       >
         <svg width="40" height="40" viewBox="0 0 24 24" className="text-ink-fainter"
              style={{ fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }}>

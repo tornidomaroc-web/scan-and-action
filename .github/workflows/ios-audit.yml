@@ -27,7 +27,9 @@ name: iOS — binary audit
 #
 # TRIGGER. pull_request, restricted to the paths that change what Xcode links:
 # the iOS project, capacitor.config.ts (the provider map), patches/, and the
-# npm manifests (a plugin upgrade). Not a required check in the ruleset today;
+# npm manifests (a plugin upgrade), and since 2026-10-12 the files that decide
+# where a confirm link lands (see the universal-link job). Not a required
+# check in the ruleset today;
 # it reports on the PR. `set -e` does not fire on a negated command, so every
 # forbidden-match test is written as an explicit `if ...; then exit 1; fi`.
 #
@@ -44,6 +46,16 @@ on:
       - 'apps/frontend/package.json'
       - 'apps/frontend/package-lock.json'
       - '.github/workflows/ios-audit.yml'
+      # The universal link check below: what decides whether a confirm link
+      # opens the app (ios/** above holds the entitlements and SceneDelegate).
+      - 'apps/frontend/public/app-links/**'
+      - 'apps/frontend/vercel.json'
+      - 'apps/frontend/src/App.tsx'
+      - 'apps/frontend/src/native/NativeAuthLinks.tsx'
+      - 'apps/frontend/src/lib/authLinks.ts'
+      - 'apps/frontend/src/screens/AuthConfirmScreen.tsx'
+      # The launch screen geometry job: its probe.
+      - '.github/launch-probe/**'
   workflow_dispatch:
 
 permissions:
@@ -349,3 +361,380 @@ jobs:
         env:
           REQUIRE_SYMLINK_CASE: "1"
         run: bash ios/ci/assemble-mutations.sh "$RUNNER_TEMP/artifact" "$GITHUB_WORKSPACE"
+
+  # THE UNIVERSAL LINK CHECK (2026-10-12). Whether a confirmation link,
+  # https://www.scan-action.com/auth/confirm?token_hash=…, opens INSIDE the
+  # app and lands on its confirm screen, cold and warm, while an unclaimed
+  # path does not. It reads the committed App.entitlements, SceneDelegate,
+  # NativeAuthLinks, authLinks, AuthConfirmScreen, App.tsx's route, the
+  # association file and the vercel.json rewrite that serves it, together.
+  #
+  # IT REACHES NOTHING OUTSIDE THIS RUNNER. Three things the probe of
+  # 2026-10-10 (run 38074908976) depended on are cut:
+  #   - Apple's CDN. The test build claims the domain with ?mode=developer
+  #     (Apple, entitlement reference: "bypass the CDN and connect directly to
+  #     your server", "any valid SSL certificate … including a certificate
+  #     that the system doesn't trust"), and the runner's hosts file sends
+  #     www.scan-action.com to a server on this runner. So the association
+  #     swcd applies is THIS commit's file, through THIS commit's rewrite, and
+  #     an Apple outage cannot turn the check red. Through the CDN it would
+  #     have read production's file, whatever the pull request changed.
+  #   - Production. The local server answers only what vercel.json rewrites.
+  #   - Supabase. The bundle is built against https://supabase.invalid (RFC
+  #     6761: never resolves), so the confirm screen's verifyOtp gets no
+  #     answer and the screen must read "network". That reading is the proof
+  #     that no request left the runner.
+  # Every red therefore says something about this commit, except "swcd never
+  # asked the server", which is printed as a harness failure, by name.
+  #
+  # The committed entitlement is held twice: statically (the last step), and
+  # dynamically, because the test entitlements are DERIVED from
+  # App.entitlements, so an entry removed there is removed from the test.
+  # THE LAUNCH SCREEN GEOMETRY (2026-10-15). The launch screen is the first
+  # thing every user sees, and a simulator screenshot cannot catch it: it is
+  # gone before the first frame arrives (#323, runs 38636861009 and
+  # 38646101154). .github/launch-probe builds a small app around THIS commit's
+  # LaunchScreen.storyboard and asset catalog (ibtool, actool), shows it at the
+  # simulator's real screen size on the narrowest and the widest iPhone the
+  # runner has, light and dark, and reads it back: the mark must span 38% to
+  # 46% of the screen width (the approved 42%) on the #0F1014 background. On
+  # main before #325 the storyboard drew the square splash with
+  # scaleAspectFill, which scales it to the screen's HEIGHT: the mark spanned
+  # about 96% of the width. No signing, no secrets, no network.
+  launch-geometry:
+    name: iOS — launch screen geometry (no signing, no secrets)
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Render and measure the launch screen
+        run: bash .github/launch-probe/probe.sh apps/frontend "$RUNNER_TEMP/launch"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: launch-geometry-${{ github.sha }}
+          path: ${{ runner.temp }}/launch
+          retention-days: 14
+
+  universal-link:
+    name: iOS — a confirm link opens the app, offline (no Apple CDN, no production, no Supabase)
+    runs-on: macos-26
+    timeout-minutes: 50
+    defaults:
+      run:
+        working-directory: apps/frontend
+    env:
+      LINK: https://www.scan-action.com/auth/confirm?token_hash=ulcheck0000&type=email
+      IN_APP: capacitor://localhost/auth/confirm?token_hash=ulcheck0000&type=email
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # Booted first, so the simulator's first-boot work is over by the time
+      # the app is installed, about five minutes of build later.
+      - name: Boot the simulator now
+        run: |
+          set -eu
+          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; c=[(r,x["udid"],x["name"]) for r,v in d.items() if "iOS" in r for x in v if x["name"].startswith("iPhone")]; c.sort(); print(c[-1][1])')
+          echo "UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          echo "booting $(xcrun simctl list devices | grep "$udid") at $(date -u +%T)"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - run: npm ci
+
+      # Nothing here is a credential: both hosts are .invalid and never
+      # resolve, and the key is a label. The bundle is then searched for any
+      # supabase.co address, with the .invalid one as the control.
+      - name: Build the web bundle against addresses that never resolve, and sync iOS
+        env:
+          VITE_SUPABASE_URL: https://supabase.invalid
+          VITE_SUPABASE_ANON_KEY: sb_publishable_ci_never_sent
+          VITE_API_URL: https://backend.invalid/api
+        run: |
+          set -eu
+          npm run build
+          grep -rqF 'https://supabase.invalid' dist/assets || { echo "control failed: the bundle does not carry the .invalid address"; exit 1; }
+          if grep -rqE '[a-z0-9]{20}\.supabase\.co' dist/assets; then echo "FAIL: the bundle names a real supabase.co project"; exit 1; fi
+          echo "bundle: Supabase is https://supabase.invalid, no supabase.co address"
+          npx cap sync ios
+
+      - name: Resolve Swift packages from the committed Package.resolved
+        run: |
+          set -eu -o pipefail
+          xcodebuild -resolvePackageDependencies -project ios/App/App.xcodeproj -scheme App \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" -onlyUsePackageVersionsFromResolvedFile 2>&1 | tail -n 3
+
+      # Derived, never copied: every applinks entry of the committed file gets
+      # ?mode=developer, and nothing else changes, so a domain missing there
+      # is missing here. The App ID comes from project.pbxproj, not from the
+      # association file, so a mismatch between the two shows as a red.
+      # Xcode's simulator form (the probe's fifth run): entitlements in the
+      # binary's __entitlements section under a plain ad-hoc signature; a
+      # signature carrying them made SpringBoard refuse the launch.
+      - name: Build for the Simulator with the committed entitlements in developer mode
+        run: |
+          set -eu -o pipefail
+          pbx=ios/App/App.xcodeproj/project.pbxproj
+          team=$(grep -m1 -oE 'DEVELOPMENT_TEAM = [A-Z0-9]+;' "$pbx" | awk '{print $3}' | tr -d ';')
+          bid=$(grep -m1 -oE 'PRODUCT_BUNDLE_IDENTIFIER = [A-Za-z0-9.]+;' "$pbx" | awk '{print $3}' | tr -d ';')
+          echo "APP_ID=$team.$bid" >> "$GITHUB_ENV"
+          echo "BUNDLE_ID=$bid" >> "$GITHUB_ENV"
+          ent="$RUNNER_TEMP/test.entitlements"
+          python3 - ios/App/App/App.entitlements "$ent" "$team" "$bid" <<'PY'
+          import plistlib, sys
+          src, out, team, bid = sys.argv[1:5]
+          e = plistlib.load(open(src, 'rb'))
+          key = 'com.apple.developer.associated-domains'
+          if key in e:
+              e[key] = [d + '?mode=developer' if d.startswith('applinks:') else d for d in e[key]]
+          e['application-identifier'] = f'{team}.{bid}'
+          e['com.apple.developer.team-identifier'] = team
+          e['get-task-allow'] = True
+          plistlib.dump(e, open(out, 'wb'))
+          print('test entitlements, associated domains:', e.get(key, '(none: the committed file claims no domain)'))
+          PY
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd" -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile \
+            CODE_SIGN_IDENTITY="-" CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER="" \
+            CODE_SIGN_ENTITLEMENTS="$ent" \
+            build 2>&1 | tee "$RUNNER_TEMP/build.log" | { grep -E '^(error|\*\*)|: error:' || true; }
+          app=$(find "$RUNNER_TEMP/dd/Build/Products" -maxdepth 2 -name 'App.app' -type d | head -n 1)
+          test -n "$app"
+          echo "APP=$app" >> "$GITHUB_ENV"
+          strings - "$app/App" > "$RUNNER_TEMP/app-strings.txt"
+          grep -qF "$team.$bid" "$RUNNER_TEMP/app-strings.txt" || { echo "control failed: the binary does not carry the application-identifier, so its entitlements were not read"; exit 1; }
+          echo "applinks entries in the binary's entitlements:"
+          grep -oE 'applinks:[^<]+' "$RUNNER_TEMP/app-strings.txt" | sort -u || echo "  (none)"
+
+      # Serves exactly what vercel.json rewrites to, from the built dist/ (what
+      # Vercel deploys), with vercel.json's headers. Everything else is 404.
+      # Every request is logged, which is how the check knows swcd asked.
+      - name: Serve this commit's association on www.scan-action.com, on this runner
+        run: |
+          set -eu
+          srv="$RUNNER_TEMP/aasa"; mkdir -p "$srv"
+          cat > "$srv/openssl.cnf" <<'CNF'
+          [req]
+          distinguished_name = dn
+          x509_extensions = ext
+          prompt = no
+          [dn]
+          CN = www.scan-action.com
+          [ext]
+          subjectAltName = DNS:www.scan-action.com
+          basicConstraints = critical,CA:TRUE
+          keyUsage = digitalSignature,keyCertSign
+          extendedKeyUsage = serverAuth
+          CNF
+          openssl req -x509 -newkey rsa:2048 -nodes -days 2 -keyout "$srv/key.pem" -out "$srv/cert.pem" -config "$srv/openssl.cnf" 2>/dev/null
+          cat > "$srv/server.py" <<'PY'
+          import http.server, json, mimetypes, os, socket, ssl, sys, time
+          root, vercel, log, cert, key = sys.argv[1:6]
+          root = os.path.realpath(root)
+          cfg = json.load(open(vercel))
+          exact = lambda src: not any(c in src for c in '(:*')
+          rewrites = {r['source']: r['destination'] for r in cfg.get('rewrites', []) if exact(r['source'])}
+          headers = {h['source']: {x['key']: x['value'] for x in h['headers']} for h in cfg.get('headers', []) if exact(h['source'])}
+          class Handler(http.server.BaseHTTPRequestHandler):
+              def do_GET(self):
+                  path = self.path.split('?')[0]
+                  body, ctype = None, None
+                  dest = rewrites.get(path)
+                  if dest:
+                      f = os.path.realpath(os.path.join(root, dest.lstrip('/')))
+                      if f.startswith(root + os.sep) and os.path.isfile(f):
+                          body = open(f, 'rb').read()
+                          ctype = mimetypes.guess_type(f)[0] or 'application/octet-stream'
+                  status = 200 if body is not None else 404
+                  with open(log, 'a') as out:
+                      out.write(f"{status} {path} at={time.strftime('%H:%M:%S', time.gmtime())} agent={self.headers.get('User-Agent', '-')}\n")
+                  self.send_response(status)
+                  sent = {k.lower(): v for k, v in headers.get(path, {}).items()} if body is not None else {}
+                  if body is not None and 'content-type' not in sent:
+                      sent['content-type'] = ctype
+                  for k, v in sent.items():
+                      self.send_header(k, v)
+                  self.send_header('Content-Length', str(len(body or b'')))
+                  self.end_headers()
+                  if body:
+                      self.wfile.write(body)
+              def log_message(self, *a):
+                  pass
+          ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+          ctx.load_cert_chain(cert, key)
+          # The handshake runs in the connection's own thread, with a timeout.
+          # Wrapping the listening socket instead (run 38242407082) does it in
+          # accept() on the one main thread: a preconnect that never speaks
+          # TLS then stalls every connection behind it, and swcd's request
+          # timed out after 66 s with 0 bytes sent.
+          class Server(http.server.ThreadingHTTPServer):
+              address_family = socket.AF_INET6
+              daemon_threads = True
+              def server_bind(self):
+                  self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+                  super().server_bind()
+              def finish_request(self, request, client_address):
+                  request.settimeout(120)
+                  try:
+                      tls = ctx.wrap_socket(request, server_side=True)
+                  except Exception as err:
+                      with open(log, 'a') as out:
+                          out.write(f"TLS-FAIL at={time.strftime('%H:%M:%S', time.gmtime())} {type(err).__name__}: {err}\n")
+                      return
+                  self.RequestHandlerClass(tls, client_address, self)
+          httpd = Server(('::', 443), Handler)
+          httpd.serve_forever()
+          PY
+          : > "$srv/requests.log"
+          sudo -b python3 "$srv/server.py" "$PWD/dist" "$PWD/vercel.json" "$srv/requests.log" "$srv/cert.pem" "$srv/key.pem" > "$srv/server.out" 2>&1
+          printf '127.0.0.1 www.scan-action.com\n::1 www.scan-action.com\n' | sudo tee -a /etc/hosts >/dev/null
+          sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder || true
+          echo "AASA_DIR=$srv" >> "$GITHUB_ENV"
+          dest=$(python3 -c 'import json;print([r["destination"] for r in json.load(open("vercel.json"))["rewrites"] if r["source"]=="/.well-known/apple-app-site-association"][0])')
+          echo "vercel.json rewrites /.well-known/apple-app-site-association to $dest"
+          for i in $(seq 1 20); do curl -s -o /dev/null --cacert "$srv/cert.pem" https://www.scan-action.com/.well-known/nothing && break; sleep 1; done
+          # Two readings from this host, each the other's control.
+          code=$(curl -sS --cacert "$srv/cert.pem" -D "$srv/h.txt" -o "$srv/got.json" -w '%{http_code}' https://www.scan-action.com/.well-known/apple-app-site-association)
+          type=$(grep -i '^content-type:' "$srv/h.txt" | tr -d '\r' | cut -d' ' -f2-)
+          echo "association: HTTP $code, $type, $(wc -c < "$srv/got.json" | tr -d ' ') bytes"
+          if [ "$code" != 200 ] || [ "$type" != application/json ]; then echo "FAIL: the association is not served as JSON at the well-known path"; cat "$srv/server.out"; exit 1; fi
+          cmp "$srv/got.json" "public$dest" || { echo "FAIL: what is served differs from public$dest"; exit 1; }
+          python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); ids=[i for x in d["applinks"]["details"] for i in x["appIDs"]]; print("appIDs:", ids); sys.exit(0 if sys.argv[2] in ids else "FAIL: the association does not name " + sys.argv[2])' "$srv/got.json" "$APP_ID"
+          other=$(curl -sS --cacert "$srv/cert.pem" -o /dev/null -w '%{http_code}' https://www.scan-action.com/.well-known/nothing)
+          test "$other" = 404 || { echo "control failed: an unrewritten path answered $other"; exit 1; }
+          echo "control: an unrewritten path answers 404"
+          echo "HOST_READS=$(wc -l < "$srv/requests.log" | tr -d ' ')" >> "$GITHUB_ENV"
+
+      - name: Open the confirm link through the system, cold and warm, and two links the app must not claim
+        run: |
+          set +e -u
+          out="$RUNNER_TEMP/ul"; mkdir -p "$out"
+          fails=0; fail() { echo "FAIL: $*"; fails=$((fails+1)); }
+          udid="$UDID"
+          echo "simulator: $(xcrun simctl list devices | grep "$udid")"
+          xcrun simctl bootstatus "$udid" -b | tail -n 1
+          xcrun simctl keychain "$udid" add-root-cert "$AASA_DIR/cert.pem" || echo "(root certificate not added; developer mode accepts an untrusted one)"
+
+          running() { xcrun simctl spawn "$udid" launchctl list 2>/dev/null | grep -oE 'UIKitApplication:(com\.scanaction\.app|com\.apple\.mobilesafari)' | sort -u | tr '\n' ' '; }
+          shot() { xcrun simctl io "$udid" screenshot "$out/$1.png" >/dev/null 2>&1 || true; }
+          stop() { xcrun simctl terminate "$udid" "$BUNDLE_ID" >/dev/null 2>&1; xcrun simctl terminate "$udid" com.apple.mobilesafari >/dev/null 2>&1; sleep 3; rm -f "$marker"; }
+          seen() { for i in $(seq 1 "$2"); do [ -f "$marker" ] && grep -qF "$1" "$marker" && return 0; sleep 1; done; return 1; }
+          swcd_asked() { tail -n +"$((HOST_READS+1))" "$AASA_DIR/requests.log" | grep -c '^200 /.well-known/apple-app-site-association' || true; }
+
+          # Install, then a plain launch: it makes the data container, and a
+          # launch that fails here is not a link failure.
+          marker=/dev/null/none
+          install_app() {
+            xcrun simctl uninstall "$udid" "$BUNDLE_ID" >/dev/null 2>&1
+            xcrun simctl install "$udid" "$APP"
+            echo "  installed at $(date -u +%T)"
+            marker=/dev/null/none
+            SIMCTL_CHILD_SA_LAUNCH_SMOKE=1 xcrun simctl launch "$udid" "$BUNDLE_ID" >/dev/null
+            data=$(xcrun simctl get_app_container "$udid" "$BUNDLE_ID" data)
+            marker="$data/tmp/launch-smoke.json"
+            seen '"ready":"complete"' 120 || { echo "FAIL (not a link failure): the app did not launch to a loaded page"; cat "$marker" 2>/dev/null; exit 1; }
+            stop
+            mkdir -p "$data/Library"; touch "$data/Library/sa-smoke-watch"
+          }
+
+          # swcd fetches an app's domains when the app is installed. On these
+          # runners its first try can fail (runs 38240130251, 38242407082,
+          # 38245951307: connections cancelled, connect times of 26 to 40 s
+          # just after boot), and it then backs off for longer than a job
+          # lasts; opening /login did not bring it back. Installing again
+          # does. So: up to three installs, four minutes each. The measured
+          # opens below start only after a 200 reached swcd.
+          echo "== swcd: wait for it to fetch from this runner's server =="
+          for attempt in 1 2 3; do
+            install_app
+            for i in $(seq 1 48); do [ "$(swcd_asked)" -gt 0 ] && break; sleep 5; done
+            [ "$(swcd_asked)" -gt 0 ] && { echo "  swcd fetched on install $attempt"; break; }
+            echo "  no fetch within 4 min of install $attempt"
+          done
+          asked=$(swcd_asked)
+          echo "requests swcd made: $(tail -n +"$((HOST_READS+1))" "$AASA_DIR/requests.log" | wc -l | tr -d ' ')"
+          tail -n +"$((HOST_READS+1))" "$AASA_DIR/requests.log" | sed 's/^/  /'
+          if [ "$asked" -eq 0 ]; then
+            if grep -qF 'applinks:www.scan-action.com?mode=developer' "$RUNNER_TEMP/app-strings.txt"; then
+              echo "HARNESS: the binary claims the domain in developer mode, yet swcd never fetched the association from this runner. This says nothing about the association itself."
+            else
+              fail "the binary claims no applinks:www.scan-action.com, so swcd had nothing to fetch"
+            fi
+            xcrun simctl spawn "$udid" log show --last 15m --predicate 'process == "swcd"' --style compact 2>/dev/null | grep -iE 'scan-action|scanaction|developer|mode|AASA|error|fail' | tail -n 30
+            echo "server stderr:"; sudo cat "$AASA_DIR/server.out" | tail -n 30
+          fi
+          sleep 10
+
+          echo "== A: the confirm link, app not running (cold start) =="
+          stop; xcrun simctl openurl "$udid" "$LINK"
+          if seen "\"href\":\"$IN_APP\"" 45; then echo "  the app opened on its confirm route"; else fail "cold: the app did not open on its confirm route (running: $(running))"; fi
+          if seen '"confirm":"network"' 30; then echo "  the confirm screen reads network: verifyOtp got no answer, so nothing reached Supabase"; else fail "cold: the confirm screen did not read network ($(cat "$marker" 2>/dev/null))"; fi
+          case "$(running)" in *mobilesafari*) fail "cold: Safari opened" ;; esac
+          shot A-cold
+
+          echo "== B: the confirm link, app already running (warm) =="
+          stop; xcrun simctl launch "$udid" "$BUNDLE_ID" >/dev/null
+          seen '"ready":"complete"' 60 || fail "warm: the app did not come up before the link"
+          if grep -qF '/auth/confirm' "$marker" 2>/dev/null; then fail "warm: the app was already on the confirm route before the link"; fi
+          xcrun simctl openurl "$udid" "$LINK"
+          if seen "\"href\":\"$IN_APP\"" 45; then echo "  the running app moved to its confirm route"; else fail "warm: the running app did not move to its confirm route (running: $(running))"; fi
+          seen '"confirm":"network"' 30 || fail "warm: the confirm screen did not read network"
+          case "$(running)" in *mobilesafari*) fail "warm: Safari opened" ;; esac
+          shot B-warm
+
+          # Controls: the same domain, paths the association does not claim.
+          # Safari must take them, which also proves openurl reaches Safari.
+          n=0
+          for url in https://www.scan-action.com/login 'https://www.scan-action.com/auth/confirm?type=email'; do
+            n=$((n+1)); echo "== C$n: CONTROL $url =="
+            stop; xcrun simctl openurl "$udid" "$url"; sleep 15
+            r=$(running); echo "  running: $r"
+            case "$r" in *mobilesafari*) ;; *) fail "control C$n: Safari did not open" ;; esac
+            case "$r" in *scanaction*) fail "control C$n: the app opened for a path it must not claim" ;; esac
+            shot "C$n-control"
+          done
+          stop
+
+          if [ "$fails" -gt 0 ]; then echo "UNIVERSAL LINK CHECK FAILED: $fails reading(s) above"; exit 1; fi
+          echo "UNIVERSAL LINK CHECK PASSED: swcd read this commit's association from this runner; the confirm link opened the app on /auth/confirm cold and warm; /login and a tokenless confirm link stayed in Safari; nothing reached Supabase"
+
+      # The static half, run whatever happened above, so a missing entitlement
+      # is named here even when the dynamic half already failed on it.
+      - name: The committed entitlement, the link host and the association agree
+        if: always()
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import json, plistlib, re, sys
+          e = plistlib.load(open('ios/App/App/App.entitlements', 'rb'))
+          domains = e.get('com.apple.developer.associated-domains', [])
+          host = re.search(r"AUTH_LINK_HOST = '([^']+)'", open('src/lib/authLinks.ts').read()).group(1)
+          aasa = json.load(open('public/app-links/apple-app-site-association.json'))
+          paths = [c.get('/') for d in aasa['applinks']['details'] for c in d.get('components', [])]
+          print('App.entitlements associated domains:', domains)
+          print('authLinks.ts host:', host, '| association paths:', paths)
+          bad = []
+          if f'applinks:{host}' not in domains: bad.append(f'App.entitlements does not claim applinks:{host}')
+          if '/auth/confirm' not in paths: bad.append('the association does not claim /auth/confirm')
+          for b in bad: print('FAIL:', b)
+          sys.exit(1 if bad else 0)
+          PY
+
+      - name: Keep the screenshots and the server log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: universal-link-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/ul
+            ${{ runner.temp }}/aasa/requests.log
+          if-no-files-found: ignore
+          retention-days: 7
