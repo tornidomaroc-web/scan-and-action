@@ -70,6 +70,108 @@
   6. Submission, once design steps 1 to 5 are done and every APPLE TRACK blocker
      is closed.
 
+## NOW 2026-10-18 — the Play release: 1.1, versionCode 6
+
+**Apple is untouched by this track.** Version 1.0 is WAITING_FOR_REVIEW with
+build 35 (recorded under "Submission" in APPLE TRACK). Nothing below changes
+an iOS file. One thing still reaches iOS: see the merge gate in step 2.
+
+**The Play Console reading, 2026-10-18, by the owner** (Play has no call this
+repository can make; the question to re-ask before any upload is in step 6):
+account "UnicornApps Studio", app `com.scanaction.app`; Production release
+5 ("1.0") is live, with the old UI; version codes 1 to 5 are consumed. An
+upload consumes its code permanently, drafts and discarded releases
+included, so the next bundle is versionCode 6.
+
+**The owner's decisions, 2026-10-18:**
+1. versionName "1.1", versionCode 6. In PR #333.
+2. The Play App Signing SHA-1 is compared IN FULL (all 20 bytes) with the
+   Android OAuth client "Scan & Action Android Play" (begins `FD:F1:41:78`).
+   The owner pastes the Play value (Play Console › Test and release › App
+   integrity › App signing key certificate) and the client's value (Google
+   Cloud console, project `scan-and-action` › Credentials). A prefix match is
+   not a match.
+3. A Google sign-in run in Firebase Test Lab before release, at zero cost.
+4. The owner runs the signed `bundleRelease` himself. The session never
+   touches `key.properties` or the keystore.
+
+**The ordered Play plan.** One native change in flight at a time; nothing is
+merged without the owner.
+1. **This board PR merges first.** Board-only: `ios-testflight.yml` does not
+   run (its paths are `apps/frontend/**` and itself).
+2. **#333 (versionCode 6, versionName "1.1") merges second, and not before
+   Apple's verdict on 1.0.** Any merge under `apps/frontend/**`, an
+   Android-only one included, starts `ios-testflight.yml` on `main`, which
+   archives and uploads a new TestFlight build of marketing version 1.0
+   while that version is in review. That is the iOS side moving. Instrument
+   for the verdict: App Store Connect › the app › version 1.0 status, or the
+   API `appStoreVersions?filter[platform]=IOS` `appStoreState`.
+   **EXPIRY:** the state reads anything other than WAITING_FOR_REVIEW or
+   IN_REVIEW.
+3. **#300 (the Android App Link) merges third,** deferred by the owner on
+   2026-10-12 "until before the Play release", which is now. Its head
+   `fcf324ee` predates #307 to #332: rebase it, and wait for "Android debug
+   build (no signing, no secrets)" to go green on the new head before it
+   merges. If it slips, 1.1 ships without it, and auth links keep opening
+   the browser as in 1.0.
+4. **The SHA-1 comparison (decision 2),** any time before step 7. Also
+   compare the upload key's SHA-1 (same App integrity page, "Upload key
+   certificate") with the second Android client.
+5. **Firebase Test Lab (decision 3): ZERO COST ONLY.** Stop and name the
+   amount if any screen asks for a billing account or a plan upgrade. Unknowns
+   to settle before the run, none verified: whether Test Lab runs on the
+   Spark plan with no billing account at today's quotas; whether Robo
+   completes the Credential Manager sheet in this WebView app (documented
+   only for standard widgets). **What it can prove:** Test Lab installs an
+   APK it is given, never the Play-signed build, so a sign-in there proves the
+   client of whatever key signed that APK (the upload key), not the Play
+   client. The Play client is proven by step 4's byte comparison. A
+   zero-cost run on the Play-signed build itself is Play's own pre-launch
+   report, which runs on real devices when a bundle reaches a testing track
+   (whether internal testing triggers it is unverified: read Play Console ›
+   Release overview after the upload).
+6. **The owner's `bundleRelease` (decision 4), with three readings before
+   upload:**
+   - **Build from the main checkout only.** The web bundle takes its
+     Supabase URL from the untracked `.env` in that checkout; the tracked
+     `.env.production` does not supply it. A bundle built in a clean clone
+     carries no Supabase host and opens on a BLANK page ("supabaseUrl is
+     required" in the WebView console), with every check green, including
+     `android-build.yml`, whose APK is built exactly that way. Witnessed
+     2026-10-18 on the API 36 emulator. Reading: `unzip -p
+     app-release.aab 'base/assets/public/assets/*.js' | grep -o
+     '[a-z0-9]\{20\}\.supabase\.co' | sort -u | wc -l` prints 1, not 0.
+   - **The version:** `bundletool dump manifest --bundle app-release.aab`
+     reads `android:versionCode="6"` and `android:versionName="1.1"`.
+   - **Play, re-read on the day:** App bundle explorer, every track and
+     draft, shows no code 6 already used.
+7. **Upload to internal testing, then promote the same bundle to
+   production.** The same code 6 travels; nothing is consumed twice.
+8. **In the same release, upload the listing icon**
+   `apps/frontend/assets/store/play-store-icon-512.png` (the RELEASE-TIME
+   STEP under "The icon and the splash"). Its parity with the launcher icons
+   and with the iOS icon of build 35 is measured in #333: every pixel
+   difference above 8/255 lies on the glyph's anti-aliased edge.
+9. **The Play listing screenshots still show the old UI** (the owner's
+   reading). The new set comes from the store screenshot pipeline (memory:
+   `render.mjs`), as a separate step. Data safety: re-read against what 1.1
+   collects ("App Privacy details (Apple) and Data Safety (Play)").
+
+**Risks found 2026-10-18, none caused by #333, each the owner's to rank:**
+- **The new UI needs Android System WebView 88 or later.** On the API 30
+  emulator image (WebView 83.0.4103.106), Login draws a light lower half,
+  grey pill fills, and "Show" cut at the right edge; the WebView reports
+  `CSS.supports('selector(:where(a))')` false, `inset-inline-start` false,
+  and flex `gap` ignored. The same APK is clean on API 36. A device that
+  installs from Play normally updates its WebView through Play. A guard
+  (read the WebView version natively and say "update Android System
+  WebView") would be its own native PR, after this release.
+- **A light flash between the splash and the app on API 30:** about 27
+  screencaps (around 4 s on the emulator) of `#F2F3F8` before the dark
+  Login draws. Cosmetic.
+- **The status bar is a light band over the dark app** on both emulators,
+  with white icons nearly invisible in places. Cosmetic.
+
 ## NOW 2026-09-25 — the ~2 s wait is fixed; next, Detail then Search, from zero
 
 **The owner could not judge the redesign (#246) on his iPhone: Home and Queue
@@ -1104,6 +1206,9 @@ with Apple and with Google), and an Android sign-in gates Play only.
   `#0f172a` and the eleven `splash.png` files were regenerated in
   `feat/ios-testflight`; no device has shown them. Judged with the Google item
   below on a borrowed device.
+  - **Shown on the emulator 2026-10-18 (#333's APK):** API 36, the system
+    splash at `#0F1014` with the mark; API 30, `splash.png` at `#0F1014` on
+    88.3% of the screen. No physical device yet.
 - [ ] **Android Google sign-in is UNVERIFIED and stays so until a device
   exists.** The owner's phone is an iPhone and there is no Android device
   (the owner; the 2026-09-04 pass used a borrowed Samsung). The path is the same plugin call as
