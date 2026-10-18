@@ -108,12 +108,33 @@ merged without the owner.
    API `appStoreVersions?filter[platform]=IOS` `appStoreState`.
    **EXPIRY:** the state reads anything other than WAITING_FOR_REVIEW or
    IN_REVIEW.
-3. **#300 (the Android App Link) merges third,** deferred by the owner on
-   2026-10-12 "until before the Play release", which is now. Its head
-   `fcf324ee` predates #307 to #332: rebase it, and wait for "Android debug
-   build (no signing, no secrets)" to go green on the new head before it
-   merges. If it slips, 1.1 ships without it, and auth links keep opening
-   the browser as in 1.0.
+3. **#300 (the Android App Link): REFRESHED and PROVEN 2026-10-18.**
+   Deferred by the owner on 2026-10-12 "until before the Play release". Now
+   at head `65f89380a19cc0d9867a69045298349bd27ea6cc`: `main` (`e82b2940`)
+   merged into the branch, with no force-push, so the old head `fcf324ee`
+   stays in its history. The tree is byte-identical to a rebase. Its first
+   Gradle build in CI, "Android debug build (no signing, no secrets)", passed
+   in run 39158299555. `https://www.scan-action.com/.well-known/assetlinks.json`
+   answers 200 with `com.scanaction.app` and the Play app-signing SHA-256
+   (`curl -sS` it). Emulator witnesses (API 36, a debug build of that tree
+   with the real web bundle; commands and output in #300):
+   - `pm get-app-links com.scanaction.app` reads `www.scan-action.com: 1024`
+     (unverified; the debug key `85:E3:…` is not in assetlinks.json).
+   - Unverified, the `/auth/confirm` link opens Chrome: the fallback, and
+     today's behaviour.
+   - With the host enabled for the app (`pm set-app-links-user-selection`,
+     the state a verified Play install reaches on its own), the link
+     cold-starts the app (`LaunchState: COLD`,
+     `Activity: com.scanaction.app/.MainActivity`) on `/auth/confirm`.
+   - Control: `/settings` on the same host resolves to Chrome alone
+     (`pm query-activities`: 1 activity), and the app does not start.
+   - **EXPIRY of the verified half:** `adb shell pm get-app-links
+     com.scanaction.app` on a Play-installed build reads `verified`. That
+     needs a Play install, which the board records as blocked on a Google
+     account on the emulator.
+   **One native change in flight** means one merge, and the TestFlight run it
+   starts, at a time (#299 and #300, 2026-10-12). Two native PRs open side
+   by side do not break it; two merges back to back would.
 4. **The SHA-1 comparison (decision 2),** any time before step 7. Also
    compare the upload key's SHA-1 (same App integrity page, "Upload key
    certificate") with the second Android client.
@@ -152,10 +173,54 @@ merged without the owner.
    STEP under "The icon and the splash"). Its parity with the launcher icons
    and with the iOS icon of build 35 is measured in #333: every pixel
    difference above 8/255 lies on the glyph's anti-aliased edge.
-9. **The Play listing screenshots still show the old UI** (the owner's
-   reading). The new set comes from the store screenshot pipeline (memory:
-   `render.mjs`), as a separate step. Data safety: re-read against what 1.1
+9. **The Play listing assets: made 2026-10-18, #335, not uploaded.** The
+   live listing is stale (the owner's reading, 2026-10-18: the old icon, an
+   old feature graphic with a device, and pre-restyle screenshots). #335 adds
+   `store/play/1.1/`: five phone screenshots at 1080 x 1920 in direction C,
+   with the App Store set's order and captions, captured on the Android
+   emulator with the App Store set's invented October fixtures; and a
+   1024 x 500 feature graphic with no device. `store/` is outside
+   `apps/frontend/**`, so merging #335 starts no TestFlight run.
+   - **Frame 2 is the owner's choice.** The Android sheet reads "Take photo"
+     and "Choose file". `SCANNER_PLATFORMS` is `['ios']`
+     (`apps/frontend/src/native/documentScanner.ts`), so the approved
+     "Scan a receipt, or add a photo or PDF" names a control Android does
+     not show. `02-capture-alt.png`, "Photograph a receipt, or add a photo or
+     PDF", is the recommended upload.
+   - Uploaded by the owner in Play Console › Store presence › Main store
+     listing, in the same release as the listing icon (step 8). The question
+     to ask on the same page: do the 7-inch and 10-inch tablet slots still
+     hold shots of the pre-redesign UI? If they do, remove them in the same
+     update; this set is phone only. Data safety: re-read against what 1.1
    collects ("App Privacy details (Apple) and Data Safety (Play)").
+
+**The production backend serves `main`** (2026-10-18T19:30:55Z):
+`curl -sS https://scan-and-action-production.up.railway.app/api/version`
+answered 200 `{"commit":"e82b29404f65b5286db60f8c12da99894ac0b4c7"}`, which is
+`main` (#334).
+
+**The merge order, ruled 2026-10-18 (supersedes steps 1 to 3 above for
+order):** one merge at a time, each starting only after the previous
+merge's `ios-testflight.yml` run has finished.
+1. This board PR and #335 (assets) at any time. Neither touches
+   `apps/frontend/**`, so neither starts a TestFlight run.
+2. **After Apple's verdict on 1.0:** #300 (App Link), then wait for its
+   TestFlight run.
+3. Then #333 (versionCode 6 / 1.1), so that the release commit, the one the
+   owner builds from, is the version bump with everything else already under
+   it. If #300 is not ready, #333 merges alone and 1.1 ships without the App
+   Link (the browser fallback, as in 1.0).
+
+**Risk to settle at the verdict, not verified for this account:** once
+Apple approves 1.0, App Store Connect refuses new builds of an approved
+marketing version (ITMS-90062, "must contain a higher version than that of
+the previously approved version"). `ios-testflight.yml` uploads under the
+Xcode project's marketing version ("Uploaded build 35 (marketing version from
+the Xcode project)", run 39066913751). So after approval the TestFlight run
+that #300 and #333 each start may fail at upload and turn `main` red, though
+nothing ships from it. Instrument: the upload step of the first such run.
+Owner's choice at the verdict: bump the iOS marketing version first (its own
+iOS PR, say 1.1, to match Android), or accept one red run per Android merge.
 
 **Risks found 2026-10-18, none caused by #333, each the owner's to rank:**
 - **The new UI needs Android System WebView 88 or later.** On the API 30
