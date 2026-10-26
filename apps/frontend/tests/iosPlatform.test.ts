@@ -76,8 +76,9 @@ describe('entitlements and project settings', () => {
     expect(pbx).not.toContain('Apple Distribution');
     expect(pbx).not.toMatch(/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]"/);
   });
-  it('marketing version 1.0.0, fixed in the project; build number left to the pipeline', () => {
-    expect(pbx.match(/MARKETING_VERSION = 1\.0\.0;/g)).toHaveLength(2);
+  it('marketing version 1.1, fixed in the project; build number left to the pipeline', () => {
+    expect(pbx.match(/MARKETING_VERSION = 1\.1;/g)).toHaveLength(2);
+    expect(pbx.match(/MARKETING_VERSION = /g)).toHaveLength(2);
     expect(pbx.match(/CURRENT_PROJECT_VERSION = 1;/g)).toHaveLength(2);
   });
   it('iPhone only (board: v1 is iPhone-only)', () => {
