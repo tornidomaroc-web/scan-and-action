@@ -70,6 +70,190 @@
   6. Submission, once design steps 1 to 5 are done and every APPLE TRACK blocker
      is closed.
 
+## NOW 2026-10-26 — Apple 1.0 still waiting; iOS 1.1 bump, then Play
+
+**Apple, read 2026-10-26 02:32Z.** Version 1.0, build 35, reads
+`WAITING_FOR_REVIEW`; its review submission was last updated
+2026-10-17T21:05:54Z and the version's History page shows no change after
+"Waiting for Review", Oct 17 9:03 PM. Instrument: signed in to App Store
+Connect, `fetch('/iris/v1/reviewSubmissions?filter%5Bapp%5D=6816574766')`
+→ `state`, `lastUpdatedDate`; and the app › History page. Resolution Center
+held 0 threads for this app (`/iris/v1/apps/6816574766/resolutionCenterThreads`;
+control: the owner's other two apps on the team read 1 each). No agreement,
+tax, age-rating, privacy or build item was open that day (Business page;
+`ageRatingDeclaration`; `dataUsagePublishState`; the attached build reads
+`APP_STORE_ELIGIBLE`). Re-read all of it; do not quote it.
+- **The owner sent Apple a status question on 2026-10-26, case ID
+  103008624524** (developer.apple.com › Contact › App Review › "Other App
+  Review questions"). Expedited review does not apply: Apple reserves it for a
+  critical bug fix or an event
+  (developer.apple.com/help/app-review/after-submitting-for-review/request-expedited-review).
+- **CHECK 2026-10-29:** the same two readings, plus the reply to case
+  103008624524 in the mailbox of the Apple Account that holds the team.
+  Never cancel and resubmit to "bump" the queue: Apple's status page says a
+  resubmission starts a new review.
+
+**The owner's decisions, 2026-10-26:**
+1. **The iOS marketing version moves to 1.1 in its own PR (#337), before
+   #300 and #333.** Today every merge under `apps/frontend/**` uploads a
+   TestFlight build under 1.0, and once 1.0 is approved such an upload is
+   refused (ITMS-90062, see "Risk to settle at the verdict" below). After
+   #337 the pipeline uploads under 1.1, a new TestFlight train; the 1.0 App
+   Store version keeps build 35. This removes the reason Play merges waited
+   for Apple's verdict: **they no longer wait for it.**
+2. **Play frame 2 is `02-capture-alt.png`** ("Photograph a receipt, or add a
+   photo or PDF"), from `store/play/1.1/` (#335).
+
+**The merge order, ruled 2026-10-26 (supersedes the merge order of
+2026-10-18 below):** one merge at a time; each code merge waits until the
+`ios-testflight.yml` run it starts on `main` has finished.
+1. The board PR that records this section. Board-only: no TestFlight run.
+2. **#337, the 1.1 bump.** Then prove its run (below) before step 3.
+3. **#300** (Android App Link). Wait for its TestFlight run.
+4. **#333** (versionCode 6, versionName "1.1"), last, so the commit the
+   owner builds the Play bundle from has everything under it. If #300 is
+   not ready, #333 merges alone, as ruled on 2026-10-18.
+
+**The proof that #337 did what it says, after it merges:**
+- The run's "Export and upload to App Store Connect" step prints
+  `Uploaded build <run number> (marketing version from the Xcode project)`.
+  That line does not print the version, so it proves the upload, not 1.1.
+- **1.1:** in App Store Connect, the build with that number:
+  `fetch('/iris/v1/builds?filter%5Bapp%5D=6816574766&filter%5Bversion%5D=<run number>&include=preReleaseVersion')`
+  → the included `preReleaseVersions` `version` reads `1.1`. Control: build
+  35 through the same call reads `1.0`.
+- **1.0 untouched:** `/iris/v1/apps/6816574766/appStoreVersions` → version
+  `1.0` still reads `appStoreState` `WAITING_FOR_REVIEW` (or later, by
+  Apple's hand), and `/iris/v1/appStoreVersions/<1.0 id>/build` → `version`
+  still `35`.
+
+## CLOSED 2026-10-26 — the Railway incident (2026-10-21) and the rotation
+
+### The incident and the abuse check, 2026-10-22 to 10-23
+
+**Railway's disclosure, 2026-10-21** (blog.railway.com "Security Disclosure:
+Wednesday October 21st"): an attacker may have read decrypted environment
+variables; deployments are paused platform-wide. The owner's email "Urgent:
+Railway Security Disclosure - Rotate Credentials" is the general notice to all
+customers, not a statement that this account was affected (the owner, 2026-10-22).
+
+**The owner's decision, 2026-10-22:** wait for Railway deploys, then rotate
+everything in one sitting with one deploy, database password last; revoke at
+once on any sign of abuse.
+
+**Railway variables, production service `scan-and-action`:** 18 on
+2026-10-22 (the owner's reading of the Variables tab); the names are in the
+private record (security hardening item 3). Re-ask Railway's Variables tab,
+names only.
+
+**Instruments used for the abuse check (re-run them, do not quote results):**
+- Supabase logs: Logs Explorer (or the dashboard's `analytics/endpoints/logs.all`)
+  over `edge_logs`, `supavisor_logs` (group by `metadata.peer_ip`, `user`,
+  `local`), `postgres_logs`. The org is on the Free plan: about one rolling day
+  of retention, so read the same day or lose it.
+  The backend's own pooler signature is the stale sweep
+  (`SWEEP_INTERVAL_MS` in `staleSweepService.ts`), one connection every 5 min
+  from a Railway address (AS400940).
+- Coverage limits of these logs: security hardening item 2, in the private
+  record.
+- Resend: dashboard › Logs and › Emails (the key is send-only, so the API cannot
+  list them). Supabase Auth SMTP sends through Resend with a Resend key as the
+  password; rotating the Resend key means updating Supabase › Auth › SMTP too.
+
+**DONE 2026-10-22: the legacy HS256 shared-secret signing key is revoked**
+(the owner's approval, same day). Not a Railway variable; a copy sat in the
+untracked `apps/backend/.env` as `SUPABASE_JWT_SECRET`, and Supabase still
+listed the key as "previously used" (still verifying tokens).
+- Before: no code reads `SUPABASE_JWT_SECRET` (`git grep`); the backend checks
+  tokens through `supabase.auth.getUser`, and `jsonwebtoken` only signs the
+  Apple ES256 client secret; the live web bundle carries a publishable key
+  and no legacy JWT; legacy JWT API keys were already disabled; 0 edge
+  functions, 0 DB functions or triggers carrying a bearer or JWT; access
+  tokens live 3600 s (`app.settings.jwt_exp`) and the last was issued
+  2026-10-17T21:09Z under ES256.
+- Revoked at 2026-10-22T03:27:57Z. Instrument: Management API
+  `GET /v1/projects/<ref>/config/auth/signing-keys` reads HS256 `revoked`,
+  ES256 `in_use`. JWKS lists only ES256 before and after (it never lists a
+  shared secret), so JWKS cannot prove this; the signing-keys status can.
+- After: `/api/version` 200 serving `main`; the stale sweep connected from
+  Railway at 03:29:15Z; Auth health 200; drift probe run 39717286798
+  `POLICY-OK`, its signup answered 422 at 03:31:22Z.
+- The `SUPABASE_JWT_SECRET` line is gone from the local `apps/backend/.env`
+  (never tracked).
+
+**Daily read 2026-10-23 (window 2026-10-22T03:31Z to 2026-10-23T02:42Z). No sign of abuse.**
+- Supabase supavisor: 785 lines, all as db user `postgres`.
+  - 354 from one Railway address (RDAP "Railway", the backend), spread over the whole window.
+  - 4 from the owner's machine's public IP (ipify) at 02:19:44 to 02:20:09Z. That was the session's read-only RLS catalog check.
+  - 285 from 10.106.x with local=true (Supabase internal), and 142 with no IP.
+- Supabase edge: 11 lines.
+  - 03:31:13Z: health, `node`, publishable key, a Maroc Telecom address. The previous session's after-check.
+  - 03:31:22Z and 12:43:30Z: signup 422, `node`, publishable key, Microsoft IPs. These are drift-probe runs 39717286798 (dispatch) and 39780691364 (schedule), both success.
+  - The rest are `@supabase-infra/mgmt-api` from AWS IPs (Supabase internal). The last two used an HS256 `supabase_admin` JWT, issuer supabase, on `/admin/v1/network-bans/retrieve`. That was Supabase infra, triggered by the owner's dashboard load at 02:40Z.
+  - No `sb_secret_` key and no service_role JWT on any of the 11 lines (every line inspected with values masked).
+- Supabase postgres_logs: 11 lines of checkpoints. One "connection reset by peer" at 04:52:20Z beside a forced checkpoint.
+- Resend: 0 sends since the last read; last send 5 days ago. The application log holds 3 GETs at 2026-10-22T02:21:19-20Z (`/api-keys`, `/domains`, `/emails`), all 401 "restricted to only send emails", key `scan-and-action-production`, UA `node`. They predate the window and match the previous session's `keymodel.js` (written 02:20).
+- Gemini, project gen-lang-client-0493028299 (slot /u/2): 0 requests on all keys over the last 7 days. Control: the 90-day view peaks at 164 a day. October spend $3.46 of the $20 cap.
+- Gmail: no alert from Railway, Supabase, Resend, Google Cloud or Paddle since the last read, and no Railway "impacted customer" email.
+- Railway (status.railway.com, read 2026-10-23 ~02:25Z): builds and deploys running for all plans since 2026-10-22T23:22Z. The incident is still "Identified" and new signups are paused.
+- **Done:** the rotation below (two deploys, not one: see why there).
+
+### The rotation, 2026-10-23 to 2026-10-26
+
+The secrets in the table below are replaced; Paddle rotation is a separate
+sitting. Two deploys, not one: the database
+password reset cuts new connections for the running process, so it needed its
+own redeploy right after it. No value, hash or partial key appears here.
+
+**What was rotated, and how each was proven** (all times UTC):
+
+| Secret | New | Live | Proof |
+|---|---|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | secret key `railwaybackend_2026_10` (created 10-23 03:07Z) | deploy `3ab0dc14`, 10-24 22:08:00Z | backend calls in `edge_logs` attributed to the new key by prefix; signed file URL returned (signed with this key) |
+| `GEMINI_API_KEY` | `railway_backend_2026_10b` (AI Studio, 10-23) | same deploy | one real scan COMPLETED at 22:08Z; per-key metrics show exactly its 2 calls |
+| `RESEND_API_KEY` | `scan-and-action-production-2026-10` | same deploy | Resend "Last used"; Supabase Auth SMTP also moved to it: a recovery email at 23:57:26Z is attributed to the new key in Resend's per-key filter, the old key's filter as control |
+| `APPLE_SIWA_PRIVATE_KEY`, `APPLE_SIWA_KEY_ID` | key `5V3JCX4V4S` (created 10-23, SIWA for `NQ23SMHXJV.com.scanaction.app`) | same deploy | Railway snapshot only. **Not proven end to end**: Apple answers `invalid_grant` before client auth, so a fake code proves nothing (controls showed it). The first real Apple-linked deletion logs `apple_revocation revoked` or `failed … invalid_client` |
+| `DATABASE_URL`, `DIRECT_URL` (password) | dashboard reset 10-25 00:51:35Z | deploy `67d620bc`, live ~00:53:10Z | new password connected through both URLs before staging; old password refused through both after ("authentication failed"); stale sweep clean; **outage 0 s** (probe 297/299 200, the 2 refusals caused by the check's own global sign-out) |
+| `DISCORD_ALERT_WEBHOOK_URL` | new webhook, same channel | same deploy | `?wait=true` test message, HTTP 200, created by the new webhook |
+
+- Each deploy: Railway's `deploymentSnapshot` matches the variable store
+  18/18 (compared in memory, yes/no only; control: the old deployment
+  mismatched on exactly the rotated names), and `/api/version` equals `main`
+  (`4d543d30`).
+- A first SQL route for the password failed safely: `ALTER ROLE postgres` is
+  refused (42501, "Only superuser"); the dashboard reset is the only route.
+
+**What was deleted or revoked:**
+
+| Old credential | When | Evidence it was unused first |
+|---|---|---|
+| Supabase legacy HS256 signing secret | 10-22 03:27:57Z | see above |
+| Gemini "Gemini API Key" | 10-24 22:56:25Z | per-key metrics: 0 requests in 7 and 14 days; restorable from the Credentials "deleted" list for 30 days |
+| Resend `scan-and-action-production` | 10-24 23:58–23:59:06Z | SMTP proven on the new key first; after-check email Delivered 23:59:15Z |
+| Supabase secret `railwaybackend` | 10-25 ~00:05:18Z | `edge_logs`: 0 requests since the new key went live |
+| Apple key `6FK6CRV5DJ` | 10-25 ~18:53:40Z | only consumer was the backend, already on `5V3JCX4V4S`; iOS sign-in is native (`socialAuth.ts:154`, Apple's public keys, no private key); deletion never blocks on revocation (`accountController.ts:60-71`). Keys page after: only `5V3JCX4V4S` |
+| Supabase secret `default` (2026-03-22, never in Railway) | 10-26, by the owner between 01:56Z and 02:17Z (the session's click was blocked by its classifier). Keys page at 02:17:37Z: secret `railwaybackend_2026_10` only, publishable `default`, legacy keys disabled | `edge_logs` 2026-10-25 12:17Z to 10-26 01:53Z: 0 requests; local `.env` calls attributed to `railwaybackend_2026_10` (marker call at 01:49Z); no file, CI secret or workflow holds it. Gap: 10-25 00:05Z to ~12:00Z is past log retention (about 12–14 h on Free, not a day) |
+| Railway CLI login on the owner's machine | 10-26 01:54:53Z | `railway whoami` → "Unauthorized"; every credential field in `~/.railway/config.json` null |
+
+**After-check of the service-role path:** **pass**, 10-26 02:17:40–44Z, after the `default` deletion. Review account: `GET /documents/recent` 200; `GET /documents/<the 22:08 scan>` 200, REJECTED, signed file URL present. Sign-out scope proven: auth.sessions for the account 0 → 2 (two minted) → 1 after one `signOut({ scope: "local" })` → 0 after the second; a global sign-out would have read 0 after the first.
+
+**What remains:**
+- The old Discord webhook "Scan Action Alerts": deleted by the owner on
+  2026-10-26 (his statement; Discord has no call this repository makes).
+- Paddle rotation: a separate sitting.
+- Tidying outside this rotation: security hardening item 4, in the private
+  record.
+- The new Apple key's first real use (see the table).
+- **The private record** (outside git, the owner's machine): the full
+  incident record and the numbered security hardening items. The public
+  board names an item by number only.
+
+**Instruments, for the next incident:** per-key Supabase attribution from
+`edge_logs` (apikey prefix mapped to a key name inside the dashboard page);
+Resend's Emails "All API keys" filter (SMTP sends included); Gemini per-key
+metrics in Google Cloud; Railway `deploymentSnapshot` vs the variable store;
+`supabase-js` `signOut()` defaults to GLOBAL, so checks use `{ scope: 'local' }`.
+
 ## NOW 2026-10-18 — the Play release: 1.1, versionCode 6
 
 **Apple is untouched by this track.** Version 1.0 is WAITING_FOR_REVIEW with
@@ -99,15 +283,12 @@ included, so the next bundle is versionCode 6.
 merged without the owner.
 1. **This board PR merges first.** Board-only: `ios-testflight.yml` does not
    run (its paths are `apps/frontend/**` and itself).
-2. **#333 (versionCode 6, versionName "1.1") merges second, and not before
-   Apple's verdict on 1.0.** Any merge under `apps/frontend/**`, an
-   Android-only one included, starts `ios-testflight.yml` on `main`, which
-   archives and uploads a new TestFlight build of marketing version 1.0
-   while that version is in review. That is the iOS side moving. Instrument
-   for the verdict: App Store Connect › the app › version 1.0 status, or the
-   API `appStoreVersions?filter[platform]=IOS` `appStoreState`.
-   **EXPIRY:** the state reads anything other than WAITING_FOR_REVIEW or
-   IN_REVIEW.
+2. **SUPERSEDED 2026-10-26: #333 no longer waits for Apple's verdict.** The
+   wait existed because any merge under `apps/frontend/**`, an Android-only
+   one included, starts `ios-testflight.yml` on `main`, which uploaded a
+   TestFlight build of marketing version 1.0 while that version was in
+   review. #337 moves the marketing version to 1.1 first; the order is in
+   "NOW 2026-10-26" above.
 3. **#300 (the Android App Link): REFRESHED and PROVEN 2026-10-18.**
    Deferred by the owner on 2026-10-12 "until before the Play release". Now
    at head `65f89380a19cc0d9867a69045298349bd27ea6cc`: `main` (`e82b2940`)
@@ -181,12 +362,12 @@ merged without the owner.
    emulator with the App Store set's invented October fixtures; and a
    1024 x 500 feature graphic with no device. `store/` is outside
    `apps/frontend/**`, so merging #335 starts no TestFlight run.
-   - **Frame 2 is the owner's choice.** The Android sheet reads "Take photo"
-     and "Choose file". `SCANNER_PLATFORMS` is `['ios']`
+   - **Frame 2: DECIDED 2026-10-26 by the owner, `02-capture-alt.png`,**
+     "Photograph a receipt, or add a photo or PDF". The Android sheet reads
+     "Take photo" and "Choose file". `SCANNER_PLATFORMS` is `['ios']`
      (`apps/frontend/src/native/documentScanner.ts`), so the approved
      "Scan a receipt, or add a photo or PDF" names a control Android does
-     not show. `02-capture-alt.png`, "Photograph a receipt, or add a photo or
-     PDF", is the recommended upload.
+     not show.
    - Uploaded by the owner in Play Console › Store presence › Main store
      listing, in the same release as the listing icon (step 8). The question
      to ask on the same page: do the 7-inch and 10-inch tablet slots still
@@ -199,19 +380,14 @@ merged without the owner.
 answered 200 `{"commit":"e82b29404f65b5286db60f8c12da99894ac0b4c7"}`, which is
 `main` (#334).
 
-**The merge order, ruled 2026-10-18 (supersedes steps 1 to 3 above for
-order):** one merge at a time, each starting only after the previous
-merge's `ios-testflight.yml` run has finished.
-1. This board PR and #335 (assets) at any time. Neither touches
-   `apps/frontend/**`, so neither starts a TestFlight run.
-2. **After Apple's verdict on 1.0:** #300 (App Link), then wait for its
-   TestFlight run.
-3. Then #333 (versionCode 6 / 1.1), so that the release commit, the one the
-   owner builds from, is the version bump with everything else already under
-   it. If #300 is not ready, #333 merges alone and 1.1 ships without the App
-   Link (the browser fallback, as in 1.0).
+**The merge order of 2026-10-18 is SUPERSEDED by the one ruled 2026-10-26
+("NOW 2026-10-26" above):** board PR, then #337 (iOS 1.1), then #300, then
+#333, each code merge after the previous one's `ios-testflight.yml` run has
+finished. #335 (assets) is merged (`4d543d30`). Play merges do not wait for
+Apple's verdict on 1.0.
 
-**Risk to settle at the verdict, not verified for this account:** once
+**Risk to settle at the verdict, not verified for this account (closed by
+#337 once it merges, by the owner's choice of 2026-10-26):** once
 Apple approves 1.0, App Store Connect refuses new builds of an approved
 marketing version (ITMS-90062, "must contain a higher version than that of
 the previously approved version"). `ios-testflight.yml` uploads under the
@@ -219,8 +395,8 @@ Xcode project's marketing version ("Uploaded build 35 (marketing version from
 the Xcode project)", run 39066913751). So after approval the TestFlight run
 that #300 and #333 each start may fail at upload and turn `main` red, though
 nothing ships from it. Instrument: the upload step of the first such run.
-Owner's choice at the verdict: bump the iOS marketing version first (its own
-iOS PR, say 1.1, to match Android), or accept one red run per Android merge.
+The owner chose on 2026-10-26: bump the iOS marketing version to 1.1 first,
+in its own PR (#337).
 
 **Risks found 2026-10-18, none caused by #333, each the owner's to rank:**
 - **The new UI needs Android System WebView 88 or later.** On the API 30
@@ -2372,6 +2548,9 @@ restyled.** Do not start at login, although a reviewer sees it first:
         - **DEFERRED 2026-10-12 by the owner until before the Play release.**
           Apple submission is the priority. Merge it in the run-up to the
           next Play release, not before.
+        - **SUPERSEDED for head and order:** the head is `65f89380`
+          (refreshed 2026-10-18) and the order is in "NOW 2026-10-26": after
+          #337 (iOS 1.1) and its TestFlight run, before #333.
     - **The icon and the splash.** Order ruled 2026-10-12 by the owner:
       app icon and accent, then the iOS launch screen and the Android splash,
       then the store screenshots (step 7).
