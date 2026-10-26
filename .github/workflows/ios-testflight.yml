@@ -83,7 +83,7 @@ name: iOS — TestFlight
 # profile is ever a secret here.
 #
 # BUILD NUMBER. CFBundleVersion = the run number of this workflow, monotonic;
-# CFBundleShortVersionString = MARKETING_VERSION in the Xcode project (1.0.0),
+# CFBundleShortVersionString = MARKETING_VERSION in the Xcode project (1.1),
 # changed only by a pull request. ExportOptions.plist lets Xcode bump a stale
 # build number at upload as the safety net.
 #
