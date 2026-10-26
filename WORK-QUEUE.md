@@ -141,16 +141,10 @@ customers, not a statement that this account was affected (the owner, 2026-10-22
 everything in one sitting with one deploy, database password last; revoke at
 once on any sign of abuse.
 
-**Railway variables, production service `scan-and-action`, the owner's reading
-of the Variables tab 2026-10-22 (names only, values masked):** 18 variables,
-exactly ALLOWED_ORIGINS, APPLE_CLIENT_ID, APPLE_SIWA_KEY_ID,
-APPLE_SIWA_PRIVATE_KEY, APPLE_TEAM_ID, DATABASE_URL, DIRECT_URL,
-DISCORD_ALERT_WEBHOOK_URL, GEMINI_API_KEY, GEMINI_PINNED_MODEL, MAIL_FROM,
-MAIL_POSTAL_ADDRESS, NODE_ENV, PADDLE_WEBHOOK_SECRET, RESEND_API_KEY,
-SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL, WELCOME_EMAIL_ENABLED.
-`SUPABASE_JWT_SECRET` and `SENTRY_DSN` are not there. Whether the service key
-is an `sb_secret_` key is read at rotation time, not before. Re-ask Railway's
-Variables tab; this list is the owner's reading on that date.
+**Railway variables, production service `scan-and-action`:** 18 on
+2026-10-22 (the owner's reading of the Variables tab); the names are in the
+private record (security hardening item 3). Re-ask Railway's Variables tab,
+names only.
 
 **Instruments used for the abuse check (re-run them, do not quote results):**
 - Supabase logs: Logs Explorer (or the dashboard's `analytics/endpoints/logs.all`)
@@ -160,8 +154,8 @@ Variables tab; this list is the owner's reading on that date.
   The backend's own pooler signature is the stale sweep
   (`SWEEP_INTERVAL_MS` in `staleSweepService.ts`), one connection every 5 min
   from a Railway address (AS400940).
-- Blind spot: `postgres_logs` holds no `connection authorized` lines, so a
-  direct (non-pooler) Postgres login would not be logged at all.
+- Coverage limits of these logs: security hardening item 2, in the private
+  record.
 - Resend: dashboard › Logs and › Emails (the key is send-only, so the API cannot
   list them). Supabase Auth SMTP sends through Resend with a Resend key as the
   password; rotating the Resend key means updating Supabase › Auth › SMTP too.
@@ -197,7 +191,7 @@ listed the key as "previously used" (still verifying tokens).
   - 03:31:22Z and 12:43:30Z: signup 422, `node`, publishable key, Microsoft IPs. These are drift-probe runs 39717286798 (dispatch) and 39780691364 (schedule), both success.
   - The rest are `@supabase-infra/mgmt-api` from AWS IPs (Supabase internal). The last two used an HS256 `supabase_admin` JWT, issuer supabase, on `/admin/v1/network-bans/retrieve`. That was Supabase infra, triggered by the owner's dashboard load at 02:40Z.
   - No `sb_secret_` key and no service_role JWT on any of the 11 lines (every line inspected with values masked).
-- Supabase postgres_logs: 11 lines of checkpoints. One "connection reset by peer" at 04:52:20Z beside a forced checkpoint. No connection lines (blind spot unchanged).
+- Supabase postgres_logs: 11 lines of checkpoints. One "connection reset by peer" at 04:52:20Z beside a forced checkpoint.
 - Resend: 0 sends since the last read; last send 5 days ago. The application log holds 3 GETs at 2026-10-22T02:21:19-20Z (`/api-keys`, `/domains`, `/emails`), all 401 "restricted to only send emails", key `scan-and-action-production`, UA `node`. They predate the window and match the previous session's `keymodel.js` (written 02:20).
 - Gemini, project gen-lang-client-0493028299 (slot /u/2): 0 requests on all keys over the last 7 days. Control: the 90-day view peaks at 164 a day. October spend $3.46 of the $20 cap.
 - Gmail: no alert from Railway, Supabase, Resend, Google Cloud or Paddle since the last read, and no Railway "impacted customer" email.
@@ -206,8 +200,8 @@ listed the key as "previously used" (still verifying tokens).
 
 ### The rotation, 2026-10-23 to 2026-10-26
 
-Every secret in the 18 Railway variables of 2026-10-22 is replaced, except
-`PADDLE_WEBHOOK_SECRET` (deferred, below). Two deploys, not one: the database
+The secrets in the table below are replaced; Paddle rotation is a separate
+sitting. Two deploys, not one: the database
 password reset cuts new connections for the running process, so it needed its
 own redeploy right after it. No value, hash or partial key appears here.
 
@@ -246,13 +240,13 @@ own redeploy right after it. No value, hash or partial key appears here.
 **What remains:**
 - The old Discord webhook "Scan Action Alerts": deleted by the owner on
   2026-10-26 (his statement; Discord has no call this repository makes).
-- `PADDLE_WEBHOOK_SECRET`: deferred by the owner to the sitting before the
-  first paying subscriber.
-- "Default Gemini API Key" (16 Mar): active, no traffic in any window read,
-  never in Railway; outside this rotation.
-- Service account `railway_backend_2026_10`: keyless leftover of a first
-  AI Studio key attempt; tidying, not security.
+- Paddle rotation: a separate sitting.
+- Tidying outside this rotation: security hardening item 4, in the private
+  record.
 - The new Apple key's first real use (see the table).
+- **The private record** (outside git, the owner's machine): the full
+  incident record and the numbered security hardening items. The public
+  board names an item by number only.
 
 **Instruments, for the next incident:** per-key Supabase attribution from
 `edge_logs` (apikey prefix mapped to a key name inside the dashboard page);
