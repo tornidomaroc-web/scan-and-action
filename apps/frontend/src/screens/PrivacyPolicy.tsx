@@ -4,8 +4,10 @@ import { legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, le
 import { Eye } from 'lucide-react';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
+import { usePageHead } from '../lib/pageHead';
 
 const PrivacyPolicy: React.FC = () => {
+  usePageHead({ title: 'Privacy Policy | Scan & Action', description: 'What Scan & Action collects when you scan a receipt, where it is kept, how Google or Apple sign-in data is used, and how to delete it all.', path: '/privacy' });
   // A visitor who taps a footer link lands here with no header, no logo and no
   // way back — measured on production 2026-09-12: `document.querySelector('header')`
   // and `a[href="/"]` both returned null on /privacy. `LandingHeader`'s home link

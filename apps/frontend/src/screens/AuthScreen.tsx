@@ -14,6 +14,7 @@ import { PrimaryButton } from '../components/ui/PrimaryButton';
 import { Notice } from '../components/ui/Notice';
 import { IconTile } from '../components/ui/IconTile';
 import { panelClass } from '../components/ui/Panel';
+import { usePageHead } from '../lib/pageHead';
 
 // ============================================================================
 // Sign in and sign up, in the visual language of 2026-09-26.
@@ -47,6 +48,7 @@ type Mode = 'login' | 'signup';
 
 export const AuthScreen: React.FC = () => {
   const s = useStrings();
+  usePageHead({ title: 'Log in | Scan & Action', description: 'Sign in to Scan & Action to see your receipts, or create a free account with 10 scans included.', path: '/login' });
   const { showToast } = useToast();
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');

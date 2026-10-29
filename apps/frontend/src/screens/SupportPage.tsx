@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { LandingHeader } from '../components/LandingHeader';
 import { legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, legalLinkClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
 import { LifeBuoy } from 'lucide-react';
+import { usePageHead } from '../lib/pageHead';
 
 /**
  * Public support page, reachable logged out: the App Store Connect Support URL
@@ -21,7 +22,9 @@ import { LifeBuoy } from 'lucide-react';
  * Mirrors the four legal screens (plain English, the landing header, the page's
  * own dark: variants, not pinned); legalPagesHeader.test.tsx covers it with them.
  */
-const SupportPage: React.FC = () => (
+const SupportPage: React.FC = () => {
+  usePageHead({ title: 'Support | Scan & Action', description: 'How to reach Scan & Action support by email, and short answers on amounts, totals per currency and your data.', path: '/support' });
+  return (
   <>
     <LandingHeader showAnchors={false} />
     <div className={legalPageClass}>
@@ -78,7 +81,8 @@ const SupportPage: React.FC = () => (
       </div>
     </div>
   </>
-);
+  );
+};
 
 export default SupportPage;
 export { SupportPage };
