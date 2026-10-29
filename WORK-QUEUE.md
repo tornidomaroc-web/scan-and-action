@@ -70,6 +70,88 @@
   6. Submission, once design steps 1 to 5 are done and every APPLE TRACK blocker
      is closed.
 
+## NOW 2026-10-29 — Play 1.1 is live; the listing is in Google's review; Apple 1.0 still waiting
+
+**Play 1.1 (versionCode 6) is released.** The record is under "CLOSED
+2026-10-26 — the Play release" below.
+
+**The Play listing, three languages, in Google's review since 2026-10-29.**
+Saved in Play Console at 13:35Z and sent for review by the owner the same day
+at about 13:45Z ("Submit 5 changes for review" in Publishing overview).
+Managed publishing is on, so nothing reaches the store until he presses
+"Publish changes" after Google's approval. What was sent, counted by the
+console's own counters (code points):
+- **en-US**, the default and the only localization that existed before (the
+  live Arabic and French store pages were Google's automatic translations):
+  app name "Scan & Action: Receipt Scanner" (30/30), short description
+  78/80, full description 2135/4000.
+- **Arabic (ar), added:** "Scan & Action: ماسح الإيصالات" (29/30), short
+  78/80, full 1754/4000. Category, screen and button names are the `ar:`
+  block's own words in `apps/frontend/src/i18n/strings.ts`.
+- **French (France, fr-FR), added:** "Scan & Action: Scan de reçus" (28/30),
+  short 72/80, full 2551/4000, from the `fr:` block's words.
+- Every claim in the three texts was checked against `main` with `git grep`
+  (14 claims found; 3 planted false claims, Excel export, offline, mileage,
+  not found). No price and no plan sentence is in any description.
+- **Instrument:** Play Console › Publishing overview. "Changes not yet
+  submitted for review" means the owner has not sent them; "In review" means
+  Google has them; "Changes ready to publish" means approved and waiting for
+  his press. After publishing, the public pages at `hl=en&gl=us`,
+  `hl=ar&gl=ma` and `hl=fr&gl=ma` show the three names. **CHECK 2026-11-05**
+  if Google has not answered by then.
+
+**Apple 1.0: read 2026-10-29 12:38Z, still `WAITING_FOR_REVIEW`.** The
+instruments of "NOW 2026-10-26": `reviewSubmissions` `lastUpdatedDate` still
+`2026-10-17T21:05:54Z`; `appStoreVersions` lists 1.0 only, no 1.1 record;
+build 35 `VALID`; Resolution Center 0 threads (control: the owner's two other
+apps on the team read 1 each); case 103008624524 listed under "Your open
+support cases" on developer.apple.com › Contact with no visible reply; nothing
+from Apple in the mailbox. **CHECK 2026-10-31:** the same readings and the
+case page. Never cancel and resubmit.
+
+**Apple 1.1 metadata, queued until 1.0 leaves review:** subtitle "Receipt
+Scanner & Expense Log" (29/30; the field is empty today) and keywords
+`scan,tracker,invoice,bill,spending,budget,ledger,pdf,ocr,currency,dirham,arabic,french,bookkeeping`
+(98 of 100; nothing in it repeats the name or the subtitle, as App Store
+Connect's "Creating your product page" asks). Entered on the 1.1 App Store
+version once one can be created; 1.0's metadata is not touched while it waits.
+
+**Website search presence: PR #339.** `apps/frontend/public/robots.txt`,
+`sitemap.xml` (the seven public routes), the landing head (title, description,
+canonical, og and twitter tags about receipts and expenses, no model vendor),
+each of the six other public pages setting its own title and canonical, and
+`xml` added to the iOS web-bundle allowlist in `ios/ci/assemble.sh`. The cause
+of the old answers (200 with the SPA's HTML for both files): the files did not
+exist; Vercel's `/(.*)` catch-all runs only after the filesystem misses, as
+`/manifest.webmanifest` proves. **After its merge, the owner's step:** Search
+Console › Sitemaps › add `https://www.scan-action.com/sitemap.xml`. The merge
+starts one `ios-testflight.yml` run under the 1.1 train. Noted, not changed:
+`https://scan-action.com/` answers `307` to `www.`, a Vercel domain setting
+(`308` is the permanent form); the canonical tag covers it either way.
+
+**Play "DEX code optimization" notice, read 2026-10-28, Play's date February
+2027.** The production dashboard says "DEX code optimization is below our
+threshold … Obfuscation (1%) … Fix by Feb 2027". The release build has
+`minifyEnabled false` (`apps/frontend/android/app/build.gradle`,
+`buildTypes.release`). The item, one native PR of its own, after the listing
+review:
+1. `minifyEnabled true` (R8), with `proguard-rules.pro` keeping what the
+   Capacitor bridge reaches by reflection: `com.getcapacitor.**`, the
+   `@CapacitorPlugin` classes of the plugins in `package.json`, and the
+   WebView JavaScript interface.
+2. versionCode 7 (6 is consumed), versionName 1.1.1 or as the owner decides.
+3. Proof on the API 36 emulator before any upload: cold start, Google
+   sign-in, one photo upload reaching the ledger, the `/auth/confirm` App
+   Link, and `adb logcat` free of `ClassNotFoundException` and
+   `NoSuchMethodError`.
+4. Safe fallback: if the minified build fails any step, nothing ships and
+   `minifyEnabled false` stays; Play's notice is a recommendation with a date,
+   not a block. **CHECK 2026-12-15:** the PR exists, or this item is re-dated
+   with the reason.
+Also raised by Play on the same page, not acted on: "Your app uses deprecated
+APIs or parameters for edge-to-edge" (release 6 (1.1)). Read Play's detail
+page for the named APIs before changing anything.
+
 ## NOW 2026-10-26 — Apple 1.0 still waiting; iOS 1.1 bump, then Play
 
 **Apple, read 2026-10-26 02:32Z.** Version 1.0, build 35, reads
@@ -88,10 +170,10 @@ tax, age-rating, privacy or build item was open that day (Business page;
   Review questions"). Expedited review does not apply: Apple reserves it for a
   critical bug fix or an event
   (developer.apple.com/help/app-review/after-submitting-for-review/request-expedited-review).
-- **CHECK 2026-10-29:** the same two readings, plus the reply to case
-  103008624524 in the mailbox of the Apple Account that holds the team.
-  Never cancel and resubmit to "bump" the queue: Apple's status page says a
-  resubmission starts a new review.
+- **CHECKED 2026-10-29 12:38Z: unchanged.** The readings are in "NOW
+  2026-10-29" above; the next check is 2026-10-31. Never cancel and resubmit
+  to "bump" the queue: Apple's status page says a resubmission starts a new
+  review.
 
 **The owner's decisions, 2026-10-26:**
 1. **The iOS marketing version moves to 1.1 in its own PR (#337), before
@@ -121,7 +203,8 @@ tax, age-rating, privacy or build item was open that day (Business page;
 - **1.1:** in App Store Connect, the build with that number:
   `fetch('/iris/v1/builds?filter%5Bapp%5D=6816574766&filter%5Bversion%5D=<run number>&include=preReleaseVersion')`
   → the included `preReleaseVersions` `version` reads `1.1`. Control: build
-  35 through the same call reads `1.0`.
+  35 through the same call reads `1.0.0` (read 2026-10-29 12:39Z; until then
+  this line said `1.0`, a prediction nobody had read).
 - **1.0 untouched:** `/iris/v1/apps/6816574766/appStoreVersions` → version
   `1.0` still reads `appStoreState` `WAITING_FOR_REVIEW` (or later, by
   Apple's hand), and `/iris/v1/appStoreVersions/<1.0 id>/build` → `version`
@@ -254,7 +337,40 @@ Resend's Emails "All API keys" filter (SMTP sends included); Gemini per-key
 metrics in Google Cloud; Railway `deploymentSnapshot` vs the variable store;
 `supabase-js` `signOut()` defaults to GLOBAL, so checks use `{ scope: 'local' }`.
 
-## NOW 2026-10-18 — the Play release: 1.1, versionCode 6
+## CLOSED 2026-10-26 — the Play release: 1.1, versionCode 6 (was NOW 2026-10-18)
+
+**RELEASED 2026-10-26.** Folded in on 2026-10-29 from the owner's private
+record of 2026-10-28; the plan below it is kept as written, with its steps
+marked.
+- Merges that day: #337 (`95b5f760`, 05:14 +01), #300 (`d9c42fe0`,
+  05:45 +01), #333 (`72afe685`, 06:05 +01). The owner built the bundle after
+  #333: versionCode 6, versionName 1.1.
+- At about 09:10 +01 the owner pressed "Publish 7 changes" (managed
+  publishing): production release 6 (1.1) at 100%, plus six listing changes:
+  the icon `apps/frontend/assets/store/play-store-icon-512.png`; the feature
+  graphic `store/play/1.1/feature-graphic-1024x500/feature-graphic.png`; the
+  five phone screenshots `01-home`, `02-capture-alt`, `03-detail`,
+  `04-queue`, `05-search` from `store/play/1.1/phone-1080x1920/`; both tablet
+  slots emptied; and two phrases removed from the description ("in seconds",
+  "accurately and instantly").
+- Read 2026-10-28 02:17 to 02:25Z. Play Console › Production: "Active ·
+  Latest release: 6 (1.1) · 178 countries / regions", "Released on Oct 26
+  9:10 AM"; Production history: "5 (1.0) … Replaced on Oct 26, 2026, 9:10
+  AM"; Publishing overview: "Last published on October 26, 2026", "Changes
+  ready to publish" empty; Internal testing "Inactive · Draft release: 6
+  (1.1)" (never rolled out) and Closed testing Alpha "4 (1.0)" unchanged. The
+  public page (`play.google.com/store/apps/details?id=com.scanaction.app&hl=en_US&gl=US`,
+  not signed in): "Updated on Oct 26, 2026", "What's new in 1.1", exactly
+  five screenshots; each listing image fetched at `=s0` hashes byte for byte
+  to its file at `main`, seven of seven (control: each live image mismatched
+  ten other candidates, the old icon and the unchosen `02-capture.png` among
+  them).
+- Steps 7 to 9 below are done. The private record says nothing about steps
+  4 (the SHA-1 byte comparison) and 5 (Test Lab); this file does not know
+  whether they were done.
+- Two notices Play raised on the production dashboard are open items under
+  "NOW 2026-10-29".
+
 
 **Apple is untouched by this track.** Version 1.0 is WAITING_FOR_REVIEW with
 build 35 (recorded under "Submission" in APPLE TRACK). Nothing below changes
@@ -347,14 +463,14 @@ merged without the owner.
      reads `android:versionCode="6"` and `android:versionName="1.1"`.
    - **Play, re-read on the day:** App bundle explorer, every track and
      draft, shows no code 6 already used.
-7. **Upload to internal testing, then promote the same bundle to
+7. **DONE 2026-10-26 as production release 6 (1.1) at 100%; the internal-testing draft of the same code was never rolled out.** **Upload to internal testing, then promote the same bundle to
    production.** The same code 6 travels; nothing is consumed twice.
-8. **In the same release, upload the listing icon**
+8. **DONE 2026-10-26.** **In the same release, upload the listing icon**
    `apps/frontend/assets/store/play-store-icon-512.png` (the RELEASE-TIME
    STEP under "The icon and the splash"). Its parity with the launcher icons
    and with the iOS icon of build 35 is measured in #333: every pixel
    difference above 8/255 lies on the glyph's anti-aliased edge.
-9. **The Play listing assets: made 2026-10-18, #335, not uploaded.** The
+9. **The Play listing assets: made 2026-10-18, #335. DONE 2026-10-26: uploaded and published with release 6, both tablet slots emptied.** The
    live listing is stale (the owner's reading, 2026-10-18: the old icon, an
    old feature graphic with a device, and pre-restyle screenshots). #335 adds
    `store/play/1.1/`: five phone screenshots at 1080 x 1920 in direction C,
