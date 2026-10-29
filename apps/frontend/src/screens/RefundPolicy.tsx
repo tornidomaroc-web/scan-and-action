@@ -2,8 +2,10 @@ import React from 'react';
 import { LandingHeader } from '../components/LandingHeader';
 import { legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, legalLinkClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
 import { CreditCard } from 'lucide-react';
+import { usePageHead } from '../lib/pageHead';
 
 const RefundPolicy: React.FC = () => {
+  usePageHead({ title: 'Refund Policy | Scan & Action', description: 'The Scan & Action subscription: the 14-day money-back guarantee, how to ask for a refund, and cancellation.', path: '/refund' });
   // A visitor who taps a footer link lands here with no header, no logo and no
   // way back — measured on production 2026-09-12: `document.querySelector('header')`
   // and `a[href="/"]` both returned null on /privacy. `LandingHeader`'s home link

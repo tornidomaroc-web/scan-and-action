@@ -2,8 +2,10 @@ import React from 'react';
 import { LandingHeader } from '../components/LandingHeader';
 import { legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
 import { ShieldCheck } from 'lucide-react';
+import { usePageHead } from '../lib/pageHead';
 
 const TermsOfService: React.FC = () => {
+  usePageHead({ title: 'Terms of Service | Scan & Action', description: 'The terms under which Scan & Action is offered: your account, payment and refunds, and the limits of our liability.', path: '/terms' });
   // A visitor who taps a footer link lands here with no header, no logo and no
   // way back — measured on production 2026-09-12: `document.querySelector('header')`
   // and `a[href="/"]` both returned null on /privacy. `LandingHeader`'s home link

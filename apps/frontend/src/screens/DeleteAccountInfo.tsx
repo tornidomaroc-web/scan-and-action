@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { LandingHeader } from '../components/LandingHeader';
 import { legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, legalLinkClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
 import { Trash2 } from 'lucide-react';
+import { usePageHead } from '../lib/pageHead';
 
 /**
  * Public, logged-out-reachable account & data deletion page.
@@ -14,6 +15,7 @@ import { Trash2 } from 'lucide-react';
  * English, rendered outside the authenticated Layout.
  */
 const DeleteAccountInfo: React.FC = () => {
+  usePageHead({ title: 'Delete Your Account | Scan & Action', description: 'How to delete your Scan & Action account and every receipt in it, from the app or by email, with or without the app installed.', path: '/delete-account' });
   // A visitor who taps a footer link lands here with no header, no logo and no
   // way back — measured on production 2026-09-12: `document.querySelector('header')`
   // and `a[href="/"]` both returned null on /privacy. `LandingHeader`'s home link

@@ -11,8 +11,25 @@
     <!-- viewport-fit=cover is required for env(safe-area-inset-*) to resolve to
          real values inside the Android 15 edge-to-edge WebView (and iOS notches). -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Scan & Action | Industrial Document Intelligence</title>
-    <meta name="description" content="Production-ready document extraction powered by Gemini Vision AI." />
+    <!-- The landing page's head, static so a crawler that runs no script reads
+         it. Vercel serves this file for every route (vercel.json, the last
+         rewrite), so the other public pages replace these values when they
+         mount (src/lib/pageHead.ts). searchPresence.test.ts pins the copy. -->
+    <title>Scan &amp; Action: Receipt Scanner and Expense Log</title>
+    <meta name="description" content="Photograph a receipt or add a PDF. The merchant, total, date and category land in your ledger, one total per currency. In English, French and Arabic." />
+    <link rel="canonical" href="https://www.scan-action.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Scan &amp; Action" />
+    <meta property="og:title" content="Scan &amp; Action: Receipt Scanner and Expense Log" />
+    <meta property="og:description" content="Photograph a receipt or add a PDF. The merchant, total, date and category land in your ledger, one total per currency. In English, French and Arabic." />
+    <meta property="og:url" content="https://www.scan-action.com/" />
+    <meta property="og:image" content="https://www.scan-action.com/icons/icon-512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Scan &amp; Action: Receipt Scanner and Expense Log" />
+    <meta name="twitter:description" content="Photograph a receipt or add a PDF. The merchant, total, date and category land in your ledger, one total per currency. In English, French and Arabic." />
+    <meta name="twitter:image" content="https://www.scan-action.com/icons/icon-512.png" />
     <!-- PWA: manifest only, deliberately no service worker (live checkout
          on this domain — stale-cache risk not taken this phase). -->
     <link rel="manifest" href="/manifest.webmanifest" />
