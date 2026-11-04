@@ -4,13 +4,13 @@
 
 <br/>
 
-[![Live](https://img.shields.io/badge/●_LIVE-1D9E75?style=for-the-badge)](https://scan-and-action.vercel.app)
-[![Launch App](https://img.shields.io/badge/scan--and--action.vercel.app-Launch%20Now-0ea5e9?style=for-the-badge&logo=vercel&logoColor=white)](https://scan-and-action.vercel.app)
 [![Gemini Vision](https://img.shields.io/badge/Gemini%20Vision-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
 [![React](https://img.shields.io/badge/React%2018%20+%20Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
 [![License](https://img.shields.io/badge/MIT-1D9E75?style=for-the-badge)](LICENSE)
 
-> **Upload a receipt or invoice. Get structured data and a decision in seconds.**
+> **Upload a receipt or invoice. Get structured data and a decision.**
+
+[Google Play](https://play.google.com/store/apps/details?id=com.scanaction.app&hl=en) · [Web](https://www.scan-action.com)
 
 </div>
 
@@ -111,6 +111,6 @@ deploy time.
 
 ## Built by
 
-[AboJad](https://github.com/tornidomaroc-web) — Full Stack AI Engineer, Marrakesh 🇲🇦
+[Abdelfettah Amellah](https://github.com/tornidomaroc-web) — Full Stack AI Engineer, Marrakesh 🇲🇦
 
 <img src="https://capsule-render.vercel.app/api?type=waving&amp;color=0:0a1628,50:1e3a5f,100:0ea5e9&amp;height=100&amp;section=footer" width="100%"/>
