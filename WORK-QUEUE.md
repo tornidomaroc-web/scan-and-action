@@ -70,6 +70,69 @@
   6. Submission, once design steps 1 to 5 are done and every APPLE TRACK blocker
      is closed.
 
+## NOW 2026-11-07 — the iOS app on the free tier; then 1.1 to App Review
+
+**Apple, read 2026-11-07.** App Review answered submission
+`168c9ede-0343-49f9-9769-75465a15e70d` under Guideline 3.1.1 (In-App
+Purchase): the iOS app gives access to a plan bought outside the app, and
+that plan is not offered through In-App Purchase. Instruments, from the
+signed-in App Store Connect page: `/iris/v1/reviewSubmissions/<id>` →
+`state`; `/iris/v1/apps/<appId>/appStoreVersions` → `appStoreState`; the
+Resolution Center thread's messages, as in "NOW 2026-10-26". The submission
+page is the only place Apple's attached screenshot shows.
+
+**Decided by the owner, 2026-11-07.** The iOS app serves every workspace the
+free tier and names no plan, no Pro and nothing to buy. In-App Purchase is
+out of scope for now. The web and the Android app keep their behaviour. The
+code is PR #342, "iOS: hold the app to the free tier"; anchors:
+`effectivePlan` in `apps/backend/src/services/entitlement/clientPlatform.ts`
+and `isIOSApp` in `apps/frontend/src/native/shell.ts`. Its merge starts one
+`ios-testflight.yml` run on the 1.1 train.
+
+**The six 1.1 fixes noted on 2026-10-30, decided 2026-11-07:**
+1. Toasts that nobody sees (`toast-container` in
+   `apps/frontend/src/contexts/ToastContext.tsx`): **in #342**, every
+   platform.
+2. The Settings plan card while the plan loads (`const { plan = 'FREE' } =
+   context;` in `SettingsScreen.tsx`): **not shown in the iOS app after
+   #342**; the web and Android in a later PR.
+3. The Pro card's description (`proActiveDesc` in `strings.ts`): **not shown
+   in the iOS app after #342**; the web and Android in a later PR.
+4. The upload limit message (`LIMIT_REACHED` in `uploadController.ts`):
+   **in #342**, now `Scan limit reached (10 scans).`
+5. The rail's refresh message (`planRefreshChecking` in `strings.ts`): **not
+   reachable in the iOS app**; the web in a later PR.
+6. The iPad window (`TARGETED_DEVICE_FAMILY = 1` in `project.pbxproj`):
+   **after 1.1 is approved**, as its own version.
+
+**The owner's steps, in this order, once #342 is merged and its build reads
+`VALID` and `APP_STORE_ELIGIBLE`** (`/iris/v1/builds?filter[app]=<appId>&include=preReleaseVersion`):
+1. **App Store Connect › the iOS version › Version: change 1.0 to 1.1**, then
+   attach the new build. Builds 36 to 39 and the new one are on the 1.1
+   train, so a 1.0 version cannot take them.
+2. **App Store Connect › App Review Information › Notes:** say that the iOS
+   app is free, with 10 scans per workspace, and offers nothing to buy.
+3. A reply in the Resolution Center (the session drafts it), then Resubmit.
+**CHECK 2026-11-12:** the version reads 1.1 with the new build attached, or
+this list says which step waits and why.
+
+**Play trader status, by February 2027 (the owner's date).** Play Console,
+the developer account's trader status declaration: declared or not. **CHECK
+2027-01-15.**
+
+**Search Console, after #339.** The owner's step: Search Console › Sitemaps ›
+add `https://www.scan-action.com/sitemap.xml`. **CHECK 2026-11-14:** the
+sitemap reads "Success", and URL Inspection on `https://www.scan-action.com/`
+reads "URL is on Google".
+
+**Visibility readings, every Friday from 2026-11-13.** Recorded as read, not
+interpreted:
+- Play: the three public pages (`hl=en&gl=us`, `hl=ar&gl=ma`,
+  `hl=fr&gl=ma`) show the three listing names (see "NOW 2026-10-29").
+- Search Console › Performance, `www.scan-action.com`, last 7 days:
+  impressions and clicks.
+- The App Store page, once 1.1 is live.
+
 ## NOW 2026-10-29 — Play 1.1 is live; the listing is in Google's review; Apple 1.0 still waiting
 
 **Play 1.1 (versionCode 6) is released.** The record is under "CLOSED
