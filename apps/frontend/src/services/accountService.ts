@@ -5,6 +5,22 @@ export type AppleRevocationStatus = 'revoked' | 'failed' | 'skipped' | 'not_appl
 
 export const accountService = {
   /**
+   * Whether the workspace has an ACTIVE billing source (GET /user/me). The
+   * delete sheet in the iOS app warns that deleting the account does not
+   * cancel billing only when this is true. Any failure reads false.
+   */
+  async hasActiveBilling(): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/user/me`, { headers: await getJsonHeaders() });
+      if (!res.ok) return false;
+      const data = (await res.json().catch(() => ({}))) as { hasActiveBilling?: unknown };
+      return data.hasActiveBilling === true;
+    } catch {
+      return false;
+    }
+  },
+
+  /**
    * Permanently delete the current user's account. `confirm` must be the user's
    * own email — the backend echoes it back against the authenticated session as
    * an explicit confirmation.

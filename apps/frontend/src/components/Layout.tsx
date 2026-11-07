@@ -10,6 +10,7 @@ import { ProcessingProvider } from '../contexts/ProcessingContext';
 import { useIsDesktop } from '../hooks/useMediaQuery';
 import { documentService } from '../services/documentService';
 import { BrandMark } from './BrandMark';
+import { isIOSApp } from '../native/shell';
 
 export const Layout: React.FC = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -127,7 +128,9 @@ export const Layout: React.FC = () => {
       <CaptureSheet ref={captureRef} plan={plan} />
 
       {/* Post-payment celebration (?checkout=success) */}
-      {showProWelcome && <ProWelcome onClose={() => setShowProWelcome(false)} />}
+      {/* Never in the iOS app, which offers nothing to buy (App Store 3.1.1).
+          No universal link reaches ?checkout=success there today. */}
+      {showProWelcome && !isIOSApp() && <ProWelcome onClose={() => setShowProWelcome(false)} />}
 
       {/* Global Contextual Modals */}
       <UploadModal

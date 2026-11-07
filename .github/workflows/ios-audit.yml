@@ -56,6 +56,10 @@ on:
       - 'apps/frontend/src/screens/AuthConfirmScreen.tsx'
       # The launch screen geometry job: its probe.
       - '.github/launch-probe/**'
+      # The origin job: what decides how the app's API requests identify it.
+      - '.github/origin-probe/**'
+      - 'apps/frontend/src/services/apiConfig.ts'
+      - 'apps/frontend/src/native/shell.ts'
   workflow_dispatch:
 
 permissions:
@@ -736,5 +740,163 @@ jobs:
           path: |
             ${{ runner.temp }}/ul
             ${{ runner.temp }}/aasa/requests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # THE ORIGIN CHECK (2026-11-07). The backend serves the iOS app the free
+  # tier, and it knows a request comes from the iOS app by two headers:
+  # Origin capacitor://localhost, which WKWebView sends on every cross-origin
+  # request the bundled page makes, and X-Client-Platform ios, which
+  # getAuthHeaders() adds (apps/backend/src/services/entitlement/
+  # clientPlatform.ts). The unit tests stub the platform; this job reads what
+  # the real app, in a real simulator, actually sends.
+  #
+  # HOW. The bundle is built against http://127.0.0.1:8787, a stub on this
+  # runner (.github/origin-probe/stub.py) that logs every request's Origin and
+  # X-Client-Platform. .github/origin-probe/plant.js, injected into this
+  # build's index.html only, plants a session that is not a real token, so
+  # the app opens signed in and makes its OWN API requests through its own
+  # code. Info.plist gets NSAllowsLocalNetworking for this build only, so ATS
+  # lets the web view reach the stub over plain http.
+  #
+  # THE CONTROL. Safari in the same simulator opens a page on 127.0.0.1 that
+  # calls the stub on localhost. That request must arrive with Origin
+  # http://127.0.0.1:8787 and no platform header, and check.py must reject it
+  # with the same predicate that accepts the app's request. If Safari never
+  # reaches the stub, the job says HARNESS and fails: without the control the
+  # check proves nothing.
+  #
+  # IT REACHES NOTHING OUTSIDE THIS RUNNER: no production, no Supabase, no
+  # signing, no secret. Not a required check.
+  origin:
+    name: iOS — the app's API requests carry its origin and platform header (no signing, no secrets)
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apps/frontend
+    env:
+      STUB_PORT: '8787'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Boot the simulator now
+        run: |
+          set -eu
+          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; c=[(r,x["udid"],x["name"]) for r,v in d.items() if "iOS" in r for x in v if x["name"].startswith("iPhone")]; c.sort(); print(c[-1][1])')
+          echo "UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          echo "booting $(xcrun simctl list devices | grep "$udid") at $(date -u +%T)"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - run: npm ci
+
+      # Nothing here is a credential: the host is this runner and the key is
+      # a label. The bundle is then searched for any supabase.co address.
+      - name: Build the web bundle against the stub, plant the session, sync iOS
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:8787
+          VITE_SUPABASE_ANON_KEY: sb_publishable_ci_never_sent
+          VITE_API_URL: http://127.0.0.1:8787/api
+        run: |
+          set -eu
+          npm run build
+          grep -rqF 'http://127.0.0.1:8787' dist/assets || { echo "control failed: the bundle does not carry the stub address"; exit 1; }
+          if grep -rqE '[a-z0-9]{20}\.supabase\.co' dist/assets; then echo "FAIL: the bundle names a real supabase.co project"; exit 1; fi
+          cp ../../.github/origin-probe/plant.js dist/origin-check-plant.js
+          python3 - dist/index.html <<'PY'
+          import sys
+          p = sys.argv[1]
+          s = open(p, encoding='utf-8').read()
+          assert s.count('<head>') == 1
+          open(p, 'w', encoding='utf-8').write(s.replace('<head>', '<head><script src="/origin-check-plant.js"></script>', 1))
+          PY
+          grep -c 'origin-check-plant.js' dist/index.html
+          npx cap sync ios
+          test -f ios/App/App/public/origin-check-plant.js || { echo "the planted script did not reach the iOS bundle"; exit 1; }
+
+      - name: Let this build reach the local stub over http (this build only)
+        run: |
+          set -eu
+          plutil -replace NSAppTransportSecurity -json '{"NSAllowsLocalNetworking":true}' ios/App/App/Info.plist
+          plutil -extract NSAppTransportSecurity json -o - ios/App/App/Info.plist
+
+      - name: Resolve Swift packages from the committed Package.resolved
+        run: |
+          set -eu -o pipefail
+          xcodebuild -resolvePackageDependencies -project ios/App/App.xcodeproj -scheme App \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" -onlyUsePackageVersionsFromResolvedFile 2>&1 | tail -n 3
+
+      - name: Build for the iOS Simulator (unsigned)
+        run: |
+          set -eu -o pipefail
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -disableAutomaticPackageResolution \
+            -onlyUsePackageVersionsFromResolvedFile \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tee "$RUNNER_TEMP/build.log" | { grep -E '^(error|\*\*)|: error:' || true; }
+          app=$(find "$RUNNER_TEMP/dd/Build/Products" -maxdepth 2 -name 'App.app' -type d | head -n 1)
+          test -n "$app"
+          echo "APP=$app" >> "$GITHUB_ENV"
+
+      - name: Start the stub
+        run: |
+          set -eu
+          out="$RUNNER_TEMP/origin"; mkdir -p "$out"
+          : > "$out/requests.jsonl"
+          nohup python3 ../../.github/origin-probe/stub.py "$out/requests.jsonl" "$STUB_PORT" > "$out/stub.out" 2>&1 &
+          for i in $(seq 1 20); do curl -s -o /dev/null "http://127.0.0.1:$STUB_PORT/health" && break; sleep 1; done
+          curl -sS "http://127.0.0.1:$STUB_PORT/health"; echo
+          # The runner's own probe is not a request the check counts.
+          : > "$out/requests.jsonl"
+          echo "OUT=$out" >> "$GITHUB_ENV"
+
+      - name: Launch the app and let it make its own requests; then the Safari control
+        run: |
+          set +e -u
+          udid="$UDID"
+          xcrun simctl bootstatus "$udid" -b | tail -n 1
+          xcrun simctl install "$udid" "$APP"
+          SIMCTL_CHILD_SA_LAUNCH_SMOKE=1 xcrun simctl launch "$udid" com.scanaction.app --sa-launch-smoke
+          data=$(xcrun simctl get_app_container "$udid" com.scanaction.app data)
+          marker="$data/tmp/launch-smoke.json"
+          for i in $(seq 1 90); do
+            grep -q '"x_client_platform": "ios"' "$OUT/requests.jsonl" 2>/dev/null && break
+            sleep 2
+          done
+          echo "launch marker: $(cat "$marker" 2>/dev/null || echo '(none)')"
+          xcrun simctl io "$udid" screenshot "$OUT/app.png" >/dev/null 2>&1 || true
+          # The control: a web page, in the same simulator's WebKit.
+          for attempt in 1 2; do
+            xcrun simctl openurl "$udid" "http://127.0.0.1:$STUB_PORT/control.html"
+            for i in $(seq 1 30); do grep -q '/api/control-probe' "$OUT/requests.jsonl" && break 2; sleep 2; done
+          done
+          xcrun simctl io "$udid" screenshot "$OUT/control.png" >/dev/null 2>&1 || true
+          xcrun simctl terminate "$udid" com.scanaction.app || true
+          exit 0
+
+      - name: Read the stub's log and decide
+        run: python3 ../../.github/origin-probe/check.py "$OUT/requests.jsonl" "$STUB_PORT"
+
+      - name: Keep the log and the screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: origin-check-${{ github.sha }}
+          path: ${{ runner.temp }}/origin
           if-no-files-found: ignore
           retention-days: 7

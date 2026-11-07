@@ -3,6 +3,7 @@ import { prisma } from '../prismaClient';
 import { formatErrorForLog } from '../redaction';
 import { IngestionService } from '../services/ingestion/ingestionService';
 import { uploadToSupabase } from '../services/storage/supabaseStorage';
+import { effectivePlan } from '../services/entitlement/clientPlatform';
 
 const ingestionService = new IngestionService(prisma);
 
@@ -25,17 +26,22 @@ export class UploadController {
 
       console.log(`[UploadController] Received upload request for user: ${userId} (Org: ${organizationId})`);
 
-      // Early guard for FREE plan limits
+      // Early guard for FREE plan limits. The plan is the one this request is
+      // served under: the iOS app is held to FREE whatever is stored
+      // (services/entitlement/clientPlatform.ts). Nothing here writes it.
       const organization = await prisma.organization.findUnique({
         where: { id: organizationId },
         select: { plan: true, scanCount: true }
       });
+      const plan = organization ? effectivePlan(organization.plan, req) : undefined;
 
-      if (organization?.plan === 'FREE' && organization.scanCount >= 10) {
+      // The message is neutral: no client renders it (the frontend maps the
+      // code, lib/uploadErrors.ts), and it names no plan to buy.
+      if (organization && plan === 'FREE' && organization.scanCount >= 10) {
         console.warn(`[UploadController] Limit reached for Org: ${organizationId}`);
         return res.status(403).json({
           error: 'LIMIT_REACHED',
-          message: 'Free plan limit reached (10 scans). Please upgrade to PRO.'
+          message: 'Scan limit reached (10 scans).'
         });
       }
 
@@ -49,7 +55,7 @@ export class UploadController {
       });
 
       const PRO_DAILY_LIMIT = 200;
-      if (organization?.plan === 'PRO' && dailyCount >= PRO_DAILY_LIMIT) {
+      if (plan === 'PRO' && dailyCount >= PRO_DAILY_LIMIT) {
         console.warn(`[UploadController] PRO Daily Limit reached for Org: ${organizationId}`);
         return res.status(429).json({
           error: 'DAILY_LIMIT_REACHED',

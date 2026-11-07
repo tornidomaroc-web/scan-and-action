@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,6 +9,7 @@ import { useBackDismiss } from '../native/useBackDismiss';
 import { Capacitor } from '@capacitor/core';
 import { reauthenticateWithApple, SocialSignInCancelled } from '../lib/socialAuth';
 import { useOptionalToast } from '../contexts/ToastContext';
+import { isIOSApp } from '../native/shell';
 
 /** Whether this user ever signed in with Apple (Supabase lists one identity per provider). */
 export const hasAppleIdentity = (user: { identities?: Array<{ provider?: string }> } | null | undefined): boolean =>
@@ -40,6 +41,21 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
   // Holds the RAW error code, not display text — translated at the render site
   // below, mirroring UploadModal (:155 raw -> :335 translated).
   const [error, setError] = useState<string | null>(null);
+
+  // The "deleting does not cancel billing" warning. The web and Android show
+  // it always, as before. The iOS app offers nothing to buy and names no
+  // billing (App Store 3.1.1), so there it shows only when the workspace
+  // really has an ACTIVE billing source: that person can still be charged
+  // after deleting, and must be told. Unknown (loading, failure) reads false.
+  const iosApp = isIOSApp();
+  const [activeBilling, setActiveBilling] = useState(false);
+  useEffect(() => {
+    if (!isOpen || !iosApp) return;
+    let cancelled = false;
+    accountService.hasActiveBilling().then((v) => { if (!cancelled) setActiveBilling(v); });
+    return () => { cancelled = true; };
+  }, [isOpen, iosApp]);
+  const showBillingWarning = !iosApp || activeBilling;
 
   // Mirror PaywallModal: let the native hardware back button dismiss the modal.
   useBackDismiss(isOpen && !isDeleting, onClose);
@@ -154,11 +170,13 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
             NOT `text-warning-text`, which measures only 3.61:1 on the warning
             tint and would REGRESS today's 4.84:1. This reads 5.22:1 / 7.80:1.
           */}
+          {showBillingWarning && (
           <div className="bg-warning-tint border-s-4 border-warning p-4 rounded-e-card">
             <p className="text-sm leading-relaxed text-ink-secondary">
               {s.deleteAccountSubscriptionWarning}
             </p>
           </div>
+          )}
 
           <div>
             <label htmlFor="delete-confirm" className="block text-label font-semibold text-ink-tertiary mb-2">

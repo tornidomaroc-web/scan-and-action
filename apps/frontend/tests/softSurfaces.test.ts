@@ -289,7 +289,7 @@ describe('PR 5: the classes that carry it', () => {
     const st = F('src/screens/SettingsScreen.tsx');
     expect(st).toContain('bg-danger-tint text-sm font-bold text-danger-text shadow-card');
     expect(st).not.toMatch(/bg-danger\b(?!-)/);
-    expect(st).toContain('text-ink-secondary">{s.manageAccount}');
+    expect(st).toContain('text-ink-secondary">{iosApp ? s.manageAccountApp : s.manageAccount}');
   });
 
   it('the sign-in cards are the ordinary card, shadow included', () => {

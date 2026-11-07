@@ -33,7 +33,7 @@ vi.mock('@capacitor/core', () => ({ Capacitor: { getPlatform: () => h.platform, 
 vi.mock('../src/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'u-1', email: TEST_EMAIL, identities: h.identities }, session: null, loading: false, signOut: vi.fn(async () => {}) }),
 }));
-vi.mock('../src/services/accountService', () => ({ accountService: { deleteAccount: h.deleteAccount } }));
+vi.mock('../src/services/accountService', () => ({ accountService: { deleteAccount: h.deleteAccount, hasActiveBilling: async () => false } }));
 vi.mock('../src/lib/socialAuth', () => {
   class SocialSignInCancelled extends Error {}
   return { reauthenticateWithApple: h.reauth, SocialSignInCancelled };

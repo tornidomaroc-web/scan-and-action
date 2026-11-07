@@ -30,7 +30,7 @@ vi.mock('../src/lib/paddle', () => ({
 // Force the WEB checkout path: the native anti-steering early-return must stay
 // out of the way here (it is exercised by the component's native branch, not
 // this guard test).
-vi.mock('../src/native/shell', () => ({ isNativePlatform: () => false }));
+vi.mock('../src/native/shell', () => ({ isNativePlatform: () => false, isIOSApp: () => false }));
 vi.mock('../src/native/useBackDismiss', () => ({ useBackDismiss: () => {} }));
 
 // Price ids are no longer env-stubbed — they are committed constants in

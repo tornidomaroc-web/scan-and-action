@@ -7,7 +7,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { formatPercent } from '../lib/formatNumber';
 import { getPaddle, PaddleNotConfiguredError } from '../lib/paddle';
 import { useBackDismiss } from '../native/useBackDismiss';
-import { isNativePlatform } from '../native/shell';
+import { isIOSApp, isNativePlatform } from '../native/shell';
 import { eyebrowClass, sheetClass } from './ui/Panel';
 import { primaryButtonClass } from './ui/PrimaryButton';
 import { Notice } from './ui/Notice';
@@ -126,6 +126,11 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  // The iOS app shows no plan sheet at all, not even the neutral one below:
+  // its body names Pro, and the iOS app offers nothing to buy (App Store
+  // 3.1.1). No iOS caller opens this sheet; this is the second line.
+  if (isIOSApp()) return null;
 
   // Google Play forbids non-Play payment UI for digital goods. Inside the native
   // app we never render the Paddle checkout, never call getPaddle()/Checkout.open,

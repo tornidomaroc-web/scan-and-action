@@ -8,6 +8,7 @@ import { formatErrorForLog } from '../redaction';
 import { RuleEngineService } from '../services/ruleEngineService';
 import { recheckAfterChange } from '../services/duplicateGroupRecheck';
 import { computeDashboardAnalytics } from '../services/dashboardStatsService';
+import { effectivePlan } from '../services/entitlement/clientPlatform';
 
 const ingestionService = new IngestionService(prisma);
 
@@ -275,7 +276,8 @@ export class DocumentController {
         totalCount: totalCount || 0,
         pendingCount: pendingCount || 0,
         averageConfidence: Number(averageConfidence),
-        plan: organization?.plan || 'FREE',
+        // Read-time view: the iOS app is served FREE (entitlement/clientPlatform.ts).
+        plan: effectivePlan(organization?.plan, req),
         // New additive analytics (PR-C1). Consumed by the dashboard in PR-C2.
         statusBreakdown: analytics.statusBreakdown,
         monthlySeries: analytics.monthlySeries,

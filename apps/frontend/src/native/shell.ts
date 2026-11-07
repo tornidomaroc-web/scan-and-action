@@ -13,6 +13,12 @@ import { SplashScreen } from '@capacitor/splash-screen';
 // status-bar icons stay legible against that header in both themes.
 export const isNativePlatform = (): boolean => Capacitor.isNativePlatform();
 
+// The iOS app specifically. The iOS app offers nothing to buy, so it shows no
+// plan, no Pro and no billing wording (App Store Review Guideline 3.1.1; the
+// backend holds it to the free tier too, entitlement/clientPlatform.ts).
+// Android keeps every isNativePlatform() branch exactly as before.
+export const isIOSApp = (): boolean => Capacitor.getPlatform() === 'ios';
+
 function isDarkMode(): boolean {
   return document.documentElement.classList.contains('dark');
 }

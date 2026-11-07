@@ -129,6 +129,7 @@ module.exports = {
         modal: '10000',         // UploadModal, CaptureSheet — modals that OPEN others
         'modal-top': '11000',   // PaywallModal, DeleteAccountModal — paint above a modal
         celebration: '12000',   // ProWelcome
+        toast: '13000',         // ToastContext region: above every sheet, so a toast is seen
       },
       fontFamily: {
         // Real loaded stack. Consistent with the body font-family in index.css.

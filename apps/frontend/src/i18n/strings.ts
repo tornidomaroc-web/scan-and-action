@@ -182,6 +182,9 @@ export const strings = {
     // Native-only neutral status copy (no pricing, no links, no upsell — anti-steering).
     freePlanLimitReached: 'You’ve reached the free limit of 10 scans.',
     freePlanSingleDoc: 'Free plan supports one document at a time.',
+    // iOS app only (isIOSApp): no plan, no "free", nothing to buy (App Store 3.1.1).
+    appScanLimitReached: 'You’ve used all 10 scans in this workspace.',
+    manageAccountApp: 'Manage your account and preferences.',
     // Daily safety cap (PRO, 200/day). Deliberately carries NO upsell: a PRO user
     // has nothing to upgrade to, and this copy also renders inside the native app.
     dailyLimitReached: 'Daily upload limit reached. Processing resumes in 24 hours.',
@@ -798,6 +801,8 @@ export const strings = {
     // Native-only neutral status copy (no pricing, no links, no upsell — anti-steering).
     freePlanLimitReached: 'Vous avez atteint la limite gratuite de 10 analyses.',
     freePlanSingleDoc: 'Le plan gratuit prend en charge un document à la fois.',
+    appScanLimitReached: 'Vous avez utilisé les 10 analyses de cet espace de travail.',
+    manageAccountApp: 'Gérez votre compte et vos préférences.',
     dailyLimitReached: 'Limite quotidienne d’envoi atteinte. Le traitement reprend dans 24 heures.',
     uploadFailedGeneric: 'Échec de l’envoi. Veuillez réessayer.',
     proAutoUnlock: 'Si votre espace de travail dispose de Pro, les fonctionnalités se débloquent ici automatiquement.',
@@ -1360,6 +1365,8 @@ export const strings = {
     // Native-only neutral status copy (no pricing, no links, no upsell — anti-steering).
     freePlanLimitReached: 'لقد وصلت إلى الحد المجاني وهو 10 عمليات مسح.',
     freePlanSingleDoc: 'الخطة المجانية تدعم مستندًا واحدًا في كل مرة.',
+    appScanLimitReached: 'استخدمت مساحة العمل هذه كل عمليات المسح المتاحة وعددها 10.',
+    manageAccountApp: 'إدارة حسابك والتفضيلات.',
     dailyLimitReached: 'تم الوصول إلى الحد اليومي للرفع. تستأنف المعالجة خلال 24 ساعة.',
     uploadFailedGeneric: 'فشل الرفع. يرجى المحاولة مرة أخرى.',
     proAutoUnlock: 'إذا كانت مساحة عملك تتضمّن Pro، فستُفعّل الميزات هنا تلقائيًا.',
