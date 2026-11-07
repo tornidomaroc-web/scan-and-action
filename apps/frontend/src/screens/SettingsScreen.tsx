@@ -26,7 +26,7 @@ import { IconTile } from '../components/ui/IconTile';
 import { Panel } from '../components/ui/Panel';
 import { useStrings } from '../i18n/useStrings';
 import { useTheme } from '../hooks/useTheme';
-import { isNativePlatform } from '../native/shell';
+import { isIOSApp, isNativePlatform } from '../native/shell';
 
 // Settings on the ledger home's visual language: four Panels (who you are,
 // preferences, plan, deletion), each row an IconTile beside its label and its
@@ -46,6 +46,7 @@ export const SettingsScreen = () => {
   // Safe extraction with fallback to {} if context is missing
   const context = useOutletContext<{ plan?: 'FREE' | 'PRO', onSuccess?: () => void }>() || {};
   const { plan = 'FREE' } = context;
+  const iosApp = isIOSApp();
 
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -63,7 +64,7 @@ export const SettingsScreen = () => {
     <div className="mx-auto w-full max-w-xl pb-6 animate-in fade-in duration-500">
       <header className="mb-6">
         <h1 className="text-title-lg font-semibold tracking-tight text-ink">{s.workspaceSettings}</h1>
-        <p className="mt-1 text-sm text-ink-secondary">{s.manageAccount}</p>
+        <p className="mt-1 text-sm text-ink-secondary">{iosApp ? s.manageAccountApp : s.manageAccount}</p>
       </header>
 
       <div className="space-y-4">
@@ -156,7 +157,11 @@ export const SettingsScreen = () => {
           </div>
         </Panel>
 
-        {/* The plan */}
+        {/* The plan. Not in the iOS app at all: the iOS app offers nothing to
+            buy and serves every workspace the free tier, so it shows no plan,
+            no Pro and no billing heading (App Store 3.1.1; the backend holds
+            it to that too). Android and the web keep this panel unchanged. */}
+        {!iosApp && (
         <Panel className="p-4">
           <h3 className={`${sectionTitle} flex items-center gap-3`}>
             <IconTile icon={CreditCard} tone="accent" size="sm" />
@@ -210,6 +215,7 @@ export const SettingsScreen = () => {
             </div>
           )}
         </Panel>
+        )}
 
         {/* Danger Zone — account deletion (required by Google Play & Apple).
             Platform-independent: shown on web and native alike. */}

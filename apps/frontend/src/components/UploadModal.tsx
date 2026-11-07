@@ -8,7 +8,7 @@ import { preprocessImage } from '../lib/imagePreprocess';
 import { PaywallModal } from './PaywallModal';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
-import { isNativePlatform } from '../native/shell';
+import { isIOSApp, isNativePlatform } from '../native/shell';
 import { translateUploadError } from '../lib/uploadErrors';
 import { formatFileMeta } from '../lib/formatFileMeta';
 import { useBackDismiss } from '../native/useBackDismiss';
@@ -174,10 +174,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
           setFileErrors(prev => ({ ...prev, [currentFile.name]: errorCode }));
 
           const isLimit = errorCode === 'LIMIT_REACHED';
-          if (isLimit && plan !== 'PRO') {
+          // iOS: neutral branch whatever plan it was told (see CaptureSheet).
+          if (isLimit && (plan !== 'PRO' || isIOSApp())) {
             if (isNativePlatform()) {
               // Native: pure status, NO upsell/paywall (anti-steering).
-              showToast(s.freePlanLimitReached, 'info');
+              // The iOS app names no plan at all, not even "free" (App Store 3.1.1).
+              showToast(isIOSApp() ? s.appScanLimitReached : s.freePlanLimitReached, 'info');
             } else {
               // Web: legitimate sell surface — surface the error and open the paywall.
               showToast(`${currentFile.name}: ${translateUploadError(errorCode, s)}`, 'error');

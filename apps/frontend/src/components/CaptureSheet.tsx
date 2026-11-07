@@ -13,7 +13,7 @@ import { ensureCameraPermission } from '../native/camera';
 import { hasScannerPlatform, scanDocument } from '../native/documentScanner';
 import { formatCount } from '../lib/formatNumber';
 import { useBackDismiss } from '../native/useBackDismiss';
-import { isNativePlatform } from '../native/shell';
+import { isIOSApp, isNativePlatform } from '../native/shell';
 import { translateUploadError } from '../lib/uploadErrors';
 import { formatFileMeta } from '../lib/formatFileMeta';
 
@@ -153,11 +153,14 @@ export const CaptureSheet = forwardRef<CaptureSheetHandle, CaptureSheetProps>(({
       const errorCode = err.message || '';
       const isLimit = errorCode === 'LIMIT_REACHED';
 
-      if (isLimit && plan !== 'PRO') {
+      // The iOS app takes the neutral branch whatever plan it was told: a PRO
+      // reading there can only be a backend from before the iOS clamp.
+      if (isLimit && (plan !== 'PRO' || isIOSApp())) {
         if (isNativePlatform()) {
           // Native: pure status, NO upsell/paywall (anti-steering). Show a neutral
           // limit message instead of the raw error code or a "Go PRO" prompt.
-          showToast(s.freePlanLimitReached, 'info');
+          // The iOS app names no plan at all, not even "free" (App Store 3.1.1).
+          showToast(isIOSApp() ? s.appScanLimitReached : s.freePlanLimitReached, 'info');
         } else {
           // Web: legitimate sell surface — surface the error and open the paywall.
           showToast(`${file.name}: ${translateUploadError(errorCode, s)}`, 'error');

@@ -730,15 +730,20 @@ describe('the binary audit runs on a pull request without secrets, and on the ar
       'apps/frontend/src/lib/authLinks.ts',
       'apps/frontend/src/screens/AuthConfirmScreen.tsx',
       '.github/launch-probe/**',
+      '.github/origin-probe/**',
+      'apps/frontend/src/services/apiConfig.ts',
+      'apps/frontend/src/native/shell.ts',
     ]);
     expect(wf.on.workflow_dispatch).toBeDefined();
     expect(text).not.toContain('pull_request_target');
     expect(wf.permissions).toEqual({ contents: 'read' });
   });
-  it('a macOS audit job, a Linux mutation job, a macOS launch screen job and a macOS universal link job, no environment, no secret reference, no signing', () => {
-    expect(Object.keys(wf.jobs)).toEqual(['audit', 'assemble-mutations', 'launch-geometry', 'universal-link']);
+  it('a macOS audit job, a Linux mutation job, a macOS launch screen job, a macOS universal link job and a macOS origin job, no environment, no secret reference, no signing', () => {
+    expect(Object.keys(wf.jobs)).toEqual(['audit', 'assemble-mutations', 'launch-geometry', 'universal-link', 'origin']);
     expect(wf.jobs['launch-geometry']['runs-on']).toBe('macos-26');
     expect(wf.jobs['universal-link']['runs-on']).toBe('macos-26');
+    expect(wf.jobs.origin['runs-on']).toBe('macos-26');
+    expect(wf.jobs.origin.steps.find((s) => s.name === 'Build for the iOS Simulator (unsigned)')?.run).toContain('CODE_SIGNING_ALLOWED=NO');
     const job = wf.jobs.audit;
     expect(job['runs-on']).toBe('macos-26');
     expect(wf.jobs['assemble-mutations']['runs-on']).toBe('ubuntu-latest');

@@ -20,6 +20,7 @@ import { useStrings } from '../i18n/useStrings';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { BrandMark } from './BrandMark';
 import { syncThemeColor } from '../lib/themeColor';
+import { isIOSApp } from '../native/shell';
 
 interface SidebarProps {
   onNewScan: () => void;
@@ -145,6 +146,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
               <p dir="auto" className="text-sm font-semibold text-ink" style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {userName}
               </p>
+              {/* No plan line in the iOS app (App Store 3.1.1). The rail is
+                  md and up, which the iPhone-only app never reaches today;
+                  this holds if that changes. */}
+              {!isIOSApp() && (
               <div className="flex items-center gap-1.5">
                 <p className="m-0 text-xs text-ink-muted">
                   {plan === 'PRO' ? s.proPlan : plan === 'FREE' ? s.freePlan : s.verifyingAccount}
@@ -155,6 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewScan, onRefreshPlan, plan
                   </button>
                 )}
               </div>
+              )}
             </div>
           </div>
           <div className="my-2 border-t border-divider" />

@@ -62,6 +62,7 @@ vi.mock('../src/lib/supabase', () => ({
 vi.mock('../src/native/shell', () => ({
   hideSplash: () => {},
   isNativePlatform: () => false,
+  isIOSApp: () => false,
 }));
 
 vi.mock('../src/services/documentService', () => ({

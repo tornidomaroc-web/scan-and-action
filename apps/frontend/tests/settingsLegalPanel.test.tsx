@@ -19,7 +19,7 @@ vi.mock('../src/contexts/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }));
 const native = vi.hoisted(() => ({ on: false }));
-vi.mock('../src/native/shell', () => ({ isNativePlatform: () => native.on }));
+vi.mock('../src/native/shell', () => ({ isNativePlatform: () => native.on, isIOSApp: () => false }));
 
 import { strings } from '../src/i18n/strings';
 import { LanguageProvider } from '../src/i18n/LanguageContext';

@@ -36,7 +36,7 @@ import { fullDayLabel, monthTitle, Lang } from '../lib/ledgerView';
 //   a queue with the reason in plain words  ReviewQueueScreen.tsx, DocumentDetailScreen.tsx issues
 //   one figure per currency, never summed   ledgerCore.ts, ledgerNoCrossCurrencySum.test.ts
 //   search by merchant, category, month     SearchScreen.tsx, receiptSearch.ts
-//   10 scans included, free                 uploadController.ts "Free plan limit reached (10 scans)"
+//   10 scans included, free                 uploadController.ts gate (FREE, scanCount >= 10)
 //   no card to start                        AuthScreen.tsx: email and password only
 //   the price is the checkout price         lib/pricing.ts PLAN_CATALOG (the same ids Paddle charges)
 //   one document at a time on Free          strings freePlanSingleDoc, uploadController

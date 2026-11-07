@@ -45,7 +45,7 @@ vi.mock('../src/lib/paddle', () => ({
 }));
 // WEB paywall path (the native branch has no price/checkout — it is covered by
 // nativeAntiSteering.test.tsx).
-vi.mock('../src/native/shell', () => ({ isNativePlatform: () => false }));
+vi.mock('../src/native/shell', () => ({ isNativePlatform: () => false, isIOSApp: () => false }));
 vi.mock('../src/native/useBackDismiss', () => ({ useBackDismiss: () => {} }));
 
 import { strings } from '../src/i18n/strings';

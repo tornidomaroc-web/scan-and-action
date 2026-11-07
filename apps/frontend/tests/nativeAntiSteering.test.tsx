@@ -34,7 +34,7 @@ const h = vi.hoisted(() => ({
 }));
 
 // THE gate under test — forced ON (native) for the whole file.
-vi.mock('../src/native/shell', () => ({ isNativePlatform: () => true }));
+vi.mock('../src/native/shell', () => ({ isNativePlatform: () => true, isIOSApp: () => false }));
 
 // A logged-in user with a valid id. This is deliberate: we prove that even a
 // fully-authenticated user (who WOULD be allowed to check out on the web) is

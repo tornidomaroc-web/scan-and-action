@@ -43,7 +43,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('@capacitor/core', () => ({
-  Capacitor: { isNativePlatform: () => h.native.value },
+  Capacitor: { isNativePlatform: () => h.native.value, getPlatform: () => (h.native.value ? 'android' : 'web') },
 }));
 vi.mock('@capacitor/app', () => ({
   App: {

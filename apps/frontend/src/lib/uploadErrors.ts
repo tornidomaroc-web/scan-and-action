@@ -13,9 +13,11 @@ type Strings = Record<string, string>;
 // ---------------------------------------------------------------------------
 // DO NOT render the backend's `message` field. Ever.
 // ---------------------------------------------------------------------------
-// The API's LIMIT_REACHED response also carries:
+// The API's LIMIT_REACHED response also carries a `message`. Until 2026-11-07 it was:
 //     message: 'Free plan limit reached (10 scans). Please upgrade to PRO.'
-// `uploadService` ignores it only because `data.error` takes precedence. That
+// It is neutral now ('Scan limit reached (10 scans).'), but the rule stands for
+// whatever the server writes next. `uploadService` ignores it only because
+// `data.error` takes precedence. That
 // precedence is load-bearing: "Please upgrade to PRO" is upsell copy, and this
 // text renders inside the NATIVE app, where steering users to a non-Play payment
 // flow is grounds for removal from Google Play. Swapping the code for the

@@ -174,8 +174,11 @@ describe('3. the Login screen links the privacy policy, on native, in both modes
 });
 
 describe('the native plan sheet states the rule, and promises nothing', () => {
+  // Android only since 2026-11-07: the iOS app shows no plan sheet at all
+  // (App Store 3.1.1), asserted at the end of this block.
   for (const lang of LANGS) {
     it(`${lang}: its three catalog strings render, no price, no "later"`, () => {
+      h.platform = 'android';
       mount(<PaywallModal isOpen onClose={() => {}} />, lang);
       const s = strings[lang];
       const text = document.body.textContent ?? '';
@@ -184,6 +187,15 @@ describe('the native plan sheet states the rule, and promises nothing', () => {
       expect(text).toContain(s.nativePlanDismiss);
       expect(text).not.toMatch(LATER[lang]);
       expect(text).not.toMatch(/\$|€|USD|checkout|paddle/i);
+    });
+  }
+  for (const lang of LANGS) {
+    it(`${lang}: the iOS app renders no plan sheet at all`, () => {
+      h.platform = 'ios';
+      mount(<PaywallModal isOpen onClose={() => {}} />, lang);
+      const text = document.body.textContent ?? '';
+      expect(text).not.toContain(strings[lang].nativePlanTitle);
+      expect(text).not.toContain(strings[lang].nativePlanBody);
     });
   }
 });

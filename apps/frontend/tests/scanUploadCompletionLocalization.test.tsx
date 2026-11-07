@@ -44,7 +44,7 @@ const AR_EXPECTED: Record<string, number[]> = {
 
 // Mock the native gate BEFORE importing anything that reads it: the FREE-card
 // bullets live in the WEB (non-native) branch of SettingsScreen.
-vi.mock('../src/native/shell', () => ({ isNativePlatform: () => false }));
+vi.mock('../src/native/shell', () => ({ isNativePlatform: () => false, isIOSApp: () => false }));
 vi.mock('../src/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { email: 'buyer@example.com' }, signOut: async () => {} }),
 }));

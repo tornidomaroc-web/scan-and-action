@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { withTimeout } from '../lib/fetchWithTimeout';
+import { isIOSApp } from '../native/shell';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -19,12 +20,21 @@ if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
  *  would hold every request behind it. Bounded like the requests themselves. */
 export const SESSION_TIMEOUT_MS = 10_000;
 
+/**
+ * Sent by the iOS app on every API request. The backend serves the iOS app
+ * the free tier (entitlement/clientPlatform.ts). WKWebView's own
+ * `Origin: capacitor://localhost` says the same; this header covers a request
+ * that reaches the backend without an Origin. The web and Android send none.
+ */
+export const CLIENT_PLATFORM_HEADER = 'X-Client-Platform';
+
 export const getAuthHeaders = async () => {
   const { data: { session } } = await withTimeout(supabase.auth.getSession(), SESSION_TIMEOUT_MS, 'auth session');
   const token = session?.access_token;
 
   return {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(isIOSApp() ? { [CLIENT_PLATFORM_HEADER]: 'ios' } : {}),
   };
 };
 
