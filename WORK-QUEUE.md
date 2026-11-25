@@ -70,6 +70,37 @@
   6. Submission, once design steps 1 to 5 are done and every APPLE TRACK blocker
      is closed.
 
+## NOW 2026-11-25 — iOS: no plan wording on any screen (#344); In-App Purchase is route A
+
+**App Review answered 1.1 (40) on 2026-11-25: not approved.** Instruments as
+in "NOW 2026-11-07" below: `/iris/v1/reviewSubmissions/<id>` → `state`, and
+the Resolution Center thread.
+
+**Decided by the owner, 2026-11-25: route A.** Pro is offered in the iOS app
+through In-App Purchase. This replaces "In-App Purchase is out of scope for
+now" in "NOW 2026-11-07". Two rulings that bind the later PRs:
+1. A sandbox purchase may grant Pro. It is stored with a sandbox flag and
+   ends on Apple's signed expiry.
+2. No second review account. At submission, the PRO override comes off the
+   existing review account in one controlled write, on the owner's word, with
+   a control proving that no other organisation changed. Not before.
+
+**PR #344 (frontend only).** No iOS screen or toast names a plan, Pro, a
+price, a subscription, billing or "unlimited", in en, fr or ar: the
+multi-file toast, the delete sheet and the legal pages have iOS texts. The
+web landing's Pro card says "Up to 200 scans every 24 hours". Anchor:
+`tests/iosNoPlanWording.test.tsx`, which renders every route `App.tsx`
+declares as the iOS app and fails when a declared route is not scanned. Its
+merge starts one `ios-testflight.yml` run (paths `apps/frontend/**`).
+
+**Merge order:** this board PR first (board-only: no `ios-testflight.yml`
+run), then #344.
+
+**Next on route A:** Apple transaction verification (backend), App Store
+Server Notifications (backend), then StoreKit and the iOS paywall (frontend
+and native). The iOS scan of #344 stays in force: the paywall extends its
+allowed words, and "unlimited" stays banned.
+
 ## NOW 2026-11-07 — the iOS app on the free tier; then 1.1 to App Review
 
 **Apple, read 2026-11-07.** App Review answered submission
@@ -83,7 +114,8 @@ page is the only place Apple's attached screenshot shows.
 
 **Decided by the owner, 2026-11-07.** The iOS app serves every workspace the
 free tier and names no plan, no Pro and nothing to buy. In-App Purchase is
-out of scope for now. The web and the Android app keep their behaviour. The
+out of scope for now (**SUPERSEDED 2026-11-25: route A, see "NOW
+2026-11-25"**). The web and the Android app keep their behaviour. The
 code is PR #342, "iOS: hold the app to the free tier"; anchors:
 `effectivePlan` in `apps/backend/src/services/entitlement/clientPlatform.ts`
 and `isIOSApp` in `apps/frontend/src/native/shell.ts`. Its merge starts one
