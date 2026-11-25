@@ -173,7 +173,8 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
           {showBillingWarning && (
           <div className="bg-warning-tint border-s-4 border-warning p-4 rounded-e-card">
             <p className="text-sm leading-relaxed text-ink-secondary">
-              {s.deleteAccountSubscriptionWarning}
+              {/* iOS: the same warning without naming a subscription (App Review). */}
+              {iosApp ? s.deleteAccountOutsideAppWarning : s.deleteAccountSubscriptionWarning}
             </p>
           </div>
           )}

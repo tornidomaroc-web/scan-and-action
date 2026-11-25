@@ -127,8 +127,21 @@ describe('the claims', () => {
     mount();
     const digits = (text().match(/\d[\d,.]*/g) ?? []).map((d) => d.replace(/[.,]$/, ''));
     // 7 and 2026: the example receipt's date; 5 and 3: its receipt counts.
-    const allowed = new Set(['10', '0', '9', '59', '3', '5', '7', '2026', '750.00', '2,989.92', '1,263.85']);
+    // 200 and 24: the Pro card's cap, witnessed in the next test by the backend that enforces it.
+    const allowed = new Set(['10', '0', '9', '59', '3', '5', '7', '2026', '750.00', '2,989.92', '1,263.85', '200', '24']);
     expect([...new Set(digits)].filter((d) => !allowed.has(d))).toEqual([]);
+  });
+
+  it('the Pro card states the cap the backend enforces (200 uploads in a rolling 24 hours), never "unlimited"', () => {
+    const upload = readFileSync(join(process.cwd(), '..', 'backend', 'src', 'controllers', 'uploadController.ts'), 'utf8');
+    expect(upload).toContain('const PRO_DAILY_LIMIT = 200;');
+    expect(upload).toContain('new Date(Date.now() - 24 * 60 * 60 * 1000)');
+    for (const lang of ['en', 'fr', 'ar'] as const) {
+      const line = strings[lang].landingProLine1;
+      expect(line, lang).toMatch(/(?<!\d)200(?!\d)/);
+      expect(line, lang).toMatch(/(?<!\d)24(?!\d)/);
+      expect(line, lang).not.toMatch(/unlimited|illimit|بلا حدود|غير محدود/i);
+    }
   });
 
   it('the mockups are the app\'s screens and say they are an example', () => {

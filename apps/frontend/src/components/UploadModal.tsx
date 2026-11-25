@@ -78,8 +78,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
     if (totalPotentialCount > 1) {
       if (plan === 'FREE') {
         if (isNativePlatform()) {
-          // Native: pure status, NO upsell/paywall (anti-steering).
-          showToast(s.freePlanSingleDoc, 'info');
+          // Native: pure status, NO upsell/paywall (anti-steering). The iOS
+          // app names no plan at all (App Review), so it says only what
+          // to do; Android keeps its sentence.
+          showToast(isIOSApp() ? s.appOneDocumentAtATime : s.freePlanSingleDoc, 'info');
         } else {
           setShowPaywall(true);
         }

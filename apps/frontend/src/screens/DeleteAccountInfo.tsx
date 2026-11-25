@@ -4,6 +4,7 @@ import { LandingHeader } from '../components/LandingHeader';
 import { legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, legalLinkClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
 import { Trash2 } from 'lucide-react';
 import { usePageHead } from '../lib/pageHead';
+import { isIOSApp } from '../native/shell';
 
 /**
  * Public, logged-out-reachable account & data deletion page.
@@ -75,6 +76,19 @@ const DeleteAccountInfo: React.FC = () => {
             </p>
           </section>
 
+          {/* Privacy section 7 links here, so the iOS app reaches this page; it
+              names no subscription there (App Review). The web keeps its
+              section (iosNoPlanWording.test.tsx holds both). */}
+          {isIOSApp() ? (
+          <section data-delete-info-outside="ios">
+            <h2 className={legalHeadingClass}>Before you delete</h2>
+            <p>
+              Deleting your account does <strong>not</strong> end anything arranged with us outside
+              this app. If you have such an arrangement, write to support@scan-action.com first.
+              Otherwise you may continue to be charged.
+            </p>
+          </section>
+          ) : (
           <section>
             <h2 className={legalHeadingClass}>Subscriptions</h2>
             <p>
@@ -83,9 +97,10 @@ const DeleteAccountInfo: React.FC = () => {
               continue to be charged.
             </p>
           </section>
+          )}
 
           <footer className={legalFooterClass}>
-            Last updated: October 9, 2026 | Contact: support@scan-action.com
+            Last updated: {isIOSApp() ? 'November 25, 2026' : 'October 9, 2026'} | Contact: support@scan-action.com
           </footer>
         </div>
       </div>

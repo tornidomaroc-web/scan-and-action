@@ -3,6 +3,7 @@ import { LandingHeader } from '../components/LandingHeader';
 import { legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
 import { ShieldCheck } from 'lucide-react';
 import { usePageHead } from '../lib/pageHead';
+import { isIOSApp } from '../native/shell';
 
 const TermsOfService: React.FC = () => {
   usePageHead({ title: 'Terms of Service | Scan & Action', description: 'The terms under which Scan & Action is offered: your account, payment and refunds, and the limits of our liability.', path: '/terms' });
@@ -44,10 +45,20 @@ const TermsOfService: React.FC = () => {
             <p>You are responsible for maintaining the confidentiality of your account and for all activities that occur under your account. You must provide accurate and complete information.</p>
           </section>
 
+          {/* The iOS app takes no payment and names no plan (App Review), so
+              section 4 there says only what is true inside it; the web keeps its
+              text (iosNoPlanWording.test.tsx holds both). */}
+          {isIOSApp() ? (
+            <section data-terms-fees="ios">
+              <h2 className={legalHeadingClass}>4. Fees</h2>
+              <p>The Scan &amp; Action iOS app takes no payment, and nothing is sold inside it. Any fee agreed with us outside this app is governed by the terms under which it was agreed. Questions about fees go to support@scan-action.com.</p>
+            </section>
+          ) : (
           <section>
             <h2 className={legalHeadingClass}>4. Payment Terms</h2>
             <p>Subscription fees are billed in advance. Our order process is conducted by our online reseller Paddle.com; Paddle is the Merchant of Record for all our orders. You agree to provide valid payment information and authorize the relevant fees to be charged. Refunds are governed by our Refund Policy, which includes a 14-day money-back guarantee.</p>
           </section>
+          )}
 
           <section>
             <h2 className={legalHeadingClass}>5. Limitation of Liability</h2>
@@ -60,7 +71,7 @@ const TermsOfService: React.FC = () => {
           </section>
 
           <footer className={legalFooterClass}>
-            Last updated: September 29, 2026 | Contact: support@scan-action.com
+            Last updated: {isIOSApp() ? 'November 25, 2026' : 'September 29, 2026'} | Contact: support@scan-action.com
           </footer>
         </div>
       </div>

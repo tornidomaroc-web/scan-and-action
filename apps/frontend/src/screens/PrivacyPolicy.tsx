@@ -5,6 +5,7 @@ import { Eye } from 'lucide-react';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { usePageHead } from '../lib/pageHead';
+import { isIOSApp } from '../native/shell';
 
 const PrivacyPolicy: React.FC = () => {
   usePageHead({ title: 'Privacy Policy | Scan & Action', description: 'What Scan & Action collects when you scan a receipt, where it is kept, how Google or Apple sign-in data is used, and how to delete it all.', path: '/privacy' });
@@ -26,6 +27,10 @@ const PrivacyPolicy: React.FC = () => {
   // noHardcodedUserFacingText.test.ts.
   const s = useStrings();
   const { language } = useLanguage();
+  // The iOS app takes no payment and names no plan (App Review): three
+  // sentences below say what is true there. The web keeps its text, Paddle
+  // included (iosNoPlanWording.test.tsx holds both).
+  const iosApp = isIOSApp();
   // The body is English under the deferral above, so it is pinned LTR: under
   // the Arabic UI it inherited dir="rtl" and rendered right-aligned with its
   // full stops on the wrong side (".security"), seen on the Android emulator
@@ -50,7 +55,7 @@ const PrivacyPolicy: React.FC = () => {
 
           <section>
             <h2 className={legalHeadingClass}>2. How We Use Data</h2>
-            <p>Your data is used to process documents, provide AI-powered insights, manage your subscription, and communicate important service updates. We do not sell your personal data.</p>
+            <p>Your data is used to process documents, provide AI-powered insights, {iosApp ? 'manage your account' : 'manage your subscription'}, and communicate important service updates. We do not sell your personal data.</p>
           </section>
 
           <section>
@@ -60,12 +65,14 @@ const PrivacyPolicy: React.FC = () => {
 
           <section data-privacy-sign-in dir={language === 'ar' ? 'rtl' : 'ltr'} lang={language}>
             <h2 className={legalHeadingClass}>4. {s.privacySignInTitle}</h2>
-            <p>{s.privacySignInBody}</p>
+            <p>{iosApp ? s.privacySignInBodyApp : s.privacySignInBody}</p>
           </section>
 
           <section>
             <h2 className={legalHeadingClass}>5. Third Party Services</h2>
-            <p>Document analysis is performed via Google Gemini Vision API. Data shared with this provider is limited to the minimum required for extraction and is subject to their privacy policies. Payments are processed by Paddle.com, our Merchant of Record, which handles your payment details under its own privacy policy.</p>
+            <p>Document analysis is performed via Google Gemini Vision API. Data shared with this provider is limited to the minimum required for extraction and is subject to their privacy policies.{iosApp
+              ? ' The iOS app takes no payment and collects no payment details.'
+              : ' Payments are processed by Paddle.com, our Merchant of Record, which handles your payment details under its own privacy policy.'}</p>
           </section>
 
           <section>
@@ -75,7 +82,9 @@ const PrivacyPolicy: React.FC = () => {
 
           <section>
             <h2 className={legalHeadingClass}>7. Account &amp; Data Deletion</h2>
-            <p>You can permanently delete your account at any time from Settings &rarr; Delete account inside the app, or from the web at <a href="/delete-account" className={legalLinkClass}>www.scan-action.com/delete-account</a>. Deletion permanently removes your account, your workspace, and all documents, scans, extracted data, and reports it contains &mdash; from both our database and file storage &mdash; and deletes your authentication identity. This action cannot be undone. Deleting your account does not cancel an active subscription; if you have one, cancel it by writing to support@scan-action.com.</p>
+            <p>You can permanently delete your account at any time from Settings &rarr; Delete account inside the app, or from the web at <a href="/delete-account" className={legalLinkClass}>www.scan-action.com/delete-account</a>. Deletion permanently removes your account, your workspace, and all documents, scans, extracted data, and reports it contains &mdash; from both our database and file storage &mdash; and deletes your authentication identity. This action cannot be undone.{iosApp
+              ? ' Deleting your account does not end anything arranged with us outside this app; if you have such an arrangement, write to support@scan-action.com.'
+              : ' Deleting your account does not cancel an active subscription; if you have one, cancel it by writing to support@scan-action.com.'}</p>
           </section>
 
           <section>
@@ -84,7 +93,7 @@ const PrivacyPolicy: React.FC = () => {
           </section>
 
           <footer className={legalFooterClass}>
-            Last updated: October 9, 2026 | Contact: support@scan-action.com
+            Last updated: {isIOSApp() ? 'November 25, 2026' : 'October 9, 2026'} | Contact: support@scan-action.com
           </footer>
         </div>
       </div>

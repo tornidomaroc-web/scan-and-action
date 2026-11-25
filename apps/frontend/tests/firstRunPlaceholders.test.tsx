@@ -209,7 +209,9 @@ describe('the pages the Login links open read left to right where they are Engli
     expect(body.textContent).toContain('Data Collected');
     const signIn = container.querySelector<HTMLElement>('[data-privacy-sign-in]')!;
     expect([signIn.getAttribute('dir'), signIn.getAttribute('lang')]).toEqual(['rtl', 'ar']);
-    expect(signIn.textContent).toContain(strings.ar.privacySignInBody);
+    // Rendered as the iOS app (beforeEach), which reads the same section
+    // without the web payment clause (iosNoPlanWording.test.tsx).
+    expect(signIn.textContent).toContain(strings.ar.privacySignInBodyApp);
   });
 
   it('en: the sign-in section is LTR too', async () => {
