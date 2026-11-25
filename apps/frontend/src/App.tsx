@@ -17,6 +17,8 @@ import { PrivacyPolicy } from './screens/PrivacyPolicy';
 import { RefundPolicy } from './screens/RefundPolicy';
 import { DeleteAccountInfo } from './screens/DeleteAccountInfo';
 import { SupportPage } from './screens/SupportPage';
+import { PrivacyPolicyApp } from './screens/PrivacyPolicyApp';
+import { SupportPageApp } from './screens/SupportPageApp';
 import { useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { NativeBackButton } from './native/NativeBackButton';
@@ -126,6 +128,12 @@ function App() {
             <Route path="/delete-account" element={<DeleteAccountInfo />} />
             {/* Public support page: the App Store Connect Support URL. */}
             <Route path="/support" element={<SupportPage />} />
+            {/* The two store pages, for App Store Connect's Privacy Policy and
+                Support URLs: the iOS text on every platform, under a header
+                with no links, so nothing on them leads to the priced landing
+                (screens/PrivacyPolicyApp.tsx, screens/SupportPageApp.tsx). */}
+            <Route path="/privacy/app" element={<PrivacyPolicyApp />} />
+            <Route path="/support/app" element={<SupportPageApp />} />
 
             {/* Where the confirmation and password-reset emails land, signed
                 in or not, on the web and (as a universal link / App Link)

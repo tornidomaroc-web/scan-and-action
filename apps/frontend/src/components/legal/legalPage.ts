@@ -16,7 +16,11 @@ import { panelClass } from '../ui/Panel';
 // section 4 of the privacy policy follows the reader's language, Arabic too.
 // ============================================================================
 
-export const legalPageClass = 'mx-auto max-w-4xl px-4 pb-16 pt-8 font-sans text-ink sm:px-6 sm:pt-12';
+// The date the iOS texts of the legal pages last changed. One value, so the
+// iOS footers (in the app and on the store pages) cannot disagree.
+export const IOS_LEGAL_UPDATED = 'November 25, 2026';
+
+export const legalPageClass ='mx-auto max-w-4xl px-4 pb-16 pt-8 font-sans text-ink sm:px-6 sm:pt-12';
 export const legalTitleRowClass = 'mb-6 flex items-center gap-4';
 export const legalIconClass = 'flex-none rounded-tile bg-accent-tint p-3 text-accent-text';
 export const legalTitleClass = 'text-[1.75rem] font-semibold leading-tight tracking-tight text-ink sm:text-[2.25rem]';

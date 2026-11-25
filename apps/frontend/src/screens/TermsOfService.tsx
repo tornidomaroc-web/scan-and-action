@@ -1,6 +1,6 @@
 import React from 'react';
 import { LandingHeader } from '../components/LandingHeader';
-import { legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
+import { IOS_LEGAL_UPDATED, legalBodyClass,legalFooterClass, legalHeadingClass, legalIconClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
 import { ShieldCheck } from 'lucide-react';
 import { usePageHead } from '../lib/pageHead';
 import { isIOSApp } from '../native/shell';
@@ -46,12 +46,13 @@ const TermsOfService: React.FC = () => {
           </section>
 
           {/* The iOS app takes no payment and names no plan (App Review), so
-              section 4 there says only what is true inside it; the web keeps its
-              text (iosNoPlanWording.test.tsx holds both). */}
+              section 4 there says only what is true of it, and nothing about
+              a fee, an arrangement or a charge anywhere else; the web keeps
+              its text (iosNoPlanWording.test.tsx holds both). */}
           {isIOSApp() ? (
-            <section data-terms-fees="ios">
-              <h2 className={legalHeadingClass}>4. Fees</h2>
-              <p>The Scan &amp; Action iOS app takes no payment, and nothing is sold inside it. Any fee agreed with us outside this app is governed by the terms under which it was agreed. Questions about fees go to support@scan-action.com.</p>
+            <section data-terms-payment="ios">
+              <h2 className={legalHeadingClass}>4. Payment</h2>
+              <p>The Scan &amp; Action iOS app takes no payment and sells nothing.</p>
             </section>
           ) : (
           <section>
@@ -71,7 +72,7 @@ const TermsOfService: React.FC = () => {
           </section>
 
           <footer className={legalFooterClass}>
-            Last updated: {isIOSApp() ? 'November 25, 2026' : 'September 29, 2026'} | Contact: support@scan-action.com
+            Last updated: {isIOSApp() ? IOS_LEGAL_UPDATED : 'September 29, 2026'} | Contact: support@scan-action.com
           </footer>
         </div>
       </div>
