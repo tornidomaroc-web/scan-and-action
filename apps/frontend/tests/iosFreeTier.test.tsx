@@ -218,11 +218,11 @@ describe('3. CONTROLS: the scan catches what it must', () => {
 });
 
 describe('4. the delete sheet warns about billing on iOS only when billing is ACTIVE', () => {
-  it('iOS with an ACTIVE billing source: the warning shows', async () => {
+  it('iOS with an ACTIVE billing source: the warning shows, in words that name no subscription', async () => {
     h.billing = true;
     render(<DeleteAccountModal isOpen onClose={() => {}} onDeleted={() => {}} />, 'en');
-    await vi.waitFor(() => expect(bodyText()).toContain(strings.en.deleteAccountSubscriptionWarning));
-    expect(bodyText()).toContain(strings.en.deleteAccountSubscriptionWarning);
+    await vi.waitFor(() => expect(bodyText()).toContain(strings.en.deleteAccountOutsideAppWarning));
+    expect(bodyText()).not.toContain(strings.en.deleteAccountSubscriptionWarning);
     const me = h.calls.find((c) => c.url.endsWith('/user/me'))!;
     expect(me.headers[CLIENT_PLATFORM_HEADER]).toBe('ios');
   });
