@@ -14,9 +14,16 @@ import { join } from 'node:path';
 // the paths a route only reaches by acting: the multi-file pick, the scan
 // limit, the delete sheet with and without an ACTIVE billing source, the
 // sign-up and forgot-password modes. It reads every text node and every
-// aria-label, title, placeholder and alt, and fails on any word in IOS_BANNED.
+// aria-label, title, placeholder and alt, and fails on any word in IOS_BANNED,
+// or on any word in IOS_HINTS: a fee, an arrangement or a charge outside the
+// app (one ruled exemption: the delete sheet's ACTIVE-billing warning).
 //
-// Three controls, each of which fails if the scan stops working:
+// The two store pages (/privacy/app, /support/app) are also scanned as the web
+// and as Android, since a reviewer opens them in a browser: no word, no hint,
+// no link in their header, and no link that leaves them.
+//
+// Controls, each of which fails if the scan stops working (D and E cover the
+// hints and the store headers):
 //   A. a planted screen holding "Unlimited" (and its fr and ar forms) is
 //      caught, so the scan is not blind;
 //   B. the routes scanned equal the routes App.tsx declares, so a route added
@@ -144,6 +151,35 @@ export function iosHits(text: string): string[] {
   return [...text.matchAll(g)].map((m) => m[0]);
 }
 
+// The HINT words: no iOS text may say that a fee, an arrangement or a charge
+// exists somewhere outside the app (App Review). The owner's list:
+// outside this app, arranged, charged, fee, agreed; in en, fr and ar. Exact
+// forms, not stems, where a stem is an ordinary word on these screens:
+// "agree" and "agreement" are the Terms' acceptance ("you agree to be bound"),
+// and "accordance" is its governing-law clause, so neither is a hint.
+export const IOS_HINTS = new RegExp(
+  [
+    // en
+    String.raw`outside (?:this|the) app\p{L}*`,
+    String.raw`(?<!\p{L})(?:arrang(?:e|ed|es|ing|ements?)|charg(?:e|es|ed|ing)|fees?|agreed)(?!\p{L})`,
+    // fr
+    String.raw`(?:en )?dehors de (?:cette |l['’] ?)app\p{L}*|hors de l['’] ?app\p{L}*`,
+    String.raw`(?<!\p{L})(?:convenue?s?|arrangements?|débitée?s?|prélev\p{L}*|frais)(?!\p{L})`,
+    // ar. Stems, as in IOS_BANNED: the language attaches و ال ب to the word.
+    String.raw`خارج (?:هذا )?التطبيق|اتفق|متفق|اتفاق|خصم|رسوم|تحصيل`,
+  ].join('|'),
+  'iu',
+);
+
+export function iosHintHits(text: string): string[] {
+  const g = new RegExp(IOS_HINTS.source, 'giu');
+  return [...text.matchAll(g)].map((m) => m[0]);
+}
+
+/** Every link-like thing inside an element: an anchor, anything with an href, a role="link". */
+export const linksIn = (el: Element | null): Element[] =>
+  el ? [...el.querySelectorAll('a, [href], [role="link"]')] : [];
+
 /** Everything a person sees or VoiceOver reads on the current document. */
 function visibleText(): string {
   const attrs = [...document.body.querySelectorAll('[aria-label],[title],[placeholder],[alt]')].flatMap((el) =>
@@ -189,6 +225,12 @@ interface Case {
   marker: (lang: Lang) => string;
   /** Optional steps that reach a state only an action shows. */
   act?: (lang: Lang) => Promise<void>;
+  /**
+   * The ONE text the hint scan may skip on this screen, by the owner's ruling:
+   * the delete sheet's warning to a workspace with an ACTIVE billing source.
+   * It must be on the screen (asserted), and only it is skipped.
+   */
+  hintExempt?: (lang: Lang) => string;
 }
 
 // One entry per route App.tsx declares (control B compares the keys).
@@ -208,11 +250,13 @@ export const ROUTES: Record<string, Case[]> = {
       },
     },
   ],
-  '/terms': [{ name: 'Terms', url: '/terms', auth: 'out', marker: () => '4. Fees' }],
+  '/terms': [{ name: 'Terms', url: '/terms', auth: 'out', marker: () => '4. Payment' }],
   '/privacy': [{ name: 'Privacy', url: '/privacy', auth: 'out', marker: () => 'collects no payment details' }],
+  '/privacy/app': [{ name: 'Privacy, the store page', url: '/privacy/app', auth: 'out', marker: () => 'This policy covers the Scan & Action app for iPhone and iPad.' }],
   '/refund': [{ name: 'Refund', url: '/refund', auth: 'out', marker: () => 'Nothing Is Sold in This App' }],
-  '/delete-account': [{ name: 'Delete-account page', url: '/delete-account', auth: 'out', marker: () => 'Before you delete' }],
+  '/delete-account': [{ name: 'Delete-account page', url: '/delete-account', auth: 'out', marker: () => 'What gets deleted' }],
   '/support': [{ name: 'Support', url: '/support', auth: 'out', marker: () => 'support@scan-action.com' }],
+  '/support/app': [{ name: 'Support, the store page', url: '/support/app', auth: 'out', marker: () => 'or by writing to support@scan-action.com from the address you sign in with' }],
   '/auth/confirm': [{ name: 'email link landing, no token', url: '/auth/confirm', auth: 'out', marker: (l) => strings[l].authConfirmInvalidTitle }],
   [RESET_PASSWORD_PATH]: [{ name: 'password reset', url: RESET_PASSWORD_PATH, auth: 'recovering', marker: (l) => strings[l].resetPasswordTitle }],
   dashboard: [
@@ -254,6 +298,7 @@ export const ROUTES: Record<string, Case[]> = {
     ...([false, true] as const).map((billing): Case => ({
       name: `delete sheet, ${billing ? 'ACTIVE' : 'no'} billing source`, url: '/settings', auth: 'in',
       marker: (l) => (billing ? strings[l].deleteAccountOutsideAppWarning : strings[l].deleteAccountWarningTitle),
+      hintExempt: billing ? (l) => strings[l].deleteAccountOutsideAppWarning : undefined,
       act: async (l) => {
         h.billing = billing;
         click(byText('button', strings[l].deleteAccount) ?? document.body.querySelector('[data-danger-zone] button'));
@@ -302,6 +347,13 @@ describe('the iOS app: no plan, price or unlimited word on any screen, in en, fr
           expect(text.trim().length, 'something rendered').toBeGreaterThan(0);
           expect(text, 'the intended screen rendered').toContain(c.marker(lang));
           expect(iosHits(text)).toEqual([]);
+          let hintText = text;
+          if (c.hintExempt) {
+            const exempt = c.hintExempt(lang);
+            expect(text, 'the exempt warning is on this screen').toContain(exempt);
+            hintText = text.split(exempt).join('');
+          }
+          expect(iosHintHits(hintText), 'a fee, arrangement or charge outside the app').toEqual([]);
         });
       }
     }
@@ -339,6 +391,108 @@ describe('CONTROL A: the scan is not blind', () => {
   });
 });
 
+// ── THE STORE PAGES ──────────────────────────────────────────────────────────
+// /privacy/app and /support/app are the addresses App Store Connect gives a
+// reviewer, who opens them in a BROWSER: so they are scanned as the web and as
+// Android too, not only as the iOS app. Their header holds no link, and every
+// link on them stays inside these two pages plus the support address, so no
+// chain of taps from them reaches the priced landing.
+const STORE_PAGES = ['/privacy/app', '/support/app'] as const;
+const STORE_LINKS = ['/privacy/app', '/support/app', 'mailto:support@scan-action.com'];
+
+describe('THE STORE PAGES: every platform, no plan word, no hint, no header link, no link out', () => {
+  for (const platform of ['web', 'ios', 'android'] as const) {
+    for (const url of STORE_PAGES) {
+      for (const lang of LANGS) {
+        it(`${platform} ${url} · ${lang}`, async () => {
+          h.platform = platform;
+          await renderApp(url, lang, 'out');
+          const marker = ROUTES[url][0].marker(lang);
+          await vi.waitFor(() => expect(visibleText()).toContain(marker), { timeout: 3000 });
+          expect(window.location.pathname, 'no redirect').toBe(url);
+          const text = visibleText();
+          expect(iosHits(text)).toEqual([]);
+          expect(iosHintHits(text)).toEqual([]);
+          const header = document.body.querySelector('[data-store-header]');
+          expect(header, 'the store header').not.toBeNull();
+          expect(document.body.querySelectorAll('header')).toHaveLength(1);
+          expect(linksIn(header), 'a link in the store header').toEqual([]);
+          for (const el of linksIn(document.body)) {
+            const href = el.getAttribute('href') ?? `role=${el.getAttribute('role')}`;
+            expect(STORE_LINKS, `${url} links to ${href}`).toContain(href);
+          }
+        });
+      }
+    }
+  }
+});
+
+describe('CONTROL D: the hint scan is not blind', () => {
+  const PLANTED_HINT: Record<Lang, string> = {
+    en: ' Any fee agreed with us outside this app is governed by the terms under which it was agreed.',
+    fr: ' Tout frais convenu avec nous en dehors de cette app reste dû.',
+    ar: ' الرسوم المتفق عليها خارج هذا التطبيق تبقى مستحقة.',
+  };
+  for (const lang of LANGS) {
+    it(`${lang}: a hint sentence planted in an iOS string is caught on the store page, and the page is clean once it is removed`, async () => {
+      const table = strings[lang] as Record<string, string>;
+      const original = table.privacySignInBodyApp;
+      try {
+        table.privacySignInBodyApp = original + PLANTED_HINT[lang];
+        await renderApp('/privacy/app', lang, 'out');
+        await vi.waitFor(() => expect(visibleText()).toContain(PLANTED_HINT[lang].trim()));
+        expect(iosHintHits(visibleText()).length).toBeGreaterThan(0);
+      } finally {
+        table.privacySignInBodyApp = original;
+      }
+      root!.unmount(); container!.remove();
+      await renderApp('/privacy/app', lang, 'out');
+      await vi.waitFor(() => expect(visibleText()).toContain(ROUTES['/privacy/app'][0].marker(lang)));
+      expect(iosHintHits(visibleText())).toEqual([]);
+    });
+  }
+  it('the sentences taken off the iOS pages on 2026-11-25 are each caught', () => {
+    for (const s of [
+      'Any fee agreed with us outside this app is governed by the terms under which it was agreed.',
+      'Deleting your account does not end anything arranged with us outside this app; if you have such an arrangement, write to support@scan-action.com.',
+      'Otherwise you may continue to be charged.',
+      'If you have a question about any charge connected with your Scan & Action account',
+      'Questions about fees go to support@scan-action.com.',
+    ]) expect(iosHintHits(s), s).not.toEqual([]);
+  });
+  it('the kept delete-sheet warning is caught in every language, so its exemption is a real one', () => {
+    for (const lang of LANGS) expect(iosHintHits(strings[lang].deleteAccountOutsideAppWarning).length, lang).toBeGreaterThan(0);
+  });
+  it('and it does not fire on the Terms acceptance words', () => {
+    expect(iosHintHits('you agree to be bound · an agreement between you · in accordance with the laws · in the app · Chargement')).toEqual([]);
+  });
+});
+
+describe('CONTROL E: a link in a store header is caught', () => {
+  for (const url of STORE_PAGES) {
+    it(`${url}: a planted <a href="/"> and a planted role="link" are each reported`, async () => {
+      h.platform = 'web';
+      await renderApp(url, 'en', 'out');
+      const header = document.body.querySelector('[data-store-header]')!;
+      expect(linksIn(header)).toEqual([]);
+      const a = document.createElement('a');
+      a.setAttribute('href', '/');
+      header.appendChild(a);
+      expect(linksIn(header)).toHaveLength(1);
+      a.remove();
+      const span = document.createElement('span');
+      span.setAttribute('role', 'link');
+      header.appendChild(span);
+      expect(linksIn(header)).toHaveLength(1);
+    });
+  }
+  it('the landing header the store pages replace links to "/", and the check reports it', async () => {
+    h.platform = 'web';
+    await renderApp('/support', 'en', 'out');
+    expect(linksIn(document.body.querySelector('[data-landing-header]')).map((el) => el.getAttribute('href'))).toContain('/');
+  });
+});
+
 describe('CONTROL B: every route App.tsx declares is scanned', () => {
   it('the scanned routes equal the declared routes', () => {
     const src = readFileSync(join(process.cwd(), 'src', 'App.tsx'), 'utf8');
@@ -366,6 +520,14 @@ describe('CONTROL C: the web and Android keep their text', () => {
       expect(visibleText()).toContain(sentence);
     });
   }
+  it('web /privacy: the scanner reports its five words there, as on main before this change', async () => {
+    // Paddle in sections 4 and 5, "subscribe" in section 4 (en), and
+    // "subscription" in sections 2 and 7.
+    h.platform = 'web';
+    await renderApp('/privacy', 'en', 'out');
+    const hits = iosHits(visibleText()).map((w) => w.toLowerCase()).sort();
+    expect(hits).toEqual(['paddle', 'paddle', 'subscribe', 'subscription', 'subscription']);
+  });
   it('web /privacy and /delete-account keep their subscription sentences', async () => {
     h.platform = 'web';
     await renderApp('/privacy', 'en', 'out');

@@ -7,6 +7,7 @@ import { createRoot, Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { SupportPage } from '../src/screens/SupportPage';
+import { SupportPageApp } from '../src/screens/SupportPageApp';
 
 // ============================================================================
 // /support is the App Store Connect Support URL. Apple's field reference, read
@@ -65,11 +66,29 @@ describe('SupportPage', () => {
     expect('a — b').toMatch(/[-‐-―−]/);
   });
 
-  it('is routed at /support, outside the signed-in Layout', () => {
+  it('/support/app: the same answers, links only to /privacy/app and the address, and no dash', () => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    flushSync(() => root.render(<LanguageProvider><MemoryRouter><SupportPageApp /></MemoryRouter></LanguageProvider>));
+    const text = pageText();
+    expect(text.length).toBeGreaterThan(300);
+    expect(text).toContain('Why the month shows more than one total');
+    const hrefs = [...container.querySelectorAll('a')].map((a) => a.getAttribute('href'));
+    expect(hrefs.sort()).toEqual(['/privacy/app', 'mailto:support@scan-action.com']);
+    expect(text.split('support@scan-action.com').join('')).not.toMatch(/[-‐-―−]/);
+  });
+
+  it('is routed at /support and /support/app, outside the signed-in Layout', () => {
     const app = readFileSync(join(CWD, 'src', 'App.tsx'), 'utf8');
     const route = app.indexOf('<Route path="/support"');
     const guard = app.indexOf('{user ? (');
     expect(route, '/support is not routed').toBeGreaterThan(-1);
     expect(route, '/support must be reachable logged out, before the user guard').toBeLessThan(guard);
+    for (const path of ['/support/app', '/privacy/app']) {
+      const at = app.indexOf(`<Route path="${path}"`);
+      expect(at, `${path} is not routed`).toBeGreaterThan(-1);
+      expect(at, `${path} must be reachable logged out`).toBeLessThan(guard);
+    }
   });
 });

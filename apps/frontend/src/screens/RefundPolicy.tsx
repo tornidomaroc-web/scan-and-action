@@ -1,7 +1,7 @@
 import React from 'react';
 import { LandingHeader } from '../components/LandingHeader';
-import { legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, legalLinkClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
-import { CreditCard } from 'lucide-react';
+import { IOS_LEGAL_UPDATED, legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, legalLinkClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
+import { CreditCard, ReceiptText } from 'lucide-react';
 import { usePageHead } from '../lib/pageHead';
 import { isIOSApp } from '../native/shell';
 
@@ -23,7 +23,8 @@ const RefundPolicy: React.FC = () => {
       <div className={legalPageClass}>
         <div className={legalTitleRowClass}>
           <div className={legalIconClass}>
-            <CreditCard size={32} />
+            {/* No card on iOS: the app takes no payment there. */}
+            {isIOSApp() ? <ReceiptText size={32} /> : <CreditCard size={32} />}
           </div>
           <h1 className={legalTitleClass}>Refund Policy</h1>
         </div>
@@ -35,16 +36,16 @@ const RefundPolicy: React.FC = () => {
         <div className={legalBodyClass} data-refund-body="ios">
           <section>
             <h2 className={legalHeadingClass}>1. Nothing Is Sold in This App</h2>
-            <p>The Scan &amp; Action iOS app takes no payment, and nothing is sold inside it, so using it gives rise to no refund.</p>
+            <p>The Scan &amp; Action iOS app takes no payment and sells nothing, so using it gives rise to no refund.</p>
           </section>
 
           <section>
-            <h2 className={legalHeadingClass}>2. Questions About a Charge</h2>
-            <p>If you have a question about any charge connected with your Scan &amp; Action account, write to support@scan-action.com and we will answer it.</p>
+            <h2 className={legalHeadingClass}>2. Questions</h2>
+            <p>If you have a question about this policy, write to support@scan-action.com and we will answer it.</p>
           </section>
 
           <footer className={legalFooterClass}>
-            Last updated: November 25, 2026 | Contact: support@scan-action.com
+            Last updated: {IOS_LEGAL_UPDATED} | Contact: support@scan-action.com
           </footer>
         </div>
         ) : (

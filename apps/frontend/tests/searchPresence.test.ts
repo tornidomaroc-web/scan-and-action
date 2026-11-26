@@ -164,6 +164,8 @@ describe('applyPageHead: a public page takes the head, and gives it back', () =>
       'src/screens/RefundPolicy.tsx': '/refund',
       'src/screens/DeleteAccountInfo.tsx': '/delete-account',
       'src/screens/SupportPage.tsx': '/support',
+      'src/screens/PrivacyPolicyApp.tsx': '/privacy/app',
+      'src/screens/SupportPageApp.tsx': '/support/app',
     };
     for (const [file, path] of Object.entries(pages)) {
       const src = F(file);

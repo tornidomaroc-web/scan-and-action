@@ -1,11 +1,110 @@
 import React from 'react';
 import { LandingHeader } from '../components/LandingHeader';
-import { legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, legalLinkClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
+import { IOS_LEGAL_UPDATED, legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, legalLinkClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
 import { Eye } from 'lucide-react';
 import { useStrings } from '../i18n/useStrings';
 import { useLanguage } from '../i18n/LanguageContext';
 import { usePageHead } from '../lib/pageHead';
 import { isIOSApp } from '../native/shell';
+
+/**
+ * The policy's text, without a header. Two pages render it:
+ * - /privacy (this file): the landing header, and the iOS text only inside
+ *   the iOS app; the web and Android keep their text, Paddle included.
+ * - /privacy/app (PrivacyPolicyApp.tsx): the iOS text on every platform, under
+ *   a header with no links, for App Store Connect's Privacy Policy URL.
+ *
+ * The iOS text names no plan, no payment route and nothing arranged or
+ * charged anywhere else (App Review); iosNoPlanWording.test.tsx holds both
+ * texts. Section 5's iOS sentence is true of the code: nothing the app does
+ * sends data to a payment provider.
+ */
+export const PrivacyPolicyContent: React.FC<{ ios: boolean }> = ({ ios }) => {
+  // Section 4 is the one part of this page that follows the language switch
+  // (s.privacySignInTitle / s.privacySignInBody). Google's brand verification
+  // requires the policy to say how the app uses Google user data, and the rest of
+  // the page stays English under the legal-page deferral recorded in
+  // noHardcodedUserFacingText.test.ts.
+  const s = useStrings();
+  const { language } = useLanguage();
+  // The body is English under the deferral above, so it is pinned LTR: under
+  // the Arabic UI it inherited dir="rtl" and rendered right-aligned with its
+  // full stops on the wrong side (".security"), seen on the Android emulator
+  // 2026-10-09 after the Login link made this page one tap from the first
+  // screen. Section 4 follows the language, so it takes the reader's direction.
+  return (
+    <div dir="ltr" lang="en" className={legalPageClass}>
+      <div className={legalTitleRowClass}>
+        <div className={legalIconClass}>
+          <Eye size={32} />
+        </div>
+        <h1 className={legalTitleClass}>Privacy Policy</h1>
+      </div>
+
+      <div className={legalBodyClass}>
+        {ios && (
+          <section data-privacy-scope>
+            <p>This policy covers the Scan &amp; Action app for iPhone and iPad.</p>
+          </section>
+        )}
+
+        <section>
+          <h2 className={legalHeadingClass}>1. Data Collected</h2>
+          <p>Scan & Action is operated by Abdelfettah Amellah, an individual developer, who is responsible for the personal data described in this policy. We collect information you provide directly, such as account details and uploaded document images. We also collect metadata necessary for service improvement and security.</p>
+        </section>
+
+        <section>
+          <h2 className={legalHeadingClass}>2. How We Use Data</h2>
+          <p>Your data is used to process documents, provide AI-powered insights, {ios ? 'manage your account' : 'manage your subscription'}, and communicate important service updates. We do not sell your personal data.</p>
+        </section>
+
+        <section>
+          <h2 className={legalHeadingClass}>3. Data Storage (Supabase)</h2>
+          <p>We use Supabase for secure data storage and authentication. All data is encrypted at rest and in transit using industry-standard protocols.</p>
+        </section>
+
+        <section data-privacy-sign-in dir={language === 'ar' ? 'rtl' : 'ltr'} lang={language}>
+          <h2 className={legalHeadingClass}>4. {s.privacySignInTitle}</h2>
+          <p>{ios ? s.privacySignInBodyApp : s.privacySignInBody}</p>
+        </section>
+
+        <section>
+          <h2 className={legalHeadingClass}>5. Third Party Services</h2>
+          <p>Document analysis is performed via Google Gemini Vision API. Data shared with this provider is limited to the minimum required for extraction and is subject to their privacy policies.{ios
+            ? ' The iOS app takes no payment and collects no payment details.'
+            : ' Payments are processed by Paddle.com, our Merchant of Record, which handles your payment details under its own privacy policy.'}</p>
+        </section>
+
+        <section>
+          <h2 className={legalHeadingClass}>6. User Rights</h2>
+          <p>You have the right to access, correct, or delete your personal data at any time. You can manage most data directly through your account dashboard.</p>
+        </section>
+
+        <section>
+          <h2 className={legalHeadingClass}>7. Account &amp; Data Deletion</h2>
+          {/* The iOS text links nowhere: on the store page a link to
+              /delete-account would lead to a page whose header links to the
+              web landing. Both routes it names exist (Settings, and the email
+              route on DeleteAccountInfo). */}
+          {ios ? (
+            <p>You can permanently delete your account at any time from Settings &rarr; Delete account in the app, or by writing to support@scan-action.com from the address you sign in with. Deletion permanently removes your account, your workspace, and all documents, scans, extracted data, and reports it contains &mdash; from both our database and file storage &mdash; and deletes your authentication identity. This action cannot be undone.</p>
+          ) : (
+            <p>You can permanently delete your account at any time from Settings &rarr; Delete account inside the app, or from the web at <a href="/delete-account" className={legalLinkClass}>www.scan-action.com/delete-account</a>. Deletion permanently removes your account, your workspace, and all documents, scans, extracted data, and reports it contains &mdash; from both our database and file storage &mdash; and deletes your authentication identity. This action cannot be undone.{' Deleting your account does not cancel an active subscription; if you have one, cancel it by writing to support@scan-action.com.'}</p>
+          )}
+        </section>
+
+        <section>
+          <h2 className={legalHeadingClass}>8. Contact</h2>
+          <p>For any privacy-related inquiries, please contact us at support@scan-action.com.</p>
+        </section>
+
+        <footer className={legalFooterClass}>
+          Last updated: {ios ? IOS_LEGAL_UPDATED : 'October 9, 2026'} | Contact: support@scan-action.com
+        </footer>
+      </div>
+    </div>
+  );
+};
 
 const PrivacyPolicy: React.FC = () => {
   usePageHead({ title: 'Privacy Policy | Scan & Action', description: 'What Scan & Action collects when you scan a receipt, where it is kept, how Google or Apple sign-in data is used, and how to delete it all.', path: '/privacy' });
@@ -19,84 +118,10 @@ const PrivacyPolicy: React.FC = () => {
   //
   // `showAnchors={false}`: `#how-it-works` and `#pricing` are landing-page sections
   // and neither id exists here, so the anchors would scroll nowhere and say nothing.
-  //
-  // Section 4 is the one part of this page that follows the language switch
-  // (s.privacySignInTitle / s.privacySignInBody). Google's brand verification
-  // requires the policy to say how the app uses Google user data, and the rest of
-  // the page stays English under the legal-page deferral recorded in
-  // noHardcodedUserFacingText.test.ts.
-  const s = useStrings();
-  const { language } = useLanguage();
-  // The iOS app takes no payment and names no plan (App Review): three
-  // sentences below say what is true there. The web keeps its text, Paddle
-  // included (iosNoPlanWording.test.tsx holds both).
-  const iosApp = isIOSApp();
-  // The body is English under the deferral above, so it is pinned LTR: under
-  // the Arabic UI it inherited dir="rtl" and rendered right-aligned with its
-  // full stops on the wrong side (".security"), seen on the Android emulator
-  // 2026-10-09 after the Login link made this page one tap from the first
-  // screen. Section 4 follows the language, so it takes the reader's direction.
   return (
     <>
       <LandingHeader showAnchors={false} />
-      <div dir="ltr" lang="en" className={legalPageClass}>
-        <div className={legalTitleRowClass}>
-          <div className={legalIconClass}>
-            <Eye size={32} />
-          </div>
-          <h1 className={legalTitleClass}>Privacy Policy</h1>
-        </div>
-
-        <div className={legalBodyClass}>
-          <section>
-            <h2 className={legalHeadingClass}>1. Data Collected</h2>
-            <p>Scan & Action is operated by Abdelfettah Amellah, an individual developer, who is responsible for the personal data described in this policy. We collect information you provide directly, such as account details and uploaded document images. We also collect metadata necessary for service improvement and security.</p>
-          </section>
-
-          <section>
-            <h2 className={legalHeadingClass}>2. How We Use Data</h2>
-            <p>Your data is used to process documents, provide AI-powered insights, {iosApp ? 'manage your account' : 'manage your subscription'}, and communicate important service updates. We do not sell your personal data.</p>
-          </section>
-
-          <section>
-            <h2 className={legalHeadingClass}>3. Data Storage (Supabase)</h2>
-            <p>We use Supabase for secure data storage and authentication. All data is encrypted at rest and in transit using industry-standard protocols.</p>
-          </section>
-
-          <section data-privacy-sign-in dir={language === 'ar' ? 'rtl' : 'ltr'} lang={language}>
-            <h2 className={legalHeadingClass}>4. {s.privacySignInTitle}</h2>
-            <p>{iosApp ? s.privacySignInBodyApp : s.privacySignInBody}</p>
-          </section>
-
-          <section>
-            <h2 className={legalHeadingClass}>5. Third Party Services</h2>
-            <p>Document analysis is performed via Google Gemini Vision API. Data shared with this provider is limited to the minimum required for extraction and is subject to their privacy policies.{iosApp
-              ? ' The iOS app takes no payment and collects no payment details.'
-              : ' Payments are processed by Paddle.com, our Merchant of Record, which handles your payment details under its own privacy policy.'}</p>
-          </section>
-
-          <section>
-            <h2 className={legalHeadingClass}>6. User Rights</h2>
-            <p>You have the right to access, correct, or delete your personal data at any time. You can manage most data directly through your account dashboard.</p>
-          </section>
-
-          <section>
-            <h2 className={legalHeadingClass}>7. Account &amp; Data Deletion</h2>
-            <p>You can permanently delete your account at any time from Settings &rarr; Delete account inside the app, or from the web at <a href="/delete-account" className={legalLinkClass}>www.scan-action.com/delete-account</a>. Deletion permanently removes your account, your workspace, and all documents, scans, extracted data, and reports it contains &mdash; from both our database and file storage &mdash; and deletes your authentication identity. This action cannot be undone.{iosApp
-              ? ' Deleting your account does not end anything arranged with us outside this app; if you have such an arrangement, write to support@scan-action.com.'
-              : ' Deleting your account does not cancel an active subscription; if you have one, cancel it by writing to support@scan-action.com.'}</p>
-          </section>
-
-          <section>
-            <h2 className={legalHeadingClass}>8. Contact</h2>
-            <p>For any privacy-related inquiries, please contact us at support@scan-action.com.</p>
-          </section>
-
-          <footer className={legalFooterClass}>
-            Last updated: {isIOSApp() ? 'November 25, 2026' : 'October 9, 2026'} | Contact: support@scan-action.com
-          </footer>
-        </div>
-      </div>
+      <PrivacyPolicyContent ios={isIOSApp()} />
     </>
   );
 };

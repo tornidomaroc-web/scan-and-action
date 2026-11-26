@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { LandingHeader } from '../components/LandingHeader';
-import { legalBodyClass, legalFooterClass, legalHeadingClass, legalIconClass, legalLinkClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
+import { IOS_LEGAL_UPDATED, legalBodyClass,legalFooterClass, legalHeadingClass, legalIconClass, legalLinkClass, legalPageClass, legalTitleClass, legalTitleRowClass } from '../components/legal/legalPage';
 import { Trash2 } from 'lucide-react';
 import { usePageHead } from '../lib/pageHead';
 import { isIOSApp } from '../native/shell';
@@ -76,19 +76,13 @@ const DeleteAccountInfo: React.FC = () => {
             </p>
           </section>
 
-          {/* Privacy section 7 links here, so the iOS app reaches this page; it
-              names no subscription there (App Review). The web keeps its
+          {/* The iOS app has no section here: it names no subscription, and
+              nothing arranged or charged anywhere else (App Review). The one
+              warning an iOS reader with an ACTIVE billing source needs is in
+              the delete sheet itself (deleteAccountOutsideAppWarning, shown
+              only when /user/me says hasActiveBilling). The web keeps its
               section (iosNoPlanWording.test.tsx holds both). */}
-          {isIOSApp() ? (
-          <section data-delete-info-outside="ios">
-            <h2 className={legalHeadingClass}>Before you delete</h2>
-            <p>
-              Deleting your account does <strong>not</strong> end anything arranged with us outside
-              this app. If you have such an arrangement, write to support@scan-action.com first.
-              Otherwise you may continue to be charged.
-            </p>
-          </section>
-          ) : (
+          {isIOSApp() ? null : (
           <section>
             <h2 className={legalHeadingClass}>Subscriptions</h2>
             <p>
@@ -100,7 +94,7 @@ const DeleteAccountInfo: React.FC = () => {
           )}
 
           <footer className={legalFooterClass}>
-            Last updated: {isIOSApp() ? 'November 25, 2026' : 'October 9, 2026'} | Contact: support@scan-action.com
+            Last updated: {isIOSApp() ? IOS_LEGAL_UPDATED : 'October 9, 2026'} | Contact: support@scan-action.com
           </footer>
         </div>
       </div>
