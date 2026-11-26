@@ -70,6 +70,44 @@
   6. Submission, once design steps 1 to 5 are done and every APPLE TRACK blocker
      is closed.
 
+## NOW 2026-11-25 (later) — store pages for App Store Connect (#346); the resubmission is build 42
+
+**PR #346 (frontend only).** Two new public pages, for App Store Connect's
+fields:
+- Privacy Policy URL: `https://www.scan-action.com/privacy/app`
+- Support URL: `https://www.scan-action.com/support/app`
+
+Both show the iOS text on every platform, under a header with no links. Their
+only links are the support address and `/privacy/app`, so no tap from them
+reaches the web landing. `/privacy` and `/support` keep their web text.
+
+The iOS texts of Terms, Privacy, Delete account and Refund no longer say that a
+fee, an arrangement or a charge exists outside the app. The delete sheet's
+warning (`deleteAccountOutsideAppWarning`) is kept by the owner's ruling. It
+shows only when `/user/me` returns `hasActiveBilling`.
+
+Anchor: `tests/iosNoPlanWording.test.tsx` (`IOS_HINTS`, `STORE_PAGES`,
+controls D and E). Its merge starts one `ios-testflight.yml` run.
+
+**Decided by the owner, 2026-11-25: build 42, not 41, is the resubmission.**
+Build 41 does not carry #346.
+
+**Merge order:** this board PR first (board-only: no `ios-testflight.yml`
+run), then #346.
+
+**The owner's steps, once #346 is merged and production serves it.**
+Instrument: read the asset path from the HTML of `https://www.scan-action.com/`,
+then grep that JS for `covers the Scan & Action app for iPhone and iPad`.
+Verify by size and content-type: a stale asset path answers 200 with HTML.
+1. App Store Connect › Privacy Policy URL: `https://www.scan-action.com/privacy/app`.
+2. App Store Connect › the 1.1 version › Support URL, in every localization
+   the version has: `https://www.scan-action.com/support/app`.
+3. Attach build 42 once it reads `VALID` and `APP_STORE_ELIGIBLE`
+   (`/iris/v1/builds?filter[app]=<appId>&include=preReleaseVersion`).
+
+**CHECK 2026-11-28:** both fields read the new paths and build 42 is attached,
+or this list says which step waits and why.
+
 ## NOW 2026-11-25 — iOS: no plan wording on any screen (#344); In-App Purchase is route A
 
 **App Review answered 1.1 (40) on 2026-11-25: not approved.** Instruments as
